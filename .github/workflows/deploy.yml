@@ -1,0 +1,55 @@
+name: Instructor Connect auf GitHub Pages veröffentlichen
+
+on:
+  push:
+    branches: [main, claude/screenshots-repo-review-z4vts8]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Laufende Veröffentlichungen nicht abbrechen – sonst kann eine halb
+# hochgeladene Seite zurückbleiben.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Hinweis: Pages lässt sich hier nicht automatisch aktivieren – das
+      # Actions-Token darf keine Pages-Site anlegen ("Resource not accessible
+      # by integration"). Einmalig unter Settings -> Pages die Quelle auf
+      # "GitHub Actions" stellen, danach läuft alles selbsttätig.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Build (Sandbox-Modus)
+        # Kein AC_BASE: der relative Basispfad aus vite.config.ts funktioniert
+        # unter jedem Pages-Pfad, auch nach Repo-Umbenennungen.
+        run: |
+          npm ci
+          npm run build
+          cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

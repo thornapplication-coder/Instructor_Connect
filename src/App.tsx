@@ -1,0 +1,53 @@
+import { SandboxBar } from './components/SandboxBar'
+import { Admin } from './pages/Admin'
+import { ChatInfo } from './pages/ChatInfo'
+import { ChatList } from './pages/ChatList'
+import { ChatRoom } from './pages/ChatRoom'
+import { DevicePreview } from './pages/DevicePreview'
+import { Feedback } from './pages/Feedback'
+import { Home } from './pages/Home'
+import { Imprint } from './pages/Imprint'
+import { InstructorInfo } from './pages/InstructorInfo'
+import { Login } from './pages/Login'
+import { WhoToCall } from './pages/WhoToCall'
+import { useRoute } from './router'
+import { StoreProvider, useStore } from './store'
+
+function Screen() {
+  const route = useRoute()
+  const { currentUser } = useStore()
+
+  // Impressum und Gerätevorschau sind auch ohne Anmeldung erreichbar.
+  if (route === '/imprint') return <Imprint />
+  if (route === '/device') return <DevicePreview />
+
+  if (!currentUser) return <Login />
+
+  const chatMatch = route.match(/^\/chat\/([^/]+)(\/info)?$/)
+  let page
+  if (route === '/chat') page = <ChatList />
+  else if (chatMatch && chatMatch[2]) page = <ChatInfo groupId={chatMatch[1]} />
+  // key: Gruppenwechsel remountet den Chatraum — Entwurf/Anhang und
+  // Scrollposition wandern nicht in die andere Gruppe mit.
+  else if (chatMatch) page = <ChatRoom key={chatMatch[1]} groupId={chatMatch[1]} />
+  else if (route === '/info') page = <InstructorInfo />
+  else if (route === '/contacts') page = <WhoToCall />
+  else if (route === '/feedback') page = <Feedback />
+  else if (route.startsWith('/admin')) page = <Admin />
+  else page = <Home />
+
+  return page
+}
+
+export default function App() {
+  return (
+    <StoreProvider>
+      <div className="flex min-h-full flex-col">
+        <div className="flex flex-1 flex-col">
+          <Screen />
+        </div>
+        <SandboxBar />
+      </div>
+    </StoreProvider>
+  )
+}

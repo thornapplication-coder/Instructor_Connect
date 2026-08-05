@@ -1,0 +1,86 @@
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
+@import '@fontsource/inter/700.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Zentrale Theme-Datei (Spez. §13). Ein Austausch der Werte hier ändert die
+ * gesamte Farbpalette der App. Zwei Modi: dunkel (Standard) und hell,
+ * umgeschaltet über data-theme="light" am <html>-Element.
+ *
+ * Der Hintergrund ist bewusst gräulich gehalten, damit sich die
+ * dunkelblauen Karten/Kacheln von ihm abheben.
+ */
+:root {
+  --c-bg: 22 26 33;        /* #161A21  gräulicher Hintergrund  */
+  --c-surface: 19 45 79;   /* #132D4F  Flächen/Karten          */
+  --c-raised: 27 58 99;    /* #1B3A63  erhabene Flächen        */
+  --c-ink: 236 242 250;    /* #ECF2FA  Text                    */
+  --c-dim: 154 167 184;    /* #9AA7B8  Sekundärtext            */
+  --c-accent: 111 168 255; /* #6FA8FF  Akzent (helles Blau)    */
+  --c-warm: 240 233 220;   /* #F0E9DC  warmes Off-White        */
+  --c-danger: 255 122 122; /* #FF7A7A  destruktive Aktionen    */
+  --c-line: 255 255 255;   /* Basis für Trennlinien/Ränder     */
+  --c-sand: 252 211 77;    /* Sandbox-Hinweistext              */
+  --sh-soft: 0 8px 24px rgba(3, 10, 22, 0.35);
+  --sh-tile: 0 10px 30px rgba(3, 10, 22, 0.45);
+  --grad-a: rgb(var(--c-raised) / 0.35);
+  --grad-b: rgb(var(--c-raised) / 0.22);
+}
+
+:root[data-theme='light'] {
+  --c-bg: 228 231 237;     /* #E4E7ED  helles Grau             */
+  --c-surface: 250 251 253;/* #FAFBFD  Karten                  */
+  --c-raised: 221 229 240; /* #DDE5F0  erhabene Flächen        */
+  --c-ink: 22 37 61;       /* #16253D  Text                    */
+  --c-dim: 90 105 126;     /* #5A697E  Sekundärtext            */
+  --c-accent: 37 99 190;   /* #2563BE  Akzent (kräftiges Blau) */
+  --c-warm: 122 92 46;     /* #7A5C2E  warmer Kontrastton      */
+  --c-danger: 190 55 47;   /* #BE372F  destruktive Aktionen    */
+  --c-line: 22 37 61;      /* dunkle Basis für Ränder          */
+  --c-sand: 146 95 22;     /* Sandbox-Hinweistext              */
+  --sh-soft: 0 6px 18px rgba(22, 37, 61, 0.10);
+  --sh-tile: 0 10px 26px rgba(22, 37, 61, 0.14);
+  --grad-a: rgb(var(--c-accent) / 0.07);
+  --grad-b: rgb(var(--c-accent) / 0.05);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-bg text-ink font-sans antialiased;
+  background-image:
+    radial-gradient(1200px 600px at 85% -10%, var(--grad-a), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, var(--grad-b), transparent 55%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgb(var(--c-accent) / 0.35);
+}
+
+input,
+select,
+textarea {
+  color-scheme: dark;
+}
+
+:root[data-theme='light'] input,
+:root[data-theme='light'] select,
+:root[data-theme='light'] textarea {
+  color-scheme: light;
+}
+
+/* dezente Scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--c-raised)) transparent;
+}
