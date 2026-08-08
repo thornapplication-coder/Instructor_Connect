@@ -74,6 +74,8 @@ export interface InfoEntry {
   validFrom?: string
   /** Gültig bis (YYYY-MM-DD); leer = UFN (until further notice) */
   validUntil?: string
+  /** Lese-Bestätigung erforderlich — Admin sieht, wer bestätigt hat */
+  requiresAck?: boolean
   authorId: string
   createdAt: number
 }
@@ -162,6 +164,8 @@ export interface AppState {
   feedbackEntries: FeedbackEntry[]
   /** je Nutzer: mit Stern markierte Instructor-Info-Einträge */
   starredInfo: Record<string, string[]>
+  /** Lese-Bestätigungen: Eintrag-ID -> Nutzer-ID -> Zeitstempel */
+  infoAcks: Record<string, Record<string, number>>
 }
 
 

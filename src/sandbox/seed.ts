@@ -132,6 +132,7 @@ export function createSeedState(): AppState {
         category: 'SIM Defects',
         validFrom: iso(now - 1 * d),
         validUntil: iso(now + 12 * d),
+        requiresAck: true,
         authorId: 'u-patrick',
         createdAt: now - 1 * d,
       },
@@ -144,10 +145,15 @@ export function createSeedState(): AppState {
         category: 'Approved Manuals',
         validFrom: iso(now - 21 * d),
         validUntil: '',
+        requiresAck: true,
         authorId: 'u-patrick',
         createdAt: now - 21 * d,
       },
     ],
+    infoAcks: {
+      i4: { 'u-maria': now - 20 * d, 'u-anna': now - 19 * d, 'u-stefan': now - 18 * d },
+      i3: { 'u-maria': now - 20 * 3600_000 },
+    },
     feedbackEntries: [
       {
         id: 'fb1',

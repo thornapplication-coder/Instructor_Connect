@@ -14,7 +14,9 @@
     "language": "Language",
     "theme": "Toggle light/dark",
     "imprint": "Legal notice",
-    "version": "Version"
+    "version": "Version",
+    "updateAvailable": "A new version is available",
+    "updateNow": "Update now"
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -112,7 +114,12 @@
     "validity": "Valid",
     "expired": "expired",
     "star": "Mark as important for me",
-    "confirmDelete": "Delete this entry for all users?"
+    "confirmDelete": "Delete this entry for all users?",
+    "requiresAck": "Read confirmation required (each user must confirm)",
+    "ackButton": "Confirm as read",
+    "ackedAt": "Confirmed on {{date}}",
+    "ackStatus": "Confirmed: {{done}}/{{total}}",
+    "ackMissing": "outstanding"
   },
   "contacts": {
     "call": "Call",

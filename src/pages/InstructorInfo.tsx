@@ -1,9 +1,9 @@
-import { Download, Eye, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Download, Eye, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { useStore } from '../store'
-import { formatDate } from './Grading'
+import { formatDate, formatDateTime } from './Grading'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
 
@@ -20,6 +20,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
   const [category, setCategory] = useState(state.settings.infoCategories[0] ?? '')
   const [validFrom, setValidFrom] = useState('')
   const [validUntil, setValidUntil] = useState('')
+  const [requiresAck, setRequiresAck] = useState(false)
 
   const valid = title.trim() && category && (type === 'pdf' || body.trim())
 
@@ -70,6 +71,11 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
           </Field>
         </div>
         <p className="-mt-2 text-[11.5px] leading-relaxed text-dim/80">{t('info.ufnHint')}</p>
+        {/* Lese-Bestätigung: jeder Nutzer muss aktiv „gelesen“ bestätigen */}
+        <label className="flex items-center gap-2 text-[13.5px]">
+          <input type="checkbox" checked={requiresAck} onChange={(e) => setRequiresAck(e.target.checked)} className="accent-accent" />
+          {t('info.requiresAck')}
+        </label>
         {type === 'text' ? (
           <Field label={t('info.body')}>
             <textarea className={`${inputCls} min-h-28`} value={body} onChange={(e) => setBody(e.target.value)} />
@@ -95,6 +101,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
                 category,
                 validFrom,
                 validUntil,
+                requiresAck,
               })
               onClose()
             }}
@@ -109,9 +116,11 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
 
 export function InstructorInfo() {
   const { t } = useTranslation()
-  const { state, now, currentUser, deleteInfoEntry, markInfoSeen, toggleStarInfo, starredInfoIds } = useStore()
+  const { state, now, currentUser, deleteInfoEntry, markInfoSeen, toggleStarInfo, starredInfoIds, acknowledgeInfo } = useStore()
   const [query, setQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
+  /** aufgeklappte Bestätigungsliste (Admins) */
+  const [ackOpenId, setAckOpenId] = useState<string | null>(null)
 
   // Besuch der Seite gilt als „gesehen“ — der grüne Punkt auf der Kachel
   // erlischt. markInfoSeen ist idempotent, volle Dependencies sind sicher.
@@ -234,6 +243,56 @@ export function InstructorInfo() {
                     {t('info.validity')}: {validityLabel(entry)}
                     {expired && ` · ${t('info.expired')}`}
                   </p>
+
+                  {/* Lese-Bestätigung: Button für den Nutzer, Übersicht für Admins */}
+                  {entry.requiresAck && (() => {
+                    const acks = state.infoAcks[entry.id] ?? {}
+                    const myAck = acks[currentUser!.id]
+                    const targets = state.users.filter((u) => u.active)
+                    const done = targets.filter((u) => acks[u.id]).length
+                    return (
+                      <div className="mt-2.5 space-y-1.5">
+                        {myAck ? (
+                          <p className="flex items-center gap-1.5 text-[12.5px] font-medium text-emerald-500">
+                            <CheckCircle2 size={14} /> {t('info.ackedAt', { date: formatDateTime(myAck) })}
+                          </p>
+                        ) : (
+                          <button
+                            onClick={() => acknowledgeInfo(entry.id)}
+                            className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[13px] font-semibold text-bg transition hover:brightness-110"
+                          >
+                            <CheckCircle2 size={15} /> {t('info.ackButton')}
+                          </button>
+                        )}
+                        {mayEdit && (
+                          <div>
+                            <button
+                              onClick={() => setAckOpenId(ackOpenId === entry.id ? null : entry.id)}
+                              className="flex items-center gap-1 text-[12px] text-dim hover:text-accent"
+                            >
+                              {t('info.ackStatus', { done, total: targets.length })}
+                              <ChevronDown size={12} className={ackOpenId === entry.id ? 'rotate-180' : ''} />
+                            </button>
+                            {ackOpenId === entry.id && (
+                              <ul className="mt-1.5 space-y-1 rounded-lg bg-bg/50 p-2.5 text-[12px]">
+                                {targets.map((u) => (
+                                  <li key={u.id} className="flex items-center justify-between gap-2">
+                                    <span>{u.name}</span>
+                                    {acks[u.id] ? (
+                                      <span className="text-emerald-500">{formatDateTime(acks[u.id])}</span>
+                                    ) : (
+                                      <span className="text-danger/80">{t('info.ackMissing')}</span>
+                                    )}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+
                   <div className="mt-2.5 flex flex-wrap gap-2">
                     {entry.type === 'pdf' ? (
                       <>

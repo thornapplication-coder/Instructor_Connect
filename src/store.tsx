@@ -43,6 +43,8 @@ export interface Store {
   toggleStarInfo: (id: string) => void
   /** IDs der vom aktuellen Nutzer markierten Info-Einträge */
   starredInfoIds: Set<string>
+  /** Lese-Bestätigung des aktuellen Nutzers für einen Info-Eintrag */
+  acknowledgeInfo: (id: string) => void
   submitFeedback: (entry: { category: string; recipient: string; urgent: boolean; message: string; attachment?: Attachment }) => void
   deleteFeedback: (id: string) => void
   saveContact: (contact: { id?: string; department: string; position: string; name: string; phone: string; email: string }) => void
@@ -331,6 +333,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { starredInfo: { ...s.starredInfo, [s.currentUserId]: next } }
         }),
       starredInfoIds: new Set(state.currentUserId ? state.starredInfo[state.currentUserId] ?? [] : []),
+      acknowledgeInfo: (id) =>
+        patch((s) => {
+          if (!s.currentUserId) return null
+          const forEntry = s.infoAcks[id] ?? {}
+          if (forEntry[s.currentUserId]) return null // bereits bestätigt
+          return { infoAcks: { ...s.infoAcks, [id]: { ...forEntry, [s.currentUserId]: Date.now() + s.timeOffsetMs } } }
+        }),
 
       submitFeedback: (entry) =>
         patch((s) => ({

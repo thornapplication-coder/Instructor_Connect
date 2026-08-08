@@ -14,7 +14,9 @@
     "language": "Sprache",
     "theme": "Hell/Dunkel umschalten",
     "imprint": "Impressum",
-    "version": "Version"
+    "version": "Version",
+    "updateAvailable": "Eine neue Version ist verfügbar",
+    "updateNow": "Aktualisieren"
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -112,7 +114,12 @@
     "validity": "Gültig",
     "expired": "abgelaufen",
     "star": "Für mich als wichtig markieren",
-    "confirmDelete": "Diesen Eintrag für alle Nutzer löschen?"
+    "confirmDelete": "Diesen Eintrag für alle Nutzer löschen?",
+    "requiresAck": "Lese-Bestätigung erforderlich (jeder Nutzer muss bestätigen)",
+    "ackButton": "Zur Kenntnis genommen",
+    "ackedAt": "Bestätigt am {{date}}",
+    "ackStatus": "Bestätigt: {{done}}/{{total}}",
+    "ackMissing": "ausständig"
   },
   "contacts": {
     "call": "Anrufen",

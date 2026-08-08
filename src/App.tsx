@@ -1,4 +1,5 @@
 import { SandboxBar } from './components/SandboxBar'
+import { UpdateBanner } from './components/UpdateBanner'
 import { Admin } from './pages/Admin'
 import { ChatInfo } from './pages/ChatInfo'
 import { ChatList } from './pages/ChatList'
@@ -57,6 +58,7 @@ export default function App() {
   return (
     <StoreProvider>
       <div className="flex min-h-full flex-col">
+        <UpdateBanner />
         <div className="flex flex-1 flex-col">
           <Screen />
         </div>
