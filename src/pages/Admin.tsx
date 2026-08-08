@@ -4,10 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { useStore } from '../store'
 import { useIsDesktop } from '../useIsDesktop'
+import { GradingAdmin } from './admin/GradingAdmin'
 import { APP_VERSION, type RetentionKey, type Role } from '../types'
 
 const RETENTION_KEYS: RetentionKey[] = ['24h', '7d', '30d', '90d', 'never']
-type Tab = 'users' | 'groups' | 'settings' | 'imprint' | 'changelog'
+type Tab = 'users' | 'grading' | 'groups' | 'settings' | 'imprint' | 'changelog'
 
 function StringListEditor({ label, values, onChange }: { label: string; values: string[]; onChange: (v: string[]) => void }) {
   const { t } = useTranslation()
@@ -90,6 +91,26 @@ function UsersTab() {
                 className="accent-accent"
               />
               {t('admin.canEditDirectory')}
+            </label>
+            {/* Grading Tool greift auf diese Flags zu: wer bewerten darf und
+                wer in der Trainee-Auswahl erscheint. */}
+            <label className="flex items-center gap-1.5 text-dim">
+              <input
+                type="checkbox"
+                checked={u.canGrade}
+                onChange={(e) => updateUser(u.id, { canGrade: e.target.checked })}
+                className="accent-accent"
+              />
+              {t('admin.canGrade')}
+            </label>
+            <label className="flex items-center gap-1.5 text-dim">
+              <input
+                type="checkbox"
+                checked={u.isTrainee}
+                onChange={(e) => updateUser(u.id, { isTrainee: e.target.checked })}
+                className="accent-accent"
+              />
+              {t('admin.isTrainee')}
             </label>
             <span className="ml-auto flex gap-2">
               <button onClick={() => updateUser(u.id, { active: !u.active })} className="text-dim hover:text-ink">
@@ -426,7 +447,7 @@ export function Admin() {
     )
   }
 
-  const tabs: Tab[] = ['users', 'groups', 'settings', 'imprint', 'changelog']
+  const tabs: Tab[] = ['users', 'grading', 'groups', 'settings', 'imprint', 'changelog']
 
   return (
     <>
@@ -446,6 +467,7 @@ export function Admin() {
           ))}
         </div>
         {tab === 'users' && <UsersTab />}
+        {tab === 'grading' && <GradingAdmin />}
         {tab === 'groups' && <GroupsTab />}
         {tab === 'settings' && <SettingsTab />}
         {tab === 'imprint' && <ImprintTab />}

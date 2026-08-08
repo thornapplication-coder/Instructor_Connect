@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { createSeedState } from './sandbox/seed'
-import { RETENTION_MS, type AppState, type Attachment, type Group, type PollType, type RetentionKey, type Role, type SeenState, type User } from './types'
+import { RETENTION_MS, type AppState, type Attachment, type GradingRecord, type GradingSettings, type Group, type PollType, type RetentionKey, type Role, type SeenState, type User } from './types'
 
 const EMPTY_SEEN: SeenState = { chat: {}, info: 0, contacts: 0 }
 
@@ -48,6 +48,12 @@ export interface Store {
   deleteGroup: (id: string) => void
   setGroupAdmins: (id: string, adminIds: string[]) => void
   updateSettings: (patch: Partial<AppState['settings']>) => void
+  /** Formulare, die der aktuelle Nutzer sehen darf (eigene; Admins alle) */
+  visibleGradingRecords: GradingRecord[]
+  saveGradingRecord: (record: GradingRecord) => void
+  deleteGradingRecord: (id: string) => void
+  retryGradingMail: (id: string) => void
+  updateGrading: (patch: Partial<GradingSettings>) => void
 }
 
 const StoreCtx = createContext<Store | null>(null)
@@ -157,6 +163,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   )
   const hasNewInfo = !!state.currentUserId && latestForeignInfo > seenOfCurrent.info
   const hasNewContacts = !!state.currentUserId && state.contactsChangedAt > seenOfCurrent.contacts
+
+  // Instruktoren sehen ihre eigenen Formulare, Admins und Superadmin alle.
+  const visibleGradingRecords = useMemo(() => {
+    if (!currentUser) return []
+    const all = [...state.gradingRecords].sort((a, b) => b.createdAt - a.createdAt)
+    return currentUser.role === 'member' ? all.filter((r) => r.instructorId === currentUser.id) : all
+  }, [state.gradingRecords, currentUser])
 
   const store = useMemo<Store>(() => {
     // patch: fn liefert die Änderung oder null für „nichts zu tun“ — dann
@@ -290,7 +303,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       addUser: (user) =>
         patch((s) => ({
-          users: [...s.users, { ...user, id: uid('u'), canEditDirectory: false, active: true }],
+          users: [...s.users, { ...user, id: uid('u'), canEditDirectory: false, canGrade: false, isTrainee: false, active: true }],
         })),
       updateUser: (id, p) =>
         patch((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, ...p } : u)) })),
@@ -323,8 +336,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         patch((s) => ({ groups: s.groups.map((g) => (g.id === id ? { ...g, adminIds } : g)) })),
 
       updateSettings: (p) => patch((s) => ({ settings: { ...s.settings, ...p } })),
+
+      visibleGradingRecords,
+      saveGradingRecord: (record) =>
+        patch((s) => ({
+          gradingRecords: s.gradingRecords.some((r) => r.id === record.id)
+            ? s.gradingRecords.map((r) => (r.id === record.id ? record : r))
+            : [...s.gradingRecords, record],
+        })),
+      deleteGradingRecord: (id) =>
+        patch((s) => ({ gradingRecords: s.gradingRecords.filter((r) => r.id !== id) })),
+      retryGradingMail: (id) =>
+        patch((s) => ({
+          gradingRecords: s.gradingRecords.map((r) =>
+            r.id === id ? { ...r, mailStatus: 'sent' as const, mailError: undefined } : r,
+          ),
+        })),
+      updateGrading: (p) => patch((s) => ({ settings: { ...s.settings, grading: { ...s.settings.grading, ...p } } })),
     }
-  }, [state, now, currentUser, effectiveRetention, visibleMessages, visiblePolls, myGroups, unreadGroups, hasNewInfo, hasNewContacts, latestForeignContent, latestForeignInfo])
+  }, [state, now, currentUser, effectiveRetention, visibleMessages, visiblePolls, myGroups, unreadGroups, hasNewInfo, hasNewContacts, latestForeignContent, latestForeignInfo, visibleGradingRecords])
 
   return <StoreCtx.Provider value={store}>{children}</StoreCtx.Provider>
 }

@@ -1,5 +1,6 @@
 import { LogOut, MessageSquareText, MessagesSquare, Phone, GraduationCap, ShieldCheck, Share } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { GradingIcon } from '../components/GradingIcon'
 import { Avatar, NewDot, ThemeToggle } from '../components/ui'
 import { navigate } from '../router'
 import { useStore } from '../store'
@@ -8,6 +9,7 @@ import { APP_VERSION } from '../types'
 
 /* Kachel-Beschriftungen bleiben laut Spez. §5 in beiden Sprachen Englisch. */
 const TILES = [
+  { to: '/grading', label: 'Grading Tool', icon: GradingIcon },
   { to: '/chat', label: 'Chat', icon: MessagesSquare },
   { to: '/feedback', label: 'Feedback', icon: MessageSquareText },
   { to: '/info', label: 'Instructor Info', icon: GraduationCap },
@@ -16,13 +18,16 @@ const TILES = [
 
 export function Home() {
   const { t, i18n } = useTranslation()
-  const { currentUser, logout, unreadGroups, hasNewInfo, hasNewContacts } = useStore()
+  const { currentUser, logout, unreadGroups, hasNewInfo, hasNewContacts, visibleGradingRecords } = useStore()
   const isDesktop = useIsDesktop()
+  // Offene Signatur oder fehlgeschlagener Versand markiert die Grading-Kachel
+  const hasOpenGrading = visibleGradingRecords.some((r) => r.status !== 'signed' || r.mailStatus === 'failed')
   const firstName = currentUser!.name.split(' ')[0]
 
   // Typisiert über die TILES-Routen: eine umbenannte oder neue Kachel ohne
   // Eintrag hier ist ein Compile-Fehler, kein still fehlender Punkt.
   const hasNews: Record<(typeof TILES)[number]['to'], boolean> = {
+    '/grading': hasOpenGrading,
     '/chat': unreadGroups.size > 0,
     '/feedback': false,
     '/info': hasNewInfo,
@@ -68,7 +73,7 @@ export function Home() {
         </h1>
         <p className="mb-6 text-sm text-dim">{t('home.subtitle')}</p>
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 sm:gap-5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5 sm:gap-4">
           {TILES.map(({ to, label, icon: Icon }) => (
             <button
               key={to}

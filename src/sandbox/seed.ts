@@ -1,8 +1,21 @@
 import type { AppState } from '../types'
+import { GRADING_DEFAULTS } from './gradingDefaults'
 import { IMPRINT_DE, IMPRINT_EN } from './imprintDefaults'
 
 const h = 3600_000
 const d = 24 * h
+
+/** Datum als YYYY-MM-DD für date-Felder */
+const iso = (ts: number) => new Date(ts).toISOString().slice(0, 10)
+
+/** Platzhalter-Signatur (kleines gezeichnetes Kürzel) für die Seed-Daten */
+const SIG =
+  'data:image/svg+xml;base64,' +
+  btoa(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="80">' +
+      '<path d="M12 58 C 40 18, 62 66, 88 34 S 140 20, 168 50 S 210 36, 228 24" ' +
+      'fill="none" stroke="#1c2b3d" stroke-width="3" stroke-linecap="round"/></svg>',
+  )
 
 /**
  * Sandbox-Seed-Daten (Spez. §14): alle drei Rollen, drei Gruppen mit
@@ -13,13 +26,13 @@ export function createSeedState(): AppState {
   const now = Date.now()
   return {
     users: [
-      { id: 'u-patrick', name: 'Patrick Thorn', email: 'p.thorn@instructorconnect.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, active: true },
-      { id: 'u-maria', name: 'Maria Huber', email: 'm.huber@instructorconnect.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: false, active: true },
-      { id: 'u-stefan', name: 'Stefan Wagner', email: 's.wagner@instructorconnect.at', phone: '+43 664 1000003', role: 'group_admin', canEditDirectory: true, active: true },
-      { id: 'u-anna', name: 'Anna Leitner', email: 'a.leitner@instructorconnect.at', phone: '+43 664 1000004', role: 'member', canEditDirectory: false, active: true },
-      { id: 'u-lukas', name: 'Lukas Steiner', email: 'l.steiner@instructorconnect.at', phone: '+43 664 1000005', role: 'member', canEditDirectory: false, active: true },
-      { id: 'u-sophie', name: 'Sophie Berger', email: 's.berger@instructorconnect.at', phone: '+43 664 1000006', role: 'member', canEditDirectory: false, active: true },
-      { id: 'u-david', name: 'David Moser', email: 'd.moser@instructorconnect.at', phone: '+43 664 1000007', role: 'member', canEditDirectory: false, active: false },
+      { id: 'u-patrick', name: 'Patrick Thorn', email: 'p.thorn@instructorconnect.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, active: true },
+      { id: 'u-maria', name: 'Maria Huber', email: 'm.huber@instructorconnect.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: false, canGrade: true, isTrainee: false, active: true },
+      { id: 'u-stefan', name: 'Stefan Wagner', email: 's.wagner@instructorconnect.at', phone: '+43 664 1000003', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, active: true },
+      { id: 'u-anna', name: 'Anna Leitner', email: 'a.leitner@instructorconnect.at', phone: '+43 664 1000004', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: true, active: true },
+      { id: 'u-lukas', name: 'Lukas Steiner', email: 'l.steiner@instructorconnect.at', phone: '+43 664 1000005', role: 'member', canEditDirectory: false, canGrade: false, isTrainee: true, active: true },
+      { id: 'u-sophie', name: 'Sophie Berger', email: 's.berger@instructorconnect.at', phone: '+43 664 1000006', role: 'member', canEditDirectory: false, canGrade: false, isTrainee: true, active: true },
+      { id: 'u-david', name: 'David Moser', email: 'd.moser@instructorconnect.at', phone: '+43 664 1000007', role: 'member', canEditDirectory: false, canGrade: false, isTrainee: true, active: false },
     ],
     groups: [
       {
@@ -122,10 +135,130 @@ export function createSeedState(): AppState {
       feedbackCC: ['admin@instructorconnect.at'],
       allowedDomains: ['instructorconnect.at'],
       imprint: { de: IMPRINT_DE, en: IMPRINT_EN },
+      grading: GRADING_DEFAULTS,
     },
     currentUserId: null,
     timeOffsetMs: 0,
     seen: {},
     contactsChangedAt: now - 2 * d,
+    gradingRecords: [
+      {
+        id: 'gr1',
+        formTypeId: '308F',
+        instructorId: 'u-maria',
+        header: { aircraftType: 'A320', trainingDevice: 'FFS Sim A', event: 'OPC Recurrent', date: iso(now - 9 * d), position: 'CDR', flightTimePF: '1:30', flightTimePM: '1:30' },
+        trainees: [
+          {
+            traineeId: 'u-lukas', position: 'CDR',
+            grades: [
+              { code: 'KNO', grade: 4, comment: '' }, { code: 'PRO', grade: 4, comment: '' },
+              { code: 'COM', grade: 5, comment: 'Sehr klare Briefings.' }, { code: 'FPA', grade: 4, comment: '' },
+              { code: 'FPM', grade: 3, comment: 'Manuelles Fliegen im Anflug etwas unruhig.' }, { code: 'LTW', grade: 4, comment: '' },
+              { code: 'PSD', grade: 4, comment: '' }, { code: 'SAW', grade: 4, comment: '' }, { code: 'WLM', grade: 4, comment: '' },
+            ],
+            positiveComment: 'Ruhige, strukturierte Arbeitsweise, gute Kommunikation.',
+            developmentComment: 'Manuelles Fliegen ohne Flight Director weiter üben.',
+            summaryComment: 'Anforderungen erfüllt.',
+            overall: 'competent',
+          },
+        ],
+        sessionStatus: 'completed', freeText: {},
+        signatureInstructor: SIG, signatureTrainee: SIG,
+        status: 'signed', mailStatus: 'sent',
+        createdAt: now - 9 * d, signedAt: now - 9 * d + 2 * h,
+      },
+      {
+        id: 'gr2',
+        formTypeId: '308A',
+        instructorId: 'u-stefan',
+        header: { aircraftType: 'B737', trainingDevice: 'FFS Sim B', event: 'TR Session 4', date: iso(now - 5 * d), position: 'FO', flightTimePF: '2:00', flightTimePM: '2:00' },
+        trainees: [
+          {
+            traineeId: 'u-sophie', position: 'FO',
+            grades: [
+              { code: 'KNO', grade: 3, comment: '' }, { code: 'PRO', grade: 2, comment: 'Checklisten mehrfach zu spät.' },
+              { code: 'COM', grade: 3, comment: '' }, { code: 'FPA', grade: 3, comment: '' },
+              { code: 'FPM', grade: 2, comment: 'Engine-out-Handling nicht stabil.' }, { code: 'LTW', grade: 3, comment: '' },
+              { code: 'PSD', grade: 2, comment: '' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 2, comment: 'Unter Belastung Priorisierung verloren.' },
+            ],
+            positiveComment: 'Gute Vorbereitung, offene Fragen aktiv angesprochen.',
+            developmentComment: 'Engine-out-Verfahren und Workload-Priorisierung wiederholen.',
+            summaryComment: 'Zusatztraining erforderlich.',
+            overall: 'not_competent',
+          },
+        ],
+        sessionStatus: 'not_completed', freeText: {},
+        signatureInstructor: SIG, signatureTrainee: SIG,
+        status: 'signed', mailStatus: 'failed', mailError: 'SMTP-Zeitüberschreitung beim Eskalationsempfänger',
+        createdAt: now - 5 * d, signedAt: now - 5 * d + 90 * 60_000,
+      },
+      {
+        id: 'gr3',
+        formTypeId: '306',
+        instructorId: 'u-stefan',
+        header: { aircraftType: 'B737', date: iso(now - 4 * d), trainingDevice: 'FFS Sim B' },
+        trainees: [],
+        sessionStatus: null,
+        freeText: {
+          'Deficiency': 'Engine-out-Handling und Workload-Priorisierung unter Belastung.',
+          'Additional training conducted': 'Zusatzsession 90 Minuten mit Fokus auf EFATO und Checklisten-Timing.',
+          'Result': 'Anforderungen nach Zusatztraining erfüllt.',
+        },
+        signatureInstructor: SIG, signatureTrainee: SIG,
+        status: 'signed', mailStatus: 'sent', parentId: 'gr2',
+        createdAt: now - 4 * d, signedAt: now - 4 * d + h,
+      },
+      {
+        id: 'gr4',
+        formTypeId: '308G',
+        instructorId: 'u-patrick',
+        header: { aircraftType: 'A320', trainingDevice: 'FFS Sim A', event: 'TRI Standardisierung', date: iso(now - 2 * d), position: 'Right', flightTimePF: '', flightTimePM: '' },
+        trainees: [
+          {
+            traineeId: 'u-anna', position: 'Right',
+            grades: [
+              { code: 'PRE', grade: 5, comment: '' }, { code: 'CLI', grade: 5, comment: 'Sehr angenehme Lernatmosphäre.' },
+              { code: 'PRK', grade: 4, comment: '' }, { code: 'TEM', grade: 4, comment: '' },
+              { code: 'TIM', grade: 3, comment: 'Debriefing zeitlich knapp.' }, { code: 'FAC', grade: 5, comment: '' },
+              { code: 'ASS', grade: 4, comment: '' }, { code: 'MON', grade: 4, comment: '' },
+              { code: 'EVA', grade: 4, comment: '' }, { code: 'REP', grade: 4, comment: '' },
+            ],
+            positiveComment: 'Exzellente Gesprächsführung, Trainee kam selbst auf die Lösungen.',
+            developmentComment: 'Zeitmanagement im Debriefing straffen.',
+            summaryComment: 'Standard erfüllt.',
+            overall: 'competent',
+          },
+        ],
+        sessionStatus: 'completed', freeText: {},
+        signatureInstructor: SIG, signatureTrainee: null,
+        status: 'awaiting_signature', mailStatus: 'pending',
+        createdAt: now - 2 * d,
+      },
+      {
+        id: 'gr5',
+        formTypeId: '308F',
+        instructorId: 'u-maria',
+        header: { aircraftType: 'A320', trainingDevice: 'FFS Sim A', event: 'OPC Recurrent', date: iso(now - 30 * d), position: 'CDR', flightTimePF: '1:30', flightTimePM: '1:30' },
+        trainees: [
+          {
+            traineeId: 'u-lukas', position: 'CDR',
+            grades: [
+              { code: 'KNO', grade: 3, comment: '' }, { code: 'PRO', grade: 3, comment: '' },
+              { code: 'COM', grade: 4, comment: '' }, { code: 'FPA', grade: 3, comment: '' },
+              { code: 'FPM', grade: 2, comment: 'Manuelle Steuerung unpräzise.' }, { code: 'LTW', grade: 3, comment: '' },
+              { code: 'PSD', grade: 3, comment: '' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 3, comment: '' },
+            ],
+            positiveComment: 'Solide Grundlagen.',
+            developmentComment: 'Manuelles Fliegen deutlich mehr üben.',
+            summaryComment: 'Knapp bestanden.',
+            overall: 'competent',
+          },
+        ],
+        sessionStatus: 'completed', freeText: {},
+        signatureInstructor: SIG, signatureTrainee: SIG,
+        status: 'signed', mailStatus: 'sent',
+        createdAt: now - 30 * d, signedAt: now - 30 * d + h,
+      },
+    ],
   }
 }
