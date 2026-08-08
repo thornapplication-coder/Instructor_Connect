@@ -161,7 +161,8 @@
     "imprintDe": "Text Deutsch",
     "imprintEn": "Text Englisch",
     "imprintHint": "Formatierung: „# “ beginnt einen neuen Abschnitt mit Überschrift, „- “ eine Aufzählungszeile, Leerzeilen trennen Absätze. Änderungen gelten sofort für alle Nutzer.",
-    "imprintSaved": "Gespeichert"
+    "imprintSaved": "Gespeichert",
+    "desktopOnly": "Das Admin Panel ist nur am Desktop verfügbar — auf Tablet und Handy wäre die Verwaltung zu unübersichtlich. Bitte an einem Computer öffnen."
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",

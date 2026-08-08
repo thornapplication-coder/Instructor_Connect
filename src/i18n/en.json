@@ -161,7 +161,8 @@
     "imprintDe": "German text",
     "imprintEn": "English text",
     "imprintHint": "Formatting: “# ” starts a new section with a heading, “- ” a bullet line, blank lines separate paragraphs. Changes take effect immediately for all users.",
-    "imprintSaved": "Saved"
+    "imprintSaved": "Saved",
+    "desktopOnly": "The Admin Panel is available on desktop only — on tablets and phones the administration would be too cramped. Please open it on a computer."
   },
   "imprint": {
     "title": "Legal notice & terms of use",

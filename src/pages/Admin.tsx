@@ -1,8 +1,9 @@
-import { Plus, Trash2, X } from 'lucide-react'
+import { Monitor, Plus, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { useStore } from '../store'
+import { useIsDesktop } from '../useIsDesktop'
 import { APP_VERSION, type RetentionKey, type Role } from '../types'
 
 const RETENTION_KEYS: RetentionKey[] = ['24h', '7d', '30d', '90d', 'never']
@@ -395,7 +396,23 @@ function ChangelogTab() {
 export function Admin() {
   const { t } = useTranslation()
   const { currentUser } = useStore()
+  const isDesktop = useIsDesktop()
   const [tab, setTab] = useState<Tab>('users')
+
+  // Am Tablet/Handy ist das Panel zu unübersichtlich — Hinweis statt Inhalt.
+  if (!isDesktop) {
+    return (
+      <>
+        <TopBar title={t('admin.title')} back="/" />
+        <Page>
+          <div className="flex flex-col items-center gap-3 pt-16 text-center">
+            <Monitor size={44} className="text-accent" />
+            <p className="max-w-xs text-[14px] leading-relaxed text-dim">{t('admin.desktopOnly')}</p>
+          </div>
+        </Page>
+      </>
+    )
+  }
 
   // Serverseitig gilt RLS; hier zusätzlich die Client-Absicherung.
   if (currentUser!.role !== 'superadmin') {

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { Avatar, NewDot, ThemeToggle } from '../components/ui'
 import { navigate } from '../router'
 import { useStore } from '../store'
+import { useIsDesktop } from '../useIsDesktop'
 import { APP_VERSION } from '../types'
 
 /* Kachel-Beschriftungen bleiben laut Spez. §5 in beiden Sprachen Englisch. */
@@ -16,6 +17,7 @@ const TILES = [
 export function Home() {
   const { t, i18n } = useTranslation()
   const { currentUser, logout, unreadGroups, hasNewInfo, hasNewContacts } = useStore()
+  const isDesktop = useIsDesktop()
   const firstName = currentUser!.name.split(' ')[0]
 
   // Typisiert über die TILES-Routen: eine umbenannte oder neue Kachel ohne
@@ -82,7 +84,8 @@ export function Home() {
           ))}
         </div>
 
-        {currentUser!.role === 'superadmin' && (
+        {/* Admin Panel bewusst nur am Desktop: auf Tablet/Handy zu unübersichtlich. */}
+        {currentUser!.role === 'superadmin' && isDesktop && (
           <button
             onClick={() => navigate('/admin')}
             className="mx-auto mt-8 flex items-center gap-2 rounded-full border border-line/10 px-4 py-2 text-[13px] text-dim transition hover:border-accent/40 hover:text-ink"
