@@ -284,7 +284,8 @@
     "student": "Student",
     "toGrading": "Weiter zum Grading",
     "continue": "Weiter",
-    "backToHeader": "Zurück zu den Kopfdaten"
+    "backToHeader": "Zurück zu den Kopfdaten",
+    "completeSignature": "Unterschrift speichern und Formular sperren"
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

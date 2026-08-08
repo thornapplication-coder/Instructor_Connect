@@ -51,7 +51,6 @@ export interface Store {
   /** Formulare, die der aktuelle Nutzer sehen darf (eigene; Admins alle) */
   visibleGradingRecords: GradingRecord[]
   saveGradingRecord: (record: GradingRecord) => void
-  deleteGradingRecord: (id: string) => void
   retryGradingMail: (id: string) => void
   updateGrading: (patch: Partial<GradingSettings>) => void
   /** Lesson Plans, die der aktuelle Nutzer sehen darf */
@@ -357,8 +356,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ? s.gradingRecords.map((r) => (r.id === record.id ? record : r))
             : [...s.gradingRecords, record],
         })),
-      deleteGradingRecord: (id) =>
-        patch((s) => ({ gradingRecords: s.gradingRecords.filter((r) => r.id !== id) })),
       retryGradingMail: (id) =>
         patch((s) => ({
           gradingRecords: s.gradingRecords.map((r) =>

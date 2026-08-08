@@ -1,6 +1,8 @@
 import { AlertTriangle, CheckCircle2, Clock, Printer } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { SignaturePad } from '../components/SignaturePad'
 import { useTranslation } from 'react-i18next'
-import { Badge, Card, Page, TopBar } from '../components/ui'
+import { Badge, Button, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { useStore } from '../store'
 import { gradeColor } from './Grading'
@@ -12,13 +14,16 @@ import { gradeColor } from './Grading'
  */
 export function GradingView({ recordId }: { recordId: string }) {
   const { t, i18n } = useTranslation()
-  const { state, currentUser } = useStore()
+  const { state, currentUser, saveGradingRecord } = useStore()
   const record = state.gradingRecords.find((r) => r.id === recordId)
+  const [lateSignature, setLateSignature] = useState<string | null>(null)
 
-  if (!record) {
-    navigate('/grading')
-    return null
-  }
+  // Redirect als Effekt, nicht als Seiteneffekt in der Render-Phase.
+  useEffect(() => {
+    if (!record) navigate('/grading')
+  }, [record])
+
+  if (!record) return null
 
   const grading = state.settings.grading
   const formType = grading.formTypes.find((f) => f.id === record.formTypeId)
@@ -80,7 +85,7 @@ export function GradingView({ recordId }: { recordId: string }) {
               <dt className="text-dim">{t('grading.instructor')}</dt>
               <dd className="text-right font-medium">{userName(record.instructorId)}</dd>
             </div>
-            {formType?.fields.filter((f) => f.key !== 'position').map((f) => (
+            {formType?.fields.map((f) => (
               <div key={f.key} className="flex justify-between gap-3 border-b border-line/[0.06] pb-1.5">
                 <dt className="text-dim">{f.label}</dt>
                 <dd className="text-right font-medium">{record.header[f.key] || '–'}</dd>
@@ -234,6 +239,36 @@ export function GradingView({ recordId }: { recordId: string }) {
             ))}
           </div>
           {record.signedAt && <p className="mt-3 text-[12px] text-dim">{t('grading.signedAt', { date: dateLabel(record.signedAt) })}</p>}
+
+          {/* Offene Unterschrift nachholen: nur das fehlende Feld ist offen,
+              danach wird das Formular wie üblich gesperrt und versendet. */}
+          {record.status === 'awaiting_signature' && !record.signatureTrainee && (
+            <div className="mt-4 space-y-3 rounded-xl border border-warm/25 bg-warm/5 p-3.5">
+              <SignaturePad
+                value={lateSignature}
+                onChange={setLateSignature}
+                label={record.formTypeId === '308G' ? 'Signature Candidate Instructor (CAI)' : t('grading.sigTrainee')}
+              />
+              <Button
+                disabled={!lateSignature}
+                className="w-full"
+                onClick={() => {
+                  const escalate =
+                    record.trainees.some((tr) => tr.overall === 'not_competent') || record.sessionStatus === 'not_completed'
+                  saveGradingRecord({
+                    ...record,
+                    signatureTrainee: lateSignature,
+                    status: 'signed',
+                    mailStatus: escalate ? 'pending' : 'sent',
+                    signedAt: Date.now() + state.timeOffsetMs,
+                  })
+                  setLateSignature(null)
+                }}
+              >
+                {t('grading.completeSignature')}
+              </Button>
+            </div>
+          )}
         </Card>
 
         {isAdmin && (

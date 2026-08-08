@@ -5,10 +5,6 @@ import { Badge, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { useStore } from '../store'
 
-export function gradeLabel(v: number | 'NO' | null) {
-  return v === null ? '–' : String(v)
-}
-
 /** Farbcodierung laut Spez. 5.3: 5/4 grün, 3 dunkelgrün, 2 orange, 1 rot, NO grau */
 export function gradeColor(g: number | 'NO' | null): string {
   if (g === 'NO' || g === null) return 'bg-line/10 text-dim'

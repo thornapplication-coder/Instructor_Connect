@@ -23,7 +23,7 @@ function emptyTrainee(codes: string[], position: string): TraineeGrading {
   }
 }
 
-export function GradingForm({ recordId, presetType, parentId }: { recordId?: string; presetType?: FormTypeId; parentId?: string }) {
+export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: { recordId?: string; presetType?: FormTypeId; parentId?: string; nextTypes?: FormTypeId[] }) {
   const { t } = useTranslation()
   const { state, currentUser, saveGradingRecord } = useStore()
   const grading = state.settings.grading
@@ -54,6 +54,9 @@ export function GradingForm({ recordId, presetType, parentId }: { recordId?: str
   const [followUps, setFollowUps] = useState<FormTypeId[]>([])
   const [error, setError] = useState('')
 
+  // Clientseitige Sperre analog Admin.tsx; serverseitig gilt später RLS.
+  const mayGrade = currentUser!.canGrade || currentUser!.role !== 'member'
+
   const traineeOptions = useMemo(
     () => state.users.filter((u) => u.isTrainee && u.active).sort((a, b) => a.name.localeCompare(b.name)),
     [state.users],
@@ -68,10 +71,7 @@ export function GradingForm({ recordId, presetType, parentId }: { recordId?: str
   const setGradeComment = (i: number, code: string, comment: string) =>
     setTrainee(i, { grades: trainees[i].grades.map((g) => (g.code === code ? { ...g, comment } : g)) })
 
-  const positions = formType?.fields.find((f) => f.key === 'position')?.options ?? ['CDR', 'FO']
-  // Position gehört zum einzelnen Piloten (mehrere Piloten je Formular möglich)
-  // und wird deshalb nicht zusätzlich als Kopfdatenfeld angezeigt.
-  const headerFields = formType?.fields.filter((f) => f.key !== 'position') ?? []
+  const headerFields = formType?.fields ?? []
 
   const isAttendance = formTypeId === '307A' || formTypeId === '307B'
 
@@ -142,15 +142,35 @@ export function GradingForm({ recordId, presetType, parentId }: { recordId?: str
     }
     const rec = buildRecord()
     saveGradingRecord(rec)
+    // Teil einer Folgeformular-Kette (306 und 310 gewählt): nächstes öffnen.
+    if (parentId && nextTypes.length > 0) {
+      navigate(`/grading/new?type=${nextTypes[0]}&parent=${parentId}&next=${nextTypes.slice(1).join(',')}`)
+      return
+    }
     navigate(`/grading/${rec.id}`)
   }
 
-  const finishWithFollowUps = () => {
+  /** withFollowUps=false: bewusst ohne Folgeformulare abschließen */
+  const finish = (withFollowUps: boolean) => {
     const rec = buildRecord()
     saveGradingRecord(rec)
     setShowFollowUp(false)
-    if (followUps.length > 0) navigate(`/grading/new?type=${followUps[0]}&parent=${rec.id}`)
-    else navigate(`/grading/${rec.id}`)
+    if (withFollowUps && followUps.length > 0) {
+      navigate(`/grading/new?type=${followUps[0]}&parent=${rec.id}&next=${followUps.slice(1).join(',')}`)
+    } else {
+      navigate(`/grading/${rec.id}`)
+    }
+  }
+
+  if (!mayGrade) {
+    return (
+      <>
+        <TopBar title={t('grading.newForm')} back="/grading" />
+        <Page>
+          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] leading-relaxed text-dim">{t('grading.noPermission')}</p>
+        </Page>
+      </>
+    )
   }
 
   return (
@@ -170,7 +190,7 @@ export function GradingForm({ recordId, presetType, parentId }: { recordId?: str
                 setError('')
                 const ft = grading.formTypes.find((f) => f.id === id)
                 const cs = ft?.competencySet ? grading.competencySets.find((c) => c.key === ft.competencySet)?.competencies ?? [] : []
-                setTrainees(cs.length > 0 ? [emptyTrainee(cs.map((c) => c.code), ft?.fields.find((f) => f.key === 'position')?.options?.[0] ?? '')] : [])
+                setTrainees(cs.length > 0 ? [emptyTrainee(cs.map((c) => c.code), 'CDR')] : [])
               }}
               className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px] disabled:opacity-60"
             >
@@ -597,10 +617,10 @@ export function GradingForm({ recordId, presetType, parentId }: { recordId?: str
             })}
           </div>
           <div className="mt-5 flex justify-end gap-2">
-            <Button variant="ghost" onClick={finishWithFollowUps}>
+            <Button variant="ghost" onClick={() => finish(false)}>
               {t('grading.skipFollowUp')}
             </Button>
-            <Button onClick={finishWithFollowUps} disabled={followUps.length === 0}>
+            <Button onClick={() => finish(true)} disabled={followUps.length === 0}>
               {t('grading.openFollowUp')}
             </Button>
           </div>

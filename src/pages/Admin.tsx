@@ -112,6 +112,17 @@ function UsersTab() {
               />
               {t('admin.isTrainee')}
             </label>
+            <span className="ml-auto flex gap-2">
+              <button onClick={() => updateUser(u.id, { active: !u.active })} className="text-dim hover:text-ink">
+                {u.active ? t('admin.deactivate') : t('admin.activate')}
+              </button>
+              <button
+                onClick={() => window.confirm(t('admin.confirmDeleteUser')) && deleteUser(u.id)}
+                className="text-danger/80 hover:text-danger"
+              >
+                {t('common.delete')}
+              </button>
+            </span>
           </div>
           {/* Zugewiesene Muster steuern, welche Lesson Plans der Nutzer sieht */}
           <div className="mt-2.5">
@@ -134,17 +145,6 @@ function UsersTab() {
                 )
               })}
             </div>
-            <span className="ml-auto flex gap-2">
-              <button onClick={() => updateUser(u.id, { active: !u.active })} className="text-dim hover:text-ink">
-                {u.active ? t('admin.deactivate') : t('admin.activate')}
-              </button>
-              <button
-                onClick={() => window.confirm(t('admin.confirmDeleteUser')) && deleteUser(u.id)}
-                className="text-danger/80 hover:text-danger"
-              >
-                {t('common.delete')}
-              </button>
-            </span>
           </div>
         </Card>
       ))}

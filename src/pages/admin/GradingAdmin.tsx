@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls } from '../../components/ui'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
-import type { GradingRecord } from '../../types'
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats'
 
@@ -12,10 +11,6 @@ type Section = 'dashboard' | 'records' | 'config' | 'stats'
 function avgOf(values: (number | 'NO' | null)[]): number | null {
   const nums = values.filter((v): v is number => typeof v === 'number')
   return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null
-}
-
-function recordAvg(r: GradingRecord): number | null {
-  return avgOf(r.trainees.flatMap((tr) => tr.grades.map((g) => g.grade)))
 }
 
 function StringList({ label, values, onChange }: { label: string; values: string[]; onChange: (v: string[]) => void }) {
@@ -114,27 +109,32 @@ export function GradingAdmin() {
   })
 
   const exportCsv = (scope: 'records' | 'competencies' | 'people') => {
+    // Alle Werte escapen — freie Texte können das Trennzeichen enthalten.
+    const esc = (v: unknown) => String(v ?? '').replace(/;/g, ',').replace(/\r?\n/g, ' ')
+    const row = (cells: unknown[]) => cells.map(esc).join(';') + '\n'
     let csv = ''
     if (scope === 'records') {
-      csv = 'Form;Instructor;Trainee;AircraftType;Device;Date;Overall;Session;Avg\n'
+      csv = row(['Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Avg'])
       records.forEach((r) =>
         r.trainees.forEach((tr) => {
-          csv += [r.formTypeId, userName(r.instructorId), userName(tr.traineeId), r.header.aircraftType ?? '', r.header.trainingDevice ?? '', r.header.date ?? '', tr.overall ?? '', r.sessionStatus ?? '', recordAvg(r)?.toFixed(2) ?? ''].join(';') + '\n'
+          // Durchschnitt je Pilot, nicht des gesamten Formulars
+          const avg = avgOf(tr.grades.map((g) => g.grade))
+          csv += row([r.formTypeId, userName(r.instructorId), userName(tr.traineeId), r.header.aircraftType, r.header.trainingDevice, r.header.date, tr.overall, r.sessionStatus, avg?.toFixed(2)])
         }),
       )
     } else if (scope === 'competencies') {
-      csv = 'Form;Trainee;Competency;Grade;Comment\n'
+      csv = row(['Form', 'Trainee', 'Competency', 'Grade', 'Comment'])
       records.forEach((r) =>
         r.trainees.forEach((tr) =>
           tr.grades.forEach((gr) => {
-            csv += [r.formTypeId, userName(tr.traineeId), gr.code, gr.grade ?? '', (gr.comment ?? '').replace(/;/g, ',')].join(';') + '\n'
+            csv += row([r.formTypeId, userName(tr.traineeId), gr.code, gr.grade, gr.comment])
           }),
         ),
       )
     } else {
-      csv = 'Person;Role;Sessions;AvgGrade\n'
-      calibration.rows.forEach((row) => {
-        csv += [userName(row.id), 'Instructor', row.sessions, row.avg?.toFixed(2) ?? ''].join(';') + '\n'
+      csv = row(['Person', 'Role', 'Sessions', 'AvgGrade'])
+      calibration.rows.forEach((r2) => {
+        csv += row([userName(r2.id), 'Instructor', r2.sessions, r2.avg?.toFixed(2)])
       })
     }
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))

@@ -284,7 +284,8 @@
     "student": "Student",
     "toGrading": "Continue to grading",
     "continue": "Continue",
-    "backToHeader": "Back to header data"
+    "backToHeader": "Back to header data",
+    "completeSignature": "Save signature and lock form"
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

@@ -40,7 +40,8 @@ function Screen() {
     const params = new URLSearchParams(route.split('?')[1] ?? '')
     const type = params.get('type') as Parameters<typeof GradingForm>[0]['presetType']
     const parent = params.get('parent') ?? undefined
-    page = <GradingForm key={route} presetType={type ?? undefined} parentId={parent} />
+    const next = (params.get('next') ?? '').split(',').filter(Boolean) as NonNullable<Parameters<typeof GradingForm>[0]['nextTypes']>
+    page = <GradingForm key={route} presetType={type ?? undefined} parentId={parent} nextTypes={next} />
   } else if (route.startsWith('/grading/')) page = <GradingView key={route} recordId={route.slice('/grading/'.length)} />
   else if (route === '/lessons') page = <LessonPlans />
   else if (route === '/info') page = <InstructorInfo />

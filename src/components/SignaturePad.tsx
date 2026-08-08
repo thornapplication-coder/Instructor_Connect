@@ -10,9 +10,12 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
   const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawing = useRef(false)
-  const [hasInk, setHasInk] = useState(!!value)
+  const [hasInk, setHasInk] = useState(false)
+  // Gespeicherte Signatur als Bild zeigen, solange nicht neu gezeichnet wird
+  const showImage = !!value && !hasInk
 
-  // Canvas in Gerätepixeln aufsetzen, damit die Linie auf Retina scharf bleibt.
+  // Canvas in Gerätepixeln aufsetzen, damit die Linie auf Retina scharf
+  // bleibt. Läuft erneut, wenn das Canvas nach der Bildvorschau erscheint.
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -26,7 +29,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
     ctx.strokeStyle = getComputedStyle(canvas).color
-  }, [])
+  }, [showImage])
 
   const pos = (e: React.PointerEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
@@ -58,8 +61,9 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
   }
 
   const clear = () => {
-    const canvas = canvasRef.current!
-    canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height)
+    // Im Bildvorschau-Zustand ist kein Canvas montiert
+    const canvas = canvasRef.current
+    canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height)
     setHasInk(false)
     onChange(null)
   }
@@ -68,13 +72,13 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
     <div>
       <div className="mb-1.5 flex items-center justify-between">
         <span className="text-[13px] font-medium text-dim">{label}</span>
-        {hasInk && (
+        {(hasInk || value) && (
           <button onClick={clear} className="flex items-center gap-1 text-[12px] text-dim hover:text-danger">
             <Eraser size={12} /> {t('grading.clearSignature')}
           </button>
         )}
       </div>
-      {value && !hasInk ? (
+      {showImage ? (
         <img src={value} alt="signature" className="h-28 w-full rounded-xl border border-line/15 bg-white object-contain" />
       ) : (
         <canvas
