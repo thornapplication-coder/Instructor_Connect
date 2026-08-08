@@ -42,6 +42,7 @@ export function GradingView({ recordId }: { recordId: string }) {
       <TopBar
         title={`${record.formTypeId} · ${formType?.title ?? ''}`}
         back="/grading"
+        home={false}
         right={
           <button onClick={() => window.print()} title={t('grading.print')} className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-accent">
             <Printer size={19} />

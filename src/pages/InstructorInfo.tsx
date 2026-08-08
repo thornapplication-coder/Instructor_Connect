@@ -197,7 +197,6 @@ export function InstructorInfo() {
         {entries.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('info.empty')}</p>}
 
         {entries.map((entry) => {
-          const author = state.users.find((u) => u.id === entry.authorId)
           const open = openId === entry.id
           const isNew = now() - entry.createdAt < NEW_MS
           const starred = starredInfoIds.has(entry.id)
@@ -205,19 +204,18 @@ export function InstructorInfo() {
           return (
             <Card key={entry.id} className={`p-4 ${expired ? 'opacity-60' : ''}`}>
               <div className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised text-accent">
-                  {entry.type === 'pdf' ? <FileText size={19} /> : <ScrollText size={19} />}
-                </span>
+                {/* NEW gut lesbar unter dem Icon — nicht neben dem Titel */}
+                <div className="flex shrink-0 flex-col items-center gap-1.5">
+                  <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-raised text-accent">
+                    {entry.type === 'pdf' ? <FileText size={19} /> : <ScrollText size={19} />}
+                  </span>
+                  {isNew && (
+                    <span className="rounded-md bg-emerald-600 px-1.5 py-0.5 text-[10.5px] font-bold tracking-wider text-white">NEW</span>
+                  )}
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start gap-2">
-                    <p className="min-w-0 flex-1 text-[15px] font-semibold leading-snug">
-                      {entry.title}
-                      {isNew && (
-                        <span className="ml-2 inline-block rounded-full bg-emerald-500/20 px-2 py-0.5 align-middle text-[10.5px] font-bold tracking-wide text-emerald-300">
-                          NEW
-                        </span>
-                      )}
-                    </p>
+                    <p className="min-w-0 flex-1 text-[15px] font-semibold leading-snug">{entry.title}</p>
                     {/* Stern: persönliche Wichtig-Markierung des Nutzers */}
                     <button
                       onClick={() => toggleStarInfo(entry.id)}
@@ -228,9 +226,9 @@ export function InstructorInfo() {
                     </button>
                   </div>
                   {entry.description && <p className="mt-0.5 text-[13px] text-dim">{entry.description}</p>}
+                  {/* Bewusst ohne Erstellungsdatum und Autor in der Übersicht */}
                   <p className="mt-1 text-[11.5px] text-dim/80">
-                    <span className="mr-1.5 rounded bg-raised px-1.5 py-0.5 font-medium text-dim">{entry.category}</span>
-                    {formatDate(entry.createdAt)} · {t('info.by', { name: author?.name ?? '—' })}
+                    <span className="rounded bg-raised px-1.5 py-0.5 font-medium text-dim">{entry.category}</span>
                   </p>
                   <p className={`mt-1 text-[11.5px] ${expired ? 'text-danger' : 'text-dim/80'}`}>
                     {t('info.validity')}: {validityLabel(entry)}

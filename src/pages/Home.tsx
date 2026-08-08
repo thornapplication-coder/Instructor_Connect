@@ -20,7 +20,7 @@ const TILES = [
 
 export function Home() {
   const { t, i18n } = useTranslation()
-  const { currentUser, logout, unreadGroups, hasNewInfo, hasNewContacts, visibleGradingRecords } = useStore()
+  const { currentUser, logout, unreadGroups, hasNewInfo, visibleGradingRecords } = useStore()
   const isDesktop = useIsDesktop()
   // Der Punkt auf der Grading-Kachel spiegelt die Ampel des Grading-Moduls:
   // rot vor gelb vor grün — kein Formular vorhanden = kein Punkt.
@@ -39,9 +39,9 @@ export function Home() {
     '/grading': false, // Grading trägt stattdessen den Ampel-Punkt
     '/lessons': false,
     '/chat': unreadGroups.size > 0,
-    '/feedback': false,
+    '/feedback': false, // bewusst ohne Punkt
     '/info': hasNewInfo,
-    '/contacts': hasNewContacts,
+    '/contacts': false, // bewusst ohne Punkt
   }
 
   return (

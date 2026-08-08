@@ -1,4 +1,4 @@
-import { ArrowLeft, Moon, Sun } from 'lucide-react'
+import { ArrowLeft, Home as HomeIcon, Moon, Sun } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { navigate } from '../router'
@@ -41,7 +41,9 @@ export function ThemeToggle() {
   )
 }
 
-export function TopBar({ title, back, right }: { title: ReactNode; back?: string; right?: ReactNode }) {
+/** home=false unterdrückt den Home-Button — genutzt in den Grading-Forms,
+ *  damit man dort nicht versehentlich aus dem Formular springt. */
+export function TopBar({ title, back, right, home = true }: { title: ReactNode; back?: string; right?: ReactNode; home?: boolean }) {
   const { t } = useTranslation()
   return (
     <header className="sticky top-0 z-20 border-b border-line/10 bg-bg/85 backdrop-blur">
@@ -57,6 +59,16 @@ export function TopBar({ title, back, right }: { title: ReactNode; back?: string
         )}
         <h1 className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight">{title}</h1>
         {right}
+        {home && (
+          <button
+            onClick={() => navigate('/')}
+            aria-label="Home"
+            title="Home"
+            className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-accent"
+          >
+            <HomeIcon size={19} />
+          </button>
+        )}
       </div>
     </header>
   )

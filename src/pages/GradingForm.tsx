@@ -291,7 +291,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
   if (!mayGrade) {
     return (
       <>
-        <TopBar title={t('grading.newForm')} back="/grading" />
+        <TopBar title={t('grading.newForm')} back="/grading" home={false} />
         <Page>
           <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] leading-relaxed text-dim">{t('grading.noPermission')}</p>
         </Page>
@@ -301,7 +301,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
 
   return (
     <>
-      <TopBar title={parent ? `${formTypeId} · ${t('grading.followUpFor')} ${parent.formTypeId}` : t('grading.newForm')} back="/grading" />
+      <TopBar title={parent ? `${formTypeId} · ${t('grading.followUpFor')} ${parent.formTypeId}` : t('grading.newForm')} back="/grading" home={false} />
       <Page className="space-y-4 pb-32">
         {/* 1. Formulartyp */}
         <Card className="p-4">
