@@ -1,4 +1,4 @@
-import { BarChart3, FileText, Image as ImageIcon, Info, Paperclip, Plus, SendHorizonal, Trash2, X } from 'lucide-react'
+import { BarChart3, Ban, FileText, Image as ImageIcon, Info, Paperclip, Plus, SendHorizonal, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Field, inputCls, Modal, NewDot, TopBar } from '../components/ui'
@@ -306,6 +306,13 @@ export function ChatRoom({ groupId }: { groupId: string }) {
       </main>
 
       <div className="sticky bottom-11 z-20 border-t border-line/10 bg-bg/90 px-3 py-2.5 backdrop-blur">
+        {/* Vom Admin gesperrt: mitlesen ja, senden nein */}
+        {currentUser!.chatBlocked ? (
+          <div className="mx-auto flex max-w-3xl items-center gap-2.5 rounded-xl border border-danger/25 bg-danger/10 px-3.5 py-3 text-[13px] text-danger">
+            <Ban size={16} className="shrink-0" />
+            {t('chat.blockedNote')}
+          </div>
+        ) : (
         <div className="mx-auto max-w-3xl">
           {pendingAttachment && (
             <div className="mb-2 flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-[13px]">
@@ -350,6 +357,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
             </button>
           </div>
         </div>
+        )}
       </div>
 
       {showPoll && <PollModal groupId={groupId} onClose={() => setShowPoll(false)} />}

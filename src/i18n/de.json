@@ -72,7 +72,8 @@
     "mute": "Benachrichtigungen stumm schalten",
     "muted": "Benachrichtigungen stumm",
     "today": "Heute",
-    "you": "Du"
+    "you": "Du",
+    "blockedNote": "Du wurdest von einem Admin für das Senden im Chat gesperrt. Mitlesen ist weiterhin möglich. Bitte wende dich an den Admin."
   },
   "chatInfo": {
     "title": "Chat-Info",
@@ -185,7 +186,8 @@
     "feedbackEmpty": "Noch kein Feedback eingegangen.",
     "confirmDeleteFeedback": "Diesen Feedback-Eintrag löschen?",
     "infoCategories": "Instructor-Info-Kategorien",
-    "feedbackRecipients": "Feedback-Empfänger (auswählbar)"
+    "feedbackRecipients": "Feedback-Empfänger (auswählbar)",
+    "chatBlocked": "Im Chat gesperrt"
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",

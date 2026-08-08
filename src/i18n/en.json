@@ -72,7 +72,8 @@
     "mute": "Mute notifications",
     "muted": "Notifications muted",
     "today": "Today",
-    "you": "You"
+    "you": "You",
+    "blockedNote": "You have been blocked from sending in chat by an admin. You can still read messages. Please contact the Admin."
   },
   "chatInfo": {
     "title": "Chat info",
@@ -185,7 +186,8 @@
     "feedbackEmpty": "No feedback received yet.",
     "confirmDeleteFeedback": "Delete this feedback entry?",
     "infoCategories": "Instructor Info categories",
-    "feedbackRecipients": "Feedback recipients (selectable)"
+    "feedbackRecipients": "Feedback recipients (selectable)",
+    "chatBlocked": "Blocked in chat"
   },
   "imprint": {
     "title": "Legal notice & terms of use",

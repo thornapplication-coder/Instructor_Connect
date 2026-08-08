@@ -113,6 +113,16 @@ function UsersTab() {
               />
               {t('admin.isTrainee')}
             </label>
+            {/* Chat-Sperre: Nutzer kann mitlesen, aber nichts mehr senden */}
+            <label className={`flex items-center gap-1.5 ${u.chatBlocked ? 'font-semibold text-danger' : 'text-dim'}`}>
+              <input
+                type="checkbox"
+                checked={!!u.chatBlocked}
+                onChange={(e) => updateUser(u.id, { chatBlocked: e.target.checked })}
+                className="accent-[#e05252]"
+              />
+              {t('admin.chatBlocked')}
+            </label>
             <span className="ml-auto flex gap-2">
               <button onClick={() => updateUser(u.id, { active: !u.active })} className="text-dim hover:text-ink">
                 {u.active ? t('admin.deactivate') : t('admin.activate')}

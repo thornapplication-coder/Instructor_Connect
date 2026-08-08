@@ -274,21 +274,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       resetSandbox: () => setState(() => ({ ...createSeedState(), currentUserId: state.currentUserId })),
 
       sendMessage: (groupId, text, attachment) =>
-        patch((s) => ({
-          messages: [
-            ...s.messages,
-            { id: uid('m'), groupId, authorId: s.currentUserId!, text, createdAt: Date.now() + s.timeOffsetMs, attachment },
-          ],
-        })),
+        patch((s) => {
+          // Chat-Sperre greift auch hier, nicht nur in der Oberfläche
+          if (s.users.find((u) => u.id === s.currentUserId)?.chatBlocked) return null
+          return {
+            messages: [
+              ...s.messages,
+              { id: uid('m'), groupId, authorId: s.currentUserId!, text, createdAt: Date.now() + s.timeOffsetMs, attachment },
+            ],
+          }
+        }),
       deleteMessage: (id) => patch((s) => ({ messages: s.messages.filter((m) => m.id !== id) })),
 
       createPoll: (groupId, question, type, options) =>
-        patch((s) => ({
-          polls: [
-            ...s.polls,
-            { id: uid('p'), groupId, authorId: s.currentUserId!, question, type, options, votes: {}, closed: false, createdAt: Date.now() + s.timeOffsetMs },
-          ],
-        })),
+        patch((s) => {
+          if (s.users.find((u) => u.id === s.currentUserId)?.chatBlocked) return null
+          return {
+            polls: [
+              ...s.polls,
+              { id: uid('p'), groupId, authorId: s.currentUserId!, question, type, options, votes: {}, closed: false, createdAt: Date.now() + s.timeOffsetMs },
+            ],
+          }
+        }),
       vote: (pollId, optionIndex) =>
         patch((s) => ({
           polls: s.polls.map((p) =>

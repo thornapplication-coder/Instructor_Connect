@@ -6,6 +6,7 @@ import { navigate } from '../router'
 import { useStore } from '../store'
 import { useIsDesktop } from '../useIsDesktop'
 import { APP_VERSION } from '../types'
+import { TRAFFIC_CLS, trafficLight, type TrafficColor } from './Grading'
 
 /* Kachel-Beschriftungen bleiben laut Spez. §5 in beiden Sprachen Englisch. */
 const TILES = [
@@ -21,14 +22,21 @@ export function Home() {
   const { t, i18n } = useTranslation()
   const { currentUser, logout, unreadGroups, hasNewInfo, hasNewContacts, visibleGradingRecords } = useStore()
   const isDesktop = useIsDesktop()
-  // Offene Signatur oder fehlgeschlagener Versand markiert die Grading-Kachel
-  const hasOpenGrading = visibleGradingRecords.some((r) => r.status !== 'signed' || r.mailStatus === 'failed')
+  // Der Punkt auf der Grading-Kachel spiegelt die Ampel des Grading-Moduls:
+  // rot vor gelb vor grün — kein Formular vorhanden = kein Punkt.
+  const gradingTraffic: TrafficColor | null = visibleGradingRecords.length
+    ? visibleGradingRecords.some((r) => trafficLight(r) === 'red')
+      ? 'red'
+      : visibleGradingRecords.some((r) => trafficLight(r) === 'yellow')
+        ? 'yellow'
+        : 'green'
+    : null
   const firstName = currentUser!.name.split(' ')[0]
 
   // Typisiert über die TILES-Routen: eine umbenannte oder neue Kachel ohne
   // Eintrag hier ist ein Compile-Fehler, kein still fehlender Punkt.
   const hasNews: Record<(typeof TILES)[number]['to'], boolean> = {
-    '/grading': hasOpenGrading,
+    '/grading': false, // Grading trägt stattdessen den Ampel-Punkt
     '/lessons': false,
     '/chat': unreadGroups.size > 0,
     '/feedback': false,
@@ -82,7 +90,14 @@ export function Home() {
               onClick={() => navigate(to)}
               className="group relative flex aspect-square flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
             >
-              {hasNews[to] && <NewDot className="right-3.5 top-3.5" />}
+              {to === '/grading' && gradingTraffic ? (
+                <span
+                  aria-label={`status ${gradingTraffic}`}
+                  className={`pointer-events-none absolute right-3.5 top-3.5 z-10 h-3 w-3 rounded-full ring-2 ring-bg ${TRAFFIC_CLS[gradingTraffic]}`}
+                />
+              ) : (
+                hasNews[to] && <NewDot className="right-3.5 top-3.5" />
+              )}
               <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg">
                 <Icon size={28} />
               </span>

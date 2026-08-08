@@ -15,6 +15,8 @@ export interface User {
   isTrainee: boolean
   /** zugewiesene Aircraft Types — steuert die Sicht auf Lesson Plans */
   aircraftTypes: string[]
+  /** vom Admin für den Chat gesperrt: kann lesen, aber nichts senden */
+  chatBlocked?: boolean
   active: boolean
 }
 
