@@ -322,7 +322,8 @@
     "traffic": {
       "green": "complete: signed and sent",
       "yellow": "open: signature or sending pending",
-      "red": "sending failed — action required"
+      "red": "sending failed — action required",
+      "all": "All"
     },
     "deferredMailNote": "Form 310 (Deferred Item List) is always emailed to the Training Admin upon completion: {{recipients}}"
   },

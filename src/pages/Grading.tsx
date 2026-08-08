@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, Clock, FileText, Plus, Trash2 } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
 import { Badge, Card, Page, TopBar } from '../components/ui'
@@ -6,13 +7,14 @@ import { navigate } from '../router'
 import { useStore } from '../store'
 import type { GradingRecord } from '../types'
 
-/** Farbcodierung laut Spez. 5.3: 5/4 grün, 3 dunkelgrün, 2 orange, 1 rot, NO grau */
+/** Farbcodierung laut Spez. 5.3: 5/4 grün, 3 dunkelgrün, 2 orange, 1 rot, NO grau.
+ *  Kräftige Vollfarben mit weißem/schwarzem Text — in Hell- UND Dunkelmodus lesbar. */
 export function gradeColor(g: number | 'NO' | null): string {
   if (g === 'NO' || g === null) return 'bg-line/10 text-dim'
-  if (g >= 4) return 'bg-emerald-500/20 text-emerald-300'
-  if (g === 3) return 'bg-emerald-700/25 text-emerald-200'
-  if (g === 2) return 'bg-amber-500/20 text-amber-300'
-  return 'bg-red-500/20 text-red-300'
+  if (g >= 4) return 'bg-emerald-600 text-white'
+  if (g === 3) return 'bg-emerald-800 text-white'
+  if (g === 2) return 'bg-amber-500 text-black'
+  return 'bg-red-600 text-white'
 }
 
 /* Einheitliches Datumsformat DD.MM.YYYY für das gesamte Grading-Modul */
@@ -61,6 +63,9 @@ export function Grading() {
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
   const mayGrade = currentUser!.canGrade || currentUser!.role !== 'member'
   const isMember = currentUser!.role === 'member'
+  // Filter über die Ampel-Legende (antippen zum Filtern)
+  const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
+  const list = visibleGradingRecords.filter((r) => !trafficFilter || trafficLight(r) === trafficFilter)
 
   return (
     <>
@@ -82,19 +87,33 @@ export function Grading() {
       <Page className="space-y-3">
         {!mayGrade && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.noPermission')}</p>}
 
-        {/* Ampel-Legende */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line/10 bg-surface/60 px-3.5 py-2.5 text-[11.5px] text-dim">
-          <span className="inline-flex items-center gap-1.5"><TrafficDot color="green" /> {t('grading.traffic.green')}</span>
-          <span className="inline-flex items-center gap-1.5"><TrafficDot color="yellow" /> {t('grading.traffic.yellow')}</span>
-          <span className="inline-flex items-center gap-1.5"><TrafficDot color="red" /> {t('grading.traffic.red')}</span>
+        {/* Ampel-Legende — antippen filtert die Liste */}
+        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-line/10 bg-surface/60 px-2.5 py-2 text-[11.5px] text-dim">
+          <button
+            onClick={() => setTrafficFilter('')}
+            className={`rounded-full border px-2.5 py-1 transition ${trafficFilter === '' ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-transparent'}`}
+          >
+            {t('grading.traffic.all')}
+          </button>
+          {(['green', 'yellow', 'red'] as TrafficColor[]).map((c) => (
+            <button
+              key={c}
+              onClick={() => setTrafficFilter(trafficFilter === c ? '' : c)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition ${
+                trafficFilter === c ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-transparent'
+              }`}
+            >
+              <TrafficDot color={c} /> {t(`grading.traffic.${c}`)}
+            </button>
+          ))}
         </div>
 
         {/* Aufbewahrung in der Instruktoren-Ansicht: 1 Woche */}
         {isMember && <p className="px-1 text-[11.5px] leading-relaxed text-dim/80">{t('grading.retentionHint')}</p>}
 
-        {visibleGradingRecords.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('grading.empty')}</p>}
+        {list.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('grading.empty')}</p>}
 
-        {visibleGradingRecords.map((r) => {
+        {list.map((r) => {
           const notCompetent = r.trainees.some((tr) => tr.overall === 'not_competent')
           return (
             <Card key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="p-4">
@@ -133,7 +152,9 @@ export function Grading() {
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <TrafficDot color={trafficLight(r)} className="mt-1" />
-                  {isMember && (
+                  {/* Aus der eigenen Ansicht entfernen: jede/r für die eigenen
+                      Formulare — im Admin-Panel bleiben sie erhalten */}
+                  {r.instructorId === currentUser!.id && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation()

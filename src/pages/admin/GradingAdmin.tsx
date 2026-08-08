@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls } from '../../components/ui'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
-import { formatDate, formatDateTime, TrafficDot, trafficLight } from '../Grading'
+import { formatDate, formatDateTime, TrafficDot, trafficLight, type TrafficColor } from '../Grading'
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats'
 
@@ -52,9 +52,11 @@ export function GradingAdmin() {
   const [section, setSection] = useState<Section>('dashboard')
   const [query, setQuery] = useState('')
   const [filterType, setFilterType] = useState('')
+  const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
 
   const g = state.settings.grading
-  const records = state.gradingRecords
+  // Neueste immer zuoberst
+  const records = [...state.gradingRecords].sort((a, b) => b.createdAt - a.createdAt)
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
   // einheitlich DD.MM.YYYY
   const dateLabel = (ts: number) => formatDate(ts)
@@ -105,6 +107,7 @@ export function GradingAdmin() {
 
   const filtered = records.filter((r) => {
     if (filterType && r.formTypeId !== filterType) return false
+    if (trafficFilter && trafficLight(r) !== trafficFilter) return false
     if (!query) return true
     const hay = [r.formTypeId, userName(r.instructorId), ...r.trainees.map((tr) => userName(tr.traineeId)), ...Object.values(r.header)].join(' ').toLowerCase()
     return hay.includes(query.toLowerCase())
@@ -254,6 +257,26 @@ export function GradingAdmin() {
                 </option>
               ))}
             </select>
+          </div>
+          {/* Ampel-Filter */}
+          <div className="flex flex-wrap items-center gap-1.5 text-[11.5px] text-dim">
+            <button
+              onClick={() => setTrafficFilter('')}
+              className={`rounded-full border px-2.5 py-1 transition ${trafficFilter === '' ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'}`}
+            >
+              {t('grading.traffic.all')}
+            </button>
+            {(['green', 'yellow', 'red'] as TrafficColor[]).map((c) => (
+              <button
+                key={c}
+                onClick={() => setTrafficFilter(trafficFilter === c ? '' : c)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition ${
+                  trafficFilter === c ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'
+                }`}
+              >
+                <TrafficDot color={c} /> {t(`grading.traffic.${c}`)}
+              </button>
+            ))}
           </div>
           {filtered.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('grading.empty')}</p>}
           {filtered.map((r) => (

@@ -177,11 +177,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const hasNewContacts = !!state.currentUserId && state.contactsChangedAt > seenOfCurrent.contacts
 
   // Instruktoren sehen ihre eigenen Formulare eine Woche lang und können
-  // sie aus der eigenen Ansicht entfernen — Admins sehen alles unbegrenzt.
+  // sie aus der eigenen Ansicht entfernen — Admins sehen alles unbegrenzt,
+  // können aber ihre EIGENEN Formulare ebenfalls aus der Liste nehmen
+  // (im Admin-Panel bleiben alle erhalten). Neueste immer zuoberst.
   const visibleGradingRecords = useMemo(() => {
     if (!currentUser) return []
     const all = [...state.gradingRecords].sort((a, b) => b.createdAt - a.createdAt)
-    if (currentUser.role !== 'member') return all
+    if (currentUser.role !== 'member')
+      return all.filter((r) => !(r.instructorId === currentUser.id && r.hiddenForInstructor))
     const weekMs = 7 * 24 * 3600_000
     return all.filter(
       (r) => r.instructorId === currentUser.id && !r.hiddenForInstructor && now() - r.createdAt < weekMs,

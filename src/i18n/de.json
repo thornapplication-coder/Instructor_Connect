@@ -322,7 +322,8 @@
     "traffic": {
       "green": "abgeschlossen: unterschrieben und versendet",
       "yellow": "offen: Unterschrift oder Versand ausständig",
-      "red": "Versand fehlgeschlagen — Handeln erforderlich"
+      "red": "Versand fehlgeschlagen — Handeln erforderlich",
+      "all": "Alle"
     },
     "deferredMailNote": "Form 310 (Deferred Item List) is always emailed to the Training Admin upon completion: {{recipients}}"
   },
