@@ -121,15 +121,32 @@ export const INSTRUCTOR_SET: CompetencySet = {
 }
 
 const AIRCRAFT = ['A320', 'B737', 'DA42', 'Generic FNPT II']
+
+/** Uhrzeit-/Dauerwerte: 00:30 bis 14:30 in 30-Minuten-Schritten */
+export const DURATION_OPTIONS = Array.from({ length: 29 }, (_, i) => {
+  const mins = (i + 1) * 30
+  return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`
+})
+
+/** ATA-Kapitel für das Recurrent Training (Mehrfachauswahl) */
+export const ATA_CHAPTERS = [
+  'ATA 21 Air Conditioning', 'ATA 22 Autoflight', 'ATA 23 Communications',
+  'ATA 24 Electrical Power', 'ATA 26 Fire Protection', 'ATA 27 Flight Controls',
+  'ATA 28 Fuel', 'ATA 29 Hydraulic Power', 'ATA 30 Ice & Rain Protection',
+  'ATA 31 Indicating / Recording', 'ATA 32 Landing Gear', 'ATA 33 Lights',
+  'ATA 34 Navigation', 'ATA 35 Oxygen', 'ATA 36 Pneumatic', 'ATA 49 APU',
+  'ATA 52 Doors', 'ATA 70-80 Power Plant',
+]
 const DEVICES = ['OTD / Mock-Up', 'FTD / FNPT', 'FFS']
 
-const f = (key: string, label: string, type: FormField['type'] = 'text', opts?: { options?: string[]; required?: boolean; wide?: boolean }): FormField => ({
+const f = (key: string, label: string, type: FormField['type'] = 'text', opts?: { options?: string[]; required?: boolean; wide?: boolean; postGrading?: boolean }): FormField => ({
   key,
   label,
   type,
   options: opts?.options,
   required: opts?.required ?? false,
   wide: opts?.wide,
+  postGrading: opts?.postGrading,
 })
 
 /* Kopffelder gemäß Original-Formularen (OM Appendix 5, Rev. 0.2) */
@@ -138,8 +155,8 @@ const HEAD_STANDARD: FormField[] = [
   f('date', 'Date', 'date', { required: true }),
   f('event', 'Event', 'text', { required: true }),
   f('trainingDevice', 'Training Device', 'radiogroup', { options: DEVICES, required: true }),
-  f('flightTimePF', 'Flight Time PF', 'text'),
-  f('flightTimePM', 'Flight Time PM', 'text'),
+  f('flightTimePF', 'Flight Time PF', 'duration', { required: true, postGrading: true }),
+  f('flightTimePM', 'Flight Time PM', 'duration', { required: true, postGrading: true }),
   f('other', 'Other', 'text', { wide: true }),
 ]
 
@@ -167,7 +184,7 @@ export const FORM_TYPES: FormType[] = [
     fields: [
       f('event', 'Subject / Event', 'text', { required: true }),
       f('date', 'Date', 'date', { required: true }),
-      f('duration', 'Duration', 'text', { required: true }),
+      f('duration', 'Duration', 'duration', { required: true }),
       f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT }),
       f('location', 'Location', 'text', { required: true }),
     ],
@@ -180,7 +197,7 @@ export const FORM_TYPES: FormType[] = [
     fields: [
       f('event', 'Subject / Event', 'text', { required: true }),
       f('date', 'Date', 'date', { required: true }),
-      f('duration', 'Duration', 'text', { required: true }),
+      f('duration', 'Duration', 'duration', { required: true }),
       f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT }),
       f('location', 'Location', 'text', { required: true }),
     ],
@@ -198,8 +215,8 @@ export const FORM_TYPES: FormType[] = [
       f('event', 'Event', 'text', { required: true }),
       f('date', 'Date', 'date', { required: true }),
       f('trainingDevice', 'Training Device', 'radiogroup', { options: ['OTD / Mock-Up', 'FTD / FNPT', 'FFS'], required: true }),
-      f('flightTimePF', 'Flight Time PF', 'text'),
-      f('flightTimePM', 'Flight Time PM', 'text'),
+      f('flightTimePF', 'Flight Time PF', 'duration', { required: true, postGrading: true }),
+      f('flightTimePM', 'Flight Time PM', 'duration', { required: true, postGrading: true }),
         ],
     freeTextSections: [],
   },
@@ -213,8 +230,8 @@ export const FORM_TYPES: FormType[] = [
       f('event', 'Event', 'text', { required: true }),
       f('date', 'Date', 'date', { required: true }),
       f('trainingDevice', 'Training Device', 'radiogroup', { options: ['FFS'], required: true }),
-      f('flightTimePF', 'Flight Time PF', 'text'),
-      f('flightTimePM', 'Flight Time PM', 'text'),
+      f('flightTimePF', 'Flight Time PF', 'duration', { required: true, postGrading: true }),
+      f('flightTimePM', 'Flight Time PM', 'duration', { required: true, postGrading: true }),
         ],
     freeTextSections: [],
   },
@@ -229,12 +246,12 @@ export const FORM_TYPES: FormType[] = [
       f('event', 'Event', 'text', { required: true }),
       f('trainingDevice', 'Training Device', 'radiogroup', { options: DEVICES, required: true }),
       f('topicsCovered', 'Topics Covered', 'textarea', { wide: true }),
-      f('airportsUsed', 'Airports Used', 'text'),
-      f('takeoffs', 'Takeoffs', 'number'),
-      f('landings', 'Landings', 'number'),
-      f('flightTimePF', 'Flight Time PF', 'text'),
-      f('flightTimePM', 'Flight Time PM', 'text'),
-      f('approaches', 'Type and number of approaches', 'text', { wide: true }),
+      f('airportsUsed', 'Airports Used', 'text', { postGrading: true }),
+      f('takeoffs', 'Takeoffs', 'number', { postGrading: true }),
+      f('landings', 'Landings', 'number', { postGrading: true }),
+      f('flightTimePF', 'Flight Time PF', 'duration', { required: true, postGrading: true }),
+      f('flightTimePM', 'Flight Time PM', 'duration', { required: true, postGrading: true }),
+      f('approaches', 'Type and number of approaches', 'text', { wide: true, postGrading: true }),
         ],
     freeTextSections: [],
   },
@@ -248,9 +265,9 @@ export const FORM_TYPES: FormType[] = [
       f('event', 'Event', 'text', { required: true }),
       f('trainingDevice', 'Training Device', 'radiogroup', { options: DEVICES, required: true }),
       f('recurrentCycle', 'Recurrent Cycle', 'select', { options: ['Year 1', 'Year 2', 'Year 3'] }),
-      f('recurrentTopics', 'FFS training topics for customer recurrent', 'textarea', { wide: true }),
-      f('flightTimePF', 'Flight Time PF', 'text'),
-      f('flightTimePM', 'Flight Time PM', 'text'),
+      f('ataChapters', 'ATA Chapters trained', 'checkgroup', { options: ATA_CHAPTERS, required: true, wide: true }),
+      f('flightTimePF', 'Flight Time PF', 'duration', { required: true, postGrading: true }),
+      f('flightTimePM', 'Flight Time PM', 'duration', { required: true, postGrading: true }),
       f('other', 'Other', 'text', { wide: true }),
         ],
     freeTextSections: [],
@@ -289,12 +306,12 @@ export const FORM_TYPES: FormType[] = [
       }),
       f('specialAirports', 'Special Airport(s)', 'text', { wide: true }),
       f('otherTraining', 'Other Training', 'text', { wide: true }),
-      f('airportsUsed', 'Airports Used', 'text'),
-      f('takeoffs', 'Takeoffs', 'number'),
-      f('landings', 'Landings', 'number'),
-      f('flightTimePF', 'Flight Time PF', 'text'),
-      f('flightTimePM', 'Flight Time PM', 'text'),
-      f('approaches', 'Type and Number of Approaches', 'text', { wide: true }),
+      f('airportsUsed', 'Airports Used', 'text', { postGrading: true }),
+      f('takeoffs', 'Takeoffs', 'number', { postGrading: true }),
+      f('landings', 'Landings', 'number', { postGrading: true }),
+      f('flightTimePF', 'Flight Time PF', 'duration', { required: true, postGrading: true }),
+      f('flightTimePM', 'Flight Time PM', 'duration', { required: true, postGrading: true }),
+      f('approaches', 'Type and Number of Approaches', 'text', { wide: true, postGrading: true }),
         ],
     freeTextSections: [],
   },

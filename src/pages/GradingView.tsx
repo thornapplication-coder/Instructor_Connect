@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { useStore } from '../store'
-import { gradeColor } from './Grading'
+import { formatDate, formatDateTime, gradeColor, TrafficDot, trafficLight } from './Grading'
 
 /**
  * Abgeschicktes Formular: read-only nach beidseitiger Signatur (Spez. 5.5).
@@ -13,7 +13,9 @@ import { gradeColor } from './Grading'
  * Tabellenstruktur des Originalformulars.
  */
 export function GradingView({ recordId }: { recordId: string }) {
-  const { t, i18n } = useTranslation()
+  // Formulare sind immer vollständig englisch, unabhängig von der App-Sprache
+  const { i18n } = useTranslation()
+  const t = i18n.getFixedT('en')
   const { state, currentUser, saveGradingRecord } = useStore()
   const record = state.gradingRecords.find((r) => r.id === recordId)
   const [lateSignature, setLateSignature] = useState<string | null>(null)
@@ -31,8 +33,6 @@ export function GradingView({ recordId }: { recordId: string }) {
     ? grading.competencySets.find((c) => c.key === formType.competencySet)?.competencies ?? []
     : []
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
-  const dateLabel = (ts: number) =>
-    new Date(ts).toLocaleString(i18n.language === 'de' ? 'de-AT' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
   const isAdmin = currentUser!.role !== 'member'
   const linked = state.gradingRecords.filter((r) => r.parentId === record.id)
@@ -49,8 +49,14 @@ export function GradingView({ recordId }: { recordId: string }) {
         }
       />
       <Page className="space-y-4">
+        {/* Export-Stempel: erscheint auf jedem Ausdruck/PDF-Export */}
+        <p className="hidden border-b border-line/20 pb-2 text-[11px] text-dim print:block">
+          {t('grading.exportStamp', { date: formatDateTime(Date.now() + state.timeOffsetMs), name: currentUser!.name })}
+        </p>
+
         {/* Status */}
         <div className="flex flex-wrap items-center gap-2">
+          <TrafficDot color={trafficLight(record)} />
           {record.status === 'signed' ? (
             <Badge tone="dim">
               <CheckCircle2 size={11} className="mr-1" /> {t('grading.status.signed')}
@@ -88,7 +94,9 @@ export function GradingView({ recordId }: { recordId: string }) {
             {formType?.fields.map((f) => (
               <div key={f.key} className="flex justify-between gap-3 border-b border-line/[0.06] pb-1.5">
                 <dt className="text-dim">{f.label}</dt>
-                <dd className="text-right font-medium">{record.header[f.key] || '–'}</dd>
+                <dd className="text-right font-medium">
+                  {f.type === 'date' && record.header[f.key] ? formatDate(record.header[f.key]) : record.header[f.key] || '–'}
+                </dd>
               </div>
             ))}
           </dl>
@@ -238,7 +246,7 @@ export function GradingView({ recordId }: { recordId: string }) {
               </div>
             ))}
           </div>
-          {record.signedAt && <p className="mt-3 text-[12px] text-dim">{t('grading.signedAt', { date: dateLabel(record.signedAt) })}</p>}
+          {record.signedAt && <p className="mt-3 text-[12px] text-dim">{t('grading.signedAt', { date: formatDateTime(record.signedAt) })}</p>}
 
           {/* Offene Unterschrift nachholen: nur das fehlende Feld ist offen,
               danach wird das Formular wie üblich gesperrt und versendet. */}

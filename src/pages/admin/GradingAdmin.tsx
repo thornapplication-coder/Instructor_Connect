@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls } from '../../components/ui'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
+import { formatDate, formatDateTime, TrafficDot, trafficLight } from '../Grading'
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats'
 
@@ -46,8 +47,8 @@ function StringList({ label, values, onChange }: { label: string; values: string
 }
 
 export function GradingAdmin() {
-  const { t, i18n } = useTranslation()
-  const { state, retryGradingMail, updateGrading } = useStore()
+  const { t } = useTranslation()
+  const { state, currentUser, retryGradingMail, updateGrading } = useStore()
   const [section, setSection] = useState<Section>('dashboard')
   const [query, setQuery] = useState('')
   const [filterType, setFilterType] = useState('')
@@ -55,7 +56,8 @@ export function GradingAdmin() {
   const g = state.settings.grading
   const records = state.gradingRecords
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
-  const dateLabel = (ts: number) => new Date(ts).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  // einheitlich DD.MM.YYYY
+  const dateLabel = (ts: number) => formatDate(ts)
 
   const openSignatures = records.filter((r) => r.status !== 'signed')
   const failedMails = records.filter((r) => r.mailStatus === 'failed')
@@ -112,9 +114,12 @@ export function GradingAdmin() {
     // Alle Werte escapen — freie Texte können das Trennzeichen enthalten.
     const esc = (v: unknown) => String(v ?? '').replace(/;/g, ',').replace(/\r?\n/g, ' ')
     const row = (cells: unknown[]) => cells.map(esc).join(';') + '\n'
-    let csv = ''
+    // Jeder Export trägt Zeitpunkt und exportierende Person im Kopf.
+    let csv = row(['Instructor Connect — Grading Export'])
+    csv += row(['Exported (date/time)', formatDateTime(Date.now() + state.timeOffsetMs), 'Exported by', currentUser!.name])
+    csv += row([])
     if (scope === 'records') {
-      csv = row(['Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Avg'])
+      csv += row(['Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Avg'])
       records.forEach((r) =>
         r.trainees.forEach((tr) => {
           // Durchschnitt je Pilot, nicht des gesamten Formulars
@@ -123,7 +128,7 @@ export function GradingAdmin() {
         }),
       )
     } else if (scope === 'competencies') {
-      csv = row(['Form', 'Trainee', 'Competency', 'Grade', 'Comment'])
+      csv += row(['Form', 'Trainee', 'Competency', 'Grade', 'Comment'])
       records.forEach((r) =>
         r.trainees.forEach((tr) =>
           tr.grades.forEach((gr) => {
@@ -132,7 +137,7 @@ export function GradingAdmin() {
         ),
       )
     } else {
-      csv = row(['Person', 'Role', 'Sessions', 'AvgGrade'])
+      csv += row(['Person', 'Role', 'Sessions', 'AvgGrade'])
       calibration.rows.forEach((r2) => {
         csv += row([userName(r2.id), 'Instructor', r2.sessions, r2.avg?.toFixed(2)])
       })
@@ -140,7 +145,10 @@ export function GradingAdmin() {
     const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
     const a = document.createElement('a')
     a.href = url
-    a.download = `grading-${scope}.csv`
+    // Exportzeitpunkt auch im Dateinamen
+    const d = new Date(Date.now() + state.timeOffsetMs)
+    const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}-${String(d.getMinutes()).padStart(2, '0')}`
+    a.download = `grading-${scope}_${stamp}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -165,6 +173,12 @@ export function GradingAdmin() {
 
       {section === 'dashboard' && (
         <div className="space-y-3">
+          {/* Ampel-Legende */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line/10 bg-surface/60 px-3.5 py-2.5 text-[11.5px] text-dim">
+            <span className="inline-flex items-center gap-1.5"><TrafficDot color="green" /> {t('grading.traffic.green')}</span>
+            <span className="inline-flex items-center gap-1.5"><TrafficDot color="yellow" /> {t('grading.traffic.yellow')}</span>
+            <span className="inline-flex items-center gap-1.5"><TrafficDot color="red" /> {t('grading.traffic.red')}</span>
+          </div>
           <div className="grid gap-3 sm:grid-cols-3">
             {[
               { label: t('grading.admin.openSignatures'), value: openSignatures.length, icon: Clock, tone: openSignatures.length ? 'text-warm' : 'text-dim' },
@@ -244,6 +258,7 @@ export function GradingAdmin() {
           {filtered.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('grading.empty')}</p>}
           {filtered.map((r) => (
             <Card key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="flex items-center gap-3 p-4">
+              <TrafficDot color={trafficLight(r)} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-semibold">
                   {r.formTypeId} · {r.trainees.map((tr) => userName(tr.traineeId)).join(', ') || '—'}

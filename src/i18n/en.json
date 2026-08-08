@@ -285,7 +285,23 @@
     "toGrading": "Continue to grading",
     "continue": "Continue",
     "backToHeader": "Back to header data",
-    "completeSignature": "Save signature and lock form"
+    "completeSignature": "Save signature and lock form",
+    "commentRequired": "Comment (mandatory for grade 1 or 2)",
+    "errGradeComment": "{{name}}: a comment is mandatory for every competency graded 1 or 2.",
+    "errComments": "{{name}}: positive aspects, development areas and summary are mandatory.",
+    "autoNotCompetent": "Automatically Not Competent: one or more competencies graded “1”, or two or more graded “2”.",
+    "sessionData": "Session data",
+    "sessionDataHint": "These items are always entered after the grading, at the end of the session.",
+    "sigLiveNote": "Signatures are never stored or carried over — whenever a signature is required, it must be given live on this device.",
+    "retentionHint": "Grading sheets remain visible in your view for one week after creation. Admins keep the full record permanently.",
+    "deleteOwn": "Remove from my view",
+    "deleteOwnConfirm": "Remove this grading sheet from your view? It remains stored for admins.",
+    "exportStamp": "Exported/printed on {{date}} by {{name}} — Instructor Connect",
+    "traffic": {
+      "green": "complete: signed and sent",
+      "yellow": "open: signature or sending pending",
+      "red": "sending failed — action required"
+    }
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

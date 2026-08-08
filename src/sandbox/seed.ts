@@ -155,7 +155,7 @@ export function createSeedState(): AppState {
         id: 'gr1',
         formTypeId: '308F',
         instructorId: 'u-maria',
-        header: { aircraftType: 'A320', trainingDevice: 'FFS', event: 'OPC Recurrent', date: iso(now - 9 * d), flightTimePF: '1:30', flightTimePM: '1:30', instructorQual: 'TRI', instructorSeat: 'Right' },
+        header: { aircraftType: 'A320', trainingDevice: 'FFS', event: 'OPC Recurrent', ataChapters: 'ATA 27 Flight Controls, ATA 32 Landing Gear, ATA 70-80 Power Plant', date: iso(now - 9 * d), flightTimePF: '01:30', flightTimePM: '01:30', instructorQual: 'TRI', instructorSeat: 'Right' },
         trainees: [
           {
             traineeId: 'u-lukas', position: 'CDR', seat: 'Left',
@@ -180,7 +180,7 @@ export function createSeedState(): AppState {
         id: 'gr2',
         formTypeId: '308A',
         instructorId: 'u-stefan',
-        header: { aircraftType: 'B737', trainingDevice: 'FFS', event: 'TR Session 4', date: iso(now - 5 * d), flightTimePF: '2:00', flightTimePM: '2:00', instructorQual: 'TKI', instructorSeat: 'Right' },
+        header: { aircraftType: 'B737', trainingDevice: 'FFS', event: 'TR Session 4', date: iso(now - 5 * d), flightTimePF: '02:00', flightTimePM: '02:00', instructorQual: 'TKI', instructorSeat: 'Right' },
         trainees: [
           {
             traineeId: 'u-sophie', position: 'FO', seat: 'Right',
@@ -247,7 +247,7 @@ export function createSeedState(): AppState {
         id: 'gr5',
         formTypeId: '308F',
         instructorId: 'u-maria',
-        header: { aircraftType: 'A320', trainingDevice: 'FFS', event: 'OPC Recurrent', date: iso(now - 30 * d), flightTimePF: '1:30', flightTimePM: '1:30', instructorQual: 'TRI', instructorSeat: 'Right' },
+        header: { aircraftType: 'A320', trainingDevice: 'FFS', event: 'OPC Recurrent', ataChapters: 'ATA 22 Autoflight, ATA 34 Navigation', date: iso(now - 30 * d), flightTimePF: '01:30', flightTimePM: '01:30', instructorQual: 'TRI', instructorSeat: 'Right' },
         trainees: [
           {
             traineeId: 'u-lukas', position: 'CDR', seat: 'Left',

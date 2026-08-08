@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
 import { Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
+import { DURATION_OPTIONS } from '../sandbox/gradingDefaults'
 import { useStore } from '../store'
-import { GRADES, type AttendanceEntry, type FormTypeId, type Grade, type GradingRecord, type OverallResult, type SessionStatus, type TraineeGrading } from '../types'
+import { GRADES, type AttendanceEntry, type FormField, type FormTypeId, type Grade, type GradingRecord, type OverallResult, type SessionStatus, type TraineeGrading } from '../types'
 import { gradeColor } from './Grading'
 
 let seq = 0
@@ -23,8 +24,17 @@ function emptyTrainee(codes: string[], position: string): TraineeGrading {
   }
 }
 
+/** Automatik laut Vorgabe: mind. eine „1“ oder mind. zwei „2“ ⇒ Not Competent */
+export function autoNotCompetent(tr: TraineeGrading): boolean {
+  const ones = tr.grades.filter((g) => g.grade === 1).length
+  const twos = tr.grades.filter((g) => g.grade === 2).length
+  return ones >= 1 || twos >= 2
+}
+
 export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: { recordId?: string; presetType?: FormTypeId; parentId?: string; nextTypes?: FormTypeId[] }) {
-  const { t } = useTranslation()
+  // Formulare sind immer vollständig englisch, unabhängig von der App-Sprache.
+  const { i18n } = useTranslation()
+  const t = useMemo(() => i18n.getFixedT('en'), [i18n])
   const { state, currentUser, saveGradingRecord } = useStore()
   const grading = state.settings.grading
 
@@ -44,10 +54,14 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
   const [trainees, setTrainees] = useState<TraineeGrading[]>(existing?.trainees ?? [])
   const [freeText, setFreeText] = useState<Record<string, string>>(existing?.freeText ?? {})
   const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(existing?.sessionStatus ?? null)
-  const [attendance, setAttendance] = useState<AttendanceEntry[]>(existing?.attendance ?? [{ name: '', signature: null }])
-  const [sigInstructor, setSigInstructor] = useState<string | null>(existing?.signatureInstructor ?? null)
-  const [sigTrainee, setSigTrainee] = useState<string | null>(existing?.signatureTrainee ?? null)
-  // Ablauf: 1 Kopfdaten (Student/Instructor) -> 2 Grading -> 3 Unterschrift
+  // Unterschriften werden grundsätzlich NIE übernommen — auch beim Bearbeiten
+  // eines bestehenden Formulars muss neu unterschrieben werden.
+  const [attendance, setAttendance] = useState<AttendanceEntry[]>(
+    existing?.attendance?.map((a) => ({ ...a, signature: null })) ?? [{ name: '', signature: null }],
+  )
+  const [sigInstructor, setSigInstructor] = useState<string | null>(null)
+  const [sigTrainee, setSigTrainee] = useState<string | null>(null)
+  // Ablauf: 1 Kopfdaten (Student/Instructor) -> 2 Grading + Session-Daten -> Unterschrift
   const [step, setStep] = useState(existing ? 2 : 1)
   const [openBehaviour, setOpenBehaviour] = useState<string | null>(null)
   const [showFollowUp, setShowFollowUp] = useState(false)
@@ -66,22 +80,34 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
     setTrainees((list) => list.map((tr, j) => (j === i ? { ...tr, ...patch } : tr)))
 
   const setGrade = (i: number, code: string, grade: Grade) =>
-    setTrainee(i, { grades: trainees[i].grades.map((g) => (g.code === code ? { ...g, grade } : g)) })
+    setTrainees((list) =>
+      list.map((tr, j) => {
+        if (j !== i) return tr
+        const grades = tr.grades.map((g) => (g.code === code ? { ...g, grade } : g))
+        const next = { ...tr, grades }
+        // Automatik greift sofort und setzt das Overall Result fest.
+        return autoNotCompetent(next) ? { ...next, overall: 'not_competent' as OverallResult } : next
+      }),
+    )
 
   const setGradeComment = (i: number, code: string, comment: string) =>
     setTrainee(i, { grades: trainees[i].grades.map((g) => (g.code === code ? { ...g, comment } : g)) })
 
   const headerFields = formType?.fields ?? []
+  /** vor dem Grading zu erfassen (Schritt 1) */
+  const preFields = headerFields.filter((f) => !f.postGrading)
+  /** erst NACH dem Grading zu erfassen (Flight Time, Landings, …) */
+  const postFields = headerFields.filter((f) => f.postGrading)
 
   const isAttendance = formTypeId === '307A' || formTypeId === '307B'
 
   const needsFollowUp =
-    trainees.some((tr) => tr.overall === 'not_competent') || sessionStatus === 'not_completed'
+    trainees.some((tr) => tr.overall === 'not_competent' || autoNotCompetent(tr)) || sessionStatus === 'not_completed'
 
   /** Schritt 1: Kopfdaten inkl. Student/Instructor */
   const validateHeader = (): string => {
     if (!formType) return t('grading.errFormType')
-    for (const f of headerFields) {
+    for (const f of preFields) {
       if (f.required && !header[f.key]?.trim()) return t('grading.errRequired', { field: f.label })
     }
     if (competencies.length > 0) {
@@ -90,16 +116,24 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
     return ''
   }
 
-  /** Schritt 2: Bewertung und Unterschrift */
+  /** Schritt 2: Bewertung, Session-Daten und Unterschrift */
   const validate = (): string => {
     const headErr = validateHeader()
     if (headErr) return headErr
     if (competencies.length > 0) {
       for (const tr of trainees) {
+        const name = state.users.find((u) => u.id === tr.traineeId)?.name ?? t('grading.trainee')
         if (tr.grades.some((g) => g.grade === null)) return t('grading.errGrades')
+        if (tr.grades.some((g) => (g.grade === 1 || g.grade === 2) && !g.comment.trim()))
+          return t('grading.errGradeComment', { name })
+        if (!tr.positiveComment.trim() || !tr.developmentComment.trim() || !tr.summaryComment.trim())
+          return t('grading.errComments', { name })
         if (!tr.overall) return t('grading.errOverall')
       }
       if (!sessionStatus) return t('grading.errSession')
+    }
+    for (const f of postFields) {
+      if (f.required && !header[f.key]?.trim()) return t('grading.errRequired', { field: f.label })
     }
     if (!sigInstructor) return t('grading.errSignature')
     return ''
@@ -113,7 +147,8 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
       formTypeId: formType!.id,
       instructorId: currentUser!.id,
       header,
-      trainees,
+      // Automatik nochmals hart durchsetzen, falls ein alter Zustand vorliegt.
+      trainees: trainees.map((tr) => (autoNotCompetent(tr) ? { ...tr, overall: 'not_competent' as OverallResult } : tr)),
       sessionStatus,
       freeText,
       attendance: isAttendance ? attendance.filter((a) => a.name.trim()) : undefined,
@@ -161,6 +196,97 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
       navigate(`/grading/${rec.id}`)
     }
   }
+
+  /** Kopf- und Session-Datenfelder — in Schritt 1 (pre) und Schritt 2 (post) genutzt */
+  const renderField = (f: FormField) => (
+    <div key={f.key} className={f.wide ? 'sm:col-span-2' : ''}>
+      <Field label={f.label + (f.required ? ' *' : '')}>
+        {f.type === 'select' ? (
+          <select
+            value={header[f.key] ?? ''}
+            onChange={(e) => setHeader({ ...header, [f.key]: e.target.value })}
+            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+          >
+            <option value="">…</option>
+            {[...(f.options ?? [])].sort((a, b) => a.localeCompare(b)).map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        ) : f.type === 'duration' ? (
+          // Zeiten immer im Format hh:mm, wählbar in 30-Minuten-Schritten
+          <select
+            value={header[f.key] ?? ''}
+            onChange={(e) => setHeader({ ...header, [f.key]: e.target.value })}
+            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+          >
+            <option value="">hh:mm …</option>
+            {DURATION_OPTIONS.map((o) => (
+              <option key={o} value={o}>
+                {o}
+              </option>
+            ))}
+          </select>
+        ) : f.type === 'textarea' ? (
+          <textarea
+            value={header[f.key] ?? ''}
+            onChange={(e) => setHeader({ ...header, [f.key]: e.target.value })}
+            className={`${inputCls} min-h-20`}
+          />
+        ) : f.type === 'radiogroup' ? (
+          // Einfachauswahl als Ankreuzfelder wie im Original
+          <div className="flex flex-wrap gap-1.5">
+            {(f.options ?? []).map((o) => {
+              const on = header[f.key] === o
+              return (
+                <button
+                  key={o}
+                  onClick={() => setHeader({ ...header, [f.key]: on ? '' : o })}
+                  className={`rounded-lg border px-3 py-2 text-[13px] transition ${
+                    on ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/15 text-dim'
+                  }`}
+                >
+                  {on ? '☒' : '☐'} {o}
+                </button>
+              )
+            })}
+          </div>
+        ) : f.type === 'checkgroup' ? (
+          // Ankreuzfeld-Gruppe wie im Original (z. B. ATA Chapters bei 308F)
+          <div className="flex flex-wrap gap-1.5">
+            {[...(f.options ?? [])].sort((a, b) => a.localeCompare(b)).map((o) => {
+              const sel = (header[f.key] ?? '').split(', ').filter(Boolean)
+              const on = sel.includes(o)
+              return (
+                <button
+                  key={o}
+                  onClick={() =>
+                    setHeader({
+                      ...header,
+                      [f.key]: (on ? sel.filter((x) => x !== o) : [...sel, o]).sort().join(', '),
+                    })
+                  }
+                  className={`rounded-lg border px-2.5 py-1.5 text-[12.5px] transition ${
+                    on ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/15 text-dim'
+                  }`}
+                >
+                  {on ? '☒' : '☐'} {o}
+                </button>
+              )
+            })}
+          </div>
+        ) : (
+          <input
+            type={f.type === 'date' ? 'date' : f.type === 'number' ? 'number' : 'text'}
+            value={header[f.key] ?? ''}
+            onChange={(e) => setHeader({ ...header, [f.key]: e.target.value })}
+            className={inputCls}
+          />
+        )}
+      </Field>
+    </div>
+  )
 
   if (!mayGrade) {
     return (
@@ -304,86 +430,10 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
               </Card>
             )}
 
-            {/* 2b. Kopfdaten */}
+            {/* 2b. Kopfdaten (nur Felder, die VOR dem Grading erfasst werden) */}
             <Card className="space-y-3 p-4">
               <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.headerData')}</p>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {headerFields.map((f) => (
-                  <div key={f.key} className={f.wide ? 'sm:col-span-2' : ''}>
-                    <Field label={f.label + (f.required ? ' *' : '')}>
-                      {f.type === 'select' ? (
-                        <select
-                          value={header[f.key] ?? ''}
-                          onChange={(e) => setHeader({ ...header, [f.key]: e.target.value })}
-                          className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
-                        >
-                          <option value="">…</option>
-                          {[...(f.options ?? [])].sort((a, b) => a.localeCompare(b)).map((o) => (
-                            <option key={o} value={o}>
-                              {o}
-                            </option>
-                          ))}
-                        </select>
-                      ) : f.type === 'textarea' ? (
-                        <textarea
-                          value={header[f.key] ?? ''}
-                          onChange={(e) => setHeader({ ...header, [f.key]: e.target.value })}
-                          className={`${inputCls} min-h-20`}
-                        />
-                      ) : f.type === 'radiogroup' ? (
-                        // Einfachauswahl als Ankreuzfelder wie im Original
-                        <div className="flex flex-wrap gap-1.5">
-                          {(f.options ?? []).map((o) => {
-                            const on = header[f.key] === o
-                            return (
-                              <button
-                                key={o}
-                                onClick={() => setHeader({ ...header, [f.key]: on ? '' : o })}
-                                className={`rounded-lg border px-3 py-2 text-[13px] transition ${
-                                  on ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/15 text-dim'
-                                }`}
-                              >
-                                {on ? '☒' : '☐'} {o}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      ) : f.type === 'checkgroup' ? (
-                        // Ankreuzfeld-Gruppe wie im Original (z. B. 308H Event)
-                        <div className="flex flex-wrap gap-1.5">
-                          {[...(f.options ?? [])].sort((a, b) => a.localeCompare(b)).map((o) => {
-                            const sel = (header[f.key] ?? '').split(', ').filter(Boolean)
-                            const on = sel.includes(o)
-                            return (
-                              <button
-                                key={o}
-                                onClick={() =>
-                                  setHeader({
-                                    ...header,
-                                    [f.key]: (on ? sel.filter((x) => x !== o) : [...sel, o]).sort().join(', '),
-                                  })
-                                }
-                                className={`rounded-lg border px-2.5 py-1.5 text-[12.5px] transition ${
-                                  on ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/15 text-dim'
-                                }`}
-                              >
-                                {on ? '☒' : '☐'} {o}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      ) : (
-                        <input
-                          type={f.type === 'date' ? 'date' : f.type === 'number' ? 'number' : 'text'}
-                          value={header[f.key] ?? ''}
-                          onChange={(e) => setHeader({ ...header, [f.key]: e.target.value })}
-                          className={inputCls}
-                        />
-                      )}
-                    </Field>
-                  </div>
-                ))}
-              </div>
+              <div className="grid gap-3 sm:grid-cols-2">{preFields.map(renderField)}</div>
             </Card>
 
             {/* 3. Freitextabschnitte (306/310) */}
@@ -428,7 +478,9 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
 
             {/* 4. Grading je Pilot */}
             {competencies.length > 0 &&
-              trainees.map((tr, i) => (
+              trainees.map((tr, i) => {
+                const auto = autoNotCompetent(tr)
+                return (
                 <Card key={i} className="space-y-4 p-4">
                   <div className="flex items-center gap-2">
                     <p className="flex-1 text-[13px] font-semibold uppercase tracking-wide text-dim">
@@ -443,6 +495,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                     {competencies.map((c) => {
                       const g = tr.grades.find((x) => x.code === c.code)
                       const key = `${i}-${c.code}`
+                      const commentRequired = g?.grade === 1 || g?.grade === 2
                       return (
                         <div key={c.code} className="rounded-xl border border-line/10 p-3">
                           <div className="mb-2 flex items-start gap-2">
@@ -482,21 +535,21 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                           <input
                             value={g?.comment ?? ''}
                             onChange={(e) => setGradeComment(i, c.code, e.target.value)}
-                            placeholder={t('grading.commentOptional')}
-                            className={`${inputCls} mt-2 text-[13px]`}
+                            placeholder={commentRequired ? t('grading.commentRequired') : t('grading.commentOptional')}
+                            className={`${inputCls} mt-2 text-[13px] ${commentRequired && !g?.comment.trim() ? 'border-danger/60' : ''}`}
                           />
                         </div>
                       )
                     })}
                   </div>
 
-                  <Field label={t('grading.positive')}>
+                  <Field label={t('grading.positive') + ' *'}>
                     <textarea value={tr.positiveComment} onChange={(e) => setTrainee(i, { positiveComment: e.target.value })} className={`${inputCls} min-h-20`} />
                   </Field>
-                  <Field label={t('grading.development')}>
+                  <Field label={t('grading.development') + ' *'}>
                     <textarea value={tr.developmentComment} onChange={(e) => setTrainee(i, { developmentComment: e.target.value })} className={`${inputCls} min-h-20`} />
                   </Field>
-                  <Field label={t('grading.summary')}>
+                  <Field label={t('grading.summary') + ' *'}>
                     <textarea value={tr.summaryComment} onChange={(e) => setTrainee(i, { summaryComment: e.target.value })} className={`${inputCls} min-h-20`} />
                   </Field>
 
@@ -505,8 +558,9 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                       {(['competent', 'not_competent'] as OverallResult[]).map((o) => (
                         <button
                           key={o}
+                          disabled={o === 'competent' && auto}
                           onClick={() => setTrainee(i, { overall: o })}
-                          className={`flex-1 rounded-xl border px-3 py-3 text-[14px] font-semibold transition ${
+                          className={`flex-1 rounded-xl border px-3 py-3 text-[14px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
                             tr.overall === o
                               ? o === 'competent'
                                 ? 'border-emerald-400 bg-emerald-500/15 text-emerald-300'
@@ -518,9 +572,11 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                         </button>
                       ))}
                     </div>
+                    {auto && <p className="mt-2 text-[12.5px] leading-relaxed text-danger">{t('grading.autoNotCompetent')}</p>}
                   </Field>
                 </Card>
-              ))}
+                )
+              })}
 
             {competencies.length > 0 && (
               <>
@@ -544,7 +600,16 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
               </>
             )}
 
-            {/* 4b. Teilnehmerliste (307A/307B) */}
+            {/* 4b. Session-Daten — werden immer erst NACH dem Grading erfasst */}
+            {postFields.length > 0 && (
+              <Card className="space-y-3 p-4">
+                <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.sessionData')}</p>
+                <p className="text-[12px] leading-relaxed text-dim/80">{t('grading.sessionDataHint')}</p>
+                <div className="grid gap-3 sm:grid-cols-2">{postFields.map(renderField)}</div>
+              </Card>
+            )}
+
+            {/* 4c. Teilnehmerliste (307A/307B) */}
             {isAttendance && (
               <Card className="space-y-3 p-4">
                 <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.attendance')}</p>
@@ -574,12 +639,13 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
               </Card>
             )}
 
-            {/* 5. Unterschriften */}
+            {/* 5. Unterschriften — immer live zu leisten, nie gespeichert/übernommen */}
             <Card className="space-y-4 p-4">
               <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.signatures')}</p>
               <SignaturePad value={sigInstructor} onChange={setSigInstructor} label={t('grading.sigInstructor')} />
               {!isAttendance && <SignaturePad value={sigTrainee} onChange={setSigTrainee} label={t('grading.sigTrainee')} />}
               <p className="text-[11.5px] leading-relaxed text-dim/80">{t('grading.lockNote')}</p>
+              <p className="text-[11.5px] leading-relaxed text-dim/80">{t('grading.sigLiveNote')}</p>
             </Card>
 
             {error && <p className="text-[13px] text-danger">{error}</p>}

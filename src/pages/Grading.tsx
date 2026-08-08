@@ -1,9 +1,10 @@
-import { AlertTriangle, CheckCircle2, Clock, FileText, Plus } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, FileText, Plus, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
 import { Badge, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { useStore } from '../store'
+import type { GradingRecord } from '../types'
 
 /** Farbcodierung laut Spez. 5.3: 5/4 grün, 3 dunkelgrün, 2 orange, 1 rot, NO grau */
 export function gradeColor(g: number | 'NO' | null): string {
@@ -14,16 +15,52 @@ export function gradeColor(g: number | 'NO' | null): string {
   return 'bg-red-500/20 text-red-300'
 }
 
-export function Grading() {
-  const { t, i18n } = useTranslation()
-  const { state, currentUser, visibleGradingRecords } = useStore()
+/* Einheitliches Datumsformat DD.MM.YYYY für das gesamte Grading-Modul */
+export function formatDate(input: number | string): string {
+  const d = typeof input === 'number' ? new Date(input) : new Date(`${input}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return String(input)
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
+}
 
-  const dateLabel = (ts: number) =>
-    new Date(ts).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+export function formatDateTime(ts: number): string {
+  const d = new Date(ts)
+  return `${formatDate(ts)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+/**
+ * Ampelsystem für den Formularstatus:
+ *  grün  = abgeschlossen, unterschrieben und versendet
+ *  gelb  = noch offen (Unterschrift ausständig oder Versand noch nicht erfolgt)
+ *  rot   = Versand fehlgeschlagen — Handeln erforderlich
+ */
+export type TrafficColor = 'green' | 'yellow' | 'red'
+
+export function trafficLight(r: GradingRecord): TrafficColor {
+  if (r.mailStatus === 'failed') return 'red'
+  if (r.status === 'signed' && r.mailStatus === 'sent') return 'green'
+  return 'yellow'
+}
+
+export const TRAFFIC_CLS: Record<TrafficColor, string> = {
+  green: 'bg-emerald-400',
+  yellow: 'bg-amber-400',
+  red: 'bg-red-500',
+}
+
+export function TrafficDot({ color, className = '' }: { color: TrafficColor; className?: string }) {
+  return <span className={`inline-block h-3 w-3 shrink-0 rounded-full ${TRAFFIC_CLS[color]} ${className}`} />
+}
+
+export function Grading() {
+  // Das Grading-Modul ist immer vollständig englisch
+  const { i18n } = useTranslation()
+  const t = i18n.getFixedT('en')
+  const { state, currentUser, visibleGradingRecords, hideGradingRecord } = useStore()
 
   const formTitle = (id: string) => state.settings.grading.formTypes.find((f) => f.id === id)?.title ?? id
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
   const mayGrade = currentUser!.canGrade || currentUser!.role !== 'member'
+  const isMember = currentUser!.role === 'member'
 
   return (
     <>
@@ -45,6 +82,16 @@ export function Grading() {
       <Page className="space-y-3">
         {!mayGrade && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.noPermission')}</p>}
 
+        {/* Ampel-Legende */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line/10 bg-surface/60 px-3.5 py-2.5 text-[11.5px] text-dim">
+          <span className="inline-flex items-center gap-1.5"><TrafficDot color="green" /> {t('grading.traffic.green')}</span>
+          <span className="inline-flex items-center gap-1.5"><TrafficDot color="yellow" /> {t('grading.traffic.yellow')}</span>
+          <span className="inline-flex items-center gap-1.5"><TrafficDot color="red" /> {t('grading.traffic.red')}</span>
+        </div>
+
+        {/* Aufbewahrung in der Instruktoren-Ansicht: 1 Woche */}
+        {isMember && <p className="px-1 text-[11.5px] leading-relaxed text-dim/80">{t('grading.retentionHint')}</p>}
+
         {visibleGradingRecords.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('grading.empty')}</p>}
 
         {visibleGradingRecords.map((r) => {
@@ -61,7 +108,7 @@ export function Grading() {
                   </p>
                   <p className="mt-0.5 truncate text-[13px] text-dim">
                     {r.trainees.length > 0 ? r.trainees.map((tr) => userName(tr.traineeId)).join(', ') : t('grading.noTrainee')} ·{' '}
-                    {r.header.aircraftType} · {dateLabel(r.createdAt)}
+                    {r.header.aircraftType} · {formatDate(r.createdAt)}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {r.status === 'signed' ? (
@@ -83,6 +130,21 @@ export function Grading() {
                     )}
                     {r.parentId && <Badge tone="dim">{t('grading.linked')}</Badge>}
                   </div>
+                </div>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <TrafficDot color={trafficLight(r)} className="mt-1" />
+                  {isMember && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (window.confirm(t('grading.deleteOwnConfirm'))) hideGradingRecord(r.id)
+                      }}
+                      title={t('grading.deleteOwn')}
+                      className="rounded-lg p-1.5 text-dim transition hover:bg-danger/10 hover:text-danger"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
                 </div>
               </div>
             </Card>

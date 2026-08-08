@@ -160,7 +160,7 @@ export interface CompetencySet {
   competencies: Competency[]
 }
 
-export type FieldType = 'text' | 'date' | 'select' | 'number' | 'textarea' | 'checkgroup' | 'radiogroup'
+export type FieldType = 'text' | 'date' | 'select' | 'number' | 'textarea' | 'checkgroup' | 'radiogroup' | 'duration'
 
 export interface FormField {
   key: string
@@ -170,6 +170,8 @@ export interface FormField {
   required: boolean
   /** Feld über die volle Breite darstellen (langes Textfeld) */
   wide?: boolean
+  /** wird erst NACH dem Grading erfasst (z. B. Flight Time, Landings) */
+  postGrading?: boolean
 }
 
 /** Teilnehmerzeile der Anwesenheitslisten 307A/307B */
@@ -238,6 +240,8 @@ export interface GradingRecord {
   mailError?: string
   /** Teilnehmerliste der Formulare 307A/307B */
   attendance?: AttendanceEntry[]
+  /** vom Instruktor aus der eigenen Ansicht entfernt — Admin sieht es weiter */
+  hiddenForInstructor?: boolean
   /** Verweis auf ein zugehöriges Formular (306/310 an ein Grading Sheet) */
   parentId?: string
   createdAt: number

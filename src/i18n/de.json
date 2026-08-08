@@ -285,7 +285,23 @@
     "toGrading": "Weiter zum Grading",
     "continue": "Weiter",
     "backToHeader": "Zurück zu den Kopfdaten",
-    "completeSignature": "Unterschrift speichern und Formular sperren"
+    "completeSignature": "Unterschrift speichern und Formular sperren",
+    "commentRequired": "Kommentar (Pflicht bei Note 1 oder 2)",
+    "errGradeComment": "{{name}}: Bei jeder mit 1 oder 2 bewerteten Kompetenz ist ein Kommentar Pflicht.",
+    "errComments": "{{name}}: Positive Aspekte, Entwicklungsfelder und Zusammenfassung sind Pflichtfelder.",
+    "autoNotCompetent": "Automatisch Not Competent: eine oder mehr Kompetenzen mit „1“ oder zwei oder mehr mit „2“ bewertet.",
+    "sessionData": "Session-Daten",
+    "sessionDataHint": "Diese Angaben werden immer erst nach dem Grading am Ende der Session erfasst.",
+    "sigLiveNote": "Unterschriften werden niemals gespeichert oder übernommen — wenn etwas zu unterschreiben ist, muss live am Gerät unterschrieben werden.",
+    "retentionHint": "Grading Sheets bleiben in deiner Ansicht eine Woche nach Erstellung sichtbar. Im Admin-Panel bleiben sie unbegrenzt gespeichert.",
+    "deleteOwn": "Aus meiner Ansicht entfernen",
+    "deleteOwnConfirm": "Dieses Grading Sheet aus deiner Ansicht entfernen? Für Admins bleibt es gespeichert.",
+    "exportStamp": "Exportiert/gedruckt am {{date}} von {{name}} — Instructor Connect",
+    "traffic": {
+      "green": "abgeschlossen: unterschrieben und versendet",
+      "yellow": "offen: Unterschrift oder Versand ausständig",
+      "red": "Versand fehlgeschlagen — Handeln erforderlich"
+    }
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",
