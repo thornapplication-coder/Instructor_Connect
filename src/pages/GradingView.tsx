@@ -282,10 +282,14 @@ export function GradingView({ recordId }: { recordId: string }) {
         {isAdmin && (
           <p className="text-center text-[12px] text-dim/70">
             {t('grading.recipients')}:{' '}
-            {(record.trainees.some((tr) => tr.overall === 'not_competent') || record.sessionStatus === 'not_completed'
-              ? [...grading.defaultRecipients, ...grading.escalationRecipients]
-              : grading.defaultRecipients
-            ).join(', ')}
+            {[
+              ...grading.defaultRecipients,
+              // Form 310 (Deferred Item List) geht IMMER an den Training Admin
+              ...(record.formTypeId === '310' ? grading.deferredRecipients : []),
+              ...(record.trainees.some((tr) => tr.overall === 'not_competent') || record.sessionStatus === 'not_completed'
+                ? grading.escalationRecipients
+                : []),
+            ].join(', ')}
           </p>
         )}
       </Page>

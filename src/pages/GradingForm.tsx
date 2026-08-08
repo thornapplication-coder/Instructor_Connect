@@ -648,6 +648,13 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
               <p className="text-[11.5px] leading-relaxed text-dim/80">{t('grading.sigLiveNote')}</p>
             </Card>
 
+            {/* Deferred Item List: Versand geht immer an den Training Admin */}
+            {formTypeId === '310' && (
+              <p className="rounded-xl border border-warm/25 bg-warm/5 p-3.5 text-[12.5px] leading-relaxed text-dim">
+                {t('grading.deferredMailNote', { recipients: grading.deferredRecipients.join(', ') })}
+              </p>
+            )}
+
             {error && <p className="text-[13px] text-danger">{error}</p>}
 
             <Button className="flex w-full items-center justify-center gap-2 py-3" onClick={submit}>

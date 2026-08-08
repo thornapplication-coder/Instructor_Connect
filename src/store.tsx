@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { createSeedState } from './sandbox/seed'
 import { RETENTION_MS, type AppState, type Attachment, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type PollType, type RetentionKey, type Role, type SeenState, type User } from './types'
+import type { InfoEntry } from './types'
 
 const EMPTY_SEEN: SeenState = { chat: {}, info: 0, contacts: 0 }
 
@@ -36,8 +37,14 @@ export interface Store {
   toggleMute: (groupId: string) => void
   setGroupRetention: (groupId: string, retention: RetentionKey | null) => void
   setGroupMembers: (groupId: string, memberIds: string[]) => void
-  addInfoEntry: (entry: { type: 'pdf' | 'text'; title: string; description: string; body?: string; fileName?: string }) => void
+  addInfoEntry: (entry: Omit<InfoEntry, 'id' | 'authorId' | 'createdAt'>) => void
   deleteInfoEntry: (id: string) => void
+  /** Stern-Markierung des aktuellen Nutzers für einen Info-Eintrag umschalten */
+  toggleStarInfo: (id: string) => void
+  /** IDs der vom aktuellen Nutzer markierten Info-Einträge */
+  starredInfoIds: Set<string>
+  submitFeedback: (entry: { category: string; recipient: string; urgent: boolean; message: string; attachment?: Attachment }) => void
+  deleteFeedback: (id: string) => void
   saveContact: (contact: { id?: string; department: string; position: string; name: string; phone: string; email: string }) => void
   deleteContact: (id: string) => void
   addUser: (user: { name: string; email: string; phone: string; role: Role }) => void
@@ -306,6 +313,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ],
         })),
       deleteInfoEntry: (id) => patch((s) => ({ infoEntries: s.infoEntries.filter((e) => e.id !== id) })),
+      toggleStarInfo: (id) =>
+        patch((s) => {
+          if (!s.currentUserId) return null
+          const mine = s.starredInfo[s.currentUserId] ?? []
+          const next = mine.includes(id) ? mine.filter((x) => x !== id) : [...mine, id]
+          return { starredInfo: { ...s.starredInfo, [s.currentUserId]: next } }
+        }),
+      starredInfoIds: new Set(state.currentUserId ? state.starredInfo[state.currentUserId] ?? [] : []),
+
+      submitFeedback: (entry) =>
+        patch((s) => ({
+          feedbackEntries: [
+            ...s.feedbackEntries,
+            { ...entry, id: uid('fb'), authorId: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs },
+          ],
+        })),
+      deleteFeedback: (id) => patch((s) => ({ feedbackEntries: s.feedbackEntries.filter((f) => f.id !== id) })),
 
       saveContact: (contact) =>
         patch((s) => ({

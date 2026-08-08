@@ -279,6 +279,7 @@ export function GradingAdmin() {
           <Card className="space-y-4 p-4">
             <StringList label={t('grading.admin.defaultRecipients')} values={g.defaultRecipients} onChange={(v) => updateGrading({ defaultRecipients: v })} />
             <StringList label={t('grading.admin.escalationRecipients')} values={g.escalationRecipients} onChange={(v) => updateGrading({ escalationRecipients: v })} />
+            <StringList label={t('grading.admin.deferredRecipients')} values={g.deferredRecipients} onChange={(v) => updateGrading({ deferredRecipients: v })} />
           </Card>
 
           <Card className="p-4">

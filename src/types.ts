@@ -66,7 +66,26 @@ export interface InfoEntry {
   description: string
   body?: string
   fileName?: string
+  /** Kategorie aus settings.infoCategories */
+  category: string
+  /** Gültig ab (YYYY-MM-DD); leer = ab Veröffentlichung */
+  validFrom?: string
+  /** Gültig bis (YYYY-MM-DD); leer = UFN (until further notice) */
+  validUntil?: string
   authorId: string
+  createdAt: number
+}
+
+/** Feedback-Eintrag — bleibt im Admin-Panel gespeichert, dort löschbar */
+export interface FeedbackEntry {
+  id: string
+  authorId: string
+  category: string
+  /** gewählter Empfänger aus settings.feedbackRecipients */
+  recipient: string
+  urgent: boolean
+  message: string
+  attachment?: Attachment
   createdAt: number
 }
 
@@ -101,6 +120,10 @@ export interface Settings {
   maxUploadMB: number
   feedbackCategories: string[]
   feedbackCC: string[]
+  /** wählbare Empfänger für Feedback */
+  feedbackRecipients: string[]
+  /** Kategorien der Instructor-Info-Einträge, im Admin Panel pflegbar */
+  infoCategories: string[]
   allowedDomains: string[]
   /** Impressumstext je Sprache, im Admin Panel bearbeitbar */
   imprint: { de: string; en: string }
@@ -134,6 +157,9 @@ export interface AppState {
   contactsChangedAt: number
   gradingRecords: GradingRecord[]
   lessonPlans: LessonPlan[]
+  feedbackEntries: FeedbackEntry[]
+  /** je Nutzer: mit Stern markierte Instructor-Info-Einträge */
+  starredInfo: Record<string, string[]>
 }
 
 
@@ -253,6 +279,8 @@ export interface GradingSettings {
   defaultRecipients: string[]
   /** zusätzliche Empfänger bei Not Competent / Additional Training / Deferred */
   escalationRecipients: string[]
+  /** Empfänger für Form 310 (Deferred Item List) — geht IMMER an den Training Admin */
+  deferredRecipients: string[]
   competencySets: CompetencySet[]
   formTypes: FormType[]
 }

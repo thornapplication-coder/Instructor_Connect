@@ -12,8 +12,8 @@ const TILES = [
   { to: '/grading', label: 'Grading Tool', icon: GradingIcon },
   { to: '/lessons', label: 'Lesson Plan', icon: BookOpenCheck },
   { to: '/chat', label: 'Chat', icon: MessagesSquare },
-  { to: '/feedback', label: 'Feedback', icon: MessageSquareText },
   { to: '/info', label: 'Instructor Info', icon: GraduationCap },
+  { to: '/feedback', label: 'Feedback', icon: MessageSquareText },
   { to: '/contacts', label: 'Who to call', icon: Phone },
 ] as const
 

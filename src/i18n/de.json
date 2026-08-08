@@ -102,7 +102,16 @@
     "description": "Beschreibung (optional)",
     "body": "Text",
     "typeLabel": "Eintragstyp",
-    "permanentNote": "Einträge in dieser Bibliothek sind dauerhaft — die Chat-Löschregeln gelten hier nicht."
+    "permanentNote": "Einträge in dieser Bibliothek sind dauerhaft — die Chat-Löschregeln gelten hier nicht.",
+    "category": "Kategorie",
+    "allCategories": "Alle",
+    "validFrom": "Gültig ab",
+    "validUntil": "Gültig bis",
+    "ufnHint": "„Gültig bis\" leer lassen für UFN (until further notice).",
+    "validity": "Gültig",
+    "expired": "abgelaufen",
+    "star": "Für mich als wichtig markieren",
+    "confirmDelete": "Diesen Eintrag für alle Nutzer löschen?"
   },
   "contacts": {
     "call": "Anrufen",
@@ -117,18 +126,23 @@
   },
   "feedback": {
     "title": "Feedback",
-    "intro": "Dein Feedback geht per E-Mail an die Admins der ausgewählten Gruppen.",
-    "groups": "Welche Gruppen betrifft es?",
+    "intro": "Dein Feedback geht per E-Mail an den gewählten Empfänger.",
     "category": "Kategorie",
     "message": "Deine Nachricht",
     "submit": "Feedback senden",
     "identity": "Wird mit deinem Namen gesendet: Feedback ist nicht anonym. {{name}} ({{email}}) ist für die Empfänger sichtbar.",
     "sentTitle": "Feedback gesendet",
-    "sentBody": "Dein Feedback wurde an die zuständigen Admins weitergeleitet.",
+    "sentBody": "Dein Feedback wurde gesendet und für die Admins gespeichert.",
     "recipients": "Empfänger",
     "cc": "CC",
     "backHome": "Zurück zur Startseite",
-    "errorEmpty": "Bitte mindestens eine Gruppe wählen und eine Nachricht eingeben."
+    "errorEmpty": "Bitte einen Empfänger wählen und eine Nachricht eingeben.",
+    "recipient": "Senden an",
+    "urgent": "Urgent",
+    "urgentOn": "als dringend markiert",
+    "urgentOff": "antippen, wenn es dringend ist",
+    "attachment": "Anhang (Foto oder PDF, optional)",
+    "attach": "Foto oder PDF anhängen"
   },
   "admin": {
     "title": "Admin Panel",
@@ -166,7 +180,12 @@
     "canGrade": "Darf bewerten (Grading)",
     "isTrainee": "Ist Trainee",
     "grading": "Grading Tool",
-    "aircraftTypes": "Zugewiesene Aircraft Types (Lesson Plans)"
+    "aircraftTypes": "Zugewiesene Aircraft Types (Lesson Plans)",
+    "feedback": "Feedback",
+    "feedbackEmpty": "Noch kein Feedback eingegangen.",
+    "confirmDeleteFeedback": "Diesen Feedback-Eintrag löschen?",
+    "infoCategories": "Instructor-Info-Kategorien",
+    "feedbackRecipients": "Feedback-Empfänger (auswählbar)"
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",
@@ -271,7 +290,8 @@
       "export_records": "Formulare (CSV)",
       "export_competencies": "Kompetenzen (CSV)",
       "export_people": "Personen (CSV)",
-      "exportHint": "Unaufbereitete Rohdaten für Audits, getrennt nach Training, Kompetenzen und Personen."
+      "exportHint": "Unaufbereitete Rohdaten für Audits, getrennt nach Training, Kompetenzen und Personen.",
+      "deferredRecipients": "Empfänger Form 310 (Deferred Item List) — wird immer benachrichtigt"
     },
     "attendance": "Teilnehmerliste",
     "studentName": "Name des Teilnehmers",
@@ -301,7 +321,8 @@
       "green": "abgeschlossen: unterschrieben und versendet",
       "yellow": "offen: Unterschrift oder Versand ausständig",
       "red": "Versand fehlgeschlagen — Handeln erforderlich"
-    }
+    },
+    "deferredMailNote": "Form 310 (Deferred Item List) is always emailed to the Training Admin upon completion: {{recipients}}"
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

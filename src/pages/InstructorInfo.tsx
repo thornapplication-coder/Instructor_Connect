@@ -1,24 +1,27 @@
-import { Download, Eye, FileText, Plus, ScrollText, Search, Trash2 } from 'lucide-react'
+import { Download, Eye, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { useStore } from '../store'
-
-function dateLabel(ts: number, lng: string) {
-  return new Date(ts).toLocaleDateString(lng === 'de' ? 'de-AT' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
+import { formatDate } from './Grading'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
 
+/** „NEW“-Kennzeichnung: zwei Wochen ab Veröffentlichung */
+const NEW_MS = 14 * 24 * 3600_000
+
 function NewEntryModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
-  const { addInfoEntry } = useStore()
+  const { state, addInfoEntry } = useStore()
   const [type, setType] = useState<'text' | 'pdf'>('text')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [body, setBody] = useState('')
+  const [category, setCategory] = useState(state.settings.infoCategories[0] ?? '')
+  const [validFrom, setValidFrom] = useState('')
+  const [validUntil, setValidUntil] = useState('')
 
-  const valid = title.trim() && (type === 'pdf' || body.trim())
+  const valid = title.trim() && category && (type === 'pdf' || body.trim())
 
   return (
     <Modal title={t('info.newEntry')} onClose={onClose}>
@@ -41,9 +44,32 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
         <Field label={t('info.entryTitle')}>
           <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
         </Field>
+        <Field label={t('info.category')}>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+          >
+            {state.settings.infoCategories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </Field>
         <Field label={t('info.description')}>
           <input className={inputCls} value={description} onChange={(e) => setDescription(e.target.value)} />
         </Field>
+        {/* Gültigkeit: leeres Bis-Datum = UFN (until further notice) */}
+        <div className="grid grid-cols-2 gap-3">
+          <Field label={t('info.validFrom')}>
+            <input type="date" className={inputCls} value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />
+          </Field>
+          <Field label={t('info.validUntil')}>
+            <input type="date" className={inputCls} value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+          </Field>
+        </div>
+        <p className="-mt-2 text-[11.5px] leading-relaxed text-dim/80">{t('info.ufnHint')}</p>
         {type === 'text' ? (
           <Field label={t('info.body')}>
             <textarea className={`${inputCls} min-h-28`} value={body} onChange={(e) => setBody(e.target.value)} />
@@ -66,6 +92,9 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
                 description: description.trim(),
                 body: type === 'text' ? body.trim() : undefined,
                 fileName: type === 'pdf' ? 'sample.pdf' : undefined,
+                category,
+                validFrom,
+                validUntil,
               })
               onClose()
             }}
@@ -79,9 +108,10 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
 }
 
 export function InstructorInfo() {
-  const { t, i18n } = useTranslation()
-  const { state, currentUser, deleteInfoEntry, markInfoSeen } = useStore()
+  const { t } = useTranslation()
+  const { state, now, currentUser, deleteInfoEntry, markInfoSeen, toggleStarInfo, starredInfoIds } = useStore()
   const [query, setQuery] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
 
   // Besuch der Seite gilt als „gesehen“ — der grüne Punkt auf der Kachel
   // erlischt. markInfoSeen ist idempotent, volle Dependencies sind sicher.
@@ -91,10 +121,27 @@ export function InstructorInfo() {
   const [showNew, setShowNew] = useState(false)
   const [openId, setOpenId] = useState<string | null>(null)
 
+  // Löschen nur Admin/Superadmin
   const mayEdit = currentUser!.role !== 'member'
+  const categories = state.settings.infoCategories
+
+  // Immer nach Datum sortiert (neueste zuerst), markierte Einträge zuoberst
   const entries = state.infoEntries
     .filter((e) => (e.title + ' ' + e.description).toLowerCase().includes(query.toLowerCase()))
-    .sort((a, b) => a.title.localeCompare(b.title))
+    .filter((e) => !categoryFilter || e.category === categoryFilter)
+    .sort((a, b) => {
+      const starDiff = Number(starredInfoIds.has(b.id)) - Number(starredInfoIds.has(a.id))
+      return starDiff !== 0 ? starDiff : b.createdAt - a.createdAt
+    })
+
+  const validityLabel = (e: { validFrom?: string; validUntil?: string }) => {
+    const from = e.validFrom ? formatDate(e.validFrom) : null
+    const until = e.validUntil ? formatDate(e.validUntil) : 'UFN'
+    return from ? `${from} – ${until}` : until
+  }
+
+  const isExpired = (e: { validUntil?: string }) =>
+    !!e.validUntil && new Date(`${e.validUntil}T23:59:59`).getTime() < now()
 
   return (
     <>
@@ -124,23 +171,70 @@ export function InstructorInfo() {
           />
         </div>
 
+        {/* Kategorie-Filter */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          <button
+            onClick={() => setCategoryFilter('')}
+            className={`shrink-0 rounded-full border px-3 py-1.5 text-[12.5px] transition ${
+              categoryFilter === '' ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
+            }`}
+          >
+            {t('info.allCategories')}
+          </button>
+          {categories.map((c) => (
+            <button
+              key={c}
+              onClick={() => setCategoryFilter(categoryFilter === c ? '' : c)}
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-[12.5px] transition ${
+                categoryFilter === c ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+
         {entries.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('info.empty')}</p>}
 
         {entries.map((entry) => {
           const author = state.users.find((u) => u.id === entry.authorId)
           const open = openId === entry.id
+          const isNew = now() - entry.createdAt < NEW_MS
+          const starred = starredInfoIds.has(entry.id)
+          const expired = isExpired(entry)
           return (
-            <Card key={entry.id} className="p-4">
+            <Card key={entry.id} className={`p-4 ${expired ? 'opacity-60' : ''}`}>
               <div className="flex items-start gap-3">
                 <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised text-accent">
                   {entry.type === 'pdf' ? <FileText size={19} /> : <ScrollText size={19} />}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-semibold leading-snug">{entry.title}</p>
+                  <div className="flex items-start gap-2">
+                    <p className="min-w-0 flex-1 text-[15px] font-semibold leading-snug">
+                      {entry.title}
+                      {isNew && (
+                        <span className="ml-2 inline-block rounded-full bg-emerald-500/20 px-2 py-0.5 align-middle text-[10.5px] font-bold tracking-wide text-emerald-300">
+                          NEW
+                        </span>
+                      )}
+                    </p>
+                    {/* Stern: persönliche Wichtig-Markierung des Nutzers */}
+                    <button
+                      onClick={() => toggleStarInfo(entry.id)}
+                      title={t('info.star')}
+                      className={`shrink-0 rounded-lg p-1 transition ${starred ? 'text-amber-300' : 'text-dim/60 hover:text-amber-300'}`}
+                    >
+                      <Star size={17} fill={starred ? 'currentColor' : 'none'} />
+                    </button>
+                  </div>
                   {entry.description && <p className="mt-0.5 text-[13px] text-dim">{entry.description}</p>}
                   <p className="mt-1 text-[11.5px] text-dim/80">
-                    {t(entry.type === 'pdf' ? 'info.pdfEntry' : 'info.textEntry')} · {dateLabel(entry.createdAt, i18n.language)} ·{' '}
-                    {t('info.by', { name: author?.name ?? '—' })}
+                    <span className="mr-1.5 rounded bg-raised px-1.5 py-0.5 font-medium text-dim">{entry.category}</span>
+                    {formatDate(entry.createdAt)} · {t('info.by', { name: author?.name ?? '—' })}
+                  </p>
+                  <p className={`mt-1 text-[11.5px] ${expired ? 'text-danger' : 'text-dim/80'}`}>
+                    {t('info.validity')}: {validityLabel(entry)}
+                    {expired && ` · ${t('info.expired')}`}
                   </p>
                   <div className="mt-2.5 flex flex-wrap gap-2">
                     {entry.type === 'pdf' ? (
@@ -171,7 +265,7 @@ export function InstructorInfo() {
                     )}
                     {mayEdit && (
                       <button
-                        onClick={() => deleteInfoEntry(entry.id)}
+                        onClick={() => window.confirm(t('info.confirmDelete')) && deleteInfoEntry(entry.id)}
                         className="flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-[13px] text-danger hover:bg-danger/10"
                       >
                         <Trash2 size={14} /> {t('common.delete')}

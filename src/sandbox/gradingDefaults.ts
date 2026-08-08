@@ -331,6 +331,8 @@ export const FORM_TYPES: FormType[] = [
 export const GRADING_DEFAULTS: GradingSettings = {
   defaultRecipients: ['training-records@instructorconnect.at'],
   escalationRecipients: ['admin@instructorconnect.at', 'head-of-training@instructorconnect.at'],
+  // Form 310 (Deferred Item List) geht IMMER zusätzlich an den Training Admin
+  deferredRecipients: ['trainingadmin@instructorconnect.at'],
   competencySets: [PILOT_SET, INSTRUCTOR_SET],
   formTypes: FORM_TYPES,
 }

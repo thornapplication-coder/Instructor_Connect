@@ -1,14 +1,15 @@
-import { Monitor, Plus, Trash2, X } from 'lucide-react'
+import { AlertTriangle, Monitor, Paperclip, Plus, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { useStore } from '../store'
 import { useIsDesktop } from '../useIsDesktop'
 import { GradingAdmin } from './admin/GradingAdmin'
+import { formatDateTime } from './Grading'
 import { APP_VERSION, type RetentionKey, type Role } from '../types'
 
 const RETENTION_KEYS: RetentionKey[] = ['24h', '7d', '30d', '90d', 'never']
-type Tab = 'users' | 'grading' | 'groups' | 'settings' | 'imprint' | 'changelog'
+type Tab = 'users' | 'grading' | 'groups' | 'feedback' | 'settings' | 'imprint' | 'changelog'
 
 function StringListEditor({ label, values, onChange }: { label: string; values: string[]; onChange: (v: string[]) => void }) {
   const { t } = useTranslation()
@@ -318,6 +319,52 @@ function GroupsTab() {
   )
 }
 
+/** Eingegangenes Feedback: bleibt gespeichert, kann hier bei Bedarf gelöscht werden */
+function FeedbackTab() {
+  const { t } = useTranslation()
+  const { state, deleteFeedback } = useStore()
+  const entries = [...state.feedbackEntries].sort((a, b) => b.createdAt - a.createdAt)
+  const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
+
+  return (
+    <div className="space-y-3">
+      {entries.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('admin.feedbackEmpty')}</p>}
+      {entries.map((f) => (
+        <Card key={f.id} className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-[14.5px] font-semibold">{userName(f.authorId)}</p>
+                <Badge tone="dim">{f.category}</Badge>
+                {f.urgent && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[11px] font-semibold text-danger">
+                    <AlertTriangle size={11} /> {t('feedback.urgent')}
+                  </span>
+                )}
+              </div>
+              <p className="mt-0.5 text-[12px] text-dim">
+                {formatDateTime(f.createdAt)} · {t('feedback.recipient')}: {f.recipient}
+              </p>
+              <p className="mt-2 whitespace-pre-wrap text-[13.5px] leading-relaxed">{f.message}</p>
+              {f.attachment && (
+                <p className="mt-2 flex items-center gap-1.5 text-[12.5px] text-dim">
+                  <Paperclip size={13} /> {f.attachment.name} · {f.attachment.sizeMB} MB
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => window.confirm(t('admin.confirmDeleteFeedback')) && deleteFeedback(f.id)}
+              className="shrink-0 rounded-full p-2 text-dim hover:text-danger"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
 function SettingsTab() {
   const { t } = useTranslation()
   const { state, updateSettings } = useStore()
@@ -350,7 +397,14 @@ function SettingsTab() {
         </Field>
       </Card>
       <Card className="p-4">
+        {/* Kategorien der Instructor-Info-Einträge: löschen/hinzufügen — Filter passt sich an */}
+        <StringListEditor label={t('admin.infoCategories')} values={s.infoCategories} onChange={(v) => updateSettings({ infoCategories: v })} />
+      </Card>
+      <Card className="p-4">
         <StringListEditor label={t('admin.categories')} values={s.feedbackCategories} onChange={(v) => updateSettings({ feedbackCategories: v })} />
+      </Card>
+      <Card className="p-4">
+        <StringListEditor label={t('admin.feedbackRecipients')} values={s.feedbackRecipients} onChange={(v) => updateSettings({ feedbackRecipients: v })} />
       </Card>
       <Card className="p-4">
         <StringListEditor label={t('admin.ccList')} values={s.feedbackCC} onChange={(v) => updateSettings({ feedbackCC: v })} />
@@ -469,7 +523,7 @@ export function Admin() {
     )
   }
 
-  const tabs: Tab[] = ['users', 'grading', 'groups', 'settings', 'imprint', 'changelog']
+  const tabs: Tab[] = ['users', 'grading', 'groups', 'feedback', 'settings', 'imprint', 'changelog']
 
   return (
     <>
@@ -491,6 +545,7 @@ export function Admin() {
         {tab === 'users' && <UsersTab />}
         {tab === 'grading' && <GradingAdmin />}
         {tab === 'groups' && <GroupsTab />}
+        {tab === 'feedback' && <FeedbackTab />}
         {tab === 'settings' && <SettingsTab />}
         {tab === 'imprint' && <ImprintTab />}
         {tab === 'changelog' && <ChangelogTab />}
