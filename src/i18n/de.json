@@ -165,7 +165,8 @@
     "desktopOnly": "Das Admin Panel ist nur am Desktop verfügbar — auf Tablet und Handy wäre die Verwaltung zu unübersichtlich. Bitte an einem Computer öffnen.",
     "canGrade": "Darf bewerten (Grading)",
     "isTrainee": "Ist Trainee",
-    "grading": "Grading Tool"
+    "grading": "Grading Tool",
+    "aircraftTypes": "Zugewiesene Aircraft Types (Lesson Plans)"
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",
@@ -271,6 +272,29 @@
       "export_competencies": "Kompetenzen (CSV)",
       "export_people": "Personen (CSV)",
       "exportHint": "Unaufbereitete Rohdaten für Audits, getrennt nach Training, Kompetenzen und Personen."
-    }
+    },
+    "attendance": "Teilnehmerliste",
+    "studentName": "Name des Teilnehmers",
+    "addAttendee": "Teilnehmer hinzufügen",
+    "attendance307B": "Mit der Unterschrift bestätigt der Instruktor/Examiner die Teilnahme aller gelisteten Personen im vollen Umfang und innerhalb des angegebenen Zeitrahmens.",
+    "footnote1": "* Ankreuzen, wenn zwei oder mehr Kompetenzen mit 2 oder schlechter bewertet wurden; siehe Form 306 – Additional Training.",
+    "footnote2": "** Ankreuzen, wenn ein oder mehrere geforderte Punkte nicht abgeschlossen wurden; nicht abgeschlossene Punkte im Kommentarfeld und auf Form 310 (Deferred Item List) beschreiben.",
+    "footnote3": "*** Bereit für den Skill Test, zu unterzeichnen auf Form 311.",
+    "participants": "Student / Instructor",
+    "student": "Student",
+    "toGrading": "Weiter zum Grading",
+    "continue": "Weiter",
+    "backToHeader": "Zurück zu den Kopfdaten"
+  },
+  "lessons": {
+    "newPlan": "Lesson Plan hochladen",
+    "title": "Titel",
+    "description": "Beschreibung (optional)",
+    "aircraftType": "Aircraft Type",
+    "file": "PDF-Datei",
+    "allTypes": "Alle Muster",
+    "empty": "Keine Lesson Plans für die zugewiesenen Muster vorhanden.",
+    "noAircraft": "Dir ist noch kein Aircraft Type zugewiesen. Der Admin kann das im Benutzer-Management ändern — danach siehst du die passenden Lesson Plans.",
+    "assignedNote": "Du siehst Lesson Plans für: {{types}}"
   }
 }

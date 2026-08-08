@@ -1,4 +1,4 @@
-import { LogOut, MessageSquareText, MessagesSquare, Phone, GraduationCap, ShieldCheck, Share } from 'lucide-react'
+import { BookOpenCheck, LogOut, MessageSquareText, MessagesSquare, Phone, GraduationCap, ShieldCheck, Share } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
 import { Avatar, NewDot, ThemeToggle } from '../components/ui'
@@ -10,6 +10,7 @@ import { APP_VERSION } from '../types'
 /* Kachel-Beschriftungen bleiben laut Spez. §5 in beiden Sprachen Englisch. */
 const TILES = [
   { to: '/grading', label: 'Grading Tool', icon: GradingIcon },
+  { to: '/lessons', label: 'Lesson Plan', icon: BookOpenCheck },
   { to: '/chat', label: 'Chat', icon: MessagesSquare },
   { to: '/feedback', label: 'Feedback', icon: MessageSquareText },
   { to: '/info', label: 'Instructor Info', icon: GraduationCap },
@@ -28,6 +29,7 @@ export function Home() {
   // Eintrag hier ist ein Compile-Fehler, kein still fehlender Punkt.
   const hasNews: Record<(typeof TILES)[number]['to'], boolean> = {
     '/grading': hasOpenGrading,
+    '/lessons': false,
     '/chat': unreadGroups.size > 0,
     '/feedback': false,
     '/info': hasNewInfo,
@@ -73,7 +75,7 @@ export function Home() {
         </h1>
         <p className="mb-6 text-sm text-dim">{t('home.subtitle')}</p>
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5 sm:gap-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
           {TILES.map(({ to, label, icon: Icon }) => (
             <button
               key={to}

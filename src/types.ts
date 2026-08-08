@@ -13,6 +13,8 @@ export interface User {
   canGrade: boolean
   /** erscheint in der Trainee-Auswahl des Grading Tools */
   isTrainee: boolean
+  /** zugewiesene Aircraft Types — steuert die Sicht auf Lesson Plans */
+  aircraftTypes: string[]
   active: boolean
 }
 
@@ -68,6 +70,17 @@ export interface InfoEntry {
   createdAt: number
 }
 
+export interface LessonPlan {
+  id: string
+  title: string
+  description: string
+  /** Muster, für das der Lesson Plan gilt */
+  aircraftType: string
+  fileName: string
+  uploadedBy: string
+  createdAt: number
+}
+
 export interface Contact {
   id: string
   department: string
@@ -92,6 +105,8 @@ export interface Settings {
   /** Impressumstext je Sprache, im Admin Panel bearbeitbar */
   imprint: { de: string; en: string }
   grading: GradingSettings
+  /** zentrale Musterliste für Lesson Plans und Grading */
+  aircraftTypes: string[]
 }
 
 /** Zuletzt-gesehen-Zeitstempel eines Nutzers für die „Neu“-Markierungen */
@@ -118,6 +133,7 @@ export interface AppState {
   /** letzte Änderung im Who-to-call-Verzeichnis */
   contactsChangedAt: number
   gradingRecords: GradingRecord[]
+  lessonPlans: LessonPlan[]
 }
 
 
@@ -144,7 +160,7 @@ export interface CompetencySet {
   competencies: Competency[]
 }
 
-export type FieldType = 'text' | 'date' | 'select' | 'number'
+export type FieldType = 'text' | 'date' | 'select' | 'number' | 'textarea' | 'checkgroup' | 'radiogroup'
 
 export interface FormField {
   key: string
@@ -152,11 +168,20 @@ export interface FormField {
   type: FieldType
   options?: string[]
   required: boolean
+  /** Feld über die volle Breite darstellen (langes Textfeld) */
+  wide?: boolean
+}
+
+/** Teilnehmerzeile der Anwesenheitslisten 307A/307B */
+export interface AttendanceEntry {
+  name: string
+  signature: string | null
 }
 
 /** Formulartypen laut OM Appendix 5 */
 export type FormTypeId =
-  | '306' | '308A' | '308B' | '308C' | '308D' | '308E'
+  | '306' | '307A' | '307B'
+  | '308A' | '308B' | '308C' | '308D' | '308E'
   | '308F' | '308G' | '308H' | '310'
 
 export interface FormType {
@@ -182,7 +207,10 @@ export type SessionStatus = 'completed' | 'not_completed'
 /** Bewertung eines einzelnen Piloten innerhalb eines Formulars */
 export interface TraineeGrading {
   traineeId: string
+  /** CDR oder FO */
   position: string
+  /** Sitzposition: Left / Right */
+  seat?: string
   grades: CompetencyGrade[]
   positiveComment: string
   developmentComment: string
@@ -208,6 +236,8 @@ export interface GradingRecord {
   status: RecordStatus
   mailStatus: MailStatus
   mailError?: string
+  /** Teilnehmerliste der Formulare 307A/307B */
+  attendance?: AttendanceEntry[]
   /** Verweis auf ein zugehöriges Formular (306/310 an ein Grading Sheet) */
   parentId?: string
   createdAt: number

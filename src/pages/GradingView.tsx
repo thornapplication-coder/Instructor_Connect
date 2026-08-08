@@ -101,6 +101,21 @@ export function GradingView({ recordId }: { recordId: string }) {
           </Card>
         )}
 
+        {/* Teilnehmerliste (307A/307B) */}
+        {record.attendance && record.attendance.length > 0 && (
+          <Card className="p-4">
+            <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.attendance')}</p>
+            <ol className="space-y-1 text-[13.5px]">
+              {record.attendance.map((a, i) => (
+                <li key={i} className="flex gap-2 border-b border-line/[0.06] py-1 last:border-0">
+                  <span className="w-5 text-dim">{i + 1}.</span>
+                  <span>{a.name}</span>
+                </li>
+              ))}
+            </ol>
+          </Card>
+        )}
+
         {/* Bewertungen */}
         {record.trainees.map((tr, i) => (
           <Card key={i} className="p-4">
@@ -155,9 +170,32 @@ export function GradingView({ recordId }: { recordId: string }) {
         ))}
 
         {record.sessionStatus && (
-          <Card className="flex items-center justify-between p-4 text-[13.5px]">
-            <span className="text-dim">{t('grading.sessionStatus')}</span>
-            <span className="font-semibold">{t(`grading.${record.sessionStatus}`)}</span>
+          <Card className="p-4">
+            {/* Ankreuzzeilen im Wortlaut des Originalformulars */}
+            <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-dim">Overall Result</p>
+            <div className="space-y-1.5 text-[13.5px]">
+              {record.trainees.map((tr, i) => (
+                <div key={i}>
+                  <p className="flex items-start gap-2">
+                    <span className="font-mono">{tr.overall === 'competent' ? '☒' : '☐'}</span>
+                    <span>Competent / Continue to next session ***</span>
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <span className="font-mono">{tr.overall === 'not_competent' ? '☒' : '☐'}</span>
+                    <span>Not Competent / Additional training required *</span>
+                  </p>
+                  <p className="flex items-start gap-2">
+                    <span className="font-mono">{record.sessionStatus === 'not_completed' ? '☒' : '☐'}</span>
+                    <span>Session not completed **</span>
+                  </p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 space-y-1 text-[11.5px] leading-relaxed text-dim/80">
+              <p>{t('grading.footnote1')}</p>
+              <p>{t('grading.footnote2')}</p>
+              <p>{t('grading.footnote3')}</p>
+            </div>
           </Card>
         )}
 
@@ -178,9 +216,11 @@ export function GradingView({ recordId }: { recordId: string }) {
           <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.signatures')}</p>
           <div className="grid gap-4 sm:grid-cols-2">
             {[
-              [t('grading.sigInstructor'), record.signatureInstructor],
-              [t('grading.sigTrainee'), record.signatureTrainee],
-            ].map(([label, sig]) => (
+              [record.formTypeId === '308G' ? 'Signature Course Instructor (COI)' : t('grading.sigInstructor'), record.signatureInstructor],
+              [record.formTypeId === '308G' ? 'Signature Candidate Instructor (CAI)' : t('grading.sigTrainee'), record.signatureTrainee],
+            ]
+              .filter(([, sig]) => sig !== null || !record.attendance)
+              .map(([label, sig]) => (
               <div key={label as string}>
                 <p className="mb-1 text-[12.5px] text-dim">{label}</p>
                 {sig ? (

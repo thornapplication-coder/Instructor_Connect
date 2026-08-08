@@ -26,13 +26,13 @@ export function createSeedState(): AppState {
   const now = Date.now()
   return {
     users: [
-      { id: 'u-patrick', name: 'Patrick Thorn', email: 'p.thorn@instructorconnect.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, active: true },
-      { id: 'u-maria', name: 'Maria Huber', email: 'm.huber@instructorconnect.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: false, canGrade: true, isTrainee: false, active: true },
-      { id: 'u-stefan', name: 'Stefan Wagner', email: 's.wagner@instructorconnect.at', phone: '+43 664 1000003', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, active: true },
-      { id: 'u-anna', name: 'Anna Leitner', email: 'a.leitner@instructorconnect.at', phone: '+43 664 1000004', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: true, active: true },
-      { id: 'u-lukas', name: 'Lukas Steiner', email: 'l.steiner@instructorconnect.at', phone: '+43 664 1000005', role: 'member', canEditDirectory: false, canGrade: false, isTrainee: true, active: true },
-      { id: 'u-sophie', name: 'Sophie Berger', email: 's.berger@instructorconnect.at', phone: '+43 664 1000006', role: 'member', canEditDirectory: false, canGrade: false, isTrainee: true, active: true },
-      { id: 'u-david', name: 'David Moser', email: 'd.moser@instructorconnect.at', phone: '+43 664 1000007', role: 'member', canEditDirectory: false, canGrade: false, isTrainee: true, active: false },
+      { id: 'u-patrick', name: 'Patrick Thorn', email: 'p.thorn@instructorconnect.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['A320', 'B737', 'DA42', 'Generic FNPT II'], active: true },
+      { id: 'u-maria', name: 'Maria Huber', email: 'm.huber@instructorconnect.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['A320'], active: true },
+      { id: 'u-stefan', name: 'Stefan Wagner', email: 's.wagner@instructorconnect.at', phone: '+43 664 1000003', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['B737', 'DA42'], active: true },
+      { id: 'u-anna', name: 'Anna Leitner', email: 'a.leitner@instructorconnect.at', phone: '+43 664 1000004', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: true, aircraftTypes: ['A320'], active: true },
+      { id: 'u-lukas', name: 'Lukas Steiner', email: 'l.steiner@instructorconnect.at', phone: '+43 664 1000005', role: 'member', canEditDirectory: false, canGrade: false, isTrainee: true, aircraftTypes: ['A320'], active: true },
+      { id: 'u-sophie', name: 'Sophie Berger', email: 's.berger@instructorconnect.at', phone: '+43 664 1000006', role: 'member', canEditDirectory: false, canGrade: false, isTrainee: true, aircraftTypes: ['B737'], active: true },
+      { id: 'u-david', name: 'David Moser', email: 'd.moser@instructorconnect.at', phone: '+43 664 1000007', role: 'member', canEditDirectory: false, canGrade: false, isTrainee: true, aircraftTypes: [], active: false },
     ],
     groups: [
       {
@@ -136,20 +136,29 @@ export function createSeedState(): AppState {
       allowedDomains: ['instructorconnect.at'],
       imprint: { de: IMPRINT_DE, en: IMPRINT_EN },
       grading: GRADING_DEFAULTS,
+      aircraftTypes: ['A320', 'B737', 'DA42', 'Generic FNPT II'],
     },
     currentUserId: null,
     timeOffsetMs: 0,
     seen: {},
     contactsChangedAt: now - 2 * d,
+    lessonPlans: [
+      { id: 'lp1', title: 'A320 — Lesson Plan TR Session 1-4', description: 'Grundlagen Type Rating: Systeme, Normalverfahren, erste FFS-Sessions.', aircraftType: 'A320', fileName: 'a320-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 20 * d },
+      { id: 'lp2', title: 'A320 — Lesson Plan Recurrent OPC', description: 'Ablauf und Schwerpunkte der jährlichen OPC-Session.', aircraftType: 'A320', fileName: 'a320-recurrent-opc.pdf', uploadedBy: 'u-maria', createdAt: now - 12 * d },
+      { id: 'lp3', title: 'B737 — Lesson Plan TR Session 1-4', description: 'Type Rating B737: Systeme, SOPs, FFS-Einführung.', aircraftType: 'B737', fileName: 'b737-tr-session-1-4.pdf', uploadedBy: 'u-stefan', createdAt: now - 18 * d },
+      { id: 'lp4', title: 'B737 — Lesson Plan LVO / CAT II-III', description: 'Schulung für Allwetterflugbetrieb im Simulator.', aircraftType: 'B737', fileName: 'b737-lvo.pdf', uploadedBy: 'u-stefan', createdAt: now - 6 * d },
+      { id: 'lp5', title: 'DA42 — Lesson Plan MEP Grundausbildung', description: 'Mehrmotorige Grundschulung im FNPT II.', aircraftType: 'DA42', fileName: 'da42-mep.pdf', uploadedBy: 'u-stefan', createdAt: now - 3 * d },
+      { id: 'lp6', title: 'Generic FNPT II — Lesson Plan IR Training', description: 'Instrumentenflug-Grundlagen im generischen Trainer.', aircraftType: 'Generic FNPT II', fileName: 'fnpt-ir.pdf', uploadedBy: 'u-patrick', createdAt: now - 9 * d },
+    ],
     gradingRecords: [
       {
         id: 'gr1',
         formTypeId: '308F',
         instructorId: 'u-maria',
-        header: { aircraftType: 'A320', trainingDevice: 'FFS Sim A', event: 'OPC Recurrent', date: iso(now - 9 * d), position: 'CDR', flightTimePF: '1:30', flightTimePM: '1:30' },
+        header: { aircraftType: 'A320', trainingDevice: 'FFS', event: 'OPC Recurrent', date: iso(now - 9 * d), flightTimePF: '1:30', flightTimePM: '1:30', instructorQual: 'TRI', instructorSeat: 'Right' },
         trainees: [
           {
-            traineeId: 'u-lukas', position: 'CDR',
+            traineeId: 'u-lukas', position: 'CDR', seat: 'Left',
             grades: [
               { code: 'KNO', grade: 4, comment: '' }, { code: 'PRO', grade: 4, comment: '' },
               { code: 'COM', grade: 5, comment: 'Sehr klare Briefings.' }, { code: 'FPA', grade: 4, comment: '' },
@@ -171,10 +180,10 @@ export function createSeedState(): AppState {
         id: 'gr2',
         formTypeId: '308A',
         instructorId: 'u-stefan',
-        header: { aircraftType: 'B737', trainingDevice: 'FFS Sim B', event: 'TR Session 4', date: iso(now - 5 * d), position: 'FO', flightTimePF: '2:00', flightTimePM: '2:00' },
+        header: { aircraftType: 'B737', trainingDevice: 'FFS', event: 'TR Session 4', date: iso(now - 5 * d), flightTimePF: '2:00', flightTimePM: '2:00', instructorQual: 'TKI', instructorSeat: 'Right' },
         trainees: [
           {
-            traineeId: 'u-sophie', position: 'FO',
+            traineeId: 'u-sophie', position: 'FO', seat: 'Right',
             grades: [
               { code: 'KNO', grade: 3, comment: '' }, { code: 'PRO', grade: 2, comment: 'Checklisten mehrfach zu spät.' },
               { code: 'COM', grade: 3, comment: '' }, { code: 'FPA', grade: 3, comment: '' },
@@ -196,7 +205,7 @@ export function createSeedState(): AppState {
         id: 'gr3',
         formTypeId: '306',
         instructorId: 'u-stefan',
-        header: { aircraftType: 'B737', date: iso(now - 4 * d), trainingDevice: 'FFS Sim B' },
+        header: { aircraftType: 'B737', date: iso(now - 4 * d), trainingDevice: 'FFS' },
         trainees: [],
         sessionStatus: null,
         freeText: {
@@ -212,10 +221,10 @@ export function createSeedState(): AppState {
         id: 'gr4',
         formTypeId: '308G',
         instructorId: 'u-patrick',
-        header: { aircraftType: 'A320', trainingDevice: 'FFS Sim A', event: 'TRI Standardisierung', date: iso(now - 2 * d), position: 'Right', flightTimePF: '', flightTimePM: '' },
+        header: { aircraftType: 'A320', trainingDevice: 'FFS', event: 'TRI Standardisierung', date: iso(now - 2 * d), operation: 'MPO', program: 'PRG 1', candidateRole: 'TRI Candidate', coiSeat: 'IOS' },
         trainees: [
           {
-            traineeId: 'u-anna', position: 'Right',
+            traineeId: 'u-anna', position: 'CDR', seat: 'Left',
             grades: [
               { code: 'PRE', grade: 5, comment: '' }, { code: 'CLI', grade: 5, comment: 'Sehr angenehme Lernatmosphäre.' },
               { code: 'PRK', grade: 4, comment: '' }, { code: 'TEM', grade: 4, comment: '' },
@@ -238,10 +247,10 @@ export function createSeedState(): AppState {
         id: 'gr5',
         formTypeId: '308F',
         instructorId: 'u-maria',
-        header: { aircraftType: 'A320', trainingDevice: 'FFS Sim A', event: 'OPC Recurrent', date: iso(now - 30 * d), position: 'CDR', flightTimePF: '1:30', flightTimePM: '1:30' },
+        header: { aircraftType: 'A320', trainingDevice: 'FFS', event: 'OPC Recurrent', date: iso(now - 30 * d), flightTimePF: '1:30', flightTimePM: '1:30', instructorQual: 'TRI', instructorSeat: 'Right' },
         trainees: [
           {
-            traineeId: 'u-lukas', position: 'CDR',
+            traineeId: 'u-lukas', position: 'CDR', seat: 'Left',
             grades: [
               { code: 'KNO', grade: 3, comment: '' }, { code: 'PRO', grade: 3, comment: '' },
               { code: 'COM', grade: 4, comment: '' }, { code: 'FPA', grade: 3, comment: '' },

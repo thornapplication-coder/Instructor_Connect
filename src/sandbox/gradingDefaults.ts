@@ -42,7 +42,7 @@ export const PILOT_SET: CompetencySet = {
     },
     {
       code: 'FPA',
-      title: 'Flight path management — automation',
+      title: 'Aeroplane flight path management — automation',
       behaviours: [
         'Steuert den Flugweg mit Automation innerhalb der Toleranzen.',
         'Überwacht Modus- und Zustandswechsel der Automation.',
@@ -52,7 +52,7 @@ export const PILOT_SET: CompetencySet = {
     },
     {
       code: 'FPM',
-      title: 'Flight path management — manual control',
+      title: 'Aeroplane flight path management — manual control',
       behaviours: [
         'Steuert den Flugweg manuell innerhalb der Toleranzen.',
         'Hält die Fluglage sicher und mit angemessener Steuerpräzision.',
@@ -72,7 +72,7 @@ export const PILOT_SET: CompetencySet = {
     },
     {
       code: 'PSD',
-      title: 'Problem-solving and decision-making',
+      title: 'Problem-solving — decision-making',
       behaviours: [
         'Erkennt Abweichungen und benennt das Problem klar.',
         'Sammelt Informationen und bewertet Handlungsoptionen.',
@@ -120,24 +120,28 @@ export const INSTRUCTOR_SET: CompetencySet = {
   ],
 }
 
-/** Kopfdatenfelder, die alle Grading Sheets teilen */
-const commonFields = (positions: string[]): FormField[] => [
-  { key: 'aircraftType', label: 'Aircraft Type', type: 'select', options: ['A320', 'B737', 'DA42', 'Generic FNPT II'], required: true },
-  { key: 'trainingDevice', label: 'Training Device', type: 'select', options: ['FFS Sim A', 'FFS Sim B', 'FNPT II', 'FTD 1'], required: true },
-  { key: 'event', label: 'Event', type: 'text', required: true },
-  { key: 'date', label: 'Date', type: 'date', required: true },
-  { key: 'position', label: 'Position', type: 'select', options: positions, required: true },
-  { key: 'flightTimePF', label: 'Flight Time PF', type: 'text', required: false },
-  { key: 'flightTimePM', label: 'Flight Time PM', type: 'text', required: false },
-]
+const AIRCRAFT = ['A320', 'B737', 'DA42', 'Generic FNPT II']
+const DEVICES = ['OTD / Mock-Up', 'FTD / FNPT', 'FFS']
 
-const sheet = (id: FormType['id'], title: string, set: FormType['competencySet']): FormType => ({
-  id,
-  title,
-  competencySet: set,
-  fields: commonFields(set === 'instructor' ? ['Left', 'Right', 'Rear'] : ['CDR', 'FO']),
-  freeTextSections: [],
+const f = (key: string, label: string, type: FormField['type'] = 'text', opts?: { options?: string[]; required?: boolean; wide?: boolean }): FormField => ({
+  key,
+  label,
+  type,
+  options: opts?.options,
+  required: opts?.required ?? false,
+  wide: opts?.wide,
 })
+
+/* Kopffelder gemäß Original-Formularen (OM Appendix 5, Rev. 0.2) */
+const HEAD_STANDARD: FormField[] = [
+  f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
+  f('date', 'Date', 'date', { required: true }),
+  f('event', 'Event', 'text', { required: true }),
+  f('trainingDevice', 'Training Device', 'radiogroup', { options: DEVICES, required: true }),
+  f('flightTimePF', 'Flight Time PF', 'text'),
+  f('flightTimePM', 'Flight Time PM', 'text'),
+  f('other', 'Other', 'text', { wide: true }),
+]
 
 export const FORM_TYPES: FormType[] = [
   {
@@ -145,28 +149,163 @@ export const FORM_TYPES: FormType[] = [
     title: 'Additional Training',
     competencySet: null,
     fields: [
-      { key: 'aircraftType', label: 'Aircraft Type', type: 'select', options: ['A320', 'B737', 'DA42', 'Generic FNPT II'], required: true },
-      { key: 'date', label: 'Date', type: 'date', required: true },
-      { key: 'trainingDevice', label: 'Training Device', type: 'select', options: ['FFS Sim A', 'FFS Sim B', 'FNPT II', 'FTD 1'], required: false },
+      f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
+      f('location', 'Location', 'text', { required: true }),
+      f('event', 'Subject / Event', 'text', { required: true }),
+      f('date', 'Date', 'date', { required: true }),
     ],
-    freeTextSections: ['Deficiency', 'Additional training conducted', 'Result'],
+    freeTextSections: [
+      'State exercises marked with grade "2" or below',
+      'Description of deficiency',
+      'Description of agreed retraining',
+    ],
   },
-  sheet('308A', 'Grading Sheet TR', 'pilot'),
-  sheet('308B', 'Grading Sheet CCQ', 'pilot'),
-  sheet('308C', 'Grading Sheet Difference Training', 'pilot'),
-  sheet('308D', 'Grading Sheet Conversion', 'pilot'),
-  sheet('308E', 'Grading Sheet Renewal', 'pilot'),
-  sheet('308F', 'Grading Sheet Recurrent', 'pilot'),
-  sheet('308G', 'Grading Sheet TRI / SFI / MCCI', 'instructor'),
-  sheet('308H', 'Grading Sheet Other Trainings', 'pilot'),
+  {
+    id: '307A',
+    title: 'Record of Attendance',
+    competencySet: null,
+    fields: [
+      f('event', 'Subject / Event', 'text', { required: true }),
+      f('date', 'Date', 'date', { required: true }),
+      f('duration', 'Duration', 'text', { required: true }),
+      f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT }),
+      f('location', 'Location', 'text', { required: true }),
+    ],
+    freeTextSections: [],
+  },
+  {
+    id: '307B',
+    title: 'Record of Attendance CBT, WBT or VCR',
+    competencySet: null,
+    fields: [
+      f('event', 'Subject / Event', 'text', { required: true }),
+      f('date', 'Date', 'date', { required: true }),
+      f('duration', 'Duration', 'text', { required: true }),
+      f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT }),
+      f('location', 'Location', 'text', { required: true }),
+    ],
+    freeTextSections: [],
+  },
+  { id: '308A', title: 'Grading Sheet TR', competencySet: 'pilot', fields: HEAD_STANDARD, freeTextSections: [] },
+  { id: '308B', title: 'Grading Sheet CCQ', competencySet: 'pilot', fields: HEAD_STANDARD, freeTextSections: [] },
+  {
+    id: '308C',
+    title: 'Grading Sheet Difference Training',
+    competencySet: 'pilot',
+    fields: [
+      f('variantFrom', 'From "Variant"', 'text', { required: true }),
+      f('variantTo', 'To "Variant"', 'text', { required: true }),
+      f('event', 'Event', 'text', { required: true }),
+      f('date', 'Date', 'date', { required: true }),
+      f('trainingDevice', 'Training Device', 'radiogroup', { options: ['OTD / Mock-Up', 'FTD / FNPT', 'FFS'], required: true }),
+      f('flightTimePF', 'Flight Time PF', 'text'),
+      f('flightTimePM', 'Flight Time PM', 'text'),
+        ],
+    freeTextSections: [],
+  },
+  {
+    id: '308D',
+    title: 'Grading Sheet Conversion',
+    competencySet: 'pilot',
+    fields: [
+      f('convFrom', 'Conv. From', 'text', { required: true }),
+      f('convTo', 'Conv. To', 'text', { required: true }),
+      f('event', 'Event', 'text', { required: true }),
+      f('date', 'Date', 'date', { required: true }),
+      f('trainingDevice', 'Training Device', 'radiogroup', { options: ['FFS'], required: true }),
+      f('flightTimePF', 'Flight Time PF', 'text'),
+      f('flightTimePM', 'Flight Time PM', 'text'),
+        ],
+    freeTextSections: [],
+  },
+  {
+    id: '308E',
+    title: 'Grading Sheet Renewal',
+    competencySet: 'pilot',
+    fields: [
+      f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
+      f('location', 'Location', 'text'),
+      f('date', 'Date', 'date', { required: true }),
+      f('event', 'Event', 'text', { required: true }),
+      f('trainingDevice', 'Training Device', 'radiogroup', { options: DEVICES, required: true }),
+      f('topicsCovered', 'Topics Covered', 'textarea', { wide: true }),
+      f('airportsUsed', 'Airports Used', 'text'),
+      f('takeoffs', 'Takeoffs', 'number'),
+      f('landings', 'Landings', 'number'),
+      f('flightTimePF', 'Flight Time PF', 'text'),
+      f('flightTimePM', 'Flight Time PM', 'text'),
+      f('approaches', 'Type and number of approaches', 'text', { wide: true }),
+        ],
+    freeTextSections: [],
+  },
+  {
+    id: '308F',
+    title: 'Grading Sheet Recurrent',
+    competencySet: 'pilot',
+    fields: [
+      f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
+      f('date', 'Date', 'date', { required: true }),
+      f('event', 'Event', 'text', { required: true }),
+      f('trainingDevice', 'Training Device', 'radiogroup', { options: DEVICES, required: true }),
+      f('recurrentCycle', 'Recurrent Cycle', 'select', { options: ['Year 1', 'Year 2', 'Year 3'] }),
+      f('recurrentTopics', 'FFS training topics for customer recurrent', 'textarea', { wide: true }),
+      f('flightTimePF', 'Flight Time PF', 'text'),
+      f('flightTimePM', 'Flight Time PM', 'text'),
+      f('other', 'Other', 'text', { wide: true }),
+        ],
+    freeTextSections: [],
+  },
+  {
+    id: '308G',
+    title: 'Grading Sheet TRI / SFI / MCCI',
+    competencySet: 'instructor',
+    fields: [
+      f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
+      f('date', 'Date', 'date', { required: true }),
+      f('operation', 'Operation', 'select', { options: ['SPO', 'MPO', 'SPO + MPO', 'Other'], required: true }),
+      f('program', 'Program (PRG)', 'select', { options: ['PRG 1', 'PRG 2', 'PRG 3'] }),
+      f('candidateRole', 'Candidate Instructor', 'radiogroup', { options: ['TRI Candidate', 'IOS'] }),
+      f('coiSeat', 'Course Instructor', 'radiogroup', { options: ['Either Pilot Seat (EPS)', 'IOS', 'Observer'] }),
+    ],
+    freeTextSections: [],
+  },
+  {
+    id: '308H',
+    title: 'Grading Sheet Other Trainings',
+    competencySet: 'pilot',
+    fields: [
+      f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
+      f('date', 'Date', 'date', { required: true }),
+      f('trainingDevice', 'Training Device', 'radiogroup', { options: ['FFS', 'FNPT', 'FTD'], required: true }),
+      f('trainingKind', 'Training', 'select', { options: ['Initial Training', 'Recurrent Training'] }),
+      f('event', 'Event', 'checkgroup', {
+        required: true,
+        wide: true,
+        options: [
+          'Adverse Weather', 'Command Course', 'CPDLC', 'EPSQ', 'ETOPS', 'HUD',
+          'Intervention Training', 'LOFT', 'LVO / CAT II / CAT III', 'PBN',
+          'RNP AR', 'Steep Approach', 'TO / LDG Currency', 'UPRT', 'ZFTT',
+        ],
+      }),
+      f('specialAirports', 'Special Airport(s)', 'text', { wide: true }),
+      f('otherTraining', 'Other Training', 'text', { wide: true }),
+      f('airportsUsed', 'Airports Used', 'text'),
+      f('takeoffs', 'Takeoffs', 'number'),
+      f('landings', 'Landings', 'number'),
+      f('flightTimePF', 'Flight Time PF', 'text'),
+      f('flightTimePM', 'Flight Time PM', 'text'),
+      f('approaches', 'Type and Number of Approaches', 'text', { wide: true }),
+        ],
+    freeTextSections: [],
+  },
   {
     id: '310',
     title: 'Deferred Item List',
     competencySet: null,
     fields: [
-      { key: 'aircraftType', label: 'Aircraft Type', type: 'select', options: ['A320', 'B737', 'DA42', 'Generic FNPT II'], required: true },
-      { key: 'date', label: 'Date', type: 'date', required: true },
-      { key: 'dueDate', label: 'Due Date', type: 'date', required: false },
+      f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
+      f('date', 'Date', 'date', { required: true }),
+      f('dueDate', 'Due Date', 'date'),
     ],
     freeTextSections: ['Deferred items', 'Planned completion'],
   },

@@ -9,6 +9,7 @@ import { Grading } from './pages/Grading'
 import { GradingForm } from './pages/GradingForm'
 import { GradingView } from './pages/GradingView'
 import { Home } from './pages/Home'
+import { LessonPlans } from './pages/LessonPlans'
 import { Imprint } from './pages/Imprint'
 import { InstructorInfo } from './pages/InstructorInfo'
 import { Login } from './pages/Login'
@@ -41,6 +42,7 @@ function Screen() {
     const parent = params.get('parent') ?? undefined
     page = <GradingForm key={route} presetType={type ?? undefined} parentId={parent} />
   } else if (route.startsWith('/grading/')) page = <GradingView key={route} recordId={route.slice('/grading/'.length)} />
+  else if (route === '/lessons') page = <LessonPlans />
   else if (route === '/info') page = <InstructorInfo />
   else if (route === '/contacts') page = <WhoToCall />
   else if (route === '/feedback') page = <Feedback />

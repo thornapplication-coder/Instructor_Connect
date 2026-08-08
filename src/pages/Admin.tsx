@@ -112,6 +112,28 @@ function UsersTab() {
               />
               {t('admin.isTrainee')}
             </label>
+          </div>
+          {/* Zugewiesene Muster steuern, welche Lesson Plans der Nutzer sieht */}
+          <div className="mt-2.5">
+            <p className="mb-1.5 text-[12.5px] text-dim">{t('admin.aircraftTypes')}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => {
+                const on = u.aircraftTypes.includes(a)
+                return (
+                  <button
+                    key={a}
+                    onClick={() =>
+                      updateUser(u.id, { aircraftTypes: on ? u.aircraftTypes.filter((x) => x !== a) : [...u.aircraftTypes, a] })
+                    }
+                    className={`rounded-full border px-2.5 py-1 text-[12px] transition ${
+                      on ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/12 text-dim'
+                    }`}
+                  >
+                    {a}
+                  </button>
+                )
+              })}
+            </div>
             <span className="ml-auto flex gap-2">
               <button onClick={() => updateUser(u.id, { active: !u.active })} className="text-dim hover:text-ink">
                 {u.active ? t('admin.deactivate') : t('admin.activate')}

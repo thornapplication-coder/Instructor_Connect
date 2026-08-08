@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { createSeedState } from './sandbox/seed'
-import { RETENTION_MS, type AppState, type Attachment, type GradingRecord, type GradingSettings, type Group, type PollType, type RetentionKey, type Role, type SeenState, type User } from './types'
+import { RETENTION_MS, type AppState, type Attachment, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type PollType, type RetentionKey, type Role, type SeenState, type User } from './types'
 
 const EMPTY_SEEN: SeenState = { chat: {}, info: 0, contacts: 0 }
 
@@ -54,6 +54,10 @@ export interface Store {
   deleteGradingRecord: (id: string) => void
   retryGradingMail: (id: string) => void
   updateGrading: (patch: Partial<GradingSettings>) => void
+  /** Lesson Plans, die der aktuelle Nutzer sehen darf */
+  visibleLessonPlans: LessonPlan[]
+  addLessonPlan: (plan: { title: string; description: string; aircraftType: string; fileName: string }) => void
+  deleteLessonPlan: (id: string) => void
 }
 
 const StoreCtx = createContext<Store | null>(null)
@@ -170,6 +174,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const all = [...state.gradingRecords].sort((a, b) => b.createdAt - a.createdAt)
     return currentUser.role === 'member' ? all.filter((r) => r.instructorId === currentUser.id) : all
   }, [state.gradingRecords, currentUser])
+
+  // Instruktoren sehen nur Lesson Plans ihrer zugewiesenen Muster;
+  // Admins und Superadmin sehen alle.
+  const visibleLessonPlans = useMemo(() => {
+    if (!currentUser) return []
+    const all = [...state.lessonPlans].sort((a, b) => a.title.localeCompare(b.title))
+    if (currentUser.role !== 'member') return all
+    return all.filter((p) => currentUser.aircraftTypes.includes(p.aircraftType))
+  }, [state.lessonPlans, currentUser])
 
   const store = useMemo<Store>(() => {
     // patch: fn liefert die Änderung oder null für „nichts zu tun“ — dann
@@ -303,7 +316,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       addUser: (user) =>
         patch((s) => ({
-          users: [...s.users, { ...user, id: uid('u'), canEditDirectory: false, canGrade: false, isTrainee: false, active: true }],
+          users: [...s.users, { ...user, id: uid('u'), canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: [], active: true }],
         })),
       updateUser: (id, p) =>
         patch((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, ...p } : u)) })),
@@ -353,8 +366,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ),
         })),
       updateGrading: (p) => patch((s) => ({ settings: { ...s.settings, grading: { ...s.settings.grading, ...p } } })),
+
+      visibleLessonPlans,
+      addLessonPlan: (plan) =>
+        patch((s) => ({
+          lessonPlans: [...s.lessonPlans, { ...plan, id: uid('lp'), uploadedBy: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs }],
+        })),
+      deleteLessonPlan: (id) => patch((s) => ({ lessonPlans: s.lessonPlans.filter((p) => p.id !== id) })),
     }
-  }, [state, now, currentUser, effectiveRetention, visibleMessages, visiblePolls, myGroups, unreadGroups, hasNewInfo, hasNewContacts, latestForeignContent, latestForeignInfo, visibleGradingRecords])
+  }, [state, now, currentUser, effectiveRetention, visibleMessages, visiblePolls, myGroups, unreadGroups, hasNewInfo, hasNewContacts, latestForeignContent, latestForeignInfo, visibleGradingRecords, visibleLessonPlans])
 
   return <StoreCtx.Provider value={store}>{children}</StoreCtx.Provider>
 }

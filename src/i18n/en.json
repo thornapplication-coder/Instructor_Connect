@@ -165,7 +165,8 @@
     "desktopOnly": "The Admin Panel is available on desktop only — on tablets and phones the administration would be too cramped. Please open it on a computer.",
     "canGrade": "May grade",
     "isTrainee": "Is trainee",
-    "grading": "Grading Tool"
+    "grading": "Grading Tool",
+    "aircraftTypes": "Assigned aircraft types (lesson plans)"
   },
   "imprint": {
     "title": "Legal notice & terms of use",
@@ -271,6 +272,29 @@
       "export_competencies": "Competencies (CSV)",
       "export_people": "People (CSV)",
       "exportHint": "Unprocessed raw data for audits, separated by training, competencies and people."
-    }
+    },
+    "attendance": "Record of attendance",
+    "studentName": "Student name",
+    "addAttendee": "Add attendee",
+    "attendance307B": "With the signature, the instructor/examiner confirms the participation of all individuals listed to the full extent and within the specified timeframe of the respective event.",
+    "footnote1": "* Tick if two or more competencies are graded with 2 or below; refer to Form 306 – Additional Training.",
+    "footnote2": "** Tick if one or more required items are not completed; describe not completed items in the comment box and Form 310, Deferred Item List.",
+    "footnote3": "*** Ready for skill test to be signed on Form 311.",
+    "participants": "Student / Instructor",
+    "student": "Student",
+    "toGrading": "Continue to grading",
+    "continue": "Continue",
+    "backToHeader": "Back to header data"
+  },
+  "lessons": {
+    "newPlan": "Upload lesson plan",
+    "title": "Title",
+    "description": "Description (optional)",
+    "aircraftType": "Aircraft type",
+    "file": "PDF file",
+    "allTypes": "All types",
+    "empty": "No lesson plans available for your assigned types.",
+    "noAircraft": "No aircraft type has been assigned to you yet. An admin can change this in user management — afterwards you will see the matching lesson plans.",
+    "assignedNote": "You see lesson plans for: {{types}}"
   }
 }
