@@ -233,7 +233,11 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
       navigate(`/grading/new?type=${nextTypes[0]}&parent=${parentId}&next=${nextTypes.slice(1).join(',')}`)
       return
     }
-    navigate(recs.length === 1 ? `/grading/${recs[0].id}` : '/grading')
+    // Komplett unterschrieben UND erfolgreich versendet → zurück zum Grading
+    // Dashboard (bei einer 306/310-Kette erst hier, nach dem letzten Glied).
+    // Blieb etwas offen (Unterschrift, Versand), zeigt die Detailansicht warum.
+    const allOk = recs.every((r) => r.status === 'signed' && r.mailStatus === 'sent')
+    navigate(allOk || recs.length > 1 ? '/grading' : `/grading/${recs[0].id}`)
   }
 
   /** Speichern und die (Pflicht-)Folgeformulare als Kette öffnen */
@@ -245,7 +249,8 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
     if (followUps.length > 0) {
       navigate(`/grading/new?type=${followUps[0]}&parent=${parentRec.id}&next=${followUps.slice(1).join(',')}`)
     } else {
-      navigate(recs.length === 1 ? `/grading/${recs[0].id}` : '/grading')
+      const allOk = recs.every((r) => r.status === 'signed' && r.mailStatus === 'sent')
+      navigate(allOk || recs.length > 1 ? '/grading' : `/grading/${recs[0].id}`)
     }
   }
 

@@ -326,6 +326,9 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                     signedAt: Date.now() + state.timeOffsetMs,
                   })
                   setLateSignature(null)
+                  // Jetzt komplett und erfolgreich versendet → Grading Dashboard.
+                  // Eskalationsfälle bleiben offen (Folgeformular/Versand).
+                  if (!escalate) navigate('/grading')
                 }}
               >
                 {t('grading.completeSignature')}
