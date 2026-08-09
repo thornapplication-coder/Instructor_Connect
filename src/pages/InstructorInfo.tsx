@@ -344,7 +344,7 @@ export function InstructorInfo() {
                   {/* Für Verwalter sichtbar: der Eintrag gilt erst später und
                       ist für die Zielgruppen noch nicht sichtbar */}
                   {scheduled && (
-                    <p className="mt-1 inline-flex items-center rounded-full bg-wait px-2 py-0.5 text-[11px] font-semibold text-white">
+                    <p className="mt-1 inline-flex items-center rounded-full bg-wait px-2 py-0.5 text-[11px] font-semibold text-waitInk">
                       {t('info.scheduled')}
                     </p>
                   )}

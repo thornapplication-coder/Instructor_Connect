@@ -26,6 +26,10 @@ export default {
         wait: 'rgb(var(--c-wait) / <alpha-value>)',
         bad: 'rgb(var(--c-bad) / <alpha-value>)',
         focus: 'rgb(var(--c-focus) / <alpha-value>)',
+        // Schrift auf den Ampelflächen — wechselt mit dem Theme mit
+        okInk: 'rgb(var(--c-ok-ink) / <alpha-value>)',
+        waitInk: 'rgb(var(--c-wait-ink) / <alpha-value>)',
+        badInk: 'rgb(var(--c-bad-ink) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],

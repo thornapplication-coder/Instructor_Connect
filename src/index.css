@@ -33,6 +33,11 @@
   --c-wait: 180 83 9;      /* #B45309 */
   --c-bad: 185 28 28;      /* #B91C1C */
   --c-focus: 37 99 190;    /* Tastaturfokus, >=3:1 gegen die Feldfläche */
+  /* Textfarbe AUF den Ampelflächen — im Hellmodus sind sie dunkel, im
+     Dunkelmodus hell, die Schrift muss also mitwechseln. */
+  --c-ok-ink: 255 255 255;
+  --c-wait-ink: 255 255 255;
+  --c-bad-ink: 255 255 255;
   --sh-soft: 0 6px 18px rgba(22, 37, 61, 0.10);
   --sh-tile: 0 10px 26px rgba(22, 37, 61, 0.14);
   --grad-a: rgb(var(--c-accent) / 0.07);
@@ -54,6 +59,9 @@
   --c-wait: 251 191 36;    /* #FBBF24 */
   --c-bad: 248 113 113;    /* #F87171 */
   --c-focus: 191 216 255;  /* heller Ring — der Akzent lag im Dunkelmodus bei 2,38:1 */
+  --c-ok-ink: 6 26 20;
+  --c-wait-ink: 32 22 2;
+  --c-bad-ink: 40 10 10;
   --sh-soft: 0 8px 24px rgba(3, 10, 22, 0.35);
   --sh-tile: 0 10px 30px rgba(3, 10, 22, 0.45);
   --grad-a: rgb(var(--c-raised) / 0.35);
@@ -179,6 +187,9 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
     --c-wait: 180 83 9;
     --c-bad: 185 28 28;
     --c-focus: 37 99 190;
+    --c-ok-ink: 255 255 255;
+    --c-wait-ink: 255 255 255;
+    --c-bad-ink: 255 255 255;
     --sh-soft: none;
     --sh-tile: none;
     --grad-a: transparent;
