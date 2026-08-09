@@ -49,7 +49,10 @@ export interface Store {
   deleteFeedback: (id: string) => void
   saveContact: (contact: { id?: string; department: string; position: string; name: string; phone: string; email: string }) => void
   deleteContact: (id: string) => void
-  addUser: (user: { name: string; email: string; phone: string; role: Role }) => void
+  /** Nutzer anlegen — die Zuweisung zu mindestens einer Gruppe ist Pflicht */
+  addUser: (user: { name: string; email: string; phone: string; role: Role; groupIds: string[] }) => void
+  /** Info-Einträge, die der aktuelle Nutzer sehen darf (Gruppen-Sichtbarkeit) */
+  visibleInfoEntries: AppState['infoEntries']
   updateUser: (id: string, patch: Partial<User>) => void
   deleteUser: (id: string) => void
   addGroup: (name: string, purpose: string) => void
@@ -171,7 +174,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [myGroups, latestForeignContent, seenOfCurrent],
   )
 
-  const latestForeignInfo = state.infoEntries.reduce(
+  // Gruppen-Sichtbarkeit: Einträge ohne Gruppen sieht jeder; mit Gruppen nur
+  // deren Mitglieder. Admins/Superadmin sehen alles (Pflege + Kontrolle).
+  const visibleInfoEntries = useMemo(() => {
+    if (!currentUser) return []
+    if (currentUser.role !== 'member') return state.infoEntries
+    return state.infoEntries.filter((e) => infoEntryAppliesTo(e, currentUser.id, state.groups))
+  }, [state.infoEntries, state.groups, currentUser])
+
+  const latestForeignInfo = visibleInfoEntries.reduce(
     (max, e) => (e.authorId !== state.currentUserId ? Math.max(max, e.createdAt) : max),
     0,
   )
@@ -332,6 +343,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { starredInfo: { ...s.starredInfo, [s.currentUserId]: next } }
         }),
       starredInfoIds: new Set(state.currentUserId ? state.starredInfo[state.currentUserId] ?? [] : []),
+      visibleInfoEntries,
       acknowledgeInfo: (id) =>
         patch((s) => {
           if (!s.currentUserId) return null
@@ -362,10 +374,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           contactsChangedAt: Date.now() + s.timeOffsetMs,
         })),
 
-      addUser: (user) =>
-        patch((s) => ({
-          users: [...s.users, { ...user, id: uid('u'), canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: [], active: true }],
-        })),
+      addUser: ({ groupIds, ...user }) =>
+        patch((s) => {
+          // Invariante auch im Store: ohne Gruppe kein neuer Nutzer
+          if (groupIds.length === 0) return null
+          const id = uid('u')
+          return {
+            users: [...s.users, { ...user, id, canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: [], active: true }],
+            // Pflicht-Gruppenzuweisung: neue Nutzer landen sofort in ihren Gruppen
+            groups: s.groups.map((g) => (groupIds.includes(g.id) ? { ...g, memberIds: [...g.memberIds, id] } : g)),
+          }
+        }),
       updateUser: (id, p) =>
         patch((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, ...p } : u)) })),
       deleteUser: (id) =>
@@ -392,6 +411,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           groups: s.groups.filter((g) => g.id !== id),
           messages: s.messages.filter((m) => m.groupId !== id),
           polls: s.polls.filter((p) => p.groupId !== id),
+          // Zielgruppen-Verweise bereinigen: sonst würden Einträge, die nur
+          // auf die gelöschte Gruppe zeigten, für alle unsichtbar
+          infoEntries: s.infoEntries.map((e) =>
+            e.groupIds?.includes(id) ? { ...e, groupIds: e.groupIds.filter((g) => g !== id) } : e,
+          ),
         })),
       setGroupAdmins: (id, adminIds) =>
         patch((s) => ({ groups: s.groups.map((g) => (g.id === id ? { ...g, adminIds } : g)) })),
@@ -428,7 +452,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })),
       deleteLessonPlan: (id) => patch((s) => ({ lessonPlans: s.lessonPlans.filter((p) => p.id !== id) })),
     }
-  }, [state, now, currentUser, effectiveRetention, visibleMessages, visiblePolls, myGroups, unreadGroups, hasNewInfo, hasNewContacts, latestForeignContent, latestForeignInfo, visibleGradingRecords, visibleLessonPlans])
+  }, [state, now, currentUser, effectiveRetention, visibleMessages, visiblePolls, myGroups, unreadGroups, hasNewInfo, hasNewContacts, latestForeignContent, latestForeignInfo, visibleGradingRecords, visibleLessonPlans, visibleInfoEntries])
 
   return <StoreCtx.Provider value={store}>{children}</StoreCtx.Provider>
 }
@@ -443,4 +467,19 @@ export function useStore(): Store {
 export function isGroupAdmin(user: User | null, group: Group): boolean {
   if (!user) return false
   return user.role === 'superadmin' || group.adminIds.includes(user.id)
+}
+
+/** Gilt ein Info-Eintrag für diesen Nutzer? (leer = alle Gruppen) — eine
+ *  einzige Quelle für Sichtbarkeit UND Bestätigungsziele. */
+export function infoEntryAppliesTo(entry: { groupIds?: string[] }, userId: string, groups: Group[]): boolean {
+  return (
+    !entry.groupIds?.length ||
+    entry.groupIds.some((gid) => groups.find((g) => g.id === gid)?.memberIds.includes(userId))
+  )
+}
+
+/** Darf der Nutzer diesen Chat betreten? Mitglieder, Gruppen-Admins, Superadmin. */
+export function mayAccessGroup(user: User | null, group: Group): boolean {
+  if (!user) return false
+  return group.memberIds.includes(user.id) || isGroupAdmin(user, group)
 }

@@ -1,7 +1,7 @@
 import { AlertTriangle, Monitor, Paperclip, Plus, Trash2, X } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Badge, Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
+import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { useStore } from '../store'
 import { useIsDesktop } from '../useIsDesktop'
 import { GradingAdmin } from './admin/GradingAdmin'
@@ -49,11 +49,12 @@ function StringListEditor({ label, values, onChange }: { label: string; values: 
 
 function UsersTab() {
   const { t } = useTranslation()
-  const { state, updateUser, deleteUser, addUser } = useStore()
+  const { state, updateUser, deleteUser, addUser, setGroupMembers } = useStore()
   const [showNew, setShowNew] = useState(false)
-  const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'member' as Role })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'member' as Role, groupIds: [] as string[] })
 
   const users = [...state.users].sort((a, b) => a.name.localeCompare(b.name))
+  const sortedGroups = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
 
   return (
     <div className="space-y-3">
@@ -135,6 +136,22 @@ function UsersTab() {
               </button>
             </span>
           </div>
+          {/* Gruppenzugehörigkeit direkt am Nutzer pflegbar — steuert
+              Chat-Zugang und Instructor-Info-Sichtbarkeit */}
+          <div className="mt-2.5">
+            <p className="mb-1.5 text-[12.5px] text-dim">{t('admin.userGroups')}</p>
+            <ChipMultiSelect
+              options={sortedGroups.map((g) => ({ id: g.id, label: g.name }))}
+              selected={sortedGroups.filter((g) => g.memberIds.includes(u.id)).map((g) => g.id)}
+              onChange={(ids) =>
+                sortedGroups.forEach((g) => {
+                  const has = g.memberIds.includes(u.id)
+                  const want = ids.includes(g.id)
+                  if (has !== want) setGroupMembers(g.id, want ? [...g.memberIds, u.id] : g.memberIds.filter((x) => x !== u.id))
+                })
+              }
+            />
+          </div>
           {/* Zugewiesene Muster steuern, welche Lesson Plans der Nutzer sieht */}
           <div className="mt-2.5">
             <p className="mb-1.5 text-[12.5px] text-dim">{t('admin.aircraftTypes')}</p>
@@ -184,16 +201,26 @@ function UsersTab() {
                 ))}
               </select>
             </Field>
+            {/* Pflicht: jede Person gehört mindestens einer Gruppe an —
+                Gruppen steuern Chat-Zugang und Instructor-Info-Sichtbarkeit */}
+            <Field label={t('admin.userGroups') + ' *'}>
+              <ChipMultiSelect
+                options={sortedGroups.map((g) => ({ id: g.id, label: g.name }))}
+                selected={form.groupIds}
+                onChange={(groupIds) => setForm({ ...form, groupIds })}
+              />
+              <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('admin.userGroupsHint')}</p>
+            </Field>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setShowNew(false)}>
                 {t('common.cancel')}
               </Button>
               <Button
-                disabled={!form.name.trim() || (!form.email.trim() && !form.phone.trim())}
+                disabled={!form.name.trim() || (!form.email.trim() && !form.phone.trim()) || form.groupIds.length === 0}
                 onClick={() => {
                   addUser(form)
                   setShowNew(false)
-                  setForm({ name: '', email: '', phone: '', role: 'member' })
+                  setForm({ name: '', email: '', phone: '', role: 'member', groupIds: [] })
                 }}
               >
                 {t('common.save')}

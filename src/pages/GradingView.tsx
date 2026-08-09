@@ -51,10 +51,15 @@ export function GradingView({ recordId }: { recordId: string }) {
         }
       />
       <Page className="space-y-4">
-        {/* Export-Stempel: erscheint auf jedem Ausdruck/PDF-Export */}
-        <p className="hidden border-b border-line/20 pb-2 text-[11px] text-dim print:block">
-          {t('grading.exportStamp', { date: formatDateTime(Date.now() + state.timeOffsetMs), name: currentUser!.name })}
-        </p>
+        {/* Druck-Kopf: Formularbenennung als Überschrift + Export-Stempel */}
+        <div className="hidden border-b-2 border-line/60 pb-2 print:block">
+          <h1 className="text-2xl font-bold tracking-tight">
+            {record.formTypeId} — {formType?.title ?? ''}
+          </h1>
+          <p className="mt-1 text-[11px] text-dim">
+            {t('grading.exportStamp', { date: formatDateTime(Date.now() + state.timeOffsetMs), name: currentUser!.name })}
+          </p>
+        </div>
 
         {/* Status */}
         <div className="flex flex-wrap items-center gap-2">

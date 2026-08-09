@@ -35,7 +35,7 @@
     "welcome": "Welcome to",
     "subtitle": "The internal communication app for instructors.",
     "identifier": "Email address or phone number",
-    "placeholder": "name@instructorconnect.at or +43 …",
+    "placeholder": "name@aviationacademy.at or +43 …",
     "button": "Sign in",
     "otpHint": "You will receive a magic link by email or a one-time code by SMS.",
     "error": "No account found for this identifier. Accounts are created by your admin.",
@@ -119,7 +119,11 @@
     "ackButton": "Confirm as read",
     "ackedAt": "Confirmed on {{date}}",
     "ackStatus": "Confirmed: {{done}}/{{total}}",
-    "ackMissing": "outstanding"
+    "ackMissing": "outstanding",
+    "groupsLabel": "Target groups (multi-select)",
+    "groupsHint": "No selection = visible to everyone. With groups selected, only their members see the entry — and only they must confirm reading.",
+    "allGroups": "All groups",
+    "exportAck": "Export control list (CSV)"
   },
   "contacts": {
     "call": "Call",
@@ -194,7 +198,9 @@
     "confirmDeleteFeedback": "Delete this feedback entry?",
     "infoCategories": "Instructor Info categories",
     "feedbackRecipients": "Feedback recipients (selectable)",
-    "chatBlocked": "Blocked in chat"
+    "chatBlocked": "Blocked in chat",
+    "userGroups": "Group assignment",
+    "userGroupsHint": "Every person must belong to at least one group. Groups control chat access and Instructor Info visibility."
   },
   "imprint": {
     "title": "Legal notice & terms of use",

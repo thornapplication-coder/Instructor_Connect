@@ -2,6 +2,7 @@ import { AlertTriangle, ChevronRight, Clock, Download, Pencil, Plus, RefreshCw, 
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls } from '../../components/ui'
+import { csvRow, downloadCsv } from '../../csv'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
 import type { Competency, CompetencySet } from '../../types'
@@ -196,9 +197,8 @@ export function GradingAdmin() {
   })
 
   const exportCsv = (scope: 'records' | 'competencies' | 'people') => {
-    // Alle Werte escapen — freie Texte können das Trennzeichen enthalten.
-    const esc = (v: unknown) => String(v ?? '').replace(/;/g, ',').replace(/\r?\n/g, ' ')
-    const row = (cells: unknown[]) => cells.map(esc).join(';') + '\n'
+    // csvRow escapet Trennzeichen und entschärft Formelzeichen (siehe csv.ts).
+    const row = csvRow
     // Jeder Export trägt Zeitpunkt und exportierende Person im Kopf.
     let csv = row(['Instructor Connect — Grading Export'])
     csv += row(['Exported (date/time)', formatDateTime(Date.now() + state.timeOffsetMs), 'Exported by', currentUser!.name])
@@ -227,15 +227,10 @@ export function GradingAdmin() {
         csv += row([userName(r2.id), 'Instructor', r2.sessions, r2.avg?.toFixed(2)])
       })
     }
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
-    const a = document.createElement('a')
-    a.href = url
     // Exportzeitpunkt auch im Dateinamen
     const d = new Date(Date.now() + state.timeOffsetMs)
     const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}-${String(d.getMinutes()).padStart(2, '0')}`
-    a.download = `grading-${scope}_${stamp}.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadCsv(`grading-${scope}_${stamp}.csv`, csv)
   }
 
   const sections: Section[] = ['dashboard', 'records', 'config', 'stats']

@@ -160,6 +160,32 @@ export function NewDot({ className = '', size = 12 }: { className?: string; size
   )
 }
 
+/** Mehrfachauswahl als Chip-Reihe — überall gleiches Verhalten und Styling */
+export function ChipMultiSelect({ options, selected, onChange }: {
+  options: { id: string; label: string }[]
+  selected: string[]
+  onChange: (ids: string[]) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((o) => {
+        const on = selected.includes(o.id)
+        return (
+          <button
+            key={o.id}
+            onClick={() => onChange(on ? selected.filter((x) => x !== o.id) : [...selected, o.id])}
+            className={`rounded-full border px-3 py-1.5 text-[12.5px] transition ${
+              on ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
+            }`}
+          >
+            {o.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function Badge({ children, tone = 'accent' }: { children: ReactNode; tone?: 'accent' | 'warm' | 'dim' }) {
   const tones = {
     accent: 'bg-accent/15 text-accent',

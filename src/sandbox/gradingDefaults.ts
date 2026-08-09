@@ -120,7 +120,7 @@ export const INSTRUCTOR_SET: CompetencySet = {
   ],
 }
 
-const AIRCRAFT = ['A320', 'B737', 'DA42', 'Generic FNPT II']
+const AIRCRAFT = ['Challenger 350', 'Citation XLS+']
 
 /** Uhrzeit-/Dauerwerte: 00:30 bis 14:30 in 30-Minuten-Schritten */
 export const DURATION_OPTIONS = Array.from({ length: 29 }, (_, i) => {
@@ -329,10 +329,10 @@ export const FORM_TYPES: FormType[] = [
 ]
 
 export const GRADING_DEFAULTS: GradingSettings = {
-  defaultRecipients: ['training-records@instructorconnect.at'],
-  escalationRecipients: ['admin@instructorconnect.at', 'head-of-training@instructorconnect.at'],
+  defaultRecipients: ['training-records@aviationacademy.at'],
+  escalationRecipients: ['admin@aviationacademy.at', 'head-of-training@aviationacademy.at'],
   // Form 310 (Deferred Item List) geht IMMER zusätzlich an den Training Admin
-  deferredRecipients: ['trainingadmin@instructorconnect.at'],
+  deferredRecipients: ['trainingadmin@aviationacademy.at'],
   competencySets: [PILOT_SET, INSTRUCTOR_SET],
   formTypes: FORM_TYPES,
 }

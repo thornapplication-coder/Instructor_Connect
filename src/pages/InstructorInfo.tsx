@@ -1,8 +1,9 @@
-import { CheckCircle2, ChevronDown, Download, Eye, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
-import { useStore } from '../store'
+import { Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
+import { csvRow, downloadCsv } from '../csv'
+import { infoEntryAppliesTo, useStore } from '../store'
 import { formatDate, formatDateTime } from './Grading'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
@@ -21,6 +22,8 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
   const [validFrom, setValidFrom] = useState('')
   const [validUntil, setValidUntil] = useState('')
   const [requiresAck, setRequiresAck] = useState(false)
+  const [groupIds, setGroupIds] = useState<string[]>([])
+  const groups = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
 
   const valid = title.trim() && category && (type === 'pdf' || body.trim())
 
@@ -71,7 +74,12 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
           </Field>
         </div>
         <p className="-mt-2 text-[11.5px] leading-relaxed text-dim/80">{t('info.ufnHint')}</p>
-        {/* Lese-Bestätigung: jeder Nutzer muss aktiv „gelesen“ bestätigen */}
+        {/* Zielgruppen: steuern Sichtbarkeit und Bestätigungspflicht (Mehrfachauswahl) */}
+        <Field label={t('info.groupsLabel')}>
+          <ChipMultiSelect options={groups.map((gr) => ({ id: gr.id, label: gr.name }))} selected={groupIds} onChange={setGroupIds} />
+          <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('info.groupsHint')}</p>
+        </Field>
+        {/* Lese-Bestätigung: jeder Nutzer der Zielgruppen muss aktiv „gelesen“ bestätigen */}
         <label className="flex items-center gap-2 text-[13.5px]">
           <input type="checkbox" checked={requiresAck} onChange={(e) => setRequiresAck(e.target.checked)} className="accent-accent" />
           {t('info.requiresAck')}
@@ -102,6 +110,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
                 validFrom,
                 validUntil,
                 requiresAck,
+                groupIds,
               })
               onClose()
             }}
@@ -116,7 +125,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
 
 export function InstructorInfo() {
   const { t } = useTranslation()
-  const { state, now, currentUser, deleteInfoEntry, markInfoSeen, toggleStarInfo, starredInfoIds, acknowledgeInfo } = useStore()
+  const { state, now, currentUser, deleteInfoEntry, markInfoSeen, toggleStarInfo, starredInfoIds, acknowledgeInfo, visibleInfoEntries } = useStore()
   const [query, setQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   /** aufgeklappte Bestätigungsliste (Admins) */
@@ -134,8 +143,29 @@ export function InstructorInfo() {
   const mayEdit = currentUser!.role !== 'member'
   const categories = state.settings.infoCategories
 
+  /** Zielpersonen einer Lese-Bestätigung: aktive Mitglieder der Zielgruppen */
+  const ackTargets = (entry: { groupIds?: string[] }) =>
+    state.users.filter((u) => u.active && infoEntryAppliesTo(entry, u.id, state.groups))
+
+  const groupNames = (ids?: string[]) =>
+    ids?.length ? ids.map((id) => state.groups.find((g) => g.id === id)?.name ?? '—').join(', ') : t('info.allGroups')
+
+  /** Kontrollliste der Lese-Bestätigungen als CSV exportieren (Admins) */
+  const exportAckList = (entry: (typeof state.infoEntries)[number]) => {
+    const acks = state.infoAcks[entry.id] ?? {}
+    let csv = csvRow(['Instructor Connect — Read Confirmation Control List'])
+    csv += csvRow(['Entry', entry.title, 'Groups', groupNames(entry.groupIds)])
+    csv += csvRow(['Exported (date/time)', formatDateTime(now()), 'Exported by', currentUser!.name])
+    csv += csvRow([])
+    csv += csvRow(['Name', 'Status', 'Confirmed at'])
+    ackTargets(entry).forEach((u) => {
+      csv += csvRow([u.name, acks[u.id] ? 'confirmed' : 'OUTSTANDING', acks[u.id] ? formatDateTime(acks[u.id]) : ''])
+    })
+    downloadCsv(`read-confirmations_${entry.title.replace(/[^\w-]+/g, '-').slice(0, 40)}.csv`, csv)
+  }
+
   // Immer nach Datum sortiert (neueste zuerst), markierte Einträge zuoberst
-  const entries = state.infoEntries
+  const entries = visibleInfoEntries
     .filter((e) => (e.title + ' ' + e.description).toLowerCase().includes(query.toLowerCase()))
     .filter((e) => !categoryFilter || e.category === categoryFilter)
     .sort((a, b) => {
@@ -236,19 +266,22 @@ export function InstructorInfo() {
                   </div>
                   {entry.description && <p className="mt-0.5 text-[13px] text-dim">{entry.description}</p>}
                   {/* Bewusst ohne Erstellungsdatum und Autor in der Übersicht */}
-                  <p className="mt-1 text-[11.5px] text-dim/80">
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11.5px] text-dim/80">
                     <span className="rounded bg-raised px-1.5 py-0.5 font-medium text-dim">{entry.category}</span>
+                    <span className="rounded border border-line/15 px-1.5 py-0.5 text-dim">{groupNames(entry.groupIds)}</span>
                   </p>
                   <p className={`mt-1 text-[11.5px] ${expired ? 'text-danger' : 'text-dim/80'}`}>
                     {t('info.validity')}: {validityLabel(entry)}
                     {expired && ` · ${t('info.expired')}`}
                   </p>
 
-                  {/* Lese-Bestätigung: Button für den Nutzer, Übersicht für Admins */}
+                  {/* Lese-Bestätigung: Button für Zielgruppen-Mitglieder,
+                      Übersicht + Kontrolllisten-Export für Admins */}
                   {entry.requiresAck && (() => {
                     const acks = state.infoAcks[entry.id] ?? {}
                     const myAck = acks[currentUser!.id]
-                    const targets = state.users.filter((u) => u.active)
+                    const targets = ackTargets(entry)
+                    const amTarget = targets.some((u) => u.id === currentUser!.id)
                     const done = targets.filter((u) => acks[u.id]).length
                     return (
                       <div className="mt-2.5 space-y-1.5">
@@ -257,22 +290,32 @@ export function InstructorInfo() {
                             <CheckCircle2 size={14} /> {t('info.ackedAt', { date: formatDateTime(myAck) })}
                           </p>
                         ) : (
-                          <button
-                            onClick={() => acknowledgeInfo(entry.id)}
-                            className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[13px] font-semibold text-bg transition hover:brightness-110"
-                          >
-                            <CheckCircle2 size={15} /> {t('info.ackButton')}
-                          </button>
+                          amTarget && (
+                            <button
+                              onClick={() => acknowledgeInfo(entry.id)}
+                              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[13px] font-semibold text-bg transition hover:brightness-110"
+                            >
+                              <CheckCircle2 size={15} /> {t('info.ackButton')}
+                            </button>
+                          )
                         )}
                         {mayEdit && (
                           <div>
-                            <button
-                              onClick={() => setAckOpenId(ackOpenId === entry.id ? null : entry.id)}
-                              className="flex items-center gap-1 text-[12px] text-dim hover:text-accent"
-                            >
-                              {t('info.ackStatus', { done, total: targets.length })}
-                              <ChevronDown size={12} className={ackOpenId === entry.id ? 'rotate-180' : ''} />
-                            </button>
+                            <div className="flex flex-wrap items-center gap-3">
+                              <button
+                                onClick={() => setAckOpenId(ackOpenId === entry.id ? null : entry.id)}
+                                className="flex items-center gap-1 text-[12px] text-dim hover:text-accent"
+                              >
+                                {t('info.ackStatus', { done, total: targets.length })}
+                                <ChevronDown size={12} className={ackOpenId === entry.id ? 'rotate-180' : ''} />
+                              </button>
+                              <button
+                                onClick={() => exportAckList(entry)}
+                                className="flex items-center gap-1 text-[12px] text-dim hover:text-accent"
+                              >
+                                <FileDown size={12} /> {t('info.exportAck')}
+                              </button>
+                            </div>
                             {ackOpenId === entry.id && (
                               <ul className="mt-1.5 space-y-1 rounded-lg bg-bg/50 p-2.5 text-[12px]">
                                 {targets.map((u) => (

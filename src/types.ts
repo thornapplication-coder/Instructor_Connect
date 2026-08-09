@@ -76,6 +76,9 @@ export interface InfoEntry {
   validUntil?: string
   /** Lese-Bestätigung erforderlich — Admin sieht, wer bestätigt hat */
   requiresAck?: boolean
+  /** Zielgruppen des Eintrags (Sichtbarkeit UND Bestätigungspflicht);
+   *  leer = alle Gruppen/alle Nutzer */
+  groupIds?: string[]
   authorId: string
   createdAt: number
 }

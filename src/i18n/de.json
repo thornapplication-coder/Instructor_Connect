@@ -35,7 +35,7 @@
     "welcome": "Willkommen bei",
     "subtitle": "Die interne Kommunikations-App für Instruktoren.",
     "identifier": "E-Mail-Adresse oder Telefonnummer",
-    "placeholder": "name@instructorconnect.at oder +43 …",
+    "placeholder": "name@aviationacademy.at oder +43 …",
     "button": "Anmelden",
     "otpHint": "Du erhältst einen Magic Link per E-Mail oder einen Einmalcode per SMS.",
     "error": "Kein Konto für diese Kennung gefunden. Konten werden vom Admin angelegt.",
@@ -119,7 +119,11 @@
     "ackButton": "Zur Kenntnis genommen",
     "ackedAt": "Bestätigt am {{date}}",
     "ackStatus": "Bestätigt: {{done}}/{{total}}",
-    "ackMissing": "ausständig"
+    "ackMissing": "ausständig",
+    "groupsLabel": "Zielgruppen (Mehrfachauswahl)",
+    "groupsHint": "Keine Auswahl = für alle sichtbar. Mit Gruppen sehen nur deren Mitglieder den Eintrag — und nur sie müssen die Lese-Bestätigung leisten.",
+    "allGroups": "Alle Gruppen",
+    "exportAck": "Kontrollliste exportieren (CSV)"
   },
   "contacts": {
     "call": "Anrufen",
@@ -194,7 +198,9 @@
     "confirmDeleteFeedback": "Diesen Feedback-Eintrag löschen?",
     "infoCategories": "Instructor-Info-Kategorien",
     "feedbackRecipients": "Feedback-Empfänger (auswählbar)",
-    "chatBlocked": "Im Chat gesperrt"
+    "chatBlocked": "Im Chat gesperrt",
+    "userGroups": "Gruppenzuweisung",
+    "userGroupsHint": "Jede Person muss mindestens einer Gruppe angehören. Gruppen steuern Chat-Zugang und Instructor-Info-Sichtbarkeit."
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",

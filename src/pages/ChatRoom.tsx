@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Field, inputCls, Modal, NewDot, TopBar } from '../components/ui'
 import { navigate } from '../router'
-import { isGroupAdmin, useStore } from '../store'
+import { isGroupAdmin, mayAccessGroup, useStore } from '../store'
 import type { Attachment, Message, Poll, PollType } from '../types'
 
 function timeLabel(ts: number, lng: string) {
@@ -228,7 +228,9 @@ export function ChatRoom({ groupId }: { groupId: string }) {
     if (group) markChatSeen(groupId)
   }, [group, groupId, timeline, state.currentUserId, markChatSeen])
 
-  if (!group) {
+  // Zugriff nur für Gruppenmitglieder und Gruppen-Admins — wer nicht in der
+  // Gruppe ist, kommt auch über die URL nicht hinein.
+  if (!group || !mayAccessGroup(currentUser, group)) {
     navigate('/chat')
     return null
   }

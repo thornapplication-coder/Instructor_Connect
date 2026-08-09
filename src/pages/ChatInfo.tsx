@@ -2,7 +2,7 @@ import { Bell, BellOff, Clock, HardDriveDownload, Shield, Trash2, Users } from '
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Card, Field, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
-import { isGroupAdmin, useStore } from '../store'
+import { isGroupAdmin, mayAccessGroup, useStore } from '../store'
 import type { RetentionKey } from '../types'
 
 const RETENTION_KEYS: RetentionKey[] = ['24h', '7d', '30d', '90d', 'never']
@@ -11,7 +11,8 @@ export function ChatInfo({ groupId }: { groupId: string }) {
   const { t } = useTranslation()
   const { state, currentUser, effectiveRetention, setGroupRetention, setGroupMembers, toggleMute } = useStore()
   const group = state.groups.find((g) => g.id === groupId)
-  if (!group) {
+  // Gruppendetails (Mitgliederliste, Einstellungen) nur für Zugriffsberechtigte
+  if (!group || !mayAccessGroup(currentUser, group)) {
     navigate('/chat')
     return null
   }
