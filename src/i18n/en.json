@@ -441,7 +441,6 @@
     "followUpBodyMandatory": "The result is “Not Competent” or the session was not completed. The forms marked as mandatory MUST be completed now — the originating grading sheet is attached to their email dispatch automatically.",
     "mandatory": "mandatory",
     "followUpMailNote": "Each follow-up form is emailed to the configured recipients together with the originating grading sheet.",
-    "stillRequired": "outstanding (mandatory)",
     "followUpWarn": "A mandatory follow-up form has not been completed for this grading sheet yet:",
     "fillNow": "Fill in {{form}} now",
     "mailAttachment": "The originating grading sheet ({{form}}) is automatically attached to the email dispatch of this form.",
@@ -475,11 +474,12 @@
     "errAttendanceSignature": "Every attendee on Form 307A signs in person — {{name}} has not signed yet.",
     "instructorQual": "Instructor qualification",
     "instructorSeat": "Instructor seat",
-    "followUpUnsigned": "{{id}} awaiting signature",
     "openUnsignedFollowUp": "Complete {{form}} — signature outstanding",
     "leaveConfirm": "Leave the form? Your entries are saved as a draft and offered again next time — signatures are not kept.",
     "draftRestored": "A draft of this form was restored. Signatures always have to be drawn again.",
-    "draftDiscard": "Discard draft"
+    "draftDiscard": "Discard draft",
+    "missingForm": "Missing Form {{id}}",
+    "unsignedForm": "Form {{id}} not signed"
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

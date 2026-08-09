@@ -34,16 +34,40 @@ export function formatDateTime(ts: number): string {
   return `${formatDate(ts)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-/** Ampelfarben aus der Theme-Datei — im Hellmodus lagen die 400er-Töne bei
- *  1,5:1 und waren als Statussignal praktisch unsichtbar. */
-export const TRAFFIC_CLS: Record<TrafficColor, string> = {
-  green: 'bg-ok',
-  yellow: 'bg-wait',
-  red: 'bg-bad',
+/**
+ * Ampelsymbole: Form UND Farbe unterscheiden die Zustände.
+ *
+ * Reine Farbcodierung reichte nicht — im Hellmodus waren das dunkle Orange
+ * und das dunkle Rot als kleine Punkte kaum auseinanderzuhalten, und für
+ * rot-grün-blinde Nutzer (rund 8 % der Männer) gar nicht. Kreis, Dreieck und
+ * Quadrat sind auch bei 12 px eindeutig, unabhängig von der Farbwahrnehmung.
+ *
+ * Die Füllungen sind bewusst kräftig; den geforderten Kontrast gegen den
+ * Hintergrund liefert die dunkle Kontur, nicht die Fläche.
+ */
+const TRAFFIC_SHAPE: Record<TrafficColor, { fill: string; edge: string; path: JSX.Element; label: string }> = {
+  green: { fill: '#10B981', edge: '#065F46', path: <circle cx="8" cy="8" r="6.1" />, label: 'ok' },
+  yellow: { fill: '#F59E0B', edge: '#7C2D12', path: <path d="M8 1.5 L14.7 13.6 H1.3 Z" strokeLinejoin="round" />, label: 'open' },
+  red: { fill: '#DC2626', edge: '#7F1D1D', path: <rect x="2" y="2" width="12" height="12" rx="1.8" />, label: 'failed' },
 }
 
-export function TrafficDot({ color, className = '' }: { color: TrafficColor; className?: string }) {
-  return <span className={`inline-block h-3 w-3 shrink-0 rounded-full ${TRAFFIC_CLS[color]} ${className}`} />
+export function TrafficDot({ color, className = '', size = 13 }: { color: TrafficColor; className?: string; size?: number }) {
+  const s = TRAFFIC_SHAPE[color]
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width={size}
+      height={size}
+      role="img"
+      aria-label={s.label}
+      className={`shrink-0 ${className}`}
+      fill={s.fill}
+      stroke={s.edge}
+      strokeWidth="1.5"
+    >
+      {s.path}
+    </svg>
+  )
 }
 
 /**
@@ -327,8 +351,8 @@ export function Grading() {
                         {/* Angelegt, aber unsigniert: dann fehlt nur noch die
                             Unterschrift — das ist etwas anderes als „gar nicht da". */}
                         {followUpStarted(r, state.gradingRecords, id)
-                          ? t('grading.followUpUnsigned', { id })
-                          : `${id} ${t('grading.stillRequired')}`}
+                          ? t('grading.unsignedForm', { id })
+                          : t('grading.missingForm', { id })}
                       </span>
                     ))}
                     {r.parentId && <Badge tone="dim">{t('grading.linked')}</Badge>}

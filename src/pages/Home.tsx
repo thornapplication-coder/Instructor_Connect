@@ -7,7 +7,7 @@ import { navigate } from '../router'
 import { useStore } from '../store'
 import { useIsDesktop } from '../useIsDesktop'
 import { APP_VERSION } from '../types'
-import { TRAFFIC_CLS, trafficLight, type TrafficColor } from './Grading'
+import { TrafficDot, trafficLight, type TrafficColor } from './Grading'
 
 /* Kachel-Beschriftungen bleiben laut Spez. §5 in beiden Sprachen Englisch. */
 const TILES = [
@@ -131,10 +131,8 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
               className="group relative flex aspect-square flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised short:aspect-auto short:h-[72px] short:flex-row short:justify-start short:gap-2.5 short:rounded-2xl short:px-3"
             >
               {to === '/grading' && gradingTraffic ? (
-                <span
-                  aria-label={`status ${gradingTraffic}`}
-                  className={`pointer-events-none absolute right-3.5 top-3.5 z-10 h-3 w-3 rounded-full ring-2 ring-bg ${TRAFFIC_CLS[gradingTraffic]}`}
-                />
+                // Dieselbe Form-Codierung wie in der Formularliste
+                <TrafficDot color={gradingTraffic} size={15} className="pointer-events-none absolute right-3 top-3 z-10" />
               ) : (
                 hasNews[to] && <NewDot className="right-3.5 top-3.5" />
               )}

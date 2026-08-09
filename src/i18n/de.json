@@ -441,7 +441,6 @@
     "followUpBodyMandatory": "Die Bewertung ist „Not Competent“ oder die Session wurde nicht abgeschlossen. Die als verpflichtend markierten Formulare MÜSSEN jetzt ausgefüllt werden — das auslösende Grading Sheet wird dem E-Mail-Versand automatisch beigefügt.",
     "mandatory": "verpflichtend",
     "followUpMailNote": "Jedes Folgeformular wird gemeinsam mit dem auslösenden Grading Sheet an die konfigurierten Empfänger versendet.",
-    "stillRequired": "ausständig (verpflichtend)",
     "followUpWarn": "Für dieses Grading Sheet wurde ein verpflichtendes Folgeformular noch nicht ausgefüllt:",
     "fillNow": "{{form}} jetzt ausfüllen",
     "mailAttachment": "The originating grading sheet ({{form}}) is automatically attached to the email dispatch of this form.",
@@ -475,11 +474,12 @@
     "errAttendanceSignature": "Auf Formular 307A unterschreibt jeder Teilnehmer selbst — von {{name}} fehlt die Unterschrift.",
     "instructorQual": "Instructor qualification",
     "instructorSeat": "Instructor seat",
-    "followUpUnsigned": "{{id}} awaiting signature",
     "openUnsignedFollowUp": "Complete {{form}} — signature outstanding",
     "leaveConfirm": "Formular verlassen? Die Eingaben werden als Entwurf gesichert und beim nächsten Öffnen wieder angeboten — Unterschriften bleiben nicht erhalten.",
     "draftRestored": "Ein Entwurf dieses Formulars wurde wiederhergestellt. Unterschriften müssen immer neu geleistet werden.",
-    "draftDiscard": "Entwurf verwerfen"
+    "draftDiscard": "Entwurf verwerfen",
+    "missingForm": "Missing Form {{id}}",
+    "unsignedForm": "Form {{id}} not signed"
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",
