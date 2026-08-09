@@ -362,4 +362,4 @@ export const RETENTION_MS: Record<RetentionKey, number> = {
   never: Infinity,
 }
 
-export const APP_VERSION = '1.1.0'
+export const APP_VERSION = '1.2.0'
