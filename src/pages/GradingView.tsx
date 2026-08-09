@@ -139,8 +139,8 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           </div>
         )}
 
-        {/* Status */}
-        <div className="flex flex-wrap items-center gap-2">
+        {/* Status ist Bedienoberfläche — auf Papier steht der Stand im Kopf */}
+        <div className="flex flex-wrap items-center gap-2 print:hidden">
           <TrafficDot color={trafficLight(record, state.gradingRecords)} />
           {record.status === 'signed' ? (
             <Badge tone="dim">
@@ -469,15 +469,8 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           )}
         </Card>
 
-        {/* Druck-Fuß: Dokumentkennung auf jedem Blatt */}
-        <p className="hidden border-t border-line/40 pt-2 text-[10px] text-dim print:block">
-          {[doc.atoName, `${record.formTypeId} — ${formType?.title ?? ''}`, doc.formRevision, `ID ${record.id}`]
-            .filter(Boolean)
-            .join(' · ')}
-        </p>
-
         {isAdmin && (
-          <p className="text-center text-[12px] text-dim/70">
+          <p className="text-center text-[12px] text-dim print:mt-1 print:text-left print:text-[10px]">
             {t('grading.recipients')}:{' '}
             {[
               ...new Set([
@@ -495,6 +488,21 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             ].join(', ')}
           </p>
         )}
+
+        {/* Druck-Fuß: Dokumentkennung auf jedem Blatt, immer zuunterst */}
+        <p className="hidden border-t border-line/40 pt-1.5 text-[10px] text-dim print:block">
+          {[
+            doc.atoName,
+            `${record.formTypeId} — ${formType?.title ?? ''}`,
+            doc.formRevision,
+            `ID ${record.id}`,
+            record.status === 'signed'
+              ? t('grading.status.signed')
+              : t('grading.status.awaiting_signature'),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
       </Page>
     </>
   )

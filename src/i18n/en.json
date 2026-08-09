@@ -385,7 +385,9 @@
       "editOptionsHint": "Every dropdown and tick list of this form can be maintained here: rename an entry directly, remove it with ×, or add a new one. Changes apply to new forms immediately.",
       "aircraftCentral": "Maintained centrally under Settings → Aircraft types — identical on every form.",
       "fleetFilter": "Fleet",
-      "noTrendFlags": "No trend flags — no competency below the threshold."
+      "noTrendFlags": "No trend flags — no competency below the threshold.",
+      "sessionCount_one": "{{count}} session",
+      "sessionCount_other": "{{count}} sessions"
     },
     "attendance": "Record of Attendance",
     "studentName": "Student name",

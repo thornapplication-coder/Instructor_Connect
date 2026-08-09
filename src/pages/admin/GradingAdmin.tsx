@@ -801,8 +801,10 @@ export function GradingAdmin() {
         </div>
       )}
 
+      {/* Auswertung im Querformat drucken: die Flottenmatrix wird mit jeder
+          Kompetenz breiter und passt hochkant nicht mehr auf ein Blatt. */}
       {section === 'stats' && (
-        <div className="space-y-4">
+        <div className="print-landscape space-y-4">
           {/* Vergleich einzelner Flotten: Auswahl gilt für Trendflags und Kalibrierung */}
           <div className="flex flex-wrap items-center gap-2">
             <label className="text-[13px] font-medium text-dim">{t('grading.admin.fleetFilter')}</label>
@@ -815,7 +817,7 @@ export function GradingAdmin() {
               ))}
             </select>
             <span className="text-[12.5px] text-dim">
-              {sessionCount(statsRecords)} {t('grading.admin.sessions')}
+              {t('grading.admin.sessionCount', { count: sessionCount(statsRecords) })}
             </span>
           </div>
 
@@ -828,9 +830,7 @@ export function GradingAdmin() {
             <div key={st.key} className="space-y-4">
               <p className="border-b border-line/10 pb-1 text-[14px] font-semibold">
                 {st.name}{' '}
-                <span className="font-normal text-dim">
-                  · {st.sessions} {t('grading.admin.sessions')}
-                </span>
+                <span className="font-normal text-dim">· {t('grading.admin.sessionCount', { count: st.sessions })}</span>
               </p>
 
               <Card className="p-4">
@@ -857,9 +857,7 @@ export function GradingAdmin() {
                   return (
                     <div key={row.id} className="flex items-center justify-between border-b border-line/[0.06] py-2 text-[13.5px] last:border-0">
                       <span className="min-w-0 flex-1 truncate">{userName(row.id)}</span>
-                      <span className="mx-3 text-[12px] text-dim">
-                        {row.sessions} {t('grading.admin.sessions')}
-                      </span>
+                      <span className="mx-3 text-[12px] text-dim">{t('grading.admin.sessionCount', { count: row.sessions })}</span>
                       <span className="w-14 text-right font-semibold">{row.avg?.toFixed(2)}</span>
                       <span className={`w-16 text-right text-[12.5px] ${Math.abs(diff) >= 0.5 ? 'font-semibold text-warm' : 'text-dim'}`}>
                         {diff >= 0 ? '+' : ''}
@@ -879,7 +877,7 @@ export function GradingAdmin() {
                       <tr className="text-dim">
                         <th className="p-1.5 text-left font-medium">{t('grading.admin.fleet')}</th>
                         {st.fleetMatrix.codes.map((c) => (
-                          <th key={c} className="p-1.5 font-medium">
+                          <th key={c} className="p-1.5 align-bottom font-medium print:max-w-24 print:whitespace-normal print:text-[9px]">
                             {st.fleetMatrix.labelOf(c)}
                           </th>
                         ))}

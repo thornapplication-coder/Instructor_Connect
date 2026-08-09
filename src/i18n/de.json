@@ -385,7 +385,9 @@
       "editOptionsHint": "Alle Dropdowns und Ankreuzlisten dieses Formulars sind hier pflegbar: Eintrag direkt umbenennen, mit × entfernen oder neuen hinzufügen. Änderungen gelten sofort für neue Formulare.",
       "aircraftCentral": "Wird zentral unter Einstellungen → Aircraft Types gepflegt — in allen Formularen identisch.",
       "fleetFilter": "Flotte",
-      "noTrendFlags": "Keine Trendflags — keine Kompetenz unter dem Schwellwert."
+      "noTrendFlags": "Keine Trendflags — keine Kompetenz unter dem Schwellwert.",
+      "sessionCount_one": "{{count}} session",
+      "sessionCount_other": "{{count}} sessions"
     },
     "attendance": "Teilnehmerliste",
     "studentName": "Name des Teilnehmers",

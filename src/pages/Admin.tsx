@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { useStore } from '../store'
-import { useIsDesktop } from '../useIsDesktop'
 import { GradingAdmin } from './admin/GradingAdmin'
 import { formatDateTime } from './Grading'
 import { APP_VERSION, PERM_KEYS, type ConfigurableRole, type RetentionKey, type Role } from '../types'
@@ -826,7 +825,6 @@ const TAB_ICONS: Record<Tab, typeof Users> = {
 export function Admin() {
   const { t } = useTranslation()
   const { currentUser } = useStore()
-  const isDesktop = useIsDesktop()
   // null = Kachel-Übersicht; erst ein Klick öffnet den Bereich
   const [tab, setTab] = useState<Tab | null>(null)
 
@@ -841,21 +839,6 @@ export function Admin() {
       setTab(null)
     }
   }, [identity])
-
-  // Am Tablet/Handy ist das Panel zu unübersichtlich — Hinweis statt Inhalt.
-  if (!isDesktop) {
-    return (
-      <>
-        <TopBar title={t('admin.title')} back="/" />
-        <Page>
-          <div className="flex flex-col items-center gap-3 pt-16 text-center">
-            <Monitor size={44} className="text-accent" />
-            <p className="max-w-xs text-[14px] leading-relaxed text-dim">{t('admin.desktopOnly')}</p>
-          </div>
-        </Page>
-      </>
-    )
-  }
 
   // Serverseitig gilt RLS; hier zusätzlich die Client-Absicherung.
   // Admins bekommen ein kleines Panel (Gruppen + Feedback), alles
@@ -883,7 +866,19 @@ export function Admin() {
   return (
     <>
       <TopBar title={openTab ? `${t('admin.title')} · ${t(`admin.${openTab}`)}` : t('admin.title')} back="/" />
-      <Page>
+      {/* Am Handy ist das Panel zu unübersichtlich — dort steht der Hinweis
+          statt des Inhalts. Die Entscheidung fällt in CSS, nicht in JS: beim
+          Drucken ist die Seite schmaler als 1024px, der Ausdruck bestand
+          sonst nur aus diesem Hinweis. */}
+      <div className="admin-narrow-note">
+        <Page>
+          <div className="flex flex-col items-center gap-3 pt-16 text-center">
+            <Monitor size={44} className="text-accent" />
+            <p className="max-w-xs text-[14px] leading-relaxed text-dim">{t('admin.desktopOnly')}</p>
+          </div>
+        </Page>
+      </div>
+      <Page className="admin-panel">
         {openTab === null ? (
           <>
             {/* Kachel-Übersicht wie am Dashboard — leichter zu finden und zu ändern */}

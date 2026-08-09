@@ -121,6 +121,20 @@ input[type='date'] {
  * schmale Ränder, kompakter Maßstab, damit ein Formular auf eine
  * (maximal zwei) Seiten passt. Kopf-/Navigationsleisten werden ausgeblendet.
  */
+/* Admin-Panel: die Entscheidung Hinweis-oder-Inhalt fällt in CSS, damit der
+   Ausdruck (Seitenbreite < 1024px) den Inhalt zeigt und nicht den Hinweis. */
+.admin-narrow-note {
+  display: none;
+}
+@media (max-width: 1023px) {
+  .admin-narrow-note {
+    display: block;
+  }
+  .admin-panel {
+    display: none;
+  }
+}
+
 @media print {
   :root,
   :root[data-theme='dark'] {
@@ -139,8 +153,12 @@ input[type='date'] {
     --grad-a: transparent;
     --grad-b: transparent;
   }
+
+  /* A4 mit schmalem Rand — nutzbar bleiben 198 x 285 mm. Ohne die
+     Größenangabe druckt Chrome im US-Letter-Format. */
   @page {
-    margin: 8mm;
+    size: A4 portrait;
+    margin: 6mm;
     /* Seitenzahl über die Rand-Boxen des Druckstandards. Firefox und Safari
        setzen sie; Chrome/Edge ignorieren Rand-Boxen bis heute — dort liefert
        die Seitenzahl die Kopf-/Fußzeile des Browser-Druckdialogs. */
@@ -150,6 +168,22 @@ input[type='date'] {
       color: #475569;
     }
   }
+
+  /* Breite Tabellen (Flottenmatrix, Formularlisten) im Querformat, damit
+     sie in der Breite auf ein Blatt passen. */
+  @page landscape {
+    size: A4 landscape;
+    margin: 6mm;
+    @bottom-right {
+      content: 'Page ' counter(page) ' of ' counter(pages);
+      font-size: 9pt;
+      color: #475569;
+    }
+  }
+  .print-landscape {
+    page: landscape;
+  }
+
   * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -163,11 +197,20 @@ input[type='date'] {
   .sticky {
     display: none !important;
   }
+  /* Im Druck zählt nicht die Fensterbreite: der Inhalt wird gedruckt. */
+  .admin-narrow-note {
+    display: none !important;
+  }
+  .admin-panel {
+    display: block !important;
+  }
   main {
     max-width: 100% !important;
     padding: 0 !important;
-    /* kompakter Maßstab: ein Formular passt auf eine, lange auf zwei Seiten */
-    zoom: 0.62;
+    /* Am schlechtesten Fall kalibriert: ein Grading Sheet mit neun
+       kommentierten Kompetenzen und langen Zusammenfassungen passt damit
+       noch auf eine A4-Seite, ein übliches füllt sie zu rund 90 %. */
+    zoom: 0.75;
   }
   main > * {
     break-inside: avoid;
@@ -177,28 +220,73 @@ input[type='date'] {
   main canvas {
     display: none !important;
   }
-  /* Karten und Abstände deutlich verdichten */
+  /* Karten und Abstände verdichten — ohne die Gliederung aufzugeben */
   main .p-4 {
-    padding: 0.5rem 0.65rem !important;
+    padding: 0.45rem 0.6rem !important;
   }
   main .space-y-4 > * + * {
-    margin-top: 0.45rem !important;
+    margin-top: 0.4rem !important;
   }
   main .space-y-3 > * + * {
-    margin-top: 0.35rem !important;
+    margin-top: 0.3rem !important;
   }
   main .rounded-2xl,
   main .rounded-xl {
-    border-radius: 6px !important;
+    border-radius: 5px !important;
   }
-  /* Signaturbilder kompakt */
+  /* Signaturbilder kompakt, aber noch erkennbar */
   main img {
-    max-height: 60px;
-    height: 60px;
+    max-height: 54px;
+    height: 54px;
   }
+
+  /* Querformat-Seiten nutzen die volle Breite: die Auswertung wird sonst
+     an der Blattkante abgeschnitten. */
+  .print-landscape {
+    zoom: 1;
+  }
+  .print-landscape table {
+    width: 100% !important;
+    table-layout: fixed;
+    font-size: 9px;
+  }
+  .print-landscape .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  /* Tabellen über Seitengrenzen: Kopfzeile wiederholt sich, Zeilen werden
+     nicht mitten durchgeschnitten. */
+  thead {
+    display: table-header-group;
+  }
+  tfoot {
+    display: table-footer-group;
+  }
+  tr,
+  th,
+  td {
+    break-inside: avoid;
+  }
+  th {
+    background: #eef2f7 !important;
+  }
+  /* Überschriften bleiben bei ihrem Abschnitt */
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  /* Formularfelder erscheinen auf Papier als Text, nicht als Bedienelement */
   input,
   select,
   textarea {
     color-scheme: light;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 0 !important;
+    background: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
   }
 }
