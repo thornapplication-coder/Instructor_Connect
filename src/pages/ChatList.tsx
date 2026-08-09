@@ -24,7 +24,7 @@ export function ChatList() {
           isAdminUser(currentUser) ? (
             <button
               onClick={() => setShowNew(true)}
-              className="flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
+              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
             >
               <Plus size={15} /> {t('admin.addGroup')}
             </button>

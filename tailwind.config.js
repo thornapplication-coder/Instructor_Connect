@@ -20,6 +20,12 @@ export default {
         danger: 'rgb(var(--c-danger) / <alpha-value>)',
         line: 'rgb(var(--c-line) / <alpha-value>)',
         sand: 'rgb(var(--c-sand) / <alpha-value>)',
+        // Ampel- und Fokusfarben je Theme — im Hellmodus deutlich dunkler,
+        // damit der Statuspunkt überhaupt sichtbar ist.
+        ok: 'rgb(var(--c-ok) / <alpha-value>)',
+        wait: 'rgb(var(--c-wait) / <alpha-value>)',
+        bad: 'rgb(var(--c-bad) / <alpha-value>)',
+        focus: 'rgb(var(--c-focus) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],

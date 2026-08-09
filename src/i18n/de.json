@@ -18,7 +18,8 @@
     "updateAvailable": "Eine neue Version ist verfügbar",
     "updateNow": "Aktualisieren",
     "refresh": "App neu laden",
-    "tooLarge": "„{{name}}“ ist {{size}} MB groß — erlaubt sind {{max}} MB."
+    "tooLarge": "„{{name}}“ ist {{size}} MB groß — erlaubt sind {{max}} MB.",
+    "discardConfirm": "Eingaben verwerfen und schließen?"
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -464,7 +465,10 @@
     "instructorQual": "Instructor qualification",
     "instructorSeat": "Instructor seat",
     "followUpUnsigned": "{{id}} awaiting signature",
-    "openUnsignedFollowUp": "Complete {{form}} — signature outstanding"
+    "openUnsignedFollowUp": "Complete {{form}} — signature outstanding",
+    "leaveConfirm": "Formular verlassen? Die Eingaben werden als Entwurf gesichert und beim nächsten Öffnen wieder angeboten — Unterschriften bleiben nicht erhalten.",
+    "draftRestored": "Ein Entwurf dieses Formulars wurde wiederhergestellt. Unterschriften müssen immer neu geleistet werden.",
+    "draftDiscard": "Entwurf verwerfen"
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

@@ -18,7 +18,8 @@
     "updateAvailable": "A new version is available",
     "updateNow": "Update now",
     "refresh": "Reload app",
-    "tooLarge": "“{{name}}” is {{size}} MB — the limit is {{max}} MB."
+    "tooLarge": "“{{name}}” is {{size}} MB — the limit is {{max}} MB.",
+    "discardConfirm": "Discard your entries and close?"
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -464,7 +465,10 @@
     "instructorQual": "Instructor qualification",
     "instructorSeat": "Instructor seat",
     "followUpUnsigned": "{{id}} awaiting signature",
-    "openUnsignedFollowUp": "Complete {{form}} — signature outstanding"
+    "openUnsignedFollowUp": "Complete {{form}} — signature outstanding",
+    "leaveConfirm": "Leave the form? Your entries are saved as a draft and offered again next time — signatures are not kept.",
+    "draftRestored": "A draft of this form was restored. Signatures always have to be drawn again.",
+    "draftDiscard": "Discard draft"
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

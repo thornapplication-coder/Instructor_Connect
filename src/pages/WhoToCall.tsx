@@ -19,7 +19,12 @@ function ContactModal({ contact, onClose }: { contact: Partial<Contact> | null; 
   const valid = form.department.trim() && form.name.trim()
 
   return (
-    <Modal title={contact?.id ? t('common.edit') : t('contacts.newContact')} onClose={onClose}>
+    <Modal
+      title={contact?.id ? t('common.edit') : t('contacts.newContact')}
+      onClose={onClose}
+      // Hintergrundklick und Escape verwarfen bisher kommentarlos
+      confirmDiscard={Object.values(form).some((v) => v.trim()) ? t('common.discardConfirm') : undefined}
+    >
       <div className="space-y-3.5">
         <Field label={t('contacts.department')}>
           <input className={inputCls} value={form.department} onChange={set('department')} autoFocus />
@@ -89,7 +94,7 @@ export function WhoToCall() {
           mayEdit ? (
             <button
               onClick={() => setEditing(null)}
-              className="flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
+              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
             >
               <Plus size={15} /> {t('contacts.newContact')}
             </button>
@@ -100,7 +105,7 @@ export function WhoToCall() {
         <div className="flex gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setFilter('')}
-            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
+            className={`min-h-11 shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
               !filter ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
             }`}
           >
@@ -110,7 +115,7 @@ export function WhoToCall() {
             <button
               key={d}
               onClick={() => setFilter(filter === d ? '' : d)}
-              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
+              className={`min-h-11 shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
                 filter === d ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
               }`}
             >
@@ -159,13 +164,13 @@ export function WhoToCall() {
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <a
                       href={`tel:${c.phone.replace(/\s+/g, '')}`}
-                      className="flex items-center justify-center gap-2 rounded-xl border border-line/15 py-2.5 text-[13.5px] font-medium transition hover:border-accent/50 hover:text-accent"
+                      className="min-h-11 flex items-center justify-center gap-2 rounded-xl border border-line/15 py-2.5 text-[13.5px] font-medium transition hover:border-accent/50 hover:text-accent"
                     >
                       <Phone size={15} /> {t('contacts.call')}
                     </a>
                     <a
                       href={`mailto:${c.email}`}
-                      className="flex items-center justify-center gap-2 rounded-xl border border-line/15 py-2.5 text-[13.5px] font-medium transition hover:border-accent/50 hover:text-accent"
+                      className="min-h-11 flex items-center justify-center gap-2 rounded-xl border border-line/15 py-2.5 text-[13.5px] font-medium transition hover:border-accent/50 hover:text-accent"
                     >
                       <Mail size={15} /> {t('contacts.mail')}
                     </a>

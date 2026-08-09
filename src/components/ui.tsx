@@ -1,5 +1,5 @@
-import { ArrowLeft, Home as HomeIcon, Moon, Sun } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { ArrowLeft, Home as HomeIcon, Moon, Sun, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { navigate } from '../router'
 
@@ -39,7 +39,7 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={t('common.theme')}
       title={t('common.theme')}
-      className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-ink"
+      className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-ink"
     >
       {light ? <Moon size={18} /> : <Sun size={18} />}
     </button>
@@ -49,16 +49,34 @@ export function ThemeToggle() {
 /** home=false unterdrückt den Home-Button — genutzt in den Grading-Forms,
  *  damit man dort nicht versehentlich aus dem Formular springt.
  *  wide=true nutzt am Desktop die volle Breite (Grading-Formulare). */
-export function TopBar({ title, back, right, home = true, wide = false }: { title: ReactNode; back?: string; right?: ReactNode; home?: boolean; wide?: boolean }) {
+export function TopBar({
+  title,
+  back,
+  right,
+  home = true,
+  wide = false,
+  onBack,
+}: {
+  title: ReactNode
+  back?: string
+  right?: ReactNode
+  home?: boolean
+  wide?: boolean
+  /** Rückfrage vor dem Verlassen; false verhindert die Navigation */
+  onBack?: () => boolean
+}) {
   const { t } = useTranslation()
   return (
     <header className="safe-top sticky top-0 z-20 border-b border-line/10 bg-bg/85 backdrop-blur">
       <div className={`mx-auto flex h-14 items-center gap-2 px-3 xl:max-w-none xl:px-8 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>
         {back !== undefined && (
           <button
-            onClick={() => navigate(back)}
+            onClick={() => {
+              if (onBack && !onBack()) return
+              navigate(back)
+            }}
             aria-label={t('common.back')}
-            className="-ml-1 rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-ink"
+            className="-ml-1 flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-ink"
           >
             <ArrowLeft size={20} />
           </button>
@@ -70,7 +88,7 @@ export function TopBar({ title, back, right, home = true, wide = false }: { titl
             onClick={() => navigate('/')}
             aria-label="Home"
             title="Home"
-            className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-accent"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-accent"
           >
             <HomeIcon size={19} />
           </button>
@@ -120,7 +138,7 @@ export function Button({
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-xl px-4 py-2.5 text-sm transition disabled:opacity-40 ${styles} ${className}`}
+      className={`min-h-11 rounded-xl px-4 py-2.5 text-sm transition disabled:opacity-40 ${styles} ${className}`}
     >
       {children}
     </button>
@@ -128,7 +146,7 @@ export function Button({
 }
 
 export const inputCls =
-  'w-full rounded-xl border border-line/10 bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim/60 outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+  'w-full rounded-xl border border-line/10 bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -161,7 +179,7 @@ export function NewDot({ className = '', size = 12 }: { className?: string; size
     <span
       aria-label="new"
       style={{ width: size, height: size }}
-      className={`pointer-events-none absolute z-10 rounded-full bg-emerald-400 ring-2 ring-bg ${className}`}
+      className={`pointer-events-none absolute z-10 rounded-full bg-ok ring-2 ring-bg ${className}`}
     />
   )
 }
@@ -180,7 +198,7 @@ export function ChipMultiSelect({ options, selected, onChange }: {
           <button
             key={o.id}
             onClick={() => onChange(on ? selected.filter((x) => x !== o.id) : [...selected, o.id])}
-            className={`rounded-full border px-3 py-1.5 text-[12.5px] transition ${
+            className={`min-h-11 rounded-full border px-3 py-1.5 text-[12.5px] transition ${
               on ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
             }`}
           >
@@ -201,14 +219,97 @@ export function Badge({ children, tone = 'accent' }: { children: ReactNode; tone
   return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${tones}`}>{children}</span>
 }
 
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+/**
+ * Dialog mit vollständiger Tastaturbedienung: Escape schließt, der Fokus
+ * bleibt im Dialog gefangen und kehrt beim Schließen an die auslösende
+ * Stelle zurück. Ein Klick auf den Hintergrund fragt nach, sobald etwas
+ * eingetragen wurde — vorher verwarf er ein halb ausgefülltes Formular
+ * kommentarlos.
+ */
+export function Modal({
+  title,
+  onClose,
+  children,
+  confirmDiscard,
+}: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+  /** Rückfrage vor dem Verwerfen (Text); ohne Angabe schließt der Dialog sofort */
+  confirmDiscard?: string
+}) {
+  const { t } = useTranslation()
+  const panelRef = useRef<HTMLDivElement>(null)
+  const openerRef = useRef<Element | null>(null)
+
+  const close = useCallback(() => {
+    if (confirmDiscard && !window.confirm(confirmDiscard)) return
+    onClose()
+  }, [confirmDiscard, onClose])
+
+  useEffect(() => {
+    openerRef.current = document.activeElement
+    const panel = panelRef.current
+    // Erstes bedienbares Element bekommt den Fokus, sonst der Dialog selbst
+    const focusable = () =>
+      [...(panel?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? [])].filter(
+        (e) => !e.hasAttribute('disabled') && e.offsetParent !== null,
+      )
+    focusable()[0]?.focus() ?? panel?.focus()
+
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        close()
+        return
+      }
+      if (e.key !== 'Tab') return
+      // Fokusfalle: Tab läuft im Kreis, statt hinter den Dialog zu wandern
+      const items = focusable()
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      ;(openerRef.current as HTMLElement | null)?.focus?.()
+    }
+  }, [close])
+
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-6" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-6"
+      onClick={close}
+      role="presentation"
+    >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-line/10 bg-surface p-5 shadow-tile sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-4 text-lg font-semibold">{title}</h2>
+        <div className="mb-4 flex items-start gap-3">
+          <h2 className="min-w-0 flex-1 text-lg font-semibold">{title}</h2>
+          <button
+            onClick={close}
+            aria-label={t('common.close')}
+            title={t('common.close')}
+            className="-mr-1 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-ink"
+          >
+            <X size={18} />
+          </button>
+        </div>
         {children}
       </div>
     </div>

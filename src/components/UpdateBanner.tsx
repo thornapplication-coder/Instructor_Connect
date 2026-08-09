@@ -96,7 +96,7 @@ export function UpdateBanner() {
           clicked.current = true
           waiting.postMessage({ type: 'SKIP_WAITING' })
         }}
-        className="rounded-full bg-bg/25 px-4 py-1.5 transition hover:bg-bg/35"
+        className="min-h-11 rounded-full bg-bg/25 px-4 py-1.5 transition hover:bg-bg/35"
       >
         {t('common.updateNow')}
       </button>

@@ -20,12 +20,19 @@
   --c-surface: 250 251 253;/* #FAFBFD  Karten                  */
   --c-raised: 221 229 240; /* #DDE5F0  erhabene Flächen        */
   --c-ink: 22 37 61;       /* #16253D  Text                    */
-  --c-dim: 90 105 126;     /* #5A697E  Sekundärtext            */
+  --c-dim: 67 80 95;       /* #43505F  Sekundärtext (AA auf allen Flächen) */
   --c-accent: 37 99 190;   /* #2563BE  Akzent (kräftiges Blau) */
   --c-warm: 122 92 46;     /* #7A5C2E  warmer Kontrastton      */
-  --c-danger: 190 55 47;   /* #BE372F  destruktive Aktionen    */
+  --c-danger: 168 42 34;   /* #A82A22  destruktive Aktionen (AA auch auf getönter Fläche) */
   --c-line: 22 37 61;      /* dunkle Basis für Ränder          */
   --c-sand: 146 95 22;     /* Sandbox-Hinweistext              */
+  /* Ampel- und Statusfarben. Im Hellmodus deutlich dunkler als die früheren
+     400er-Töne: die Punkte lagen bei 1,5:1 und waren praktisch unsichtbar.
+     Alle Werte erreichen mindestens 3:1 auf Hintergrund, Karte und Fläche. */
+  --c-ok: 4 120 87;        /* #047857 */
+  --c-wait: 180 83 9;      /* #B45309 */
+  --c-bad: 185 28 28;      /* #B91C1C */
+  --c-focus: 37 99 190;    /* Tastaturfokus, >=3:1 gegen die Feldfläche */
   --sh-soft: 0 6px 18px rgba(22, 37, 61, 0.10);
   --sh-tile: 0 10px 26px rgba(22, 37, 61, 0.14);
   --grad-a: rgb(var(--c-accent) / 0.07);
@@ -37,12 +44,16 @@
   --c-surface: 19 45 79;   /* #132D4F  Flächen/Karten          */
   --c-raised: 27 58 99;    /* #1B3A63  erhabene Flächen        */
   --c-ink: 236 242 250;    /* #ECF2FA  Text                    */
-  --c-dim: 154 167 184;    /* #9AA7B8  Sekundärtext            */
+  --c-dim: 175 186 200;    /* #AFBAC8  Sekundärtext (AA auf allen Flächen) */
   --c-accent: 111 168 255; /* #6FA8FF  Akzent (helles Blau)    */
   --c-warm: 240 233 220;   /* #F0E9DC  warmes Off-White        */
   --c-danger: 255 122 122; /* #FF7A7A  destruktive Aktionen    */
   --c-line: 255 255 255;   /* Basis für Trennlinien/Ränder     */
   --c-sand: 252 211 77;    /* Sandbox-Hinweistext              */
+  --c-ok: 52 211 153;      /* #34D399 */
+  --c-wait: 251 191 36;    /* #FBBF24 */
+  --c-bad: 248 113 113;    /* #F87171 */
+  --c-focus: 191 216 255;  /* heller Ring — der Akzent lag im Dunkelmodus bei 2,38:1 */
   --sh-soft: 0 8px 24px rgba(3, 10, 22, 0.35);
   --sh-tile: 0 10px 30px rgba(3, 10, 22, 0.45);
   --grad-a: rgb(var(--c-raised) / 0.35);
@@ -121,6 +132,22 @@ input[type='date'] {
  * schmale Ränder, kompakter Maßstab, damit ein Formular auf eine
  * (maximal zwei) Seiten passt. Kopf-/Navigationsleisten werden ausgeblendet.
  */
+/* Bedienelemente sind mindestens 44px hoch (Apple HIG, WCAG 2.2). Eingabe-
+   und Auswahlfelder bekommen die Mindesthöhe zentral, damit sie nicht an
+   jeder Fundstelle einzeln gesetzt werden muss. */
+select,
+textarea,
+input:not([type='checkbox']):not([type='radio']):not([type='file']) {
+  min-height: 44px;
+}
+
+/* Tastaturfokus: eigener Ring mit mindestens 3:1 gegen die Feldfläche —
+   der Akzentton allein lag im Dunkelmodus bei 2,38:1. */
+:focus-visible {
+  outline: 2px solid rgb(var(--c-focus));
+  outline-offset: 2px;
+}
+
 /* Admin-Panel: die Entscheidung Hinweis-oder-Inhalt fällt in CSS, damit der
    Ausdruck (Seitenbreite < 1024px) den Inhalt zeigt und nicht den Hinweis. */
 .admin-narrow-note {
@@ -148,6 +175,10 @@ input[type='date'] {
     --c-danger: 185 28 28;
     --c-line: 15 23 42;
     --c-sand: 146 95 22;
+    --c-ok: 4 120 87;
+    --c-wait: 180 83 9;
+    --c-bad: 185 28 28;
+    --c-focus: 37 99 190;
     --sh-soft: none;
     --sh-tile: none;
     --grad-a: transparent;
@@ -281,6 +312,7 @@ input[type='date'] {
   input,
   select,
   textarea {
+    min-height: 0 !important;
     color-scheme: light;
     appearance: none;
     -webkit-appearance: none;

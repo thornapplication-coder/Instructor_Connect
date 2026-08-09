@@ -29,7 +29,11 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
   const valid = title.trim() && category && (type === 'pdf' || body.trim())
 
   return (
-    <Modal title={t('info.newEntry')} onClose={onClose}>
+    <Modal
+      title={t('info.newEntry')}
+      onClose={onClose}
+      confirmDiscard={title.trim() || body.trim() || category || groupIds.length > 0 ? t('common.discardConfirm') : undefined}
+    >
       <div className="space-y-4">
         <Field label={t('info.typeLabel')}>
           <div className="flex gap-2">
@@ -37,7 +41,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
               <button
                 key={tp}
                 onClick={() => setType(tp)}
-                className={`flex-1 rounded-xl border px-3 py-2.5 text-sm transition ${
+                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-sm transition ${
                   type === tp ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-line/10 text-dim'
                 }`}
               >
@@ -90,15 +94,15 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
             <input type="date" className={inputCls} value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
           </Field>
         </div>
-        <p className="-mt-2 text-[11.5px] leading-relaxed text-dim/80">{t('info.ufnHint')}</p>
+        <p className="-mt-2 text-[11.5px] leading-relaxed text-dim">{t('info.ufnHint')}</p>
         {/* Zielgruppen: steuern Sichtbarkeit und Bestätigungspflicht (Mehrfachauswahl) */}
         <Field label={t('info.groupsLabel')}>
           <ChipMultiSelect options={groups.map((gr) => ({ id: gr.id, label: gr.name }))} selected={groupIds} onChange={setGroupIds} />
-          <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('info.groupsHint')}</p>
+          <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim">{t('info.groupsHint')}</p>
         </Field>
         {/* Lese-Bestätigung: jeder Nutzer der Zielgruppen muss aktiv „gelesen“ bestätigen */}
         <label className="flex items-center gap-2 text-[13.5px]">
-          <input type="checkbox" checked={requiresAck} onChange={(e) => setRequiresAck(e.target.checked)} className="accent-accent" />
+          <input type="checkbox" checked={requiresAck} onChange={(e) => setRequiresAck(e.target.checked)} className="h-6 w-6 shrink-0 accent-accent" />
           {t('info.requiresAck')}
         </label>
         {type === 'text' ? (
@@ -232,7 +236,7 @@ export function InstructorInfo() {
           mayEdit ? (
             <button
               onClick={() => setShowNew(true)}
-              className="flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
+              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
             >
               <Plus size={15} /> {t('info.newEntry')}
             </button>
@@ -254,7 +258,7 @@ export function InstructorInfo() {
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           <button
             onClick={() => setCategoryFilter('')}
-            className={`shrink-0 rounded-full border px-3 py-1.5 text-[12.5px] transition ${
+            className={`min-h-11 shrink-0 rounded-full border px-4 py-1.5 text-[12.5px] transition ${
               categoryFilter === '' ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
             }`}
           >
@@ -264,7 +268,7 @@ export function InstructorInfo() {
             <button
               key={c}
               onClick={() => setCategoryFilter(categoryFilter === c ? '' : c)}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-[12.5px] transition ${
+              className={`min-h-11 shrink-0 rounded-full border px-4 py-1.5 text-[12.5px] transition ${
                 categoryFilter === c ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
               }`}
             >
@@ -298,7 +302,7 @@ export function InstructorInfo() {
                     {entry.type === 'pdf' ? <FileText size={19} /> : <ScrollText size={19} />}
                   </span>
                   {isNew && (
-                    <span className="rounded-md bg-emerald-600 px-1.5 py-0.5 text-[10.5px] font-bold tracking-wider text-white">NEW</span>
+                    <span className="rounded-md bg-emerald-700 px-1.5 py-0.5 text-[10.5px] font-bold tracking-wider text-white">NEW</span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -308,25 +312,25 @@ export function InstructorInfo() {
                     <button
                       onClick={() => toggleStarInfo(entry.id)}
                       title={t('info.star')}
-                      className={`shrink-0 rounded-lg p-1 transition ${starred ? 'text-amber-300' : 'text-dim/60 hover:text-amber-300'}`}
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition ${starred ? 'text-amber-300' : 'text-dim hover:text-amber-300'}`}
                     >
                       <Star size={17} fill={starred ? 'currentColor' : 'none'} />
                     </button>
                   </div>
                   {entry.description && <p className="mt-0.5 text-[13px] text-dim">{entry.description}</p>}
                   {/* Bewusst ohne Erstellungsdatum und Autor in der Übersicht */}
-                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11.5px] text-dim/80">
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11.5px] text-dim">
                     <span className="rounded bg-raised px-1.5 py-0.5 font-medium text-dim">{entry.category}</span>
                     <span className="rounded border border-line/15 px-1.5 py-0.5 text-dim">{groupNames(entry.groupIds)}</span>
                   </p>
-                  <p className={`mt-1 text-[11.5px] ${expired ? 'text-danger' : 'text-dim/80'}`}>
+                  <p className={`mt-1 text-[11.5px] ${expired ? 'text-danger' : 'text-dim'}`}>
                     {t('info.validity')}: {validityLabel(entry)}
                     {expired && ` · ${t('info.expired')}`}
                   </p>
                   {/* Für Verwalter sichtbar: der Eintrag gilt erst später und
                       ist für die Zielgruppen noch nicht sichtbar */}
                   {scheduled && (
-                    <p className="mt-1 inline-flex items-center rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-semibold text-black">
+                    <p className="mt-1 inline-flex items-center rounded-full bg-wait px-2 py-0.5 text-[11px] font-semibold text-white">
                       {t('info.scheduled')}
                     </p>
                   )}
@@ -343,14 +347,14 @@ export function InstructorInfo() {
                     return (
                       <div className="mt-2.5 space-y-1.5">
                         {myAck ? (
-                          <p className="flex items-center gap-1.5 text-[12.5px] font-medium text-emerald-500">
+                          <p className="flex items-center gap-1.5 text-[12.5px] font-medium text-ok">
                             <CheckCircle2 size={14} /> {t('info.ackedAt', { date: formatDateTime(myAck) })}
                           </p>
                         ) : (
                           amTarget && (
                             <button
                               onClick={() => acknowledgeInfo(entry.id)}
-                              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[13px] font-semibold text-bg transition hover:brightness-110"
+                              className="min-h-11 flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[13px] font-semibold text-bg transition hover:brightness-110"
                             >
                               <CheckCircle2 size={15} /> {t('info.ackButton')}
                             </button>
@@ -361,14 +365,14 @@ export function InstructorInfo() {
                             <div className="flex flex-wrap items-center gap-3">
                               <button
                                 onClick={() => setAckOpenId(ackOpenId === entry.id ? null : entry.id)}
-                                className="flex items-center gap-1 text-[12px] text-dim hover:text-accent"
+                                className="flex min-h-11 items-center gap-1 text-[12px] text-dim hover:text-accent"
                               >
                                 {t('info.ackStatus', { done, total: targets.length })}
                                 <ChevronDown size={12} className={ackOpenId === entry.id ? 'rotate-180' : ''} />
                               </button>
                               <button
                                 onClick={() => exportAckList(entry)}
-                                className="flex items-center gap-1 text-[12px] text-dim hover:text-accent"
+                                className="flex min-h-11 items-center gap-1 text-[12px] text-dim hover:text-accent"
                               >
                                 <FileDown size={12} /> {t('info.exportAck')}
                               </button>
@@ -379,7 +383,7 @@ export function InstructorInfo() {
                                   <li key={u.id} className="flex items-center justify-between gap-2">
                                     <span>{u.name}</span>
                                     {acks[u.id] ? (
-                                      <span className="text-emerald-500">{formatDateTime(acks[u.id])}</span>
+                                      <span className="text-ok">{formatDateTime(acks[u.id])}</span>
                                     ) : (
                                       <span className="text-danger/80">{t('info.ackMissing')}</span>
                                     )}
@@ -400,14 +404,14 @@ export function InstructorInfo() {
                           href={SAMPLE_PDF}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
+                          className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
                         >
                           <Eye size={14} /> {t('info.view')}
                         </a>
                         <a
                           href={SAMPLE_PDF}
                           download={entry.fileName}
-                          className="flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
+                          className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
                         >
                           <Download size={14} /> {t('info.download')}
                         </a>
@@ -415,7 +419,7 @@ export function InstructorInfo() {
                     ) : (
                       <button
                         onClick={() => setOpenId(open ? null : entry.id)}
-                        className="flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
+                        className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
                       >
                         <Eye size={14} /> {open ? t('common.close') : t('info.view')}
                       </button>
@@ -423,7 +427,7 @@ export function InstructorInfo() {
                     {mayEdit && (
                       <button
                         onClick={() => window.confirm(t('info.confirmDelete')) && deleteInfoEntry(entry.id)}
-                        className="flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-[13px] text-danger hover:bg-danger/10"
+                        className="min-h-11 flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-[13px] text-danger hover:bg-danger/10"
                       >
                         <Trash2 size={14} /> {t('common.delete')}
                       </button>
@@ -439,7 +443,7 @@ export function InstructorInfo() {
           )
         })}
 
-        <p className="pt-2 text-center text-[11.5px] text-dim/70">{t('info.permanentNote')}</p>
+        <p className="pt-2 text-center text-[11.5px] text-dim">{t('info.permanentNote')}</p>
       </Page>
       {showNew && <NewEntryModal onClose={() => setShowNew(false)} />}
     </>

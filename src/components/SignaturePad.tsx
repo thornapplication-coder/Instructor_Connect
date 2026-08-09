@@ -150,7 +150,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
         style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' } as React.CSSProperties}
         className="h-28 w-full rounded-xl border border-dashed border-line/25 bg-surface text-ink"
       />
-      {!value && <p className="mt-1 text-[11.5px] text-dim/70">{t('grading.signHint')}</p>}
+      {!value && <p className="mt-1 text-[11.5px] text-dim">{t('grading.signHint')}</p>}
     </div>
   )
 }

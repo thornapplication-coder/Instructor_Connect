@@ -43,7 +43,7 @@ export function DevicePreview() {
           <button
             key={key}
             onClick={() => setDevice(key)}
-            className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
+            className={`min-h-11 flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
               device === key ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim hover:text-ink'
             }`}
           >
@@ -53,21 +53,21 @@ export function DevicePreview() {
         <button
           onClick={() => setLandscape((v) => !v)}
           title={t('sandbox.rotate')}
-          className="rounded-full border border-line/15 p-2 text-dim transition hover:text-ink"
+          className="min-h-11 rounded-full border border-line/15 p-2 text-dim transition hover:text-ink"
         >
           {landscape ? <RotateCcw size={14} /> : <RotateCw size={14} />}
         </button>
         <button
           onClick={() => frameRef.current?.contentWindow?.location.reload()}
           title={t('sandbox.reset')}
-          className="rounded-full border border-line/15 px-3 py-1.5 text-[13px] text-dim transition hover:text-ink"
+          className="min-h-11 rounded-full border border-line/15 px-3 py-1.5 text-[13px] text-dim transition hover:text-ink"
         >
           ⟳
         </button>
         <button
           onClick={() => navigate('/')}
           aria-label={t('common.close')}
-          className="ml-2 rounded-full border border-line/15 p-2 text-dim transition hover:text-danger"
+          className="min-h-11 ml-2 rounded-full border border-line/15 p-2 text-dim transition hover:text-danger"
         >
           <X size={14} />
         </button>

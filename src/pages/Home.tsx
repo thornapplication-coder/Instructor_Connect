@@ -82,7 +82,7 @@ export function Home() {
             onClick={() => window.location.reload()}
             aria-label={t('common.refresh')}
             title={t('common.refresh')}
-            className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-ink"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-ink"
           >
             <RefreshCw size={17} />
           </button>
@@ -92,7 +92,7 @@ export function Home() {
               <button
                 key={lng}
                 onClick={() => i18n.changeLanguage(lng)}
-                className={`px-2 py-1 font-medium uppercase transition ${i18n.language === lng ? 'bg-accent text-bg' : 'text-dim hover:text-ink'}`}
+                className={`min-h-11 px-4 py-1 font-medium uppercase transition ${i18n.language === lng ? 'bg-accent text-bg' : 'text-dim hover:text-ink'}`}
               >
                 {lng}
               </button>
@@ -101,7 +101,7 @@ export function Home() {
           <button
             onClick={logout}
             aria-label={t('common.logout')}
-            className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-ink"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-ink"
           >
             <LogOut size={18} />
           </button>
@@ -156,7 +156,7 @@ export function Home() {
         {(currentUser!.role === 'superadmin' || currentUser!.role === 'group_admin') && isDesktop && (
           <button
             onClick={() => navigate('/admin')}
-            className="mx-auto mt-8 flex items-center gap-2 rounded-full border border-line/10 px-4 py-2 text-[13px] text-dim transition hover:border-accent/40 hover:text-ink"
+            className="min-h-11 mx-auto mt-8 flex items-center gap-2 rounded-full border border-line/10 px-4 py-2 text-[13px] text-dim transition hover:border-accent/40 hover:text-ink"
           >
             <ShieldCheck size={15} className="text-accent" /> {t('home.admin')}
           </button>
@@ -165,7 +165,7 @@ export function Home() {
         {/* Antippen öffnet das Share-Sheet (iOS: „Zum Home-Bildschirm") */}
         <button
           onClick={openInstall}
-          className="mx-auto mt-6 flex max-w-xs items-center gap-2 text-center text-[11px] leading-snug text-dim/70 underline-offset-2 transition hover:text-ink hover:underline short:hidden md:mt-8"
+          className="mx-auto mt-6 flex min-h-11 max-w-xs items-center gap-2 text-center text-[11px] leading-snug text-dim underline-offset-2 transition hover:text-ink hover:underline short:hidden md:mt-8"
         >
           <Share size={13} className="shrink-0" /> {t('home.installHint')}
         </button>
@@ -183,14 +183,14 @@ export function Home() {
 
       <footer className="space-y-2 pb-4 text-center short:space-y-1 short:pb-2">
         <div className="flex items-center justify-center gap-4 text-[12.5px]">
-          <button onClick={() => navigate('/imprint')} className="text-dim underline-offset-2 hover:text-ink hover:underline">
+          <button onClick={() => navigate('/imprint')} className="inline-flex min-h-11 items-center text-dim underline-offset-2 hover:text-ink hover:underline">
             {t('common.imprint')}
           </button>
-          <button onClick={logout} className="flex items-center gap-1 text-dim underline-offset-2 hover:text-ink hover:underline">
+          <button onClick={logout} className="inline-flex min-h-11 items-center gap-1 text-dim underline-offset-2 hover:text-ink hover:underline">
             <LogOut size={12} /> {t('common.logout')}
           </button>
         </div>
-        <p className="text-[11px] text-dim/50 short:hidden">Instructor Connect v{APP_VERSION}</p>
+        <p className="text-[11px] text-dim short:hidden">Instructor Connect v{APP_VERSION}</p>
       </footer>
     </div>
   )

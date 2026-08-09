@@ -13,11 +13,13 @@ export { followUpStarted, isComplete, missingFollowUps, traineesOf, trafficLight
 /** Farbcodierung laut Spez. 5.3: 5/4 grün, 3 dunkelgrün, 2 orange, 1 rot, NO grau.
  *  Kräftige Vollfarben mit weißem/schwarzem Text — in Hell- UND Dunkelmodus lesbar. */
 export function gradeColor(g: number | 'NO' | null): string {
+  // Textfarbe je Fläche so gewählt, dass jede Note mindestens 4,5:1 erreicht:
+  // Weiß auf emerald-600 lag bei 3,77:1 und war zu blass.
   if (g === 'NO' || g === null) return 'bg-line/10 text-dim'
-  if (g >= 4) return 'bg-emerald-600 text-white'
+  if (g >= 4) return 'bg-emerald-700 text-white'
   if (g === 3) return 'bg-emerald-800 text-white'
   if (g === 2) return 'bg-amber-500 text-black'
-  return 'bg-red-600 text-white'
+  return 'bg-red-700 text-white'
 }
 
 /* Einheitliches Datumsformat DD.MM.YYYY für das gesamte Grading-Modul */
@@ -32,10 +34,12 @@ export function formatDateTime(ts: number): string {
   return `${formatDate(ts)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
+/** Ampelfarben aus der Theme-Datei — im Hellmodus lagen die 400er-Töne bei
+ *  1,5:1 und waren als Statussignal praktisch unsichtbar. */
 export const TRAFFIC_CLS: Record<TrafficColor, string> = {
-  green: 'bg-emerald-400',
-  yellow: 'bg-amber-400',
-  red: 'bg-red-500',
+  green: 'bg-ok',
+  yellow: 'bg-wait',
+  red: 'bg-bad',
 }
 
 export function TrafficDot({ color, className = '' }: { color: TrafficColor; className?: string }) {
@@ -106,7 +110,7 @@ function TrainingAdminGrading() {
             <button
               key={tb}
               onClick={() => setTab(tb)}
-              className={`flex-1 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
+              className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
                 tab === tb ? 'border-accent bg-accent/15 text-accent' : 'border-line/15 text-dim'
               }`}
             >
@@ -161,9 +165,13 @@ function TrainingAdminGrading() {
                 <p className="truncate text-[13.5px] font-semibold">
                   {r.formTypeId} · {formTitle(r.formTypeId)}
                 </p>
-                <p className="truncate text-[12px] text-dim">
-                  {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('grading.noTrainee')} ·{' '}
-                  {userName(r.instructorId)} · {r.header.aircraftType || '—'} · {formatDate(r.createdAt)}
+                <p className="flex flex-wrap items-baseline gap-x-1.5 text-[12px] text-dim">
+                  <span className="min-w-0 max-w-full truncate">
+                    {traineesOf(r, all).map(traineeLabel).join(', ') || t('grading.noTrainee')}
+                  </span>
+                  <span className="shrink-0">· {userName(r.instructorId)}</span>
+                  <span className="shrink-0">· {r.header.aircraftType || '—'}</span>
+                  <span className="shrink-0">· {formatDate(r.createdAt)}</span>
                 </p>
               </div>
               {/* PDF-Download/Druck (öffnet die Ein-Seiten-Druckansicht) */}
@@ -174,7 +182,7 @@ function TrainingAdminGrading() {
                     navigate(`/grading/${r.id}?print=1`)
                   }}
                   title={t('grading.downloadPdf')}
-                  className="rounded-lg p-1.5 text-dim transition hover:bg-accent/10 hover:text-accent"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-accent/10 hover:text-accent"
                 >
                   <FileDown size={16} />
                 </button>
@@ -221,7 +229,7 @@ export function Grading() {
           mayGrade ? (
             <button
               onClick={() => navigate('/grading/new')}
-              className="flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
+              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
             >
               <Plus size={15} /> {t('grading.newForm')}
             </button>
@@ -238,7 +246,7 @@ export function Grading() {
         <div className="flex flex-col gap-0.5 rounded-xl border border-line/10 bg-surface/60 p-1.5 text-[12px] text-dim sm:grid sm:grid-cols-2 sm:gap-1">
           <button
             onClick={() => setTrafficFilter('')}
-            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition ${
+            className={`min-h-11 flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition ${
               trafficFilter === '' ? 'bg-accent/15 font-semibold text-accent' : 'hover:bg-line/5'
             }`}
           >
@@ -249,7 +257,7 @@ export function Grading() {
             <button
               key={c}
               onClick={() => setTrafficFilter(trafficFilter === c ? '' : c)}
-              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition ${
+              className={`min-h-11 flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition ${
                 trafficFilter === c ? 'bg-accent/15 font-semibold text-accent' : 'hover:bg-line/5'
               }`}
             >
@@ -260,7 +268,7 @@ export function Grading() {
         </div>
 
         {/* Aufbewahrung in der Instruktoren-Ansicht: 1 Woche */}
-        {isMember && <p className="px-1 text-[11.5px] leading-relaxed text-dim/80">{t('grading.retentionHint')}</p>}
+        {isMember && <p className="px-1 text-[11.5px] leading-relaxed text-dim">{t('grading.retentionHint')}</p>}
 
         {list.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('grading.empty')}</p>}
 
@@ -274,20 +282,25 @@ export function Grading() {
                 {/* Status-Icon spiegelt die Ampel: grün ✓, gelb ?, rot ✕ */}
                 <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised">
                   {light === 'green' ? (
-                    <CheckCircle2 size={22} className="text-emerald-500" />
+                    <CheckCircle2 size={22} className="text-ok" />
                   ) : light === 'red' ? (
-                    <XCircle size={22} className="text-red-500" />
+                    <XCircle size={22} className="text-bad" />
                   ) : (
-                    <HelpCircle size={22} className="text-amber-500" />
+                    <HelpCircle size={22} className="text-wait" />
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[15px] font-semibold leading-snug">
                     {r.formTypeId} · {formTitle(r.formTypeId)}
                   </p>
-                  <p className="mt-0.5 truncate text-[13px] text-dim">
-                    {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('grading.noTrainee')} ·{' '}
-                    {r.header.aircraftType} · {formatDate(r.createdAt)}
+                  {/* Datum steht abgesetzt: es unterscheidet zwei Formulare
+                      desselben Piloten und wurde vom Abschneiden verschluckt. */}
+                  <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-[13px] text-dim">
+                    <span className="min-w-0 max-w-full truncate">
+                      {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('grading.noTrainee')}
+                    </span>
+                    <span className="shrink-0">· {r.header.aircraftType}</span>
+                    <span className="shrink-0">· {formatDate(r.createdAt)}</span>
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {r.status === 'signed' ? (
@@ -309,7 +322,7 @@ export function Grading() {
                     )}
                     {/* Pflicht-Folgeformular noch nicht ausgefüllt */}
                     {missing.map((id) => (
-                      <span key={id} className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-0.5 text-[11px] font-semibold text-black">
+                      <span key={id} className="inline-flex items-center gap-1 rounded-full bg-wait px-2.5 py-0.5 text-[11px] font-semibold text-white">
                         <AlertTriangle size={11} />{' '}
                         {/* Angelegt, aber unsigniert: dann fehlt nur noch die
                             Unterschrift — das ist etwas anderes als „gar nicht da". */}
@@ -333,7 +346,7 @@ export function Grading() {
                         navigate(`/grading/${r.id}?print=1`)
                       }}
                       title={t('grading.downloadPdf')}
-                      className="rounded-lg p-1.5 text-dim transition hover:bg-accent/10 hover:text-accent"
+                      className="flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-accent/10 hover:text-accent"
                     >
                       <FileDown size={16} />
                     </button>
@@ -348,7 +361,7 @@ export function Grading() {
                       if (window.confirm(t('grading.deleteOwnConfirm'))) hideGradingRecord(r.id)
                     }}
                     title={t('grading.deleteOwn')}
-                    className="rounded-lg p-1.5 text-dim transition hover:bg-danger/10 hover:text-danger"
+                    className="flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
                   >
                     <Trash2 size={16} />
                   </button>

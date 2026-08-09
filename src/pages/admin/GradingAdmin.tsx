@@ -119,13 +119,13 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
               {!hideCodes && <span className="w-12 shrink-0 font-mono text-[12.5px] font-semibold">{c.code}</span>}
               <span className="min-w-0 flex-1 truncate text-[13px]">{c.title}</span>
               <span className="shrink-0 text-[11.5px] text-dim">{c.behaviours.length} OB</span>
-              <button onClick={() => startEdit(c)} title={t('common.edit')} className="shrink-0 rounded-lg p-1.5 text-dim hover:text-accent">
+              <button onClick={() => startEdit(c)} title={t('common.edit')} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-accent">
                 <Pencil size={14} />
               </button>
               <button
                 onClick={() => window.confirm(t('grading.admin.deleteCompetencyConfirm')) && onChange(set.competencies.filter((x) => x.code !== c.code))}
                 title={t('common.delete')}
-                className="shrink-0 rounded-lg p-1.5 text-dim hover:text-danger"
+                className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-danger"
               >
                 <Trash2 size={14} />
               </button>
@@ -165,7 +165,7 @@ function FieldOptionsEditor({ field, onChange }: { field: FormField; onChange: (
       </p>
       {/* Die Musterliste gilt app-weit und wird in den Einstellungen gepflegt */}
       {field.key === 'aircraftType' ? (
-        <p className="text-[11.5px] leading-relaxed text-dim/80">{t('grading.admin.aircraftCentral')}</p>
+        <p className="text-[11.5px] leading-relaxed text-dim">{t('grading.admin.aircraftCentral')}</p>
       ) : (
         <>
           <div className="mb-2 flex flex-wrap gap-1.5">
@@ -182,7 +182,7 @@ function FieldOptionsEditor({ field, onChange }: { field: FormField; onChange: (
                 </button>
               </span>
             ))}
-            {options.length === 0 && <span className="text-[11.5px] text-dim/70">—</span>}
+            {options.length === 0 && <span className="text-[11.5px] text-dim">—</span>}
           </div>
           <div className="flex gap-2">
             <input
@@ -247,7 +247,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
             <span className="shrink-0 text-[11.5px] text-dim">
               {f.fields.filter((x) => x.required).length} {t('grading.admin.requiredFields')} · {f.fields.length} {t('grading.admin.fieldsTotal')}
             </span>
-            <button onClick={() => startEdit(f)} title={t('common.edit')} className="shrink-0 rounded-lg p-1.5 text-dim hover:text-accent">
+            <button onClick={() => startEdit(f)} title={t('common.edit')} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-accent">
               <Pencil size={14} />
             </button>
             <button
@@ -260,7 +260,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
             <button
               onClick={() => window.confirm(t('grading.admin.deleteFormTypeConfirm')) && onChange(formTypes.filter((x) => x.id !== f.id))}
               title={t('common.delete')}
-              className="shrink-0 rounded-lg p-1.5 text-dim hover:text-danger"
+              className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-danger"
             >
               <Trash2 size={14} />
             </button>
@@ -325,7 +325,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
               </select>
             </Field>
             {idTaken && <p className="text-[12.5px] text-danger">{t('grading.admin.formIdTaken')}</p>}
-            <p className="text-[11.5px] leading-relaxed text-dim/80">{t('grading.admin.newFormHint')}</p>
+            <p className="text-[11.5px] leading-relaxed text-dim">{t('grading.admin.newFormHint')}</p>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditId(null)}>{t('common.cancel')}</Button>
               <Button disabled={!draft.id.trim() || !draft.title.trim() || idTaken} onClick={save}>{t('common.save')}</Button>
@@ -722,7 +722,7 @@ export function GradingAdmin() {
           <div className="flex flex-wrap items-center gap-1.5 text-[11.5px] text-dim">
             <button
               onClick={() => setTrafficFilter('')}
-              className={`rounded-full border px-2.5 py-1 transition ${trafficFilter === '' ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'}`}
+              className={`min-h-11 rounded-full border px-2.5 py-1 transition ${trafficFilter === '' ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'}`}
             >
               {t('grading.traffic.all')}
             </button>
@@ -730,7 +730,7 @@ export function GradingAdmin() {
               <button
                 key={c}
                 onClick={() => setTrafficFilter(trafficFilter === c ? '' : c)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition ${
+                className={`min-h-11 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition ${
                   trafficFilter === c ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'
                 }`}
               >
@@ -746,8 +746,10 @@ export function GradingAdmin() {
                 <p className="truncate text-[14px] font-semibold">
                   {r.formTypeId} · {traineesOf(r, records).map(traineeLabel).join(', ') || '—'}
                 </p>
-                <p className="truncate text-[12.5px] text-dim">
-                  {userName(r.instructorId)} · {r.header.aircraftType} · {dateLabel(r.createdAt)}
+                <p className="flex flex-wrap items-baseline gap-x-1.5 text-[12.5px] text-dim">
+                  <span className="min-w-0 max-w-full truncate">{userName(r.instructorId)}</span>
+                  <span className="shrink-0">· {r.header.aircraftType}</span>
+                  <span className="shrink-0">· {dateLabel(r.createdAt)}</span>
                 </p>
               </div>
               {r.trainees.some((tr) => tr.overall === 'not_competent') && <Badge tone="warm">{t('grading.notCompetent')}</Badge>}
@@ -761,7 +763,7 @@ export function GradingAdmin() {
                   }}
                   aria-label={t('common.delete')}
                   title={t('common.delete')}
-                  className="shrink-0 rounded-lg p-1.5 text-dim transition hover:bg-danger/10 hover:text-danger"
+                  className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -791,7 +793,7 @@ export function GradingAdmin() {
                 }
               />
             ))}
-            <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.competencyHint')}</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('grading.admin.competencyHint')}</p>
           </Card>
 
           <Card className="p-4">
@@ -844,7 +846,7 @@ export function GradingAdmin() {
                     <span className="shrink-0 text-dim">Ø {f.avg!.toFixed(2)} · n={f.n}</span>
                   </div>
                 ))}
-                <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.trendHint')}</p>
+                <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('grading.admin.trendHint')}</p>
               </Card>
 
               <Card className="p-4">
@@ -866,7 +868,7 @@ export function GradingAdmin() {
                     </div>
                   )
                 })}
-                <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.calibrationHint')}</p>
+                <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('grading.admin.calibrationHint')}</p>
               </Card>
 
               <Card className="p-4">
@@ -923,7 +925,7 @@ export function GradingAdmin() {
                 </Button>
               ))}
             </div>
-            <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.exportHint')}</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('grading.admin.exportHint')}</p>
           </Card>
         </div>
       )}

@@ -13,7 +13,15 @@ i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 })
 
+/** Sprachkennung des Dokuments mitführen — Vorleseprogramme und die
+ *  Silbentrennung richten sich danach; sie stand dauerhaft auf „en". */
+function applyLang(lng: string) {
+  if (typeof document !== 'undefined') document.documentElement.lang = lng
+}
+applyLang(i18n.language)
+
 i18n.on('languageChanged', (lng) => {
+  applyLang(lng)
   try {
     localStorage.setItem('aaa-lang', lng)
   } catch {

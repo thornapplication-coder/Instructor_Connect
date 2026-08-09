@@ -51,7 +51,7 @@ function MessageBubble({ msg, isOwn, authorName, bold, canDelete, onDelete, lng 
         {canDelete && (
           <button
             onClick={onDelete}
-            className="absolute -right-2 -top-2 hidden rounded-full bg-danger/90 p-1 text-bg group-hover:block"
+            className="min-h-11 absolute -right-2 -top-2 hidden rounded-full bg-danger/90 p-1 text-bg group-hover:block"
             aria-label="delete"
           >
             <Trash2 size={12} />
@@ -109,7 +109,7 @@ function PollCard({ poll }: { poll: Poll }) {
               key={i}
               disabled={closed}
               onClick={() => vote(poll.id, i)}
-              className={`relative block w-full overflow-hidden rounded-xl border px-3 py-2 text-left transition ${
+              className={`min-h-11 relative block w-full overflow-hidden rounded-xl border px-3 py-2 text-left transition ${
                 chosen ? 'border-accent bg-accent/10' : 'border-line/10 hover:border-line/25'
               } ${closed ? 'cursor-default' : ''}`}
             >
@@ -164,7 +164,11 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
     question.trim() && validDate && (type === 'yesno' || options.filter((o) => o.trim()).length >= 2)
 
   return (
-    <Modal title={t('chat.poll')} onClose={onClose}>
+    <Modal
+      title={t('chat.poll')}
+      onClose={onClose}
+      confirmDiscard={question.trim() || options.some((o) => o.trim()) || validDate ? t('common.discardConfirm') : undefined}
+    >
       <div className="space-y-4">
         <Field label={t('chat.pollQuestion')}>
           <input className={inputCls} value={question} onChange={(e) => setQuestion(e.target.value)} autoFocus />
@@ -175,7 +179,7 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
               <button
                 key={tp}
                 onClick={() => setType(tp)}
-                className={`flex-1 rounded-xl border px-3 py-2.5 text-sm transition ${
+                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-sm transition ${
                   type === tp ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-line/10 text-dim'
                 }`}
               >
@@ -215,7 +219,7 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
             <input type="date" className={inputCls} value={validDate} onChange={(e) => setValidDate(e.target.value)} />
             <input type="time" className={inputCls} value={validTime} onChange={(e) => setValidTime(e.target.value)} />
           </div>
-          <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('chat.pollValidHint')}</p>
+          <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim">{t('chat.pollValidHint')}</p>
         </Field>
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
@@ -298,7 +302,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
           <button
             onClick={() => navigate(`/chat/${groupId}/info`)}
             aria-label={t('chat.info')}
-            className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-accent"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-accent"
           >
             <Info size={19} />
           </button>
@@ -312,7 +316,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
               <button
                 key={g.id}
                 onClick={() => navigate(`/chat/${g.id}`)}
-                className={`relative shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
+                className={`min-h-11 relative shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
                   g.id === groupId ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim hover:text-ink'
                 }`}
               >
@@ -369,14 +373,14 @@ export function ChatRoom({ groupId }: { groupId: string }) {
                 setPendingAttachment({ name: 'photo-' + Math.floor(Math.random() * 900 + 100) + '.jpg', kind: 'image', sizeMB: 3.2 })
               }
               title={t('chat.attach', { max: state.settings.maxUploadMB })}
-              className="rounded-full p-2.5 text-dim transition hover:bg-line/5 hover:text-accent"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-accent"
             >
               <Paperclip size={20} />
             </button>
             <button
               onClick={() => setShowPoll(true)}
               title={t('chat.poll')}
-              className="rounded-full p-2.5 text-dim transition hover:bg-line/5 hover:text-accent"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-accent"
             >
               <BarChart3 size={20} />
             </button>
@@ -390,7 +394,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
             <button
               onClick={send}
               disabled={!text.trim() && !pendingAttachment}
-              className="rounded-full bg-accent p-2.5 text-bg transition hover:brightness-110 disabled:opacity-40"
+              className="min-h-11 rounded-full bg-accent p-2.5 text-bg transition hover:brightness-110 disabled:opacity-40"
               aria-label="send"
             >
               <SendHorizonal size={20} />

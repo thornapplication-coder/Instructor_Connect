@@ -99,7 +99,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         home={false}
         wide
         right={
-          <button onClick={() => window.print()} title={t('grading.print')} className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-accent">
+          <button onClick={() => window.print()} title={t('grading.print')} className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-accent">
             <Printer size={19} />
           </button>
         }
@@ -172,9 +172,9 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
 
         {/* Pflicht-Folgeformular fehlt noch: deutlich sichtbar + direkt ausfüllbar */}
         {missing.length > 0 && (
-          <div className="space-y-3 rounded-xl border border-amber-500/50 bg-amber-500/10 p-3.5 print:hidden">
+          <div className="space-y-3 rounded-xl border border-wait/50 bg-wait/10 p-3.5 print:hidden">
             <div className="flex items-start gap-2.5 text-[13px]">
-              <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
+              <AlertTriangle size={16} className="mt-0.5 shrink-0 text-wait" />
               <p className="font-semibold">{t('grading.followUpWarn')}</p>
             </div>
             {missing.map((id) => {
@@ -224,7 +224,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                   {f.label}
                   {/* Fußnoten des Originalformulars (z. B. PRG*) gehören auf den
                       Nachweis, nicht nur in die Eingabemaske. */}
-                  {f.hint && <span className="block text-[11px] leading-snug text-dim/70">{f.hint}</span>}
+                  {f.hint && <span className="block text-[11px] leading-snug text-dim">{f.hint}</span>}
                 </dt>
                 <dd className="text-right font-medium">
                   {f.type === 'date' && record.header[f.key] ? formatDate(record.header[f.key]) : record.header[f.key] || '–'}
@@ -281,7 +281,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               ))}
             </ol>
             {record.formTypeId === '307B' && (
-              <p className="mt-2 text-[11.5px] leading-relaxed text-dim/80">{t('grading.attendance307B')}</p>
+              <p className="mt-2 text-[11.5px] leading-relaxed text-dim">{t('grading.attendance307B')}</p>
             )}
           </Card>
         )}
@@ -296,7 +296,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 {tr.overall && (
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${
-                      tr.overall === 'competent' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+                      tr.overall === 'competent' ? 'bg-emerald-700 text-white' : 'bg-red-600 text-white'
                     }`}
                   >
                     {t(`grading.${tr.overall}`)}
@@ -366,7 +366,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             {/* Die Fußnoten verweisen auf die Pilotenformulare 306/310/311 —
                 auf einer TRI/SFI/MCCI-Beurteilung haben sie nichts verloren. */}
             {pilotFootnotes && (
-              <div className="mt-3 space-y-1 text-[11.5px] leading-relaxed text-dim/80">
+              <div className="mt-3 space-y-1 text-[11.5px] leading-relaxed text-dim">
                 <p>{t('grading.footnote1')}</p>
                 <p>{t('grading.footnote2')}</p>
                 <p>{t('grading.footnote3')}</p>
@@ -401,7 +401,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 </span>
                 <button
                   onClick={() => navigate(`/grading/${l.id}`)}
-                  className="block w-full py-1 text-left text-accent hover:underline print:hidden"
+                  className="min-h-11 block w-full py-1 text-left text-accent hover:underline print:hidden"
                 >
                   {l.formTypeId} — {grading.formTypes.find((f) => f.id === l.formTypeId)?.title}
                 </button>

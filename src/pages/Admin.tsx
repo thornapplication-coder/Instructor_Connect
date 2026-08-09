@@ -119,7 +119,7 @@ function UsersTab() {
           {users.length}/{allUsers.length}
         </span>
       </div>
-      <p className="px-1 text-[12px] leading-relaxed text-dim/80">{t('admin.deactivateHint')}</p>
+      <p className="px-1 text-[12px] leading-relaxed text-dim">{t('admin.deactivateHint')}</p>
       {users.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('info.empty')}</p>}
       {users.map((u, i) => (
         <div key={u.id}>
@@ -156,7 +156,7 @@ function UsersTab() {
                 type="checkbox"
                 checked={u.canEditDirectory}
                 onChange={(e) => updateUser(u.id, { canEditDirectory: e.target.checked })}
-                className="accent-accent"
+                className="h-6 w-6 shrink-0 accent-accent"
               />
               {t('admin.canEditDirectory')}
             </label>
@@ -167,7 +167,7 @@ function UsersTab() {
                 type="checkbox"
                 checked={u.canGrade}
                 onChange={(e) => updateUser(u.id, { canGrade: e.target.checked })}
-                className="accent-accent"
+                className="h-6 w-6 shrink-0 accent-accent"
               />
               {t('admin.canGrade')}
             </label>
@@ -176,7 +176,7 @@ function UsersTab() {
                 type="checkbox"
                 checked={u.isTrainee}
                 onChange={(e) => updateUser(u.id, { isTrainee: e.target.checked })}
-                className="accent-accent"
+                className="h-6 w-6 shrink-0 accent-accent"
               />
               {t('admin.isTrainee')}
             </label>
@@ -186,7 +186,7 @@ function UsersTab() {
                 type="checkbox"
                 checked={!!u.chatBlocked}
                 onChange={(e) => updateUser(u.id, { chatBlocked: e.target.checked })}
-                className="accent-[#e05252]"
+                className="h-6 w-6 shrink-0 accent-[#e05252]"
               />
               {t('admin.chatBlocked')}
             </label>
@@ -196,7 +196,7 @@ function UsersTab() {
             <span className="ml-auto flex gap-2">
               <button
                 onClick={() => updateUser(u.id, { active: !u.active })}
-                className="rounded-lg px-2 py-1 text-dim hover:bg-line/5 hover:text-ink"
+                className="min-h-11 rounded-lg px-2 py-1 text-dim hover:bg-line/5 hover:text-ink"
               >
                 {u.active ? t('admin.deactivate') : t('admin.activate')}
               </button>
@@ -236,7 +236,7 @@ function UsersTab() {
                     onClick={() =>
                       updateUser(u.id, { aircraftTypes: on ? u.aircraftTypes.filter((x) => x !== a) : [...u.aircraftTypes, a] })
                     }
-                    className={`rounded-full border px-2.5 py-1 text-[12px] transition ${
+                    className={`min-h-11 rounded-full border px-2.5 py-1 text-[12px] transition ${
                       on ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/12 text-dim'
                     }`}
                   >
@@ -251,7 +251,13 @@ function UsersTab() {
         </div>
       ))}
       {showNew && (
-        <Modal title={t('admin.addUser')} onClose={() => setShowNew(false)}>
+        <Modal
+          title={t('admin.addUser')}
+          onClose={() => setShowNew(false)}
+          confirmDiscard={
+            form.name.trim() || form.email.trim() || form.phone.trim() || form.groupIds.length > 0 ? t('common.discardConfirm') : undefined
+          }
+        >
           <div className="space-y-3.5">
             <Field label={t('contacts.name')}>
               <input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
@@ -269,7 +275,7 @@ function UsersTab() {
               {emailTaken ? (
                 <p className="mt-1.5 text-[11.5px] leading-relaxed text-danger">{t('admin.emailTaken')}</p>
               ) : (
-                <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('admin.emailLoginHint')}</p>
+                <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim">{t('admin.emailLoginHint')}</p>
               )}
             </Field>
             <Field label={t('contacts.phone')}>
@@ -296,7 +302,7 @@ function UsersTab() {
                 selected={form.groupIds}
                 onChange={(groupIds) => setForm({ ...form, groupIds })}
               />
-              <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('admin.userGroupsHint')}</p>
+              <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim">{t('admin.userGroupsHint')}</p>
             </Field>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setShowNew(false)}>
@@ -426,7 +432,7 @@ function GroupsTab() {
             </button>
             <button
               onClick={() => window.confirm(t('admin.confirmDeleteGroup')) && deleteGroup(g.id)}
-              className="rounded-full p-2 text-dim hover:text-danger"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-dim hover:text-danger"
             >
               <Trash2 size={16} />
             </button>
@@ -479,7 +485,7 @@ function GroupsTab() {
                       onClick={() =>
                         setGroupAdmins(g.id, isAdmin ? g.adminIds.filter((id) => id !== u.id) : [...g.adminIds, u.id])
                       }
-                      className={`rounded-full border px-2.5 py-1 text-[12px] transition ${
+                      className={`min-h-11 rounded-full border px-2.5 py-1 text-[12px] transition ${
                         isAdmin ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/12 text-dim'
                       }`}
                     >
@@ -500,7 +506,7 @@ function GroupsTab() {
                     onClick={() =>
                       setGroupMembers(g.id, isMember ? g.memberIds.filter((id) => id !== u.id) : [...g.memberIds, u.id])
                     }
-                    className={`rounded-full border px-2.5 py-1 text-[12px] transition ${
+                    className={`min-h-11 rounded-full border px-2.5 py-1 text-[12px] transition ${
                       isMember ? 'border-warm/60 bg-warm/10 font-medium text-warm' : 'border-line/12 text-dim'
                     }`}
                   >
@@ -515,7 +521,11 @@ function GroupsTab() {
         </div>
       ))}
       {showNew && (
-        <Modal title={t('admin.addGroup')} onClose={() => setShowNew(false)}>
+        <Modal
+          title={t('admin.addGroup')}
+          onClose={() => setShowNew(false)}
+          confirmDiscard={name.trim() || purpose.trim() || newAircraft ? t('common.discardConfirm') : undefined}
+        >
           <div className="space-y-3.5">
             <Field label={t('admin.groupName')}>
               <input
@@ -614,7 +624,7 @@ function FeedbackTab() {
         </select>
         <button
           onClick={() => setOnlyUrgent(!onlyUrgent)}
-          className={`rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition ${
+          className={`min-h-11 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition ${
             onlyUrgent ? 'border-danger bg-danger/15 text-danger' : 'border-line/15 text-dim'
           }`}
         >
@@ -650,7 +660,7 @@ function FeedbackTab() {
             </div>
             <button
               onClick={() => window.confirm(t('admin.confirmDeleteFeedback')) && deleteFeedback(f.id)}
-              className="shrink-0 rounded-full p-2 text-dim hover:text-danger"
+              className="shrink-0 flex h-11 w-11 items-center justify-center rounded-full text-dim hover:text-danger"
             >
               <Trash2 size={16} />
             </button>
@@ -899,7 +909,7 @@ export function Admin() {
                 )
               })}
             </div>
-            <p className="mt-5 text-center text-[12px] text-dim/80">{t('admin.autoSaveHint')}</p>
+            <p className="mt-5 text-center text-[12px] text-dim">{t('admin.autoSaveHint')}</p>
           </>
         ) : (
           <>
