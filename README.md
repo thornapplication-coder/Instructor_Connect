@@ -55,10 +55,15 @@ Dokumentkennung — pflegbar im Admin Panel unter Einstellungen. Breite
 Auswertungen drucken im Querformat, Tabellenköpfe wiederholen sich auf
 Folgeseiten.
 
-Die Seitenzahl setzt der Druckstandard über die Rand-Boxen. Firefox, Safari
-und der PDF-Export von Chromium setzen sie; der interaktive Druckdialog von
-Chrome und Edge ignoriert diese Boxen — dort liefert die Seitenzahl die
-Kopf-/Fußzeile des Dialogs.
+Die Seitenzahl setzt der Druckstandard über die Rand-Boxen. Nachgemessen am
+PDF-Export: „Page n of m" steht auf **jeder** Seite. (Eine frühere Fassung
+dieses Abschnitts behauptete, Chrome und Edge ignorierten die Rand-Boxen —
+für den PDF-Weg trifft das nicht mehr zu.)
+
+Die Kopfzeile mit ATO, Formularnummer und Datensatz-ID steht dagegen nur auf
+**einer** Seite, nicht auf allen — bei mehrseitigen Formularen ist ein
+einzelnes Blatt damit nicht zuordenbar. Offener Punkt, siehe
+`docs/audit-2026-08.md`.
 
 ## Verwaltung
 
