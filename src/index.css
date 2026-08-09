@@ -9,30 +9,13 @@
 
 /*
  * Zentrale Theme-Datei (Spez. §13). Ein Austausch der Werte hier ändert die
- * gesamte Farbpalette der App. Zwei Modi: dunkel (Standard) und hell,
- * umgeschaltet über data-theme="light" am <html>-Element.
+ * gesamte Farbpalette der App. Zwei Modi: hell (Standard) und dunkel,
+ * umgeschaltet über data-theme="dark" am <html>-Element.
  *
  * Der Hintergrund ist bewusst gräulich gehalten, damit sich die
  * dunkelblauen Karten/Kacheln von ihm abheben.
  */
 :root {
-  --c-bg: 22 26 33;        /* #161A21  gräulicher Hintergrund  */
-  --c-surface: 19 45 79;   /* #132D4F  Flächen/Karten          */
-  --c-raised: 27 58 99;    /* #1B3A63  erhabene Flächen        */
-  --c-ink: 236 242 250;    /* #ECF2FA  Text                    */
-  --c-dim: 154 167 184;    /* #9AA7B8  Sekundärtext            */
-  --c-accent: 111 168 255; /* #6FA8FF  Akzent (helles Blau)    */
-  --c-warm: 240 233 220;   /* #F0E9DC  warmes Off-White        */
-  --c-danger: 255 122 122; /* #FF7A7A  destruktive Aktionen    */
-  --c-line: 255 255 255;   /* Basis für Trennlinien/Ränder     */
-  --c-sand: 252 211 77;    /* Sandbox-Hinweistext              */
-  --sh-soft: 0 8px 24px rgba(3, 10, 22, 0.35);
-  --sh-tile: 0 10px 30px rgba(3, 10, 22, 0.45);
-  --grad-a: rgb(var(--c-raised) / 0.35);
-  --grad-b: rgb(var(--c-raised) / 0.22);
-}
-
-:root[data-theme='light'] {
   --c-bg: 228 231 237;     /* #E4E7ED  helles Grau             */
   --c-surface: 250 251 253;/* #FAFBFD  Karten                  */
   --c-raised: 221 229 240; /* #DDE5F0  erhabene Flächen        */
@@ -47,6 +30,23 @@
   --sh-tile: 0 10px 26px rgba(22, 37, 61, 0.14);
   --grad-a: rgb(var(--c-accent) / 0.07);
   --grad-b: rgb(var(--c-accent) / 0.05);
+}
+
+:root[data-theme='dark'] {
+  --c-bg: 22 26 33;        /* #161A21  gräulicher Hintergrund  */
+  --c-surface: 19 45 79;   /* #132D4F  Flächen/Karten          */
+  --c-raised: 27 58 99;    /* #1B3A63  erhabene Flächen        */
+  --c-ink: 236 242 250;    /* #ECF2FA  Text                    */
+  --c-dim: 154 167 184;    /* #9AA7B8  Sekundärtext            */
+  --c-accent: 111 168 255; /* #6FA8FF  Akzent (helles Blau)    */
+  --c-warm: 240 233 220;   /* #F0E9DC  warmes Off-White        */
+  --c-danger: 255 122 122; /* #FF7A7A  destruktive Aktionen    */
+  --c-line: 255 255 255;   /* Basis für Trennlinien/Ränder     */
+  --c-sand: 252 211 77;    /* Sandbox-Hinweistext              */
+  --sh-soft: 0 8px 24px rgba(3, 10, 22, 0.35);
+  --sh-tile: 0 10px 30px rgba(3, 10, 22, 0.45);
+  --grad-a: rgb(var(--c-raised) / 0.35);
+  --grad-b: rgb(var(--c-raised) / 0.22);
 }
 
 html,
@@ -70,7 +70,7 @@ body {
 input,
 select,
 textarea {
-  color-scheme: dark;
+  color-scheme: light;
   min-width: 0;
 }
 
@@ -83,10 +83,10 @@ input[type='date'] {
   max-width: 100%;
 }
 
-:root[data-theme='light'] input,
-:root[data-theme='light'] select,
-:root[data-theme='light'] textarea {
-  color-scheme: light;
+:root[data-theme='dark'] input,
+:root[data-theme='dark'] select,
+:root[data-theme='dark'] textarea {
+  color-scheme: dark;
 }
 
 /* dezente Scrollbars */
@@ -102,7 +102,6 @@ input[type='date'] {
  */
 @media print {
   :root,
-  :root[data-theme='light'],
   :root[data-theme='dark'] {
     --c-bg: 255 255 255;
     --c-surface: 255 255 255;

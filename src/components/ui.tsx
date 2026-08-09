@@ -5,23 +5,28 @@ import { navigate } from '../router'
 
 const THEME_KEY = 'aaa-theme'
 
-/** Vor dem ersten Render aufrufen, damit es beim Laden nicht flackert. */
+/** Vor dem ersten Render aufrufen, damit es beim Laden nicht flackert.
+ *  Standard ist der Hellmodus; nur eine bewusst gewählte dunkle
+ *  Einstellung schaltet um. */
 export function initTheme() {
   try {
-    if (localStorage.getItem(THEME_KEY) === 'light') document.documentElement.dataset.theme = 'light'
+    if (localStorage.getItem(THEME_KEY) === 'dark') {
+      document.documentElement.dataset.theme = 'dark'
+      document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#161A21')
+    }
   } catch {
-    /* Ohne localStorage bleibt der Standard (dunkel) */
+    /* Ohne localStorage bleibt der Standard (hell) */
   }
 }
 
 export function ThemeToggle() {
   const { t } = useTranslation()
-  const [light, setLight] = useState(() => document.documentElement.dataset.theme === 'light')
+  const [light, setLight] = useState(() => document.documentElement.dataset.theme !== 'dark')
   const toggle = () => {
     const next = !light
     setLight(next)
-    if (next) document.documentElement.dataset.theme = 'light'
-    else delete document.documentElement.dataset.theme
+    if (next) delete document.documentElement.dataset.theme
+    else document.documentElement.dataset.theme = 'dark'
     try {
       localStorage.setItem(THEME_KEY, next ? 'light' : 'dark')
     } catch {
