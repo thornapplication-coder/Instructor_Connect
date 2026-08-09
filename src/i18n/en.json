@@ -75,7 +75,7 @@
     "muted": "Notifications muted",
     "today": "Today",
     "you": "You",
-    "blockedNote": "You have been blocked from sending in chat by an admin. You can still read messages. Please contact the Admin."
+    "blockedNote": "You have been blocked from sending in chat by an admin. You can still read messages. Please contact your administrator."
   },
   "chatInfo": {
     "title": "Chat info",
@@ -306,7 +306,7 @@
       "export_competencies": "Competencies (CSV)",
       "export_people": "People (CSV)",
       "exportHint": "Unprocessed raw data for audits, separated by training, competencies and people.",
-      "deferredRecipients": "Recipients Form 310 (Deferred Item List) — always notified",
+      "deferredRecipients": "Form 310 recipients (Deferred Item List) — always notified",
       "addCompetency": "Add competency",
       "codeLabel": "Code",
       "titleLabel": "Title",
@@ -324,7 +324,7 @@
       "openFollowUps": "Open follow-up forms",
       "followUpMissing": "Mandatory follow-up outstanding: {{forms}}"
     },
-    "attendance": "Record of attendance",
+    "attendance": "Record of Attendance",
     "studentName": "Student name",
     "addAttendee": "Add attendee",
     "attendance307B": "With the signature, the instructor/examiner confirms the participation of all individuals listed to the full extent and within the specified timeframe of the respective event.",
@@ -349,7 +349,7 @@
     "deleteOwnConfirm": "Remove this grading sheet from your view? It remains stored for admins.",
     "exportStamp": "Exported/printed on {{date}} by {{name}} — Instructor Connect",
     "traffic": {
-      "green": "complete: signed and sent",
+      "green": "completed: signed and sent",
       "yellow": "open: signature or sending pending",
       "red": "sending failed — action required",
       "all": "All"
@@ -378,7 +378,7 @@
     "aircraftType": "Aircraft type",
     "file": "PDF file",
     "allTypes": "All types",
-    "empty": "No lesson plans available for your assigned types.",
+    "empty": "No lesson plans available for your assigned aircraft types.",
     "noAircraft": "No aircraft type has been assigned to you yet. An admin can change this in user management — afterwards you will see the matching lesson plans.",
     "assignedNote": "You see lesson plans for: {{types}}"
   }
