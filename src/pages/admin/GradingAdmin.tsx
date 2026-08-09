@@ -466,10 +466,24 @@ export function GradingAdmin() {
   // Folgeformulare (306/310/311) führen ihren Piloten in den Kopfdaten —
   // ohne traineesOf fielen sie aus Filter und Suche heraus.
   const traineeOptions = [...new Set(records.flatMap((r) => traineesOf(r, records).map(traineeLabel)))].filter((n) => n !== '—').sort()
-  const instructorOptions = [...new Set(records.map((r) => r.instructorId))]
+  // Wie bei den Mustern: alle, die Formulare führen dürfen, plus die aus
+  // Altdaten — nicht nur die, von denen bereits etwas vorliegt.
+  const instructorOptions = [
+    ...new Set([
+      ...state.users.filter((u) => u.active && u.canGrade).map((u) => u.id),
+      ...records.map((r) => r.instructorId),
+    ]),
+  ]
     .map((id) => ({ id, name: userName(id) }))
     .sort((a, b) => a.name.localeCompare(b.name))
-  const aircraftOptions = [...new Set(records.map((r) => r.header.aircraftType).filter(Boolean))].sort()
+  // Muster kommen aus der zentralen Liste in den Einstellungen, nicht aus den
+  // vorhandenen Formularen: eine Flotte ohne abgelegtes Formular ließ sich
+  // sonst gar nicht erst auswählen — dabei ist genau das eine Auskunft
+  // („für die ATR liegt nichts vor"). Muster aus Altdaten, die nicht mehr in
+  // den Einstellungen stehen, werden ergänzt, damit nichts unfilterbar wird.
+  const aircraftOptions = [
+    ...new Set([...state.settings.aircraftTypes, ...records.map((r) => r.header.aircraftType).filter(Boolean)]),
+  ].sort((a, b) => a.localeCompare(b))
 
   const PERIOD_DAYS: Record<string, number | null> = { all: null, day: 1, week: 7, month: 31, year: 365 }
   const filtered = records.filter((r) => {

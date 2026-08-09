@@ -880,13 +880,11 @@ export function Admin() {
           statt des Inhalts. Die Entscheidung fällt in CSS, nicht in JS: beim
           Drucken ist die Seite schmaler als 1024px, der Ausdruck bestand
           sonst nur aus diesem Hinweis. */}
-      <div className="admin-narrow-note">
-        <Page>
-          <div className="flex flex-col items-center gap-3 pt-16 text-center">
-            <Monitor size={44} className="text-accent" />
-            <p className="max-w-xs text-[14px] leading-relaxed text-dim">{t('admin.desktopOnly')}</p>
-          </div>
-        </Page>
+      <div className="admin-narrow-note mx-auto w-full max-w-3xl px-4 pb-24 pt-4">
+        <div className="flex flex-col items-center gap-3 pt-16 text-center">
+          <Monitor size={44} className="text-accent" />
+          <p className="max-w-xs text-[14px] leading-relaxed text-dim">{t('admin.desktopOnly')}</p>
+        </div>
       </div>
       <Page className="admin-panel">
         {openTab === null ? (

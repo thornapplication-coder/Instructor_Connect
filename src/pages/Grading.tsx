@@ -107,10 +107,24 @@ function TrainingAdminGrading() {
   // Folgeformulare tragen ihren Piloten in den Kopfdaten — über traineesOf
   // erscheinen sie im Filter, statt unsichtbar zu bleiben.
   const traineeOptions = [...new Set(all.flatMap((r) => traineesOf(r, all).map(traineeLabel)))].filter((n) => n !== '—').sort()
-  const instructorOptions = [...new Set(all.map((r) => r.instructorId))]
+  // Wie bei den Mustern: alle, die Formulare führen dürfen, plus die aus
+  // Altdaten — nicht nur die, von denen bereits etwas vorliegt.
+  const instructorOptions = [
+    ...new Set([
+      ...state.users.filter((u) => u.active && u.canGrade).map((u) => u.id),
+      ...all.map((r) => r.instructorId),
+    ]),
+  ]
     .map((id) => ({ id, name: userName(id) }))
     .sort((a, b) => a.name.localeCompare(b.name))
-  const aircraftOptions = [...new Set(all.map((r) => r.header.aircraftType).filter(Boolean))].sort()
+  // Muster kommen aus der zentralen Liste in den Einstellungen, nicht aus den
+  // vorhandenen Formularen: eine Flotte ohne abgelegtes Formular ließ sich
+  // sonst gar nicht erst auswählen — dabei ist genau das eine Auskunft
+  // („für die ATR liegt nichts vor"). Muster aus Altdaten, die nicht mehr in
+  // den Einstellungen stehen, werden ergänzt, damit nichts unfilterbar wird.
+  const aircraftOptions = [
+    ...new Set([...state.settings.aircraftTypes, ...all.map((r) => r.header.aircraftType).filter(Boolean)]),
+  ].sort((a, b) => a.localeCompare(b))
 
   const list = all.filter((r) => {
     if (tab === 'completed' ? !isCompleted(r) : isCompleted(r)) return false
