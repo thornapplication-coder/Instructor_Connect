@@ -3,7 +3,7 @@ import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls, selectCls } from '../../components/ui'
 import { csvNum, csvRow, downloadCsv } from '../../csv'
-import { navigate } from '../../router'
+import { navigate, scrollToTop } from '../../router'
 import { useStore } from '../../store'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType, GradingRecord } from '../../types'
@@ -603,7 +603,7 @@ export function GradingAdmin() {
           {SECTION_TILES.map(({ key, icon: Icon, badge }) => (
             <button
               key={key}
-              onClick={() => setSection(key)}
+              onClick={() => { setSection(key); scrollToTop() }}
               className="group relative flex aspect-square flex-col items-center justify-center gap-2.5 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
             >
               {!!badge && (
@@ -620,7 +620,7 @@ export function GradingAdmin() {
         </div>
       )}
       {section !== null && (
-        <button onClick={() => setSection(null)} className="flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink">
+        <button onClick={() => { setSection(null); scrollToTop() }} className="flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink">
           <ArrowLeft size={15} /> {t('admin.grading')}
         </button>
       )}

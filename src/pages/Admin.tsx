@@ -2,6 +2,7 @@ import { AlertTriangle, ArrowLeft, ChevronDown, ClipboardList, History, MessageS
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
+import { scrollToTop } from '../router'
 import { useStore } from '../store'
 import { GradingAdmin } from './admin/GradingAdmin'
 import { formatDateTime } from './Grading'
@@ -896,7 +897,7 @@ export function Admin() {
                 return (
                   <button
                     key={tb}
-                    onClick={() => setTab(tb)}
+                    onClick={() => { setTab(tb); scrollToTop() }}
                     className="group flex aspect-square flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
                   >
                     <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg">
@@ -912,7 +913,7 @@ export function Admin() {
         ) : (
           <>
             <button
-              onClick={() => setTab(null)}
+              onClick={() => { setTab(null); scrollToTop() }}
               className="mb-4 flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink"
             >
               <ArrowLeft size={15} /> {t('admin.backToOverview')}

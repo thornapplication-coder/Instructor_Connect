@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
 import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
-import { navigate } from '../router'
+import { navigate, scrollToTop } from '../router'
 import { DURATION_OPTIONS } from '../sandbox/gradingDefaults'
 import { useStore } from '../store'
 import { GRADES, type AttendanceEntry, type FormField, type FormType, type FormTypeId, type Grade, type GradingRecord, type OverallResult, type SessionStatus, type TraineeGrading } from '../types'
@@ -842,7 +842,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 }
                 setError('')
                 setStep(2)
-                window.scrollTo(0, 0)
+                scrollToTop()
               }}
             >
               {competencies.length > 0 ? t('grading.toGrading') : t('grading.continue')} <ArrowRight size={16} />
@@ -857,7 +857,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
         {formType && step === 2 && (
           <>
-            <button onClick={() => { setStep(1); window.scrollTo(0, 0) }} className="flex items-center gap-1.5 text-[13.5px] text-dim hover:text-ink">
+            <button onClick={() => { setStep(1); scrollToTop() }} className="flex items-center gap-1.5 text-[13.5px] text-dim hover:text-ink">
               <ArrowLeft size={15} /> {t('grading.backToHeader')}
             </button>
 
