@@ -215,6 +215,11 @@ function seedState(now: number): AppState {
         'HR (hr@aviationacademy.at)',
       ],
       infoCategories: ['Ground Training', 'Simulator Training', 'HR', 'Operator Info', 'SIM Defects', 'AAA intern', 'Approved Manuals'],
+      documentHeader: {
+        atoName: 'Austrian Aviation Academy',
+        approvalNumber: 'AT.ATO.007',
+        formRevision: 'OM Appendix 5, Rev. 0.2',
+      },
       allowedDomains: ['aviationacademy.at'],
       imprint: { de: IMPRINT_DE, en: IMPRINT_EN },
       grading: GRADING_DEFAULTS,
@@ -275,7 +280,7 @@ function seedState(now: number): AppState {
               { code: 'KNO', grade: 3, comment: '' }, { code: 'PRO', grade: 2, comment: 'Checklists repeatedly initiated late.' },
               { code: 'COM', grade: 3, comment: '' }, { code: 'FPA', grade: 3, comment: '' },
               { code: 'FPM', grade: 2, comment: 'Engine-out handling not stabilised.' }, { code: 'LTW', grade: 3, comment: '' },
-              { code: 'PSD', grade: 2, comment: '' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 2, comment: 'Lost prioritisation under high workload.' },
+              { code: 'PSD', grade: 2, comment: 'Decision making slow once the failure was recognised.' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 2, comment: 'Lost prioritisation under high workload.' },
             ],
             positiveComment: 'Well prepared; actively raised open questions.',
             developmentComment: 'Repeat engine-out procedures and workload prioritisation.',
@@ -311,7 +316,7 @@ function seedState(now: number): AppState {
         header: { aircraftType: 'CL30', trainingDevice: 'FFS', event: 'TRI Standardisierung', date: iso(now - 2 * d), operation: 'MPO', program: 'PRG 1*', candidateQual: 'TRI Candidate', candidateSeat: 'RH Seat', coiSeat: 'IOS' },
         trainees: [
           {
-            traineeId: '', traineeName: 'Christian Terler', position: 'CDR', seat: 'Left',
+            traineeId: '', traineeName: 'Christian Terler', position: '', seat: '',
             grades: [
               { code: 'PRE', grade: 5, comment: '' }, { code: 'CLI', grade: 5, comment: 'Created a very positive learning atmosphere.' },
               { code: 'PRK', grade: 4, comment: '' }, { code: 'TEM', grade: 4, comment: '' },

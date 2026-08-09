@@ -141,6 +141,14 @@ input[type='date'] {
   }
   @page {
     margin: 8mm;
+    /* Seitenzahl über die Rand-Boxen des Druckstandards. Firefox und Safari
+       setzen sie; Chrome/Edge ignorieren Rand-Boxen bis heute — dort liefert
+       die Seitenzahl die Kopf-/Fußzeile des Browser-Druckdialogs. */
+    @bottom-right {
+      content: 'Page ' counter(page) ' of ' counter(pages);
+      font-size: 9pt;
+      color: #475569;
+    }
   }
   * {
     -webkit-print-color-adjust: exact;

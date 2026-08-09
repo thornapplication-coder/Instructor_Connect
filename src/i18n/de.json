@@ -246,7 +246,12 @@
     "backToOverview": "Zur Übersicht",
     "sortByName": "Sortierung: Name",
     "sortByRole": "Sortierung: Funktion",
-    "allGroups": "Alle Gruppen"
+    "allGroups": "Alle Gruppen",
+    "documentHeader": "Druckkopf der Ausbildungsformulare",
+    "atoName": "Organisation (ATO)",
+    "approvalNumber": "Genehmigungsnummer",
+    "formRevision": "Formularstand",
+    "documentHeaderHint": "Erscheint in Kopf- und Fußzeile jedes ausgedruckten Formulars und jedes PDFs."
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",
@@ -382,7 +387,7 @@
     "studentName": "Name des Teilnehmers",
     "addAttendee": "Teilnehmer hinzufügen",
     "attendance307B": "Mit der Unterschrift bestätigt der Instruktor/Examiner die Teilnahme aller gelisteten Personen im vollen Umfang und innerhalb des angegebenen Zeitrahmens.",
-    "footnote1": "* Ankreuzen, wenn zwei oder mehr Kompetenzen mit 2 oder schlechter bewertet wurden; siehe Form 306 – Additional Training.",
+    "footnote1": "* Tick if any competency is graded 1, or if two or more competencies are graded 2 or below; refer to Form 306 – Additional Training.",
     "footnote2": "** Ankreuzen, wenn ein oder mehrere geforderte Punkte nicht abgeschlossen wurden; nicht abgeschlossene Punkte im Kommentarfeld und auf Form 310 (Deferred Item List) beschreiben.",
     "footnote3": "*** Bereit für den Skill Test, zu unterzeichnen auf Form 311.",
     "participants": "Student / Instructor",
@@ -443,7 +448,17 @@
     },
     "followUp306PerPilot": "Ein Formular 306 je mit „Not Competent“ bewertetem Piloten — {{count}} werden nacheinander geöffnet, jeweils mit den Defiziten und der Unterschrift dieses Piloten.",
     "readyForSkillTest": "Ready for skill test — Formular 311 anlegen",
-    "readyForSkillTestHint": "Das Ergebnis lautet „Competent / Continue to next session ***“. Fußnote *** verlangt, dass die Skill-Test-Reife auf Formular 311 unterschrieben wird."
+    "readyForSkillTestHint": "Das Ergebnis lautet „Competent / Continue to next session ***“. Fußnote *** verlangt, dass die Skill-Test-Reife auf Formular 311 unterschrieben wird.",
+    "errAllNotObserved": "Mindestens eine Kompetenz von {{name}} braucht eine Note — ein durchgehend mit „NO“ bewertetes Blatt ist kein Kompetenznachweis.",
+    "warnFutureDate": "Das Datum liegt in der Zukunft. Formular trotzdem abschließen?",
+    "warnNoFlightTime": "Eine Pflicht-Flugzeit steht auf 00:00. Formular trotzdem abschließen?",
+    "attendanceSignature": "Unterschrift",
+    "sigCandidate": "Signature Candidate Instructor (CAI)",
+    "errAttendanceSignature": "Auf Formular 307A unterschreibt jeder Teilnehmer selbst — von {{name}} fehlt die Unterschrift.",
+    "instructorQual": "Instructor qualification",
+    "instructorSeat": "Instructor seat",
+    "followUpUnsigned": "{{id}} awaiting signature",
+    "openUnsignedFollowUp": "Complete {{form}} — signature outstanding"
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

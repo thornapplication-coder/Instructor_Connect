@@ -48,12 +48,17 @@ function prefillFromParent(
   // im Admin Panel die Vorbefüllung nicht abschaltet.
   const section = sections.find((sec) => /\b2\b/.test(sec) && /below|unter/i.test(sec))
   if (!section) return {}
+  // Das 308G führt bewusst keine Kürzel — dort muss der Text die Kompetenz
+  // ausschreiben, sonst steht auf dem 306 ein Code, den niemand auflösen kann.
+  const usesCodes = formTypes.find((f) => f.id === parent.formTypeId)?.competencySet !== 'instructor'
+  const label = (code: string) =>
+    usesCodes ? code : parent.competencies?.find((c) => c.code === code)?.title ?? code
   const named = parent.trainees.length > 1
   const lines = parent.trainees
     .map((tr) => {
       const low = tr.grades.filter((gr) => typeof gr.grade === 'number' && gr.grade <= 2)
       if (low.length === 0) return null
-      const list = low.map((gr) => `${gr.code} (${gr.grade})`).join(', ')
+      const list = low.map((gr) => `${label(gr.code)} (${gr.grade})`).join(', ')
       return named ? `${tr.traineeName || ''}: ${list}`.trim() : list
     })
     .filter(Boolean)
@@ -229,6 +234,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
       for (const tr of trainees) {
         const name = tr.traineeName?.trim() || t('grading.trainee')
         if (tr.grades.some((g) => g.grade === null)) return t('grading.errGrades')
+        // „NO" heißt not observed. Ein Blatt ohne eine einzige echte Note
+        // belegt keine Kompetenz und darf nicht abgeschlossen werden.
+        if (!tr.grades.some((g) => typeof g.grade === 'number')) return t('grading.errAllNotObserved', { name })
         if (tr.grades.some((g) => (g.grade === 1 || g.grade === 2) && !g.comment.trim()))
           return t('grading.errGradeComment', { name })
         if (!tr.positiveComment.trim() || !tr.developmentComment.trim() || !tr.summaryComment.trim())
@@ -239,6 +247,11 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     }
     for (const f of postFields) {
       if (f.required && !header[f.key]?.trim()) return t('grading.errRequired', { field: f.label })
+    }
+    // 307A ist eine Anwesenheitsliste: wer daraufsteht, war da und unterschreibt.
+    if (formTypeId === '307A') {
+      const open = attendance.find((a) => a.name.trim() && !a.signature)
+      if (open) return t('grading.errAttendanceSignature', { name: open.name.trim() })
     }
     if (!sigInstructor) return t('grading.errSignature')
     return ''
@@ -254,7 +267,6 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     const ts = Date.now() + state.timeOffsetMs
     if (competencies.length === 0) {
       const signed = sigInstructor && (sigTrainee || isAttendance)
-      const escalate = sessionStatus === 'not_completed'
       return [
         {
           id: existing?.id ?? newId(),
@@ -269,7 +281,10 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
           signatureTrainee: sigTrainee,
           extraRecipients,
           status: signed ? 'signed' : 'awaiting_signature',
-          mailStatus: signed ? (escalate ? 'pending' : 'sent') : 'pending',
+          // Der Versand wird in der Sandbox simuliert und gelingt. Nur so kann
+          // ein vollständiger Vorgang grün werden; der Fehlerfall bleibt über
+          // die Seed-Daten vorführbar.
+          mailStatus: signed ? 'sent' : 'pending',
           parentId: parentId ?? existing?.parentId,
           createdAt: existing?.createdAt ?? ts,
           signedAt: signed ? ts : undefined,
@@ -284,8 +299,6 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
       const fixed = autoNotCompetent(tr) ? { ...tr, overall: 'not_competent' as OverallResult } : tr
       const sigT = sigTrainees[i] ?? null
       const signed = sigInstructor && sigT
-      // Nicht bestanden oder Session nicht abgeschlossen → Eskalationsempfänger.
-      const escalate = fixed.overall === 'not_competent' || sessionStatus === 'not_completed'
       return {
         id: existing && trainees.length === 1 ? existing.id : newId(),
         formTypeId: formType!.id,
@@ -302,9 +315,10 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         signatureTrainee: sigT,
         extraRecipients,
         status: signed ? 'signed' : 'awaiting_signature',
-        // Sandbox: Versand wird simuliert. Eskalationsfälle bleiben zunächst
-        // offen, damit sich der Fehlerfall im Admin-Panel testen lässt.
-        mailStatus: signed ? (escalate ? 'pending' : 'sent') : 'pending',
+        // Eskalationsfälle gehen zusätzlich an die Eskalationsempfänger, der
+        // Versand gilt aber ebenso als gelungen — sonst bliebe genau der
+        // wichtigste Vorgang dauerhaft gelb.
+        mailStatus: signed ? 'sent' : 'pending',
         parentId: parentId ?? existing?.parentId,
         batchId,
         createdAt: existing?.createdAt ?? ts,
@@ -324,12 +338,27 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     return recs
   }
 
+  /**
+   * Plausibilität: unbestimmte Angaben werden nicht blockiert, aber einmal
+   * hinterfragt — ein Tippfehler im Datum oder eine vergessene Flugzeit soll
+   * nicht unbemerkt in die Ablage wandern.
+   */
+  const confirmImplausible = (): boolean => {
+    const today = new Date(Date.now() + state.timeOffsetMs).toISOString().slice(0, 10)
+    const future = headerFields.some((f) => f.type === 'date' && header[f.key] && header[f.key] > today)
+    if (future && !window.confirm(t('grading.warnFutureDate'))) return false
+    const zeroTime = headerFields.some((f) => f.type === 'duration' && f.required && header[f.key] === '00:00')
+    if (zeroTime && !window.confirm(t('grading.warnNoFlightTime'))) return false
+    return true
+  }
+
   const submit = () => {
     const err = validate()
     if (err) {
       setError(err)
       return
     }
+    if (!confirmImplausible()) return
     setError('')
     if (needsFollowUp && !parentId) {
       // Pflichtformulare sind vorausgewählt und nicht abwählbar
@@ -516,7 +545,10 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 setError('')
                 const ft = grading.formTypes.find((f) => f.id === id)
                 const cs = ft?.competencySet ? grading.competencySets.find((c) => c.key === ft.competencySet)?.competencies ?? [] : []
-                setTrainees(cs.length > 0 ? [emptyTrainee(cs.map((c) => c.code), 'CDR')] : [])
+                // Auf dem 308G wird ein Instruktor beurteilt — CDR/FO ist dort
+                // keine gültige Angabe und darf auch nicht gedruckt werden.
+                const pos = ft?.competencySet === 'instructor' ? '' : 'CDR'
+                setTrainees(cs.length > 0 ? [emptyTrainee(cs.map((c) => c.code), pos)] : [])
                 // Liste wird neu aufgebaut — alte Unterschriften dürfen nicht stehen bleiben
                 setSigTrainees({})
               }}
@@ -591,7 +623,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 ))}
 
                 <button
-                  onClick={() => setTrainees([...trainees, emptyTrainee(codes, 'CDR')])}
+                  onClick={() => setTrainees([...trainees, emptyTrainee(codes, isInstructorSheet ? '' : 'CDR')])}
                   className="flex items-center gap-1.5 text-[13.5px] font-medium text-accent hover:underline"
                 >
                   <Plus size={15} /> {t('grading.addTrainee')}
@@ -820,18 +852,34 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
               <Card className="space-y-3 p-4">
                 <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.attendance')}</p>
                 {attendance.map((a, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="w-6 shrink-0 text-[12.5px] text-dim">{i + 1}.</span>
-                    <input
-                      value={a.name}
-                      onChange={(e) => setAttendance(attendance.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
-                      placeholder={t('grading.studentName')}
-                      className={inputCls}
-                    />
-                    {attendance.length > 1 && (
-                      <button onClick={() => setAttendance(attendance.filter((_, j) => j !== i))} className="shrink-0 text-dim hover:text-danger">
-                        <Trash2 size={15} />
-                      </button>
+                  <div key={i} className="space-y-2 rounded-xl border border-line/10 p-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-6 shrink-0 text-[12.5px] text-dim">{i + 1}.</span>
+                      <input
+                        value={a.name}
+                        onChange={(e) => setAttendance(attendance.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+                        placeholder={t('grading.studentName')}
+                        className={inputCls}
+                      />
+                      {attendance.length > 1 && (
+                        <button
+                          onClick={() => setAttendance(attendance.filter((_, j) => j !== i))}
+                          aria-label={t('common.delete')}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dim hover:text-danger"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      )}
+                    </div>
+                    {/* 307A: die Teilnehmer sind vor Ort und unterschreiben selbst.
+                        307B (CBT/WBT/VCR) findet ohne Anwesenheit statt — dort
+                        bürgt allein die Unterschrift des Instruktors. */}
+                    {formTypeId === '307A' && a.name.trim() && (
+                      <SignaturePad
+                        value={a.signature}
+                        onChange={(sig) => setAttendance(attendance.map((x, j) => (j === i ? { ...x, signature: sig } : x)))}
+                        label={t('grading.attendanceSignature')}
+                      />
                     )}
                   </div>
                 ))}

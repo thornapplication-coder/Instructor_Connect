@@ -246,7 +246,12 @@
     "backToOverview": "Back to overview",
     "sortByName": "Sort: Name",
     "sortByRole": "Sort: Role",
-    "allGroups": "All groups"
+    "allGroups": "All groups",
+    "documentHeader": "Print header of the training forms",
+    "atoName": "Organisation (ATO)",
+    "approvalNumber": "Approval number",
+    "formRevision": "Form revision",
+    "documentHeaderHint": "Appears in the header and footer of every printed form and PDF."
   },
   "imprint": {
     "title": "Legal notice & terms of use",
@@ -382,7 +387,7 @@
     "studentName": "Student name",
     "addAttendee": "Add attendee",
     "attendance307B": "With the signature, the instructor/examiner confirms the participation of all individuals listed to the full extent and within the specified timeframe of the respective event.",
-    "footnote1": "* Tick if two or more competencies are graded with 2 or below; refer to Form 306 – Additional Training.",
+    "footnote1": "* Tick if any competency is graded 1, or if two or more competencies are graded 2 or below; refer to Form 306 – Additional Training.",
     "footnote2": "** Tick if one or more required items are not completed; describe not completed items in the comment box and Form 310, Deferred Item List.",
     "footnote3": "*** Ready for skill test to be signed on Form 311.",
     "participants": "Student / Instructor",
@@ -443,7 +448,17 @@
     },
     "followUp306PerPilot": "One Form 306 per pilot graded “Not Competent” — {{count}} will be opened one after another, each with that pilot’s own deficiencies and signature.",
     "readyForSkillTest": "Ready for skill test — create Form 311",
-    "readyForSkillTestHint": "The result is “Competent / Continue to next session ***”. Footnote *** requires the skill-test readiness to be signed on Form 311."
+    "readyForSkillTestHint": "The result is “Competent / Continue to next session ***”. Footnote *** requires the skill-test readiness to be signed on Form 311.",
+    "errAllNotObserved": "At least one competency of {{name}} must carry a grade — a sheet graded “NO” throughout is not a record of competence.",
+    "warnFutureDate": "The date is in the future. Complete the form anyway?",
+    "warnNoFlightTime": "A mandatory flight time is 00:00. Complete the form anyway?",
+    "attendanceSignature": "Signature",
+    "sigCandidate": "Signature Candidate Instructor (CAI)",
+    "errAttendanceSignature": "Every attendee on Form 307A signs in person — {{name}} has not signed yet.",
+    "instructorQual": "Instructor qualification",
+    "instructorSeat": "Instructor seat",
+    "followUpUnsigned": "{{id}} awaiting signature",
+    "openUnsignedFollowUp": "Complete {{form}} — signature outstanding"
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

@@ -69,11 +69,19 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
   const traineeLabel = (tr: { traineeName?: string; traineeId: string }) => tr.traineeName || userName(tr.traineeId)
 
+  // Kopf-/Fußzeile des Ausdrucks kommt aus den Einstellungen, damit der
+  // Superadmin ATO-Kennung und Formularstand ohne Deployment pflegen kann.
+  const doc = state.settings.documentHeader ?? { atoName: '', approvalNumber: '', formRevision: '' }
+  // Das Instruktorenblatt 308G verweist nicht auf die Pilotenformulare.
+  const pilotFootnotes = formType?.competencySet !== 'instructor'
   const isAdmin = currentUser!.role !== 'member'
   const linked = state.gradingRecords.filter((r) => r.parentId === record.id)
   // Formular 311 anbieten, solange das Blatt bestanden ist, es noch kein 311
   // gibt und der führende Instruktor es selbst anlegt.
   const canCreate311 =
+    // Nur Pilotenformulare: eine TRI/SFI/MCCI-Beurteilung führt zu keinem
+    // Skill Test nach Form 311.
+    pilotFootnotes &&
     record.instructorId === currentUser!.id &&
     record.trainees.length > 0 &&
     record.trainees.every((tr) => tr.overall === 'competent') &&
@@ -97,13 +105,19 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         }
       />
       <Page wide className="space-y-4">
-        {/* Druck-Kopf: Formularbenennung als Überschrift + Export-Stempel */}
+        {/* Druck-Kopf: Organisation, Formularbenennung, Formularstand und
+            Export-Stempel — ohne diese Angaben lässt sich ein Ausdruck weder
+            der ATO noch einem Formularstand zuordnen. */}
         <div className="hidden border-b-2 border-line/60 pb-2 print:block">
+          <p className="text-[11px] font-semibold uppercase tracking-wide">
+            {[doc.atoName, doc.approvalNumber].filter(Boolean).join(' · ')}
+          </p>
           <h1 className="text-2xl font-bold tracking-tight">
             {record.formTypeId} — {formType?.title ?? ''}
           </h1>
-          <p className="mt-1 text-[11px] text-dim">
-            {t('grading.exportStamp', { date: formatDateTime(Date.now() + state.timeOffsetMs), name: currentUser!.name })}
+          <p className="mt-1 flex justify-between gap-4 text-[11px] text-dim">
+            <span>{t('grading.exportStamp', { date: formatDateTime(Date.now() + state.timeOffsetMs), name: currentUser!.name })}</span>
+            <span>{doc.formRevision}</span>
           </p>
         </div>
 
@@ -163,11 +177,21 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
               <p className="font-semibold">{t('grading.followUpWarn')}</p>
             </div>
-            {missing.map((id) => (
-              <Button key={id} onClick={() => navigate(`/grading/new?type=${id}&parent=${record.id}`)} className="flex w-full items-center justify-center gap-2">
-                {t('grading.fillNow', { form: `${id} — ${grading.formTypes.find((f) => f.id === id)?.title ?? ''}` })}
-              </Button>
-            ))}
+            {missing.map((id) => {
+              const title = `${id} — ${grading.formTypes.find((f) => f.id === id)?.title ?? ''}`
+              // Ein angefangenes Folgeformular wird fortgesetzt, nicht ein
+              // zweites daneben angelegt.
+              const started = linked.find((l) => l.formTypeId === id && l.status !== 'signed')
+              return (
+                <Button
+                  key={id}
+                  onClick={() => navigate(started ? `/grading/${started.id}` : `/grading/new?type=${id}&parent=${record.id}`)}
+                  className="flex w-full items-center justify-center gap-2"
+                >
+                  {started ? t('grading.openUnsignedFollowUp', { form: title }) : t('grading.fillNow', { form: title })}
+                </Button>
+              )
+            })}
           </div>
         )}
 
@@ -196,12 +220,31 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             </div>
             {formType?.fields.map((f) => (
               <div key={f.key} className="flex justify-between gap-3 border-b border-line/[0.06] pb-1.5">
-                <dt className="text-dim">{f.label}</dt>
+                <dt className="text-dim">
+                  {f.label}
+                  {/* Fußnoten des Originalformulars (z. B. PRG*) gehören auf den
+                      Nachweis, nicht nur in die Eingabemaske. */}
+                  {f.hint && <span className="block text-[11px] leading-snug text-dim/70">{f.hint}</span>}
+                </dt>
                 <dd className="text-right font-medium">
                   {f.type === 'date' && record.header[f.key] ? formatDate(record.header[f.key]) : record.header[f.key] || '–'}
                 </dd>
               </div>
             ))}
+            {/* Qualifikation und Sitzposition werden im Formular erfasst, sind
+                aber keine Katalogfelder — ohne diese Zeilen fehlen sie auf dem
+                Dokument und im Ausdruck. */}
+            {([
+              [t('grading.instructorQual'), record.header.instructorQual],
+              [t('grading.instructorSeat'), record.header.instructorSeat],
+            ] as const)
+              .filter(([, v]) => !!v)
+              .map(([label, value]) => (
+                <div key={label} className="flex justify-between gap-3 border-b border-line/[0.06] pb-1.5">
+                  <dt className="text-dim">{label}</dt>
+                  <dd className="text-right font-medium">{value}</dd>
+                </div>
+              ))}
           </dl>
         </Card>
 
@@ -221,14 +264,25 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         {record.attendance && record.attendance.length > 0 && (
           <Card className="p-4">
             <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.attendance')}</p>
+            {/* 307A trägt die Unterschrift jedes Teilnehmers, 307B (CBT/WBT/VCR)
+                findet ohne Anwesenheit statt — dort bürgt der Instruktor. */}
             <ol className="space-y-1 text-[13.5px]">
               {record.attendance.map((a, i) => (
-                <li key={i} className="flex gap-2 border-b border-line/[0.06] py-1 last:border-0">
-                  <span className="w-5 text-dim">{i + 1}.</span>
-                  <span>{a.name}</span>
+                <li key={i} className="flex items-center gap-2 border-b border-line/[0.06] py-1 last:border-0">
+                  <span className="w-5 shrink-0 text-dim">{i + 1}.</span>
+                  <span className="min-w-0 flex-1">{a.name}</span>
+                  {record.formTypeId === '307A' &&
+                    (a.signature ? (
+                      <img src={a.signature} alt="" className="h-10 w-32 shrink-0 rounded border border-line/15 bg-white object-contain" />
+                    ) : (
+                      <span className="shrink-0 text-[12px] text-dim">{t('grading.missingSignature')}</span>
+                    ))}
                 </li>
               ))}
             </ol>
+            {record.formTypeId === '307B' && (
+              <p className="mt-2 text-[11.5px] leading-relaxed text-dim/80">{t('grading.attendance307B')}</p>
+            )}
           </Card>
         )}
 
@@ -238,7 +292,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             <div className="mb-3 flex items-center justify-between gap-2">
               <p className="text-[15px] font-semibold">{traineeLabel(tr)}</p>
               <span className="flex items-center gap-2">
-                <span className="text-[12px] text-dim">{tr.position}</span>
+                <span className="text-[12px] text-dim">{[tr.position, tr.seat].filter(Boolean).join(' · ')}</span>
                 {tr.overall && (
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${
@@ -296,24 +350,28 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 <div key={i}>
                   <p className="flex items-start gap-2">
                     <span className="font-mono">{tr.overall === 'competent' ? '☒' : '☐'}</span>
-                    <span>Competent / Continue to next session ***</span>
+                    <span>Competent / Continue to next session{pilotFootnotes ? ' ***' : ''}</span>
                   </p>
                   <p className="flex items-start gap-2">
                     <span className="font-mono">{tr.overall === 'not_competent' ? '☒' : '☐'}</span>
-                    <span>Not Competent / Additional training required *</span>
+                    <span>Not Competent / Additional training required{pilotFootnotes ? ' *' : ''}</span>
                   </p>
                   <p className="flex items-start gap-2">
                     <span className="font-mono">{record.sessionStatus === 'not_completed' ? '☒' : '☐'}</span>
-                    <span>Session not completed **</span>
+                    <span>Session not completed{pilotFootnotes ? ' **' : ''}</span>
                   </p>
                 </div>
               ))}
             </div>
-            <div className="mt-3 space-y-1 text-[11.5px] leading-relaxed text-dim/80">
-              <p>{t('grading.footnote1')}</p>
-              <p>{t('grading.footnote2')}</p>
-              <p>{t('grading.footnote3')}</p>
-            </div>
+            {/* Die Fußnoten verweisen auf die Pilotenformulare 306/310/311 —
+                auf einer TRI/SFI/MCCI-Beurteilung haben sie nichts verloren. */}
+            {pilotFootnotes && (
+              <div className="mt-3 space-y-1 text-[11.5px] leading-relaxed text-dim/80">
+                <p>{t('grading.footnote1')}</p>
+                <p>{t('grading.footnote2')}</p>
+                <p>{t('grading.footnote3')}</p>
+              </div>
+            )}
           </Card>
         )}
 
@@ -334,9 +392,20 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           <Card className="p-4">
             <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.linkedForms')}</p>
             {linked.map((l) => (
-              <button key={l.id} onClick={() => navigate(`/grading/${l.id}`)} className="block w-full py-1 text-left text-[13.5px] text-accent hover:underline">
-                {l.formTypeId} — {grading.formTypes.find((f) => f.id === l.formTypeId)?.title}
-              </button>
+              <div key={l.id} className="py-1 text-[13.5px]">
+                {/* Auf Papier muss der Verweis stehen bleiben — der Druckstil
+                    blendet Schaltflächen aus, deshalb hier Text plus Knopf. */}
+                <span className="hidden print:inline">
+                  {l.formTypeId} — {grading.formTypes.find((f) => f.id === l.formTypeId)?.title}
+                  {l.signedAt ? ` · ${t('grading.signedAt', { date: formatDateTime(l.signedAt) })}` : ''}
+                </span>
+                <button
+                  onClick={() => navigate(`/grading/${l.id}`)}
+                  className="block w-full py-1 text-left text-accent hover:underline print:hidden"
+                >
+                  {l.formTypeId} — {grading.formTypes.find((f) => f.id === l.formTypeId)?.title}
+                </button>
+              </div>
             ))}
           </Card>
         )}
@@ -381,19 +450,17 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 disabled={!lateSignature}
                 className="w-full"
                 onClick={() => {
-                  const escalate =
-                    record.trainees.some((tr) => tr.overall === 'not_competent') || record.sessionStatus === 'not_completed'
                   saveGradingRecord({
                     ...record,
                     signatureTrainee: lateSignature,
                     status: 'signed',
-                    mailStatus: escalate ? 'pending' : 'sent',
+                    mailStatus: 'sent',
                     signedAt: Date.now() + state.timeOffsetMs,
                   })
                   setLateSignature(null)
-                  // Jetzt komplett und erfolgreich versendet → Grading Dashboard.
-                  // Eskalationsfälle bleiben offen (Folgeformular/Versand).
-                  if (!escalate) navigate('/grading')
+                  // Fehlt noch ein Pflicht-Folgeformular, bleibt der Nutzer auf
+                  // dem Formular und sieht dort, was offen ist.
+                  if (missingFollowUps(record, state.gradingRecords).length === 0) navigate('/grading')
                 }}
               >
                 {t('grading.completeSignature')}
@@ -401,6 +468,13 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             </div>
           )}
         </Card>
+
+        {/* Druck-Fuß: Dokumentkennung auf jedem Blatt */}
+        <p className="hidden border-t border-line/40 pt-2 text-[10px] text-dim print:block">
+          {[doc.atoName, `${record.formTypeId} — ${formType?.title ?? ''}`, doc.formRevision, `ID ${record.id}`]
+            .filter(Boolean)
+            .join(' · ')}
+        </p>
 
         {isAdmin && (
           <p className="text-center text-[12px] text-dim/70">

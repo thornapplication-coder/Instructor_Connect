@@ -4,7 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { Badge, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { useStore } from '../store'
+import { followUpStarted, isComplete, missingFollowUps, traineesOf, trafficLight, type TrafficColor } from '../gradingRules'
 import type { GradingRecord } from '../types'
+
+// Weiterreichen, damit die Ansichten weiterhin aus einer Datei importieren
+export { followUpStarted, isComplete, missingFollowUps, traineesOf, trafficLight, type TrafficColor }
 
 /** Farbcodierung laut Spez. 5.3: 5/4 grün, 3 dunkelgrün, 2 orange, 1 rot, NO grau.
  *  Kräftige Vollfarben mit weißem/schwarzem Text — in Hell- UND Dunkelmodus lesbar. */
@@ -26,61 +30,6 @@ export function formatDate(input: number | string): string {
 export function formatDateTime(ts: number): string {
   const d = new Date(ts)
   return `${formatDate(ts)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
-
-/**
- * Pflicht-Folgeformulare, die zu diesem Formular noch fehlen:
- * Not Competent ⇒ 306 (Additional Training) ist verpflichtend,
- * Session not completed ⇒ 310 (Deferred Item List) ist verpflichtend.
- *
- * Die beiden Formulare haben bewusst unterschiedliche Reichweite:
- * das 306 dokumentiert die Defizite EINES Piloten und muss deshalb an
- * genau diesem Formular hängen; das 310 betrifft den Durchgang als
- * Ganzes und gilt für alle Geschwister-Formulare des Batches.
- */
-export function missingFollowUps(r: GradingRecord, all: GradingRecord[]): string[] {
-  if (r.parentId) return []
-  const family = new Set([r.id, ...(r.batchId ? all.filter((x) => x.batchId === r.batchId).map((x) => x.id) : [])])
-  const out: string[] = []
-  if (
-    r.trainees.some((tr) => tr.overall === 'not_competent') &&
-    !all.some((c) => c.parentId === r.id && c.formTypeId === '306')
-  )
-    out.push('306')
-  if (
-    r.sessionStatus === 'not_completed' &&
-    !all.some((c) => c.parentId && family.has(c.parentId) && c.formTypeId === '310')
-  )
-    out.push('310')
-  return out
-}
-
-/**
- * Ampelsystem für den Formularstatus:
- *  grün  = abgeschlossen, unterschrieben und versendet
- *  gelb  = noch offen (Unterschrift/Versand ausständig oder
- *          Pflicht-Folgeformular fehlt)
- *  rot   = Versand fehlgeschlagen — Handeln erforderlich
- */
-export type TrafficColor = 'green' | 'yellow' | 'red'
-
-/** Piloten eines Formulars — Folgeformulare (306/310) erben sie vom
- *  Ausgangsformular, damit in der Liste nicht „kein Trainee“ steht. */
-export function traineesOf(r: GradingRecord, all: GradingRecord[]) {
-  if (r.trainees.length > 0) return r.trainees
-  // 306/310/311 tragen den Piloten in den Kopfdaten — auch eigenständig
-  // erstellt (ohne Ausgangsformular) muss der Name greifbar sein.
-  const own = r.header.traineeName?.trim()
-  if (own) return [{ traineeId: '', traineeName: own, position: '', grades: [], positiveComment: '', developmentComment: '', summaryComment: '', overall: null }]
-  const parent = r.parentId ? all.find((x) => x.id === r.parentId) : undefined
-  return parent?.trainees ?? []
-}
-
-export function trafficLight(r: GradingRecord, all?: GradingRecord[]): TrafficColor {
-  if (r.mailStatus === 'failed') return 'red'
-  if (all && missingFollowUps(r, all).length > 0) return 'yellow'
-  if (r.status === 'signed' && r.mailStatus === 'sent') return 'green'
-  return 'yellow'
 }
 
 export const TRAFFIC_CLS: Record<TrafficColor, string> = {
@@ -361,7 +310,12 @@ export function Grading() {
                     {/* Pflicht-Folgeformular noch nicht ausgefüllt */}
                     {missing.map((id) => (
                       <span key={id} className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-0.5 text-[11px] font-semibold text-black">
-                        <AlertTriangle size={11} /> {id} {t('grading.stillRequired')}
+                        <AlertTriangle size={11} />{' '}
+                        {/* Angelegt, aber unsigniert: dann fehlt nur noch die
+                            Unterschrift — das ist etwas anderes als „gar nicht da". */}
+                        {followUpStarted(r, state.gradingRecords, id)
+                          ? t('grading.followUpUnsigned', { id })
+                          : `${id} ${t('grading.stillRequired')}`}
                       </span>
                     ))}
                     {r.parentId && <Badge tone="dim">{t('grading.linked')}</Badge>}

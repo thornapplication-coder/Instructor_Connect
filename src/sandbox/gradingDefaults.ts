@@ -144,41 +144,41 @@ export const PILOT_SET: CompetencySet = {
 export const INSTRUCTOR_SET: CompetencySet = {
   key: 'instructor',
   name: 'Instructor competencies (308G)',
-  // Observable Behaviours wörtlich aus dem 308G-Formular; EVA und REP
-// waren auf der Vorlage abgeschnitten und behalten vorerst die bisherige
-// Formulierung — bitte bei Vorliegen des Originals nachziehen. (TRI/SFI/MCCI)
+  // Kompetenzen und Observable Behaviours wörtlich nach der Originaltabelle
+  // des Formulars 308G. Die Aufzählungsmarken (a), (b), … des Papierformulars
+  // entfallen — die Liste wird in der App ohnehin als Aufzählung dargestellt.
   competencies: [
     {
       code: 'PRE',
       title: 'Prepare resources',
       behaviours: [
-        '(a) ensures adequate facilities',
-        '(b) prepares briefing material',
-        '(c) manages available tools',
-        '(d) plans training within the training envelope of the training platform',
+        'ensures adequate facilities',
+        'prepares briefing material',
+        'manages available tools',
+        'plans training within the training envelope of the training platform',
       ],
     },
     {
       code: 'CLI',
       title: 'Create a climate conducive to learning',
       behaviours: [
-        '(a) establishes credentials, role models appropriate behaviour',
-        '(b) clarifies roles',
-        '(c) states objectives',
-        '(d) ascertains and supports trainees needs',
+        'establishes credentials, role models appropriate behaviour',
+        'clarifies roles',
+        'states objectives',
+        'ascertains and supports trainees needs',
       ],
     },
     {
       code: 'PRK',
       title: 'Present knowledge',
-      behaviours: ['(a) communicates clearly', '(b) creates and sustains realism', '(c) looks for training opportunities'],
+      behaviours: ['communicates clearly', 'creates and sustains realism', 'looks for training opportunities'],
     },
     {
       code: 'TEM',
       title: 'Integrate TEM or CRM',
       behaviours: [
-        '(a) makes TEM and CRM links with technical training',
-        '(b) for aeroplanes: makes upset prevention links with technical training',
+        'makes TEM and CRM links with technical training',
+        'for aeroplanes: makes upset prevention links with technical training',
       ],
     },
     {
@@ -190,39 +190,43 @@ export const INSTRUCTOR_SET: CompetencySet = {
       code: 'FAC',
       title: 'Facilitate learning',
       behaviours: [
-        '(a) encourages trainee participation',
-        '(b) shows motivating, patient, confident and assertive manner',
-        '(c) conducts one-to-one coaching',
-        '(d) encourages mutual support',
+        'encourages trainee participation',
+        'shows motivating, patient, confident and assertive manner',
+        'conducts one-to-one coaching',
+        'encourages mutual support',
       ],
     },
     {
       code: 'ASS',
       title: 'Assesses trainee performance',
       behaviours: [
-        '(a) assesses and encourages trainee self-assessment of performance against competency standards',
-        '(b) makes assessment decision and provides clear feedback',
-        '(c) observes CRM behaviour',
+        'assesses and encourages trainee self-assessment of performance against competency standards',
+        'makes assessment decision and provides clear feedback',
+        'observes CRM behaviour',
       ],
     },
     {
       code: 'MON',
       title: 'Monitor and review progress',
       behaviours: [
-        '(a) compares individual outcomes to defined objectives',
-        '(b) identifies individual differences in learning rates',
-        '(c) applies appropriate corrective action',
+        'compares individual outcomes to defined objectives',
+        'identifies individual differences in learning rates',
+        'applies appropriate corrective action',
       ],
     },
     {
       code: 'EVA',
       title: 'Evaluate training sessions',
-      behaviours: ['Critically reflects on the conducted session.', 'Derives concrete improvements from the review.'],
+      behaviours: [
+        'elicits feedback from trainees',
+        'tracks training session processes against competence criteria',
+        'keeps appropriate records',
+      ],
     },
     {
       code: 'REP',
       title: 'Report outcome',
-      behaviours: ['Documents the outcome completely and in a timely manner.', 'Reports significant findings to the responsible office.'],
+      behaviours: ['reports accurately using only observed actions and events'],
     },
   ],
 }

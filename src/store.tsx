@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { isComplete } from './gradingRules'
 import { createSeedState } from './sandbox/seed'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import type { InfoEntry } from './types'
@@ -291,8 +292,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => b.createdAt - a.createdAt)
       .filter((r) => !r.hiddenFor?.includes(currentUser.id))
     if (userHasPerm(state.settings, currentUser, 'grading_view_all')) return all
+    // Die Wochenfrist gilt nur für erledigte Vorgänge. Was noch auf eine
+    // Unterschrift, ein Pflicht-Folgeformular oder den Versand wartet, bleibt
+    // beim Instruktor stehen — sonst verliert er sein eigenes unfertiges
+    // Dokument aus den Augen.
     const weekMs = 7 * 24 * 3600_000
-    return all.filter((r) => r.instructorId === currentUser.id && now() - r.createdAt < weekMs)
+    return all.filter(
+      (r) =>
+        r.instructorId === currentUser.id &&
+        (now() - r.createdAt < weekMs || !isComplete(r, state.gradingRecords)),
+    )
   }, [state.gradingRecords, state.settings, currentUser, now])
 
   // Instruktoren sehen nur Lesson Plans ihrer zugewiesenen Muster;

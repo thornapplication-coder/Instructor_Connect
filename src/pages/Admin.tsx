@@ -682,6 +682,31 @@ function SettingsTab() {
       <Card className="p-4">
         <StringListEditor label={t('admin.domains')} values={s.allowedDomains} onChange={(v) => updateSettings({ allowedDomains: v })} />
       </Card>
+      {/* Herkunftsangaben des Ausdrucks — ohne sie ist ein ausgedrucktes
+          Formular keiner Organisation und keinem Formularstand zuzuordnen. */}
+      <Card className="space-y-3 p-4">
+        <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('admin.documentHeader')}</p>
+        {(
+          [
+            ['atoName', t('admin.atoName')],
+            ['approvalNumber', t('admin.approvalNumber')],
+            ['formRevision', t('admin.formRevision')],
+          ] as const
+        ).map(([key, label]) => (
+          <Field key={key} label={label}>
+            <input
+              className={inputCls}
+              value={s.documentHeader?.[key] ?? ''}
+              onChange={(e) =>
+                updateSettings({
+                  documentHeader: { ...{ atoName: '', approvalNumber: '', formRevision: '' }, ...s.documentHeader, [key]: e.target.value },
+                })
+              }
+            />
+          </Field>
+        ))}
+        <p className="text-[12px] leading-relaxed text-dim">{t('admin.documentHeaderHint')}</p>
+      </Card>
     </div>
   )
 }

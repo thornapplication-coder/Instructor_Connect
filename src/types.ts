@@ -148,6 +148,9 @@ export interface Settings {
   /** Kategorien der Instructor-Info-Einträge, im Admin Panel pflegbar */
   infoCategories: string[]
   allowedDomains: string[]
+  /** Kopf-/Fußzeile jedes ausgedruckten Formulars — ein Ausdruck ohne
+   *  Organisation und Formularstand ist keinem Nachweis zuzuordnen. */
+  documentHeader: { atoName: string; approvalNumber: string; formRevision: string }
   /** Impressumstext je Sprache, im Admin Panel bearbeitbar */
   imprint: { de: string; en: string }
   grading: GradingSettings
