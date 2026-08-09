@@ -337,7 +337,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 <div key={i}>
                   <p className="flex items-start gap-2">
                     <span className="font-mono">{tr.overall === 'competent' ? '☒' : '☐'}</span>
-                    <span>Competent / Continue to next session{pilotFootnotes ? ' ***' : ''}</span>
+                    <span>Competent / Continue to next session</span>
                   </p>
                   <p className="flex items-start gap-2">
                     <span className="font-mono">{tr.overall === 'not_competent' ? '☒' : '☐'}</span>
@@ -351,12 +351,13 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               ))}
             </div>
             {/* Die Fußnoten verweisen auf die Pilotenformulare 306 und 310 —
-                auf einer TRI/SFI/MCCI-Beurteilung haben sie nichts verloren. */}
+                auf einer TRI/SFI/MCCI-Beurteilung haben sie nichts verloren.
+                Eine dritte Fußnote gab es zur Skill-Test-Reife; sie nannte
+                Formular 311, das es nicht gibt, und ist entfallen. */}
             {pilotFootnotes && (
               <div className="mt-3 space-y-1 text-[11.5px] leading-relaxed text-dim">
                 <p>{t('grading.footnote1')}</p>
                 <p>{t('grading.footnote2')}</p>
-                <p>{t('grading.footnote3')}</p>
               </div>
             )}
           </Card>
