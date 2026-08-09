@@ -24,6 +24,9 @@ export interface Group {
   id: string
   name: string
   purpose: string
+  /** Muster, zu dem die Gruppe gehört — leer = musterübergreifend.
+   *  Die Chat-Themen unterscheiden sich je Aircraft Type. */
+  aircraftType?: string
   adminIds: string[]
   memberIds: string[]
   /** null = globale Voreinstellung gilt */
@@ -222,6 +225,8 @@ export interface FormField {
   wide?: boolean
   /** wird erst NACH dem Grading erfasst (z. B. Flight Time, Landings) */
   postGrading?: boolean
+  /** kleiner erklärender Hinweis unter dem Feld (z. B. Fußnoten des Originals) */
+  hint?: string
   /** Entweder-oder-Feldpaar: füllt man dieses Feld, wird das andere geleert;
    *  genau eines der beiden muss ausgefüllt sein (z. B. Recurrent-Zyklus
    *  ODER ATA-Kapitel auf Formular 308F). */

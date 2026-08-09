@@ -204,7 +204,7 @@
     "imprintDe": "Text Deutsch",
     "imprintEn": "Text Englisch",
     "imprintHint": "Formatierung: „# “ beginnt einen neuen Abschnitt mit Überschrift, „- “ eine Aufzählungszeile, Leerzeilen trennen Absätze. Änderungen gelten sofort für alle Nutzer.",
-    "imprintSaved": "Gespeichert",
+    "imprintSaved": "Automatisch gespeichert",
     "desktopOnly": "Das Admin Panel ist nur am Desktop verfügbar — auf Tablet und Handy wäre die Verwaltung zu unübersichtlich. Bitte an einem Computer öffnen.",
     "canGrade": "Darf bewerten (Grading)",
     "isTrainee": "Ist Trainee",
@@ -229,7 +229,18 @@
       "lessons_manage": "Lesson Plans hochladen und verwalten",
       "contacts_manage": "Who-to-call-Verzeichnis bearbeiten"
     },
-    "lastGroupBlocked": "Jeder Nutzer muss mindestens einer Gruppe angehören — sonst verliert er den Zugang zu Chats und gruppenbezogener Instructor Info. Bitte zuerst eine andere Gruppe zuweisen."
+    "lastGroupBlocked": "Jeder Nutzer muss mindestens einer Gruppe angehören — sonst verliert er den Zugang zu Chats und gruppenbezogener Instructor Info. Bitte zuerst eine andere Gruppe zuweisen.",
+    "aircraftTypesGlobal": "Aircraft Types (alle Formulare und Lesson Plans)",
+    "searchUsers": "Name oder E-Mail suchen …",
+    "autoSaving": "Wird gespeichert …",
+    "autoSaveHint": "Alle Änderungen im Admin Panel werden sofort gespeichert — es gibt keinen Speichern-Knopf.",
+    "groupAircraft": "Aircraft Type der Gruppe",
+    "groupNoAircraft": "Musterübergreifend",
+    "allRoles": "Alle Rollen",
+    "allStatus": "Aktiv + deaktiviert",
+    "allRecipients": "Alle Empfänger",
+    "onlyUrgent": "Nur Dringendes",
+    "allCategories": "Alle Kategorien"
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",
@@ -354,7 +365,10 @@
       "followUpMissing": "Pflicht-Folgeformular ausständig: {{forms}}",
       "allTrainees": "Alle Trainees",
       "allInstructors": "Alle Instruktoren",
-      "allAircraft": "Alle Aircraft Types"
+      "allAircraft": "Alle Aircraft Types",
+      "editOptions": "Auswahlwerte bearbeiten",
+      "editOptionsHint": "Alle Dropdowns und Ankreuzlisten dieses Formulars sind hier pflegbar: Eintrag direkt umbenennen, mit × entfernen oder neuen hinzufügen. Änderungen gelten sofort für neue Formulare.",
+      "aircraftCentral": "Wird zentral unter Einstellungen → Aircraft Types gepflegt — in allen Formularen identisch."
     },
     "attendance": "Teilnehmerliste",
     "studentName": "Name des Teilnehmers",
@@ -406,7 +420,19 @@
     "printNow": "Drucken / als PDF sichern",
     "printShareFallback": "Falls sich kein Dialog öffnet: das Teilen-Menü des Browsers öffnen und dort „Drucken“ wählen.",
     "trainingAdminNote": "Training-Admin-Zugriff: Du kannst alle ausgefüllten und offenen Formulare ansehen und herunterladen. Anlegen oder Entfernen ist nicht möglich.",
-    "errEitherOr": "Bitte entweder „{{a}}“ oder „{{b}}“ auswählen."
+    "errEitherOr": "Bitte entweder „{{a}}“ oder „{{b}}“ auswählen.",
+    "ta": {
+      "completed": "Abgeschlossene Formulare",
+      "open": "Noch zu bearbeiten",
+      "deleteConfirm": "Dieses Formular endgültig löschen? Angehängte Folgeformulare werden mitgelöscht.",
+      "period": {
+        "all": "Beliebiges Datum",
+        "day": "Letzte 24 Stunden",
+        "week": "Letzte 7 Tage",
+        "month": "Letzter Monat",
+        "year": "Letztes Jahr"
+      }
+    }
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

@@ -71,6 +71,160 @@ export function TrafficDot({ color, className = '' }: { color: TrafficColor; cla
   return <span className={`inline-block h-3 w-3 shrink-0 rounded-full ${TRAFFIC_CLS[color]} ${className}`} />
 }
 
+/**
+ * Ablage-Ansicht des Training Admins: zwei Reiter — abgeschlossene
+ * Formulare (mit Zeitraum) und noch zu bearbeitende. Einfach gehaltene
+ * Liste mit Filtern (Zeitraum, Student, Aircraft Type, Instruktor),
+ * Ansehen, PDF-Download/Druck und endgültigem Löschen.
+ */
+function TrainingAdminGrading() {
+  const { i18n } = useTranslation()
+  const t = i18n.getFixedT('en')
+  const { state, now, deleteGradingRecord } = useStore()
+  const [tab, setTab] = useState<'completed' | 'open'>('completed')
+  const [period, setPeriod] = useState('all')
+  const [fTrainee, setFTrainee] = useState('')
+  const [fAircraft, setFAircraft] = useState('')
+  const [fInstructor, setFInstructor] = useState('')
+
+  const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
+  const traineeLabel = (tr: { traineeName?: string; traineeId: string }) =>
+    tr.traineeName || userName(tr.traineeId) || '—'
+  const formTitle = (id: string) => state.settings.grading.formTypes.find((f) => f.id === id)?.title ?? id
+
+  const all = [...state.gradingRecords].sort((a, b) => b.createdAt - a.createdAt)
+  // abgeschlossen = unterschrieben, versendet und ohne offenes Pflicht-Folgeformular
+  const isCompleted = (r: GradingRecord) => trafficLight(r, state.gradingRecords) === 'green'
+
+  const PERIODS: Array<{ key: string; days: number | null }> = [
+    { key: 'all', days: null },
+    { key: 'day', days: 1 },
+    { key: 'week', days: 7 },
+    { key: 'month', days: 31 },
+    { key: 'year', days: 365 },
+  ]
+  const periodDays = PERIODS.find((x) => x.key === period)?.days ?? null
+
+  const traineeOptions = [...new Set(all.flatMap((r) => r.trainees.map(traineeLabel)))].filter((n) => n !== '—').sort()
+  const instructorOptions = [...new Set(all.map((r) => r.instructorId))]
+    .map((id) => ({ id, name: userName(id) }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const aircraftOptions = [...new Set(all.map((r) => r.header.aircraftType).filter(Boolean))].sort()
+
+  const list = all.filter((r) => {
+    if (tab === 'completed' ? !isCompleted(r) : isCompleted(r)) return false
+    if (periodDays && now() - r.createdAt > periodDays * 24 * 3600_000) return false
+    if (fTrainee && !r.trainees.some((tr) => traineeLabel(tr) === fTrainee)) return false
+    if (fAircraft && r.header.aircraftType !== fAircraft) return false
+    if (fInstructor && r.instructorId !== fInstructor) return false
+    return true
+  })
+
+  const selCls = 'rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]'
+  return (
+    <>
+      <TopBar title="Grading Tool" back="/" />
+      <Page wide className="space-y-3">
+        <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.trainingAdminNote')}</p>
+
+        {/* Reiter: Abgeschlossen / Zu bearbeiten */}
+        <div className="flex gap-2">
+          {(['completed', 'open'] as const).map((tb) => (
+            <button
+              key={tb}
+              onClick={() => setTab(tb)}
+              className={`flex-1 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
+                tab === tb ? 'border-accent bg-accent/15 text-accent' : 'border-line/15 text-dim'
+              }`}
+            >
+              {t(`grading.ta.${tb}`)} ({all.filter((r) => (tb === 'completed' ? isCompleted(r) : !isCompleted(r))).length})
+            </button>
+          ))}
+        </div>
+
+        {/* Filter: Zeitraum, Student, Aircraft Type, Instruktor */}
+        <div className="flex flex-wrap gap-2">
+          <select value={period} onChange={(e) => setPeriod(e.target.value)} className={selCls}>
+            {PERIODS.map((x) => (
+              <option key={x.key} value={x.key}>
+                {t(`grading.ta.period.${x.key}`)}
+              </option>
+            ))}
+          </select>
+          <select value={fTrainee} onChange={(e) => setFTrainee(e.target.value)} className={selCls}>
+            <option value="">{t('grading.admin.allTrainees')}</option>
+            {traineeOptions.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+          <select value={fAircraft} onChange={(e) => setFAircraft(e.target.value)} className={selCls}>
+            <option value="">{t('grading.admin.allAircraft')}</option>
+            {aircraftOptions.map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
+          <select value={fInstructor} onChange={(e) => setFInstructor(e.target.value)} className={selCls}>
+            <option value="">{t('grading.admin.allInstructors')}</option>
+            {instructorOptions.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {list.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('grading.empty')}</p>}
+
+        {/* Einfache, kompakte Liste */}
+        <div className="divide-y divide-line/[0.06] overflow-hidden rounded-xl border border-line/10 bg-surface/60">
+          {list.map((r) => (
+            <div key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-line/5">
+              <TrafficDot color={trafficLight(r, state.gradingRecords)} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13.5px] font-semibold">
+                  {r.formTypeId} · {formTitle(r.formTypeId)}
+                </p>
+                <p className="truncate text-[12px] text-dim">
+                  {r.trainees.length > 0 ? r.trainees.map(traineeLabel).join(', ') : t('grading.noTrainee')} ·{' '}
+                  {userName(r.instructorId)} · {r.header.aircraftType || '—'} · {formatDate(r.createdAt)}
+                </p>
+              </div>
+              {/* PDF-Download/Druck (öffnet die Ein-Seiten-Druckansicht) */}
+              {r.status === 'signed' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    navigate(`/grading/${r.id}?print=1`)
+                  }}
+                  title={t('grading.downloadPdf')}
+                  className="rounded-lg p-1.5 text-dim transition hover:bg-accent/10 hover:text-accent"
+                >
+                  <FileDown size={16} />
+                </button>
+              )}
+              {/* endgültig löschen — inkl. angehängter Folgeformulare */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (window.confirm(t('grading.ta.deleteConfirm'))) deleteGradingRecord(r.id)
+                }}
+                title={t('common.delete')}
+                className="rounded-lg p-1.5 text-dim transition hover:bg-danger/10 hover:text-danger"
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </Page>
+    </>
+  )
+}
+
 export function Grading() {
   // Das Grading-Modul ist immer vollständig englisch
   const { i18n } = useTranslation()
@@ -83,10 +237,14 @@ export function Grading() {
   const mayGrade = can('grading_create')
   // nur-lesender Zugriff (Training Admin bzw. per Matrix eingeschränkt)
   const isTrainingAdmin = !mayGrade && can('grading_view_all')
+
   const isMember = currentUser!.role === 'member'
   // Filter über die Ampel-Legende (antippen zum Filtern)
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
   const list = visibleGradingRecords.filter((r) => !trafficFilter || trafficLight(r, state.gradingRecords) === trafficFilter)
+
+  // Training Admin: eigene Ablage-Ansicht mit zwei Reitern und Filtern
+  if (isTrainingAdmin) return <TrainingAdminGrading />
 
   return (
     <>

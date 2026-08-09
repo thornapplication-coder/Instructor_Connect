@@ -204,7 +204,7 @@
     "imprintDe": "German text",
     "imprintEn": "English text",
     "imprintHint": "Formatting: “# ” starts a new section with a heading, “- ” a bullet line, blank lines separate paragraphs. Changes take effect immediately for all users.",
-    "imprintSaved": "Saved",
+    "imprintSaved": "Saved automatically",
     "desktopOnly": "The Admin Panel is available on desktop only — on tablets and phones the administration would be too cramped. Please open it on a computer.",
     "canGrade": "May grade",
     "isTrainee": "Is trainee",
@@ -229,7 +229,18 @@
       "lessons_manage": "Upload and manage lesson plans",
       "contacts_manage": "Edit the Who to call directory"
     },
-    "lastGroupBlocked": "Every user must belong to at least one group — otherwise they lose access to chats and group-scoped Instructor Info. Assign a different group first."
+    "lastGroupBlocked": "Every user must belong to at least one group — otherwise they lose access to chats and group-scoped Instructor Info. Assign a different group first.",
+    "aircraftTypesGlobal": "Aircraft types (all forms and lesson plans)",
+    "searchUsers": "Search name or email …",
+    "autoSaving": "Saving …",
+    "autoSaveHint": "All changes in the Admin Panel are saved immediately — there is no save button.",
+    "groupAircraft": "Aircraft type of this group",
+    "groupNoAircraft": "All aircraft types",
+    "allRoles": "All roles",
+    "allStatus": "Active + deactivated",
+    "allRecipients": "All recipients",
+    "onlyUrgent": "Urgent only",
+    "allCategories": "All categories"
   },
   "imprint": {
     "title": "Legal notice & terms of use",
@@ -354,7 +365,10 @@
       "followUpMissing": "Mandatory follow-up outstanding: {{forms}}",
       "allTrainees": "All trainees",
       "allInstructors": "All instructors",
-      "allAircraft": "All aircraft types"
+      "allAircraft": "All aircraft types",
+      "editOptions": "Edit the field options",
+      "editOptionsHint": "Every dropdown and tick list of this form can be maintained here: rename an entry directly, remove it with ×, or add a new one. Changes apply to new forms immediately.",
+      "aircraftCentral": "Maintained centrally under Settings → Aircraft types — identical on every form."
     },
     "attendance": "Record of Attendance",
     "studentName": "Student name",
@@ -406,7 +420,19 @@
     "printNow": "Print / save as PDF",
     "printShareFallback": "If no dialog opens: use the browser Share menu and choose “Print” there.",
     "trainingAdminNote": "Training Admin access: you can view and download all completed and open forms. Creating or removing forms is not possible.",
-    "errEitherOr": "Please choose either “{{a}}” or “{{b}}”."
+    "errEitherOr": "Please choose either “{{a}}” or “{{b}}”.",
+    "ta": {
+      "completed": "Completed forms",
+      "open": "To be processed",
+      "deleteConfirm": "Delete this form permanently? Attached follow-up forms are deleted with it.",
+      "period": {
+        "all": "Any date",
+        "day": "Last 24 hours",
+        "week": "Last 7 days",
+        "month": "Last month",
+        "year": "Last year"
+      }
+    }
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

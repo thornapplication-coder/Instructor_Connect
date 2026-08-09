@@ -119,6 +119,9 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
   const postFields = headerFields.filter((f) => f.postGrading)
 
   const isAttendance = formTypeId === '307A' || formTypeId === '307B'
+  // 308G bewertet einen Candidate Instructor durch einen Course Instructor —
+  // die Sitz-/Positionsangaben stehen dort im Kopf, nicht als Chips.
+  const isInstructorSheet = formTypeId === '308G'
 
   const needsFollowUp =
     trainees.some((tr) => tr.overall === 'not_competent' || autoNotCompetent(tr)) || sessionStatus === 'not_completed'
@@ -306,6 +309,14 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
       return next
     })
 
+  /**
+   * Auswahlwerte eines Feldes. Die Musterliste kommt zentral aus den
+   * Einstellungen — damit stehen in ALLEN Formularen dieselben Aircraft
+   * Types und der Admin pflegt sie an einer Stelle.
+   */
+  const optionsOf = (f: FormField): string[] =>
+    f.key === 'aircraftType' ? state.settings.aircraftTypes : (f.options ?? [])
+
   /** Kopf- und Session-Datenfelder — in Schritt 1 (pre) und Schritt 2 (post) genutzt */
   const renderField = (f: FormField) => (
     <div key={f.key} className={f.wide ? 'sm:col-span-2' : ''}>
@@ -317,7 +328,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
             className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
           >
             <option value="">…</option>
-            {[...(f.options ?? [])].sort((a, b) => a.localeCompare(b)).map((o) => (
+            {[...optionsOf(f)].sort((a, b) => a.localeCompare(b)).map((o) => (
               <option key={o} value={o}>
                 {o}
               </option>
@@ -346,7 +357,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
         ) : f.type === 'radiogroup' ? (
           // Einfachauswahl als Ankreuzfelder wie im Original
           <div className="flex flex-wrap gap-1.5">
-            {(f.options ?? []).map((o) => {
+            {optionsOf(f).map((o) => {
               const on = header[f.key] === o
               return (
                 <button
@@ -364,7 +375,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
         ) : f.type === 'checkgroup' ? (
           // Ankreuzfeld-Gruppe wie im Original (z. B. ATA Chapters bei 308F)
           <div className="flex flex-wrap gap-1.5">
-            {[...(f.options ?? [])].sort((a, b) => a.localeCompare(b)).map((o) => {
+            {[...optionsOf(f)].sort((a, b) => a.localeCompare(b)).map((o) => {
               const sel = (header[f.key] ?? '').split(', ').filter(Boolean)
               const on = sel.includes(o)
               return (
@@ -388,6 +399,8 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
             className={inputCls}
           />
         )}
+        {/* Fußnoten des Originalformulars, etwa zu den PRG-Sternchen */}
+        {f.hint && <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{f.hint}</p>}
       </Field>
     </div>
   )
@@ -449,7 +462,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                   <div key={i} className="rounded-xl border border-line/10 p-3">
                     <div className="mb-2 flex items-center gap-2">
                       <p className="flex-1 text-[13px] font-semibold text-accent">
-                        {t('grading.student')} {trainees.length > 1 ? i + 1 : ''}
+                        {isInstructorSheet ? 'Candidate Instructor' : t('grading.student')} {trainees.length > 1 ? i + 1 : ''}
                       </p>
                       {trainees.length > 1 && (
                         <button onClick={() => removeTrainee(i)} className="text-dim hover:text-danger">
@@ -464,7 +477,9 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                       placeholder={t('grading.studentName')}
                       className={`${inputCls} mb-2`}
                     />
-                    <div className="flex flex-wrap items-center gap-1.5">
+                    {/* 308G kennt keine CDR/FO- und Sitzchips — dort stehen
+                        Qualifikation und Position im Kopf des Formulars */}
+                    <div className={`flex flex-wrap items-center gap-1.5 ${isInstructorSheet ? 'hidden' : ''}`}>
                       {['CDR', 'FO'].map((o) => (
                         <button
                           key={o}
@@ -503,9 +518,11 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                 )}
 
                 <div className="rounded-xl border border-line/10 p-3">
-                  <p className="mb-2 text-[13px] font-semibold text-accent">{t('grading.instructor')}</p>
+                  <p className="mb-2 text-[13px] font-semibold text-accent">
+                    {isInstructorSheet ? 'Course Instructor' : t('grading.instructor')}
+                  </p>
                   <p className="mb-2 rounded-lg bg-bg/40 px-3 py-2 text-[14px]">{currentUser!.name}</p>
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  <div className={`flex flex-wrap items-center gap-1.5 ${isInstructorSheet ? 'hidden' : ''}`}>
                     {['TKI', 'SFI', 'TRI'].map((o) => (
                       <button
                         key={o}

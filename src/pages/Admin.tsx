@@ -1,5 +1,5 @@
-import { AlertTriangle, Monitor, Paperclip, Plus, Trash2, X } from 'lucide-react'
-import { useState } from 'react'
+import { AlertTriangle, ChevronDown, Monitor, Paperclip, Plus, Trash2, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { useStore } from '../store'
@@ -51,29 +51,79 @@ function UsersTab() {
   const { t } = useTranslation()
   const { state, updateUser, deleteUser, addUser, setGroupMembers } = useStore()
   const [showNew, setShowNew] = useState(false)
+  // Bei rund 130 Instruktoren ist die Liste kompakt und aufklappbar:
+  // sichtbar bleiben Name, E-Mail und Rolle — Details erst auf Klick.
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [query, setQuery] = useState('')
+  // Filter: Rolle, Status und Gruppenzugehörigkeit
+  const [fRole, setFRole] = useState('')
+  const [fStatus, setFStatus] = useState('')
+  const [fGroup, setFGroup] = useState('')
   const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'member' as Role, groupIds: [] as string[] })
 
-  const users = [...state.users].sort((a, b) => a.name.localeCompare(b.name))
   const sortedGroups = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
+  const allUsers = [...state.users].sort((a, b) => a.name.localeCompare(b.name))
+  const users = allUsers.filter((u) => {
+    if (query.trim() && !`${u.name} ${u.email}`.toLowerCase().includes(query.trim().toLowerCase())) return false
+    if (fRole && u.role !== fRole) return false
+    if (fStatus === 'active' && !u.active) return false
+    if (fStatus === 'inactive' && u.active) return false
+    if (fGroup && !sortedGroups.find((g) => g.id === fGroup)?.memberIds.includes(u.id)) return false
+    return true
+  })
 
   return (
     <div className="space-y-3">
-      <Button onClick={() => setShowNew(true)} className="flex items-center gap-1.5">
-        <Plus size={15} /> {t('admin.addUser')}
-      </Button>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button onClick={() => setShowNew(true)} className="flex items-center gap-1.5">
+          <Plus size={15} /> {t('admin.addUser')}
+        </Button>
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t('admin.searchUsers')}
+          className={`${inputCls} min-w-48 flex-1`}
+        />
+        <select value={fRole} onChange={(e) => setFRole(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+          <option value="">{t('admin.allRoles')}</option>
+          {(['member', 'training_admin', 'group_admin', 'superadmin'] as Role[]).map((r) => (
+            <option key={r} value={r}>
+              {t(`roles.${r}`)}
+            </option>
+          ))}
+        </select>
+        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+          <option value="">{t('admin.allStatus')}</option>
+          <option value="active">{t('admin.active')}</option>
+          <option value="inactive">{t('admin.inactive')}</option>
+        </select>
+        <select value={fGroup} onChange={(e) => setFGroup(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+          <option value="">{t('admin.allGroups')}</option>
+          {sortedGroups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+        <span className="shrink-0 text-[12.5px] text-dim">
+          {users.length}/{allUsers.length}
+        </span>
+      </div>
+      {users.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('info.empty')}</p>}
       {users.map((u) => (
-        <Card key={u.id} className={`p-4 ${u.active ? '' : 'opacity-55'}`}>
-          <div className="flex items-center gap-3">
-            <Avatar name={u.name} size={38} />
+        <Card key={u.id} className={`p-3 ${u.active ? '' : 'opacity-55'}`}>
+          {/* Kopfzeile: immer sichtbar, ganze Zeile klappt auf */}
+          <button onClick={() => setOpenId(openId === u.id ? null : u.id)} className="flex w-full items-center gap-3 text-left">
+            <Avatar name={u.name} size={34} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14.5px] font-semibold">{u.name}</p>
-              <p className="truncate text-[12.5px] text-dim">
-                {u.email}
-                {u.phone ? ` · ${u.phone}` : ''}
-              </p>
+              <p className="truncate text-[14px] font-semibold">{u.name}</p>
+              <p className="truncate text-[12px] text-dim">{u.email}</p>
             </div>
-            <Badge tone={u.active ? 'accent' : 'dim'}>{u.active ? t('admin.active') : t('admin.inactive')}</Badge>
-          </div>
+            <span className="shrink-0 text-[12px] text-dim">{t(`roles.${u.role}`)}</span>
+            {!u.active && <Badge tone="dim">{t('admin.inactive')}</Badge>}
+            <ChevronDown size={16} className={`shrink-0 text-dim transition ${openId === u.id ? 'rotate-180' : ''}`} />
+          </button>
+          <div className={openId === u.id ? '' : 'hidden'}>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
             <select
               value={u.role}
@@ -180,6 +230,7 @@ function UsersTab() {
                 )
               })}
             </div>
+          </div>
           </div>
         </Card>
       ))}
@@ -295,34 +346,77 @@ function PermissionsTab() {
 
 function GroupsTab() {
   const { t } = useTranslation()
-  const { state, addGroup, renameGroup, deleteGroup, setGroupAdmins, setGroupMembers, setGroupRetention } = useStore()
+  const { state, addGroup, renameGroup, deleteGroup, setGroupAdmins, setGroupMembers, setGroupRetention, setGroupAircraft } = useStore()
   const [showNew, setShowNew] = useState(false)
+  // aufgeklappte Gruppe (kompakte Liste bei vielen Gruppen)
+  const [openId, setOpenId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [purpose, setPurpose] = useState('')
+  const [newAircraft, setNewAircraft] = useState('')
 
-  const groups = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
+  // Gruppen nach Muster sortiert: erst je Aircraft Type, dann die
+  // musterübergreifenden — die Chat-Themen unterscheiden sich je Typ.
+  const groups = [...state.groups].sort(
+    (a, b) => (a.aircraftType || 'zzz').localeCompare(b.aircraftType || 'zzz') || a.name.localeCompare(b.name),
+  )
   const activeUsers = state.users.filter((u) => u.active).sort((a, b) => a.name.localeCompare(b.name))
+  const aircraftTypes = [...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b))
+  // Zwischenüberschrift, sobald ein neues Muster beginnt
+  const headingFor = (i: number) => {
+    const cur = groups[i].aircraftType || ''
+    const prev = i > 0 ? groups[i - 1].aircraftType || '' : null
+    return prev === cur ? null : cur || t('admin.groupNoAircraft')
+  }
 
   return (
     <div className="space-y-3">
       <Button onClick={() => setShowNew(true)} className="flex items-center gap-1.5">
         <Plus size={15} /> {t('admin.addGroup')}
       </Button>
-      {groups.map((g) => (
-        <Card key={g.id} className="space-y-3 p-4">
+      {groups.map((g, i) => (
+        <div key={g.id}>
+        {headingFor(i) && (
+          <p className="mb-1.5 mt-3 px-1 text-[12px] font-semibold uppercase tracking-wide text-dim first:mt-0">{headingFor(i)}</p>
+        )}
+        <Card className="space-y-3 p-3">
+          {/* Kompakte Kopfzeile: Name und Mitgliederzahl, Details auf Klick */}
           <div className="flex items-center gap-3">
-            <Avatar name={g.name} size={38} />
-            <input
-              value={g.name}
-              onChange={(e) => renameGroup(g.id, e.target.value)}
-              className="min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 py-1 text-[15px] font-semibold outline-none transition focus:border-line/15 focus:bg-bg/50"
-            />
+            <Avatar name={g.name} size={34} />
+            <button onClick={() => setOpenId(openId === g.id ? null : g.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+              <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{g.name}</span>
+              {g.aircraftType && (
+                <span className="shrink-0 rounded-full bg-raised px-2 py-0.5 text-[11.5px] font-medium text-accent">{g.aircraftType}</span>
+              )}
+              <span className="shrink-0 text-[12px] text-dim">{t('chatInfo.members', { count: g.memberIds.length })}</span>
+              <ChevronDown size={16} className={`shrink-0 text-dim transition ${openId === g.id ? 'rotate-180' : ''}`} />
+            </button>
             <button
               onClick={() => window.confirm(t('admin.confirmDeleteGroup')) && deleteGroup(g.id)}
               className="rounded-full p-2 text-dim hover:text-danger"
             >
               <Trash2 size={16} />
             </button>
+          </div>
+          <div className={openId === g.id ? 'space-y-3' : 'hidden'}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label={t('admin.groupName')}>
+              <input value={g.name} onChange={(e) => renameGroup(g.id, e.target.value)} className={inputCls} />
+            </Field>
+            {/* Muster der Gruppe — leer = musterübergreifend */}
+            <Field label={t('admin.groupAircraft')}>
+              <select
+                value={g.aircraftType ?? ''}
+                onChange={(e) => setGroupAircraft(g.id, e.target.value)}
+                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]"
+              >
+                <option value="">{t('admin.groupNoAircraft')}</option>
+                {aircraftTypes.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </Field>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t('chatInfo.retentionOverride')}>
@@ -382,7 +476,9 @@ function GroupsTab() {
               })}
             </div>
           </Field>
+          </div>
         </Card>
+        </div>
       ))}
       {showNew && (
         <Modal title={t('admin.addGroup')} onClose={() => setShowNew(false)}>
@@ -393,6 +489,20 @@ function GroupsTab() {
             <Field label={t('admin.purpose')}>
               <input className={inputCls} value={purpose} onChange={(e) => setPurpose(e.target.value)} />
             </Field>
+            <Field label={t('admin.groupAircraft')}>
+              <select
+                value={newAircraft}
+                onChange={(e) => setNewAircraft(e.target.value)}
+                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+              >
+                <option value="">{t('admin.groupNoAircraft')}</option>
+                {aircraftTypes.map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </Field>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setShowNew(false)}>
                 {t('common.cancel')}
@@ -400,10 +510,11 @@ function GroupsTab() {
               <Button
                 disabled={!name.trim()}
                 onClick={() => {
-                  addGroup(name.trim(), purpose.trim())
+                  addGroup(name.trim(), purpose.trim(), newAircraft || undefined)
                   setShowNew(false)
                   setName('')
                   setPurpose('')
+                  setNewAircraft('')
                 }}
               >
                 {t('common.save')}
@@ -420,11 +531,52 @@ function GroupsTab() {
 function FeedbackTab() {
   const { t } = useTranslation()
   const { state, deleteFeedback } = useStore()
-  const entries = [...state.feedbackEntries].sort((a, b) => b.createdAt - a.createdAt)
+  // Filter: Kategorie, Empfänger, nur Dringendes
+  const [fCat, setFCat] = useState('')
+  const [fRec, setFRec] = useState('')
+  const [onlyUrgent, setOnlyUrgent] = useState(false)
+  const all = [...state.feedbackEntries].sort((a, b) => b.createdAt - a.createdAt)
+  const entries = all.filter((f) => {
+    if (fCat && f.category !== fCat) return false
+    if (fRec && f.recipient !== fRec) return false
+    if (onlyUrgent && !f.urgent) return false
+    return true
+  })
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
+  const cats = [...new Set(all.map((f) => f.category))].sort()
+  const recs = [...new Set(all.map((f) => f.recipient))].sort()
 
   return (
     <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <select value={fCat} onChange={(e) => setFCat(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+          <option value="">{t('admin.allCategories')}</option>
+          {cats.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <select value={fRec} onChange={(e) => setFRec(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+          <option value="">{t('admin.allRecipients')}</option>
+          {recs.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => setOnlyUrgent(!onlyUrgent)}
+          className={`rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition ${
+            onlyUrgent ? 'border-danger bg-danger/15 text-danger' : 'border-line/15 text-dim'
+          }`}
+        >
+          {t('admin.onlyUrgent')}
+        </button>
+        <span className="ml-auto shrink-0 text-[12.5px] text-dim">
+          {entries.length}/{all.length}
+        </span>
+      </div>
       {entries.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('admin.feedbackEmpty')}</p>}
       {entries.map((f) => (
         <Card key={f.id} className="p-4">
@@ -492,6 +644,13 @@ function SettingsTab() {
             className={inputCls}
           />
         </Field>
+        {/* Diese Musterliste erscheint in ALLEN Grading-Formularen und in den
+            Lesson Plans — eine Pflegestelle für die ganze App. */}
+        <StringListEditor
+          label={t('admin.aircraftTypesGlobal')}
+          values={s.aircraftTypes}
+          onChange={(aircraftTypes) => updateSettings({ aircraftTypes })}
+        />
       </Card>
       <Card className="p-4">
         {/* Kategorien der Instructor-Info-Einträge: löschen/hinzufügen — Filter passt sich an */}
@@ -518,9 +677,16 @@ function ImprintTab() {
   const { state, updateSettings } = useStore()
   const [de, setDe] = useState(state.settings.imprint.de)
   const [en, setEn] = useState(state.settings.imprint.en)
-  const [saved, setSaved] = useState(false)
 
   const dirty = de !== state.settings.imprint.de || en !== state.settings.imprint.en
+
+  // Automatisch speichern wie überall im Admin Panel — kurz nach der
+  // letzten Eingabe, damit nicht bei jedem Tastendruck geschrieben wird.
+  useEffect(() => {
+    if (!dirty) return
+    const tm = setTimeout(() => updateSettings({ imprint: { de, en } }), 600)
+    return () => clearTimeout(tm)
+  }, [de, en, dirty, updateSettings])
 
   return (
     <div className="space-y-4">
@@ -529,10 +695,7 @@ function ImprintTab() {
         <Field label={t('admin.imprintDe')}>
           <textarea
             value={de}
-            onChange={(e) => {
-              setDe(e.target.value)
-              setSaved(false)
-            }}
+            onChange={(e) => setDe(e.target.value)}
             spellCheck={false}
             className={`${inputCls} min-h-72 font-mono text-[12.5px] leading-relaxed`}
           />
@@ -540,26 +703,14 @@ function ImprintTab() {
         <Field label={t('admin.imprintEn')}>
           <textarea
             value={en}
-            onChange={(e) => {
-              setEn(e.target.value)
-              setSaved(false)
-            }}
+            onChange={(e) => setEn(e.target.value)}
             spellCheck={false}
             className={`${inputCls} min-h-72 font-mono text-[12.5px] leading-relaxed`}
           />
         </Field>
-        <div className="flex items-center justify-end gap-3">
-          {saved && !dirty && <span className="text-[13px] text-accent">{t('admin.imprintSaved')}</span>}
-          <Button
-            disabled={!dirty}
-            onClick={() => {
-              updateSettings({ imprint: { de, en } })
-              setSaved(true)
-            }}
-          >
-            {t('common.save')}
-          </Button>
-        </div>
+        <p className="text-right text-[12.5px] text-dim">
+          {dirty ? t('admin.autoSaving') : t('admin.imprintSaved')}
+        </p>
       </Card>
     </div>
   )
@@ -591,7 +742,7 @@ export function Admin() {
   const { t } = useTranslation()
   const { currentUser } = useStore()
   const isDesktop = useIsDesktop()
-  const [tab, setTab] = useState<Tab>('users')
+  const [tab, setTab] = useState<Tab>(currentUser?.role === 'group_admin' ? 'groups' : 'users')
 
   // Am Tablet/Handy ist das Panel zu unübersichtlich — Hinweis statt Inhalt.
   if (!isDesktop) {
@@ -609,7 +760,9 @@ export function Admin() {
   }
 
   // Serverseitig gilt RLS; hier zusätzlich die Client-Absicherung.
-  if (currentUser!.role !== 'superadmin') {
+  // Admins bekommen ein kleines Panel (Gruppen + Feedback), alles
+  // Weitere bleibt dem Superadmin vorbehalten.
+  if (currentUser!.role !== 'superadmin' && currentUser!.role !== 'group_admin') {
     return (
       <>
         <TopBar title={t('admin.title')} back="/" />
@@ -620,7 +773,10 @@ export function Admin() {
     )
   }
 
-  const tabs: Tab[] = ['users', 'permissions', 'grading', 'groups', 'feedback', 'settings', 'imprint', 'changelog']
+  const isSuper = currentUser!.role === 'superadmin'
+  const tabs: Tab[] = isSuper
+    ? ['users', 'permissions', 'grading', 'groups', 'feedback', 'settings', 'imprint', 'changelog']
+    : ['groups', 'feedback']
 
   return (
     <>
@@ -639,6 +795,7 @@ export function Admin() {
             </button>
           ))}
         </div>
+        <p className="mb-3 text-[12px] text-dim/80">{t('admin.autoSaveHint')}</p>
         {tab === 'users' && <UsersTab />}
         {tab === 'permissions' && <PermissionsTab />}
         {tab === 'grading' && <GradingAdmin />}

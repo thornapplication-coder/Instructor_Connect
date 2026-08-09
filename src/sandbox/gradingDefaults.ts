@@ -120,7 +120,9 @@ export const INSTRUCTOR_SET: CompetencySet = {
   ],
 }
 
-const AIRCRAFT = ['Challenger 350', 'Citation XLS+']
+/** Muster der Aviation Academy Austria — gilt für ALLE Formulare.
+ *  Im Admin Panel pflegbar (Einstellungen → Aircraft Types). */
+const AIRCRAFT = ['ATR 42/72', 'C525 CJ1+', 'C525 M2', 'C560 XLS', 'C560 XLS+', 'CL30', 'CL604/605', 'EMB505']
 
 /** Uhrzeit-/Dauerwerte: 00:30 bis 14:30 in 30-Minuten-Schritten */
 export const DURATION_OPTIONS = Array.from({ length: 29 }, (_, i) => {
@@ -155,11 +157,64 @@ export const ATA_CHAPTERS = [
 export const RECURRENT_YEARS = ['AAA Year 1', 'AAA Year 2', 'AAA Year 3']
 const DEVICES = ['OTD / Mock-Up', 'FTD / FNPT', 'FFS']
 
+/** Muster-Varianten für den Difference-/Familiarisation-Nachweis (308C) */
+export const VARIANTS = [
+  'ATR PEC',
+  'ATR NON PEC',
+  'ATR GLASS',
+  'C525 Citation Jet',
+  'C525 CJ1+/CJ2+/CJ3',
+  'C525 CJ1/CJ2',
+  'C525 M2/CJ3+',
+  'C525 CJ4',
+  'C560 XL/XLS',
+  'C560 XLS+',
+  'CL 300',
+  'CL 350',
+  'CL 350 ATS',
+  'CL 604',
+  'CL 605',
+  'CL 650',
+]
+
+/** Betriebsarten für die Umschulung (308D) */
+export const OPS_TYPES = ['Single Pilot Ops', 'Multi Pilot Ops']
+
+/** Trainingsstandorte — leere Auswahl bleibt zulässig */
+export const LOCATIONS = ['AAA Neusiedl', 'LAT/AAA Zurich']
+
+/** Trainingsereignisse des Type-Rating-Kurses (Formular 308A, Feld „Event") */
+export const TR_EVENTS = [
+  'Additional Training',
+  'DT',
+  'FAM 1',
+  'FAM 2',
+  'FBS',
+  'FBS 1',
+  'FBS 2',
+  'FFS 1',
+  'FFS 2',
+  'FFS 3',
+  'FFS 4',
+  'FFS 5',
+  'FFS 6',
+  'FFS 7',
+  'FFS 8',
+  'System Integration 1',
+  'System Integration 2',
+  'System Integration 3',
+  'System Integration 4',
+  'System Integration 5',
+  'System Integration 6',
+  'System Integration 7',
+  'System Integration 8',
+]
+
 const f = (
   key: string,
   label: string,
   type: FormField['type'] = 'text',
-  opts?: { options?: string[]; required?: boolean; wide?: boolean; postGrading?: boolean; exclusiveWith?: string },
+  opts?: { options?: string[]; required?: boolean; wide?: boolean; postGrading?: boolean; exclusiveWith?: string; hint?: string },
 ): FormField => ({
   key,
   label,
@@ -169,6 +224,7 @@ const f = (
   wide: opts?.wide,
   postGrading: opts?.postGrading,
   exclusiveWith: opts?.exclusiveWith,
+  hint: opts?.hint,
 })
 
 /* Kopffelder gemäß Original-Formularen (OM Appendix 5, Rev. 0.2) —
@@ -190,7 +246,7 @@ export const FORM_TYPES: FormType[] = [
     competencySet: null,
     fields: [
       f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
-      f('location', 'Location', 'text', { required: true }),
+      f('location', 'Location', 'select', { options: LOCATIONS, required: true }),
       f('event', 'Subject / Event', 'text', { required: true }),
       f('date', 'Date', 'date', { required: true }),
     ],
@@ -209,7 +265,7 @@ export const FORM_TYPES: FormType[] = [
       f('date', 'Date', 'date', { required: true }),
       f('duration', 'Duration', 'duration', { required: true }),
       f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT }),
-      f('location', 'Location', 'text', { required: true }),
+      f('location', 'Location', 'select', { options: LOCATIONS, required: true }),
     ],
     freeTextSections: [],
   },
@@ -222,19 +278,28 @@ export const FORM_TYPES: FormType[] = [
       f('date', 'Date', 'date', { required: true }),
       f('duration', 'Duration', 'duration', { required: true }),
       f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT }),
-      f('location', 'Location', 'text', { required: true }),
+      f('location', 'Location', 'select', { options: LOCATIONS, required: true }),
     ],
     freeTextSections: [],
   },
-  { id: '308A', title: 'Grading Sheet TR', competencySet: 'pilot', fields: HEAD_STANDARD, freeTextSections: [] },
+  {
+    id: '308A',
+    title: 'Grading Sheet TR',
+    competencySet: 'pilot',
+    // wie HEAD_STANDARD, aber „Event" als Auswahlliste der Trainingsereignisse
+    fields: HEAD_STANDARD.map((fld) =>
+      fld.key === 'event' ? { ...fld, type: 'select' as const, options: TR_EVENTS } : fld,
+    ),
+    freeTextSections: [],
+  },
   { id: '308B', title: 'Grading Sheet CCQ', competencySet: 'pilot', fields: HEAD_STANDARD, freeTextSections: [] },
   {
     id: '308C',
     title: 'Grading Sheet Difference Training',
     competencySet: 'pilot',
     fields: [
-      f('variantFrom', 'From "Variant"', 'text', { required: true }),
-      f('variantTo', 'To "Variant"', 'text', { required: true }),
+      f('variantFrom', 'From "Variant"', 'select', { options: VARIANTS, required: true }),
+      f('variantTo', 'To "Variant"', 'select', { options: VARIANTS, required: true }),
       f('event', 'Event', 'text', { required: true }),
       f('date', 'Date', 'date', { required: true }),
       f('trainingDevice', 'Training Device', 'radiogroup', { options: ['OTD / Mock-Up', 'FTD / FNPT', 'FFS'], required: true }),
@@ -248,8 +313,8 @@ export const FORM_TYPES: FormType[] = [
     title: 'Grading Sheet Conversion',
     competencySet: 'pilot',
     fields: [
-      f('convFrom', 'Conv. From', 'text', { required: true }),
-      f('convTo', 'Conv. To', 'text', { required: true }),
+      f('convFrom', 'Conv. From', 'select', { options: OPS_TYPES, required: true }),
+      f('convTo', 'Conv. To', 'select', { options: OPS_TYPES, required: true }),
       f('event', 'Event', 'text', { required: true }),
       f('date', 'Date', 'date', { required: true }),
       f('trainingDevice', 'Training Device', 'radiogroup', { options: ['FFS'], required: true }),
@@ -264,7 +329,7 @@ export const FORM_TYPES: FormType[] = [
     competencySet: 'pilot',
     fields: [
       f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
-      f('location', 'Location', 'text'),
+      f('location', 'Location', 'select', { options: LOCATIONS }),
       f('date', 'Date', 'date', { required: true }),
       f('event', 'Event', 'text', { required: true }),
       f('trainingDevice', 'Training Device', 'radiogroup', { options: DEVICES, required: true }),
@@ -311,12 +376,32 @@ export const FORM_TYPES: FormType[] = [
     title: 'Grading Sheet TRI / SFI / MCCI',
     competencySet: 'instructor',
     fields: [
+      // Kopf exakt nach Original-Formular 308G (Seite 1)
+      f('candidateQual', 'Candidate Instructor', 'radiogroup', {
+        options: ['TRI Candidate', 'SFI Candidate', 'MCCI Candidate'],
+        required: true,
+        wide: true,
+      }),
+      f('candidateSeat', 'Candidate Instructor — position', 'radiogroup', {
+        options: ['IOS', 'RH Seat', 'LH Seat'],
+        required: true,
+        wide: true,
+      }),
+      f('coiSeat', 'Course Instructor', 'radiogroup', {
+        options: ['Either Pilot Seat (EPS)', 'IOS', 'Observer'],
+        required: true,
+        wide: true,
+      }),
       f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
       f('date', 'Date', 'date', { required: true }),
-      f('operation', 'Operation', 'select', { options: ['SPO', 'MPO', 'SPO + MPO', 'Other'], required: true }),
-      f('program', 'Program (PRG)', 'select', { options: ['PRG 1', 'PRG 2', 'PRG 3'] }),
-      f('candidateRole', 'Candidate Instructor', 'radiogroup', { options: ['TRI Candidate', 'IOS'] }),
-      f('coiSeat', 'Course Instructor', 'radiogroup', { options: ['Either Pilot Seat (EPS)', 'IOS', 'Observer'] }),
+      f('operation', 'Operation', 'radiogroup', { options: ['SPO', 'MPO', 'SPO + MPO'], required: true }),
+      f('other', 'Other', 'text'),
+      f('program', 'Program (PRG)', 'radiogroup', {
+        options: ['PRG 1*', 'PRG 2**', 'PRG 3', 'PRG 4', 'PRG 5', 'PRG 6', 'PRG 7', 'PRG 8'],
+        required: true,
+        wide: true,
+        hint: '* incl. Either Pilot Seat Training, ** incl. Intervention Training',
+      }),
     ],
     freeTextSections: [],
   },

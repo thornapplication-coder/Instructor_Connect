@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronRight, Clock, Download, Pencil, Plus, RefreshCw, Trash2, TrendingDown } from 'lucide-react'
+import { AlertTriangle, ChevronRight, Clock, Download, ListChecks, Pencil, Plus, RefreshCw, Trash2, TrendingDown, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls } from '../../components/ui'
@@ -6,7 +6,7 @@ import { csvRow, downloadCsv } from '../../csv'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
-import type { Competency, CompetencySet, CompetencySetKey, FormType } from '../../types'
+import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType } from '../../types'
 import { formatDate, formatDateTime, missingFollowUps, TrafficDot, trafficLight, type TrafficColor } from '../Grading'
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats'
@@ -129,11 +129,70 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
   )
 }
 
-/** Formulartypen: Namen editieren, neue anlegen, löschen */
+/**
+ * Auswahlwerte eines Formularfeldes pflegen (hinzufügen, umbenennen,
+ * löschen) — deckt alle Dropdowns/Ankreuzlisten ab: Event, Location,
+ * Varianten, Conv. From/To, ATA-Kapitel, PRG, Operation usw.
+ */
+function FieldOptionsEditor({ field, onChange }: { field: FormField; onChange: (options: string[]) => void }) {
+  const { t } = useTranslation()
+  const [draft, setDraft] = useState('')
+  const options = field.options ?? []
+  const add = () => {
+    const v = draft.trim()
+    if (v && !options.includes(v)) onChange([...options, v])
+    setDraft('')
+  }
+  return (
+    <div className="rounded-xl border border-line/10 p-2.5">
+      <p className="mb-1.5 text-[12.5px] font-medium">
+        {field.label} <span className="text-dim">· {field.type}</span>
+      </p>
+      {/* Die Musterliste gilt app-weit und wird in den Einstellungen gepflegt */}
+      {field.key === 'aircraftType' ? (
+        <p className="text-[11.5px] leading-relaxed text-dim/80">{t('grading.admin.aircraftCentral')}</p>
+      ) : (
+        <>
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {options.map((o) => (
+              <span key={o} className="flex items-center gap-1 rounded-full bg-raised px-2.5 py-1 text-[12px]">
+                <input
+                  value={o}
+                  onChange={(e) => onChange(options.map((x) => (x === o ? e.target.value : x)))}
+                  className="w-auto min-w-16 border-0 bg-transparent p-0 text-[12px] outline-none"
+                  size={Math.max(o.length, 4)}
+                />
+                <button onClick={() => onChange(options.filter((x) => x !== o))} className="text-dim hover:text-danger">
+                  <X size={12} />
+                </button>
+              </span>
+            ))}
+            {options.length === 0 && <span className="text-[11.5px] text-dim/70">—</span>}
+          </div>
+          <div className="flex gap-2">
+            <input
+              className={`${inputCls} text-[13px]`}
+              value={draft}
+              placeholder={t('admin.addValue')}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && add()}
+            />
+            <Button variant="ghost" onClick={add}>
+              <Plus size={15} />
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChange: (types: FormType[]) => void }) {
   const { t } = useTranslation()
   // ID des bearbeiteten Typs oder '__new__'
   const [editId, setEditId] = useState<string | null>(null)
+  // Formulartyp, dessen Auswahlwerte gerade gepflegt werden
+  const [optionsId, setOptionsId] = useState<string | null>(null)
   const [draft, setDraft] = useState({ id: '', title: '', scheme: 'pilot' as CompetencySetKey | 'none' })
 
   const startEdit = (f?: FormType) => {
@@ -177,6 +236,13 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
               <Pencil size={14} />
             </button>
             <button
+              onClick={() => setOptionsId(optionsId === f.id ? null : f.id)}
+              title={t('grading.admin.editOptions')}
+              className={`shrink-0 rounded-lg p-1.5 transition ${optionsId === f.id ? 'text-accent' : 'text-dim hover:text-accent'}`}
+            >
+              <ListChecks size={14} />
+            </button>
+            <button
               onClick={() => window.confirm(t('grading.admin.deleteFormTypeConfirm')) && onChange(formTypes.filter((x) => x.id !== f.id))}
               title={t('common.delete')}
               className="shrink-0 rounded-lg p-1.5 text-dim hover:text-danger"
@@ -184,6 +250,25 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
               <Trash2 size={14} />
             </button>
           </div>
+          {/* Auswahlwerte aller Felder dieses Formulars pflegen */}
+          {optionsId === f.id && (
+            <div className="mt-2 space-y-2 rounded-xl border border-accent/30 bg-bg/40 p-3">
+              <p className="text-[12px] leading-relaxed text-dim">{t('grading.admin.editOptionsHint')}</p>
+              {f.fields.filter((fl) => ['select', 'radiogroup', 'checkgroup'].includes(fl.type)).map((fl) => (
+                <FieldOptionsEditor
+                  key={fl.key}
+                  field={fl}
+                  onChange={(options) =>
+                    onChange(
+                      formTypes.map((x) =>
+                        x.id === f.id ? { ...x, fields: x.fields.map((y) => (y.key === fl.key ? { ...y, options } : y)) } : x,
+                      ),
+                    )
+                  }
+                />
+              ))}
+            </div>
+          )}
           {editId === f.id && (
             <div className="mt-2 space-y-2.5 rounded-xl border border-accent/30 bg-bg/40 p-3">
               <Field label={t('grading.admin.titleLabel')}>
@@ -248,6 +333,8 @@ export function GradingAdmin() {
   const [filterTrainee, setFilterTrainee] = useState('')
   const [filterInstructor, setFilterInstructor] = useState('')
   const [filterAircraft, setFilterAircraft] = useState('')
+  // Zeitraum: beliebig / 24h / 7 Tage / Monat / Jahr
+  const [filterPeriod, setFilterPeriod] = useState('all')
 
   const g = state.settings.grading
   // Neueste immer zuoberst
@@ -310,7 +397,10 @@ export function GradingAdmin() {
     .sort((a, b) => a.name.localeCompare(b.name))
   const aircraftOptions = [...new Set(records.map((r) => r.header.aircraftType).filter(Boolean))].sort()
 
+  const PERIOD_DAYS: Record<string, number | null> = { all: null, day: 1, week: 7, month: 31, year: 365 }
   const filtered = records.filter((r) => {
+    const days = PERIOD_DAYS[filterPeriod]
+    if (days && Date.now() + state.timeOffsetMs - r.createdAt > days * 24 * 3600_000) return false
     if (filterType && r.formTypeId !== filterType) return false
     if (trafficFilter && trafficLight(r, records) !== trafficFilter) return false
     if (filterTrainee && !r.trainees.some((tr) => traineeLabel(tr) === filterTrainee)) return false
@@ -468,6 +558,13 @@ export function GradingAdmin() {
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('grading.admin.search')} className={`${inputCls} min-w-40 flex-1`} />
+            <select value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+              {Object.keys(PERIOD_DAYS).map((k) => (
+                <option key={k} value={k}>
+                  {t(`grading.ta.period.${k}`)}
+                </option>
+              ))}
+            </select>
             {/* Trainee-Filter zuerst — die Standard-Sicht auf die Ablage */}
             <select value={filterTrainee} onChange={(e) => setFilterTrainee(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
               <option value="">{t('grading.admin.allTrainees')}</option>

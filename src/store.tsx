@@ -55,7 +55,8 @@ export interface Store {
   visibleInfoEntries: AppState['infoEntries']
   updateUser: (id: string, patch: Partial<User>) => void
   deleteUser: (id: string) => void
-  addGroup: (name: string, purpose: string) => void
+  addGroup: (name: string, purpose: string, aircraftType?: string) => void
+  setGroupAircraft: (id: string, aircraftType: string) => void
   renameGroup: (id: string, name: string) => void
   deleteGroup: (id: string) => void
   setGroupAdmins: (id: string, adminIds: string[]) => void
@@ -65,6 +66,8 @@ export interface Store {
   saveGradingRecord: (record: GradingRecord) => void
   /** entfernt ein Formular nur aus der Instruktor-Ansicht — Admin behält es */
   hideGradingRecord: (id: string) => void
+  /** löscht ein Formular endgültig (Training Admin / Superadmin) */
+  deleteGradingRecord: (id: string) => void
   retryGradingMail: (id: string) => void
   updateGrading: (patch: Partial<GradingSettings>) => void
   /** Lesson Plans, die der aktuelle Nutzer sehen darf */
@@ -175,7 +178,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       state.currentUserId
         ? state.groups
             .filter((g) => g.memberIds.includes(state.currentUserId!))
-            .sort((a, b) => a.name.localeCompare(b.name))
+            // nach Muster gruppiert, musterübergreifende Gruppen zuletzt
+            .sort(
+              (a, b) =>
+                (a.aircraftType || 'zzz').localeCompare(b.aircraftType || 'zzz') || a.name.localeCompare(b.name),
+            )
         : [],
     [state.groups, state.currentUserId],
   )
@@ -455,13 +462,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           })),
         })),
 
-      addGroup: (name, purpose) =>
-        patch((s) => ({
-          groups: [
-            ...s.groups,
-            { id: uid('g'), name, purpose, adminIds: [], memberIds: [], retention: null, muted: false },
-          ],
-        })),
+      addGroup: (name, purpose, aircraftType) =>
+        patch((s) => {
+          // Wer die Gruppe anlegt (Admin/Superadmin), verwaltet sie auch
+          // und ist sofort Mitglied.
+          const creator = s.currentUserId ? [s.currentUserId] : []
+          return {
+            groups: [
+              ...s.groups,
+              { id: uid('g'), name, purpose, aircraftType, adminIds: creator, memberIds: creator, retention: null, muted: false },
+            ],
+          }
+        }),
+      setGroupAircraft: (id, aircraftType) =>
+        patch((s) => ({ groups: s.groups.map((g) => (g.id === id ? { ...g, aircraftType } : g)) })),
       renameGroup: (id, name) =>
         patch((s) => ({ groups: s.groups.map((g) => (g.id === id ? { ...g, name } : g)) })),
       deleteGroup: (id) =>
@@ -495,6 +509,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               : r,
           ),
         })),
+      deleteGradingRecord: (id) =>
+        patch((s) => ({ gradingRecords: s.gradingRecords.filter((r) => r.id !== id && r.parentId !== id) })),
       retryGradingMail: (id) =>
         patch((s) => ({
           gradingRecords: s.gradingRecords.map((r) =>

@@ -19,23 +19,24 @@ const SIG =
 
 /**
  * Sandbox-Seed-Daten (Spez. §14) — reiner Simulatorbetrieb mit den Mustern
- * Challenger 350 und Citation XLS+. Drei Rollen: Patrick Thorn (Superadmin),
+ * CL30 und C560 XLS+. Drei Rollen: Patrick Thorn (Superadmin),
  * Christian Terler (Admin), Michael Holy (Mitglied/Instruktor).
  */
 export function createSeedState(): AppState {
   const now = Date.now()
   return {
     users: [
-      { id: 'u-patrick', name: 'Patrick Thorn', email: 'patrick.thorn@aviationacademy.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['Challenger 350', 'Citation XLS+'], active: true },
-      { id: 'u-christian', name: 'Christian Terler', email: 'christian.terler@aviationacademy.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['Challenger 350'], active: true },
-      { id: 'u-michael', name: 'Michael Holy', email: 'michael.holy@aviationacademy.at', phone: '+43 664 1000003', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['Citation XLS+'], active: true },
+      { id: 'u-patrick', name: 'Patrick Thorn', email: 'patrick.thorn@aviationacademy.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
+      { id: 'u-christian', name: 'Christian Terler', email: 'christian.terler@aviationacademy.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30'], active: true },
+      { id: 'u-michael', name: 'Michael Holy', email: 'michael.holy@aviationacademy.at', phone: '+43 664 1000003', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['C560 XLS+'], active: true },
       { id: 'u-max', name: 'Max Mustermann', email: 'training.admin@aviationacademy.at', phone: '+43 1 5550 300', role: 'training_admin', canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: [], active: true },
     ],
     groups: [
       {
         id: 'g-auto',
         name: 'Autothrottle',
-        purpose: 'Austausch zum Autothrottle-Verhalten der Challenger 350 im Simulator: Trainingsszenarien, Besonderheiten, Standardisierung.',
+        aircraftType: 'CL30',
+        purpose: 'Austausch zum Autothrottle-Verhalten der CL30 im Simulator: Trainingsszenarien, Besonderheiten, Standardisierung.',
         adminIds: ['u-christian'],
         memberIds: ['u-patrick', 'u-christian', 'u-michael'],
         retention: '30d',
@@ -44,6 +45,7 @@ export function createSeedState(): AppState {
       {
         id: 'g-defects',
         name: 'SIM Defects',
+        aircraftType: 'C560 XLS+',
         purpose: 'Kurzfristige Meldungen zu Defekten und Einschränkungen der Simulatoren — Workarounds und Reparaturstatus.',
         adminIds: ['u-patrick'],
         memberIds: ['u-patrick', 'u-christian', 'u-michael'],
@@ -53,6 +55,7 @@ export function createSeedState(): AppState {
       {
         id: 'g-ground',
         name: 'Ground Training',
+        aircraftType: '',
         purpose: 'Organisation des Ground Trainings: Termine, Unterlagen, Räume.',
         adminIds: ['u-christian'],
         memberIds: ['u-patrick', 'u-christian'],
@@ -62,11 +65,11 @@ export function createSeedState(): AppState {
     ],
     messages: [
       { id: 'm1', groupId: 'g-auto', authorId: 'u-christian', text: 'Beim Go-Around-Szenario in Session 3 bitte auf das Autothrottle-Verhalten nach TOGA achten — im Debriefing gestern gab es dazu mehrere Fragen.', createdAt: now - 2 * d },
-      { id: 'm2', groupId: 'g-auto', authorId: 'u-michael', text: 'Gibt es dazu eine Kurzreferenz? Auf der Citation XLS+ ist das Verfahren ja anders.', createdAt: now - 2 * d + 25 * 60_000 },
+      { id: 'm2', groupId: 'g-auto', authorId: 'u-michael', text: 'Gibt es dazu eine Kurzreferenz? Auf der C560 XLS+ ist das Verfahren ja anders.', createdAt: now - 2 * d + 25 * 60_000 },
       { id: 'm3', groupId: 'g-auto', authorId: 'u-patrick', text: 'Ja — in der Instructor Info liegt das Standard Briefing, dort ist der Unterschied beschrieben.', createdAt: now - 2 * d + 40 * 60_000 },
       { id: 'm4', groupId: 'g-defects', authorId: 'u-patrick', text: 'Challenger-350-Sim: Ruderpedale links melden sporadisch Force-Feedback-Aussetzer. Technik ist informiert, Workaround siehe Instructor Info.', createdAt: now - 26 * h },
       { id: 'm5', groupId: 'g-defects', authorId: 'u-michael', text: 'Im Citation-Sim ist der IOS-Touchscreen rechts träge — Neustart hilft kurzfristig.', createdAt: now - 5 * h, attachment: { name: 'ios-touchscreen.jpg', kind: 'image', sizeMB: 1.4 } },
-      { id: 'm6', groupId: 'g-ground', authorId: 'u-christian', text: 'Ground Training „Performance & Limitations Challenger 350“ am Donnerstag 09:00, Schulungsraum 1. Unterlagen liegen in der Instructor Info.', createdAt: now - 24 * h },
+      { id: 'm6', groupId: 'g-ground', authorId: 'u-christian', text: 'Ground Training „Performance & Limitations CL30“ am Donnerstag 09:00, Schulungsraum 1. Unterlagen liegen in der Instructor Info.', createdAt: now - 24 * h },
       { id: 'm7', groupId: 'g-ground', authorId: 'u-patrick', text: 'Beamer im Schulungsraum 1 ist repariert.', createdAt: now - 3 * h },
     ],
     polls: [
@@ -113,7 +116,7 @@ export function createSeedState(): AppState {
         type: 'text',
         title: 'Noise Abatement Procedures',
         description: 'Aktualisierte Verfahren für die Trainingsszenarien beider Muster.',
-        body: 'Für die Simulator-Szenarien gelten ab sofort die aktualisierten Noise Abatement Procedures: 1) NADP 1 als Standard für die Challenger 350, 2) NADP 2 für die Citation XLS+, 3) Abweichungen nur, wenn das Szenario es ausdrücklich vorsieht, 4) im Debriefing kurz auf die Unterschiede eingehen. Details siehe genehmigtes Training Manual.',
+        body: 'Für die Simulator-Szenarien gelten ab sofort die aktualisierten Noise Abatement Procedures: 1) NADP 1 als Standard für die CL30, 2) NADP 2 für die C560 XLS+, 3) Abweichungen nur, wenn das Szenario es ausdrücklich vorsieht, 4) im Debriefing kurz auf die Unterschiede eingehen. Details siehe genehmigtes Training Manual.',
         category: 'Simulator Training',
         validFrom: iso(now - 5 * d),
         validUntil: iso(now + 60 * d),
@@ -199,7 +202,7 @@ export function createSeedState(): AppState {
       allowedDomains: ['aviationacademy.at'],
       imprint: { de: IMPRINT_DE, en: IMPRINT_EN },
       grading: GRADING_DEFAULTS,
-      aircraftTypes: ['Challenger 350', 'Citation XLS+'],
+      aircraftTypes: ['ATR 42/72', 'C525 CJ1+', 'C525 M2', 'C560 XLS', 'C560 XLS+', 'CL30', 'CL604/605', 'EMB505'],
       // Startwerte der Rechte-Matrix: Admin darf alles, Training Admin
       // sieht nur die Formularablage (lesen + herunterladen)
       permissions: {
@@ -213,17 +216,17 @@ export function createSeedState(): AppState {
     seen: {},
     contactsChangedAt: now - 2 * d,
     lessonPlans: [
-      { id: 'lp1', title: 'Challenger 350 — Lesson Plan TR Session 1-4', description: 'Grundlagen Type Rating: Systeme, Normalverfahren, erste FFS-Sessions.', aircraftType: 'Challenger 350', fileName: 'cl350-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 20 * d },
-      { id: 'lp2', title: 'Challenger 350 — Lesson Plan Recurrent OPC', description: 'Ablauf und Schwerpunkte der jährlichen OPC-Session im Simulator.', aircraftType: 'Challenger 350', fileName: 'cl350-recurrent-opc.pdf', uploadedBy: 'u-christian', createdAt: now - 12 * d },
-      { id: 'lp3', title: 'Citation XLS+ — Lesson Plan TR Session 1-4', description: 'Type Rating Citation XLS+: Systeme, SOPs, FFS-Einführung.', aircraftType: 'Citation XLS+', fileName: 'xls-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 18 * d },
-      { id: 'lp4', title: 'Citation XLS+ — Lesson Plan LVO / CAT II', description: 'Schulung für Allwetterflugbetrieb im Simulator.', aircraftType: 'Citation XLS+', fileName: 'xls-lvo.pdf', uploadedBy: 'u-christian', createdAt: now - 6 * d },
+      { id: 'lp1', title: 'CL30 — Lesson Plan TR Session 1-4', description: 'Grundlagen Type Rating: Systeme, Normalverfahren, erste FFS-Sessions.', aircraftType: 'CL30', fileName: 'cl350-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 20 * d },
+      { id: 'lp2', title: 'CL30 — Lesson Plan Recurrent OPC', description: 'Ablauf und Schwerpunkte der jährlichen OPC-Session im Simulator.', aircraftType: 'CL30', fileName: 'cl350-recurrent-opc.pdf', uploadedBy: 'u-christian', createdAt: now - 12 * d },
+      { id: 'lp3', title: 'C560 XLS+ — Lesson Plan TR Session 1-4', description: 'Type Rating C560 XLS+: Systeme, SOPs, FFS-Einführung.', aircraftType: 'C560 XLS+', fileName: 'xls-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 18 * d },
+      { id: 'lp4', title: 'C560 XLS+ — Lesson Plan LVO / CAT II', description: 'Schulung für Allwetterflugbetrieb im Simulator.', aircraftType: 'C560 XLS+', fileName: 'xls-lvo.pdf', uploadedBy: 'u-christian', createdAt: now - 6 * d },
     ],
     gradingRecords: [
       {
         id: 'gr1',
         formTypeId: '308F',
         instructorId: 'u-christian',
-        header: { aircraftType: 'Challenger 350', trainingDevice: 'FFS', event: 'OPC Recurrent', ataChapters: 'ATA22 Autoflight, ATA27 Flight Controls, ATA71 Powerplant', date: iso(now - 9 * d), flightTimePF: '01:30', flightTimePM: '01:30', instructorQual: 'TRI', instructorSeat: 'Right' },
+        header: { aircraftType: 'CL30', trainingDevice: 'FFS', event: 'OPC Recurrent', ataChapters: 'ATA22 Autoflight, ATA27 Flight Controls, ATA71 Powerplant', date: iso(now - 9 * d), flightTimePF: '01:30', flightTimePM: '01:30', instructorQual: 'TRI', instructorSeat: 'Right' },
         trainees: [
           {
             traineeId: '', traineeName: 'Lukas Steiner', position: 'CDR', seat: 'Left',
@@ -248,7 +251,7 @@ export function createSeedState(): AppState {
         id: 'gr2',
         formTypeId: '308A',
         instructorId: 'u-michael',
-        header: { aircraftType: 'Citation XLS+', trainingDevice: 'FFS', event: 'TR Session 4', date: iso(now - 5 * d), flightTimePF: '02:00', flightTimePM: '02:00', instructorQual: 'TKI', instructorSeat: 'Right' },
+        header: { aircraftType: 'C560 XLS+', trainingDevice: 'FFS', event: 'FFS 4', date: iso(now - 5 * d), flightTimePF: '02:00', flightTimePM: '02:00', instructorQual: 'TKI', instructorSeat: 'Right' },
         trainees: [
           {
             traineeId: '', traineeName: 'Sophie Berger', position: 'FO', seat: 'Right',
@@ -273,11 +276,11 @@ export function createSeedState(): AppState {
         id: 'gr3',
         formTypeId: '306',
         instructorId: 'u-michael',
-        header: { aircraftType: 'Citation XLS+', location: 'Sim Center', event: 'TR Session 4 — Additional Training', date: iso(now - 4 * d) },
+        header: { aircraftType: 'C560 XLS+', location: 'AAA Neusiedl', event: 'FFS 4 — Additional Training', date: iso(now - 4 * d) },
         trainees: [],
         sessionStatus: null,
         freeText: {
-          'State exercises marked with grade "2" or below': 'PRO (2), FPM (2), WLM (2) — TR Session 4 of the previous day.',
+          'State exercises marked with grade "2" or below': 'PRO (2), FPM (2), WLM (2) — FFS 4 of the previous day.',
           'Description of deficiency': 'Engine-out handling and workload prioritisation not stabilised under high workload.',
           'Description of agreed retraining': 'Additional 90-minute session focusing on EFATO and checklist timing.',
         },
@@ -289,7 +292,7 @@ export function createSeedState(): AppState {
         id: 'gr4',
         formTypeId: '308G',
         instructorId: 'u-patrick',
-        header: { aircraftType: 'Challenger 350', trainingDevice: 'FFS', event: 'TRI Standardisierung', date: iso(now - 2 * d), operation: 'MPO', program: 'PRG 1', candidateRole: 'TRI Candidate', coiSeat: 'IOS' },
+        header: { aircraftType: 'CL30', trainingDevice: 'FFS', event: 'TRI Standardisierung', date: iso(now - 2 * d), operation: 'MPO', program: 'PRG 1*', candidateQual: 'TRI Candidate', candidateSeat: 'RH Seat', coiSeat: 'IOS' },
         trainees: [
           {
             traineeId: '', traineeName: 'Christian Terler', position: 'CDR', seat: 'Left',
@@ -315,7 +318,7 @@ export function createSeedState(): AppState {
         id: 'gr5',
         formTypeId: '308F',
         instructorId: 'u-christian',
-        header: { aircraftType: 'Challenger 350', trainingDevice: 'FFS', event: 'OPC Recurrent', recurrentCycle: 'AAA Year 2', date: iso(now - 30 * d), flightTimePF: '01:30', flightTimePM: '01:30', instructorQual: 'TRI', instructorSeat: 'Right' },
+        header: { aircraftType: 'CL30', trainingDevice: 'FFS', event: 'OPC Recurrent', recurrentCycle: 'AAA Year 2', date: iso(now - 30 * d), flightTimePF: '01:30', flightTimePM: '01:30', instructorQual: 'TRI', instructorSeat: 'Right' },
         trainees: [
           {
             traineeId: '', traineeName: 'Lukas Steiner', position: 'CDR', seat: 'Left',

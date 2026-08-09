@@ -164,14 +164,28 @@ export function InstructorInfo() {
     downloadCsv(`read-confirmations_${entry.title.replace(/[^\w-]+/g, '-').slice(0, 40)}.csv`, csv)
   }
 
-  // Immer nach Datum sortiert (neueste zuerst), markierte Einträge zuoberst
+  /**
+   * Muster eines Eintrags: eindeutig, wenn alle Zielgruppen demselben
+   * Aircraft Type zugeordnet sind — sonst musterübergreifend ('').
+   */
+  const aircraftOf = (e: { groupIds?: string[] }): string => {
+    if (!e.groupIds?.length) return ''
+    const types = [...new Set(e.groupIds.map((gid) => state.groups.find((g) => g.id === gid)?.aircraftType || ''))]
+    return types.length === 1 ? types[0] : ''
+  }
+
+  // Nach Muster unterteilt; innerhalb: markierte zuoberst, dann neueste zuerst
   const entries = visibleInfoEntries
     .filter((e) => (e.title + ' ' + e.description).toLowerCase().includes(query.toLowerCase()))
     .filter((e) => !categoryFilter || e.category === categoryFilter)
     .sort((a, b) => {
+      const acDiff = (aircraftOf(a) || 'zzz').localeCompare(aircraftOf(b) || 'zzz')
+      if (acDiff !== 0) return acDiff
       const starDiff = Number(starredInfoIds.has(b.id)) - Number(starredInfoIds.has(a.id))
       return starDiff !== 0 ? starDiff : b.createdAt - a.createdAt
     })
+  // Überschriften nur, wenn es wirklich mehrere Abschnitte gibt
+  const sectionCount = new Set(entries.map((e) => aircraftOf(e))).size
 
   const validityLabel = (e: { validFrom?: string; validUntil?: string }) => {
     const from = e.validFrom ? formatDate(e.validFrom) : null
@@ -238,14 +252,22 @@ export function InstructorInfo() {
 
         {entries.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('info.empty')}</p>}
 
-        {entries.map((entry) => {
+        {entries.map((entry, i) => {
           const open = openId === entry.id
           const isNew = now() - entry.createdAt < NEW_MS
           const starred = starredInfoIds.has(entry.id)
           const expired = isExpired(entry)
           const scheduled = isScheduled(entry)
+          const heading =
+            sectionCount > 1 && (i === 0 || aircraftOf(entries[i - 1]) !== aircraftOf(entry))
+              ? aircraftOf(entry) || t('admin.groupNoAircraft')
+              : null
           return (
-            <Card key={entry.id} className={`p-4 ${expired ? 'opacity-60' : ''}`}>
+            <div key={entry.id}>
+            {heading && (
+              <p className="mb-1.5 mt-3 px-1 text-[12px] font-semibold uppercase tracking-wide text-dim first:mt-0">{heading}</p>
+            )}
+            <Card className={`p-4 ${expired ? 'opacity-60' : ''}`}>
               <div className="flex items-start gap-3">
                 {/* NEW gut lesbar unter dem Icon — nicht neben dem Titel */}
                 <div className="flex shrink-0 flex-col items-center gap-1.5">
@@ -390,6 +412,7 @@ export function InstructorInfo() {
                 </div>
               </div>
             </Card>
+            </div>
           )
         })}
 
