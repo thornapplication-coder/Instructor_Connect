@@ -52,7 +52,7 @@ export function OfflineBanner() {
     <div
       role="status"
       className={`above-sandbox fixed inset-x-0 z-40 mx-3 flex items-center justify-center gap-2.5 rounded-2xl px-4 py-2.5 text-[13.5px] font-medium shadow-soft print:hidden ${
-        online ? 'bg-ok text-ok-ink' : 'bg-wait text-wait-ink'
+        online ? 'bg-ok text-okInk' : 'bg-wait text-waitInk'
       }`}
     >
       {online ? <UploadCloud size={16} className="shrink-0" /> : <CloudOff size={16} className="shrink-0" />}
