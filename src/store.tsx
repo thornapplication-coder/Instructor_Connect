@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { createSeedState } from './sandbox/seed'
-import { RETENTION_MS, type AppState, type Attachment, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type PollType, type RetentionKey, type Role, type SeenState, type User } from './types'
+import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import type { InfoEntry } from './types'
 
 const EMPTY_SEEN: SeenState = { chat: {}, info: 0, contacts: 0 }
@@ -71,19 +71,39 @@ export interface Store {
   visibleLessonPlans: LessonPlan[]
   addLessonPlan: (plan: { title: string; description: string; aircraftType: string; fileName: string }) => void
   deleteLessonPlan: (id: string) => void
+  /** Rechte-Matrix: darf der aktuelle Nutzer diese Fähigkeit nutzen? */
+  can: (key: PermKey) => boolean
+  setPermission: (role: ConfigurableRole, key: PermKey, value: boolean) => void
+  /** Code-Login: Code an die E-Mail „senden“ bzw. prüfen */
+  requestLoginCode: (email: string) => boolean
+  verifyLoginCode: (code: string) => boolean
 }
 
 const StoreCtx = createContext<Store | null>(null)
 
 const USER_KEY = 'aaa-user'
+const SESSION_EXP_KEY = 'aaa-session-exp'
 
-/** Angemeldet bleiben: gespeicherte Anmeldung wiederherstellen, solange der Nutzer existiert und aktiv ist. */
+/** Sitzungen gelten bis Mitternacht (lokal) — außer man meldet sich ab. */
+function endOfDay(): number {
+  const d = new Date()
+  d.setHours(23, 59, 59, 999)
+  return d.getTime()
+}
+
+/** Angemeldet bleiben bis Mitternacht: gespeicherte Anmeldung wiederherstellen,
+ *  solange der Nutzer existiert, aktiv ist und die Sitzung nicht abgelaufen ist. */
 function initialState(): AppState {
   const seed = createSeedState()
   try {
     const savedId = localStorage.getItem(USER_KEY)
-    if (savedId && seed.users.some((u) => u.id === savedId && u.active)) {
+    const exp = Number(localStorage.getItem(SESSION_EXP_KEY) ?? 0)
+    if (savedId && exp > Date.now() && seed.users.some((u) => u.id === savedId && u.active)) {
       return { ...seed, currentUserId: savedId }
+    }
+    if (savedId) {
+      localStorage.removeItem(USER_KEY)
+      localStorage.removeItem(SESSION_EXP_KEY)
     }
   } catch {
     /* ohne localStorage startet die App abgemeldet */
@@ -93,8 +113,13 @@ function initialState(): AppState {
 
 function persistUser(id: string | null) {
   try {
-    if (id) localStorage.setItem(USER_KEY, id)
-    else localStorage.removeItem(USER_KEY)
+    if (id) {
+      localStorage.setItem(USER_KEY, id)
+      localStorage.setItem(SESSION_EXP_KEY, String(endOfDay()))
+    } else {
+      localStorage.removeItem(USER_KEY)
+      localStorage.removeItem(SESSION_EXP_KEY)
+    }
   } catch {
     /* Anmeldung gilt dann nur für diese Sitzung */
   }
@@ -178,9 +203,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // deren Mitglieder. Admins/Superadmin sehen alles (Pflege + Kontrolle).
   const visibleInfoEntries = useMemo(() => {
     if (!currentUser) return []
-    if (currentUser.role !== 'member') return state.infoEntries
+    if (userHasPerm(state.settings, currentUser, 'info_manage')) return state.infoEntries
     return state.infoEntries.filter((e) => infoEntryAppliesTo(e, currentUser.id, state.groups))
-  }, [state.infoEntries, state.groups, currentUser])
+  }, [state.infoEntries, state.groups, state.settings, currentUser])
 
   const latestForeignInfo = visibleInfoEntries.reduce(
     (max, e) => (e.authorId !== state.currentUserId ? Math.max(max, e.createdAt) : max),
@@ -198,19 +223,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const all = [...state.gradingRecords]
       .sort((a, b) => b.createdAt - a.createdAt)
       .filter((r) => !r.hiddenFor?.includes(currentUser.id))
-    if (currentUser.role !== 'member') return all
+    if (userHasPerm(state.settings, currentUser, 'grading_view_all')) return all
     const weekMs = 7 * 24 * 3600_000
     return all.filter((r) => r.instructorId === currentUser.id && now() - r.createdAt < weekMs)
-  }, [state.gradingRecords, currentUser, now])
+  }, [state.gradingRecords, state.settings, currentUser, now])
 
   // Instruktoren sehen nur Lesson Plans ihrer zugewiesenen Muster;
   // Admins und Superadmin sehen alle.
   const visibleLessonPlans = useMemo(() => {
     if (!currentUser) return []
     const all = [...state.lessonPlans].sort((a, b) => a.title.localeCompare(b.title))
-    if (currentUser.role !== 'member') return all
+    if (userHasPerm(state.settings, currentUser, 'lessons_manage')) return all
     return all.filter((p) => currentUser.aircraftTypes.includes(p.aircraftType))
-  }, [state.lessonPlans, currentUser])
+  }, [state.lessonPlans, state.settings, currentUser])
 
   const store = useMemo<Store>(() => {
     // patch: fn liefert die Änderung oder null für „nichts zu tun“ — dann
@@ -271,9 +296,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const user = state.users.find((u) => u.active && u.email.toLowerCase() === needle)
         if (!user) return false
         persistUser(user.id)
-        patch(() => ({ currentUserId: user.id }))
+        patch(() => ({ currentUserId: user.id, pendingLogin: null }))
         return true
       },
+      // Code-Login: der Code gilt bis Mitternacht — genau wie die Sitzung.
+      // In der Sandbox wird kein Mail versendet; der Code wird angezeigt.
+      requestLoginCode: (email) => {
+        const needle = email.trim().toLowerCase()
+        const user = state.users.find((u) => u.active && u.email.toLowerCase() === needle)
+        if (!user) return false
+        const code = String(Math.floor(100000 + Math.random() * 900000))
+        patch(() => ({ pendingLogin: { email: user.email, code, expiresAt: endOfDay() } }))
+        return true
+      },
+      verifyLoginCode: (code) => {
+        const pending = state.pendingLogin
+        if (!pending || pending.expiresAt < Date.now() || pending.code !== code.trim()) return false
+        const user = state.users.find((u) => u.active && u.email === pending.email)
+        if (!user) return false
+        persistUser(user.id)
+        patch(() => ({ currentUserId: user.id, pendingLogin: null }))
+        return true
+      },
+      can: (key) => userHasPerm(state.settings, currentUser, key),
+      setPermission: (role, key, value) =>
+        patch((s) => ({
+          settings: {
+            ...s.settings,
+            permissions: { ...s.settings.permissions, [role]: { ...s.settings.permissions[role], [key]: value } },
+          },
+        })),
       logout: () => {
         persistUser(null)
         patch(() => ({ currentUserId: null }))
@@ -468,6 +520,22 @@ export function useStore(): Store {
 /** Admin-Rechte: Superadmin und Admin — NICHT der nur-lesende Training Admin */
 export function isAdminUser(user: { role: Role } | null | undefined): boolean {
   return user?.role === 'superadmin' || user?.role === 'group_admin'
+}
+
+/**
+ * Rechte-Matrix: Superadmin darf immer alles; Mitglieder werden über die
+ * Flags am Nutzer gesteuert (canGrade, canEditDirectory); Admin und
+ * Training Admin folgen der im Superadmin-Panel gepflegten Matrix.
+ */
+export function userHasPerm(settings: Settings, user: User | null | undefined, key: PermKey): boolean {
+  if (!user) return false
+  if (user.role === 'superadmin') return true
+  if (user.role === 'member') {
+    if (key === 'grading_create') return user.canGrade
+    if (key === 'contacts_manage') return user.canEditDirectory
+    return false
+  }
+  return settings.permissions[user.role]?.[key] ?? false
 }
 
 export function isGroupAdmin(user: User | null, group: Group): boolean {

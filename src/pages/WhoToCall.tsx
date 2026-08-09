@@ -2,7 +2,7 @@ import { Mail, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
-import { isAdminUser, useStore } from '../store'
+import { useStore } from '../store'
 import type { Contact } from '../types'
 
 function ContactModal({ contact, onClose }: { contact: Partial<Contact> | null; onClose: () => void }) {
@@ -57,7 +57,7 @@ function ContactModal({ contact, onClose }: { contact: Partial<Contact> | null; 
 
 export function WhoToCall() {
   const { t } = useTranslation()
-  const { state, currentUser, deleteContact, markContactsSeen } = useStore()
+  const { state, currentUser, deleteContact, markContactsSeen, can } = useStore()
   const [filter, setFilter] = useState('')
 
   // Besuch der Seite gilt als „gesehen“ — der grüne Punkt auf der Kachel
@@ -69,7 +69,7 @@ export function WhoToCall() {
 
   // Superadmin und Admins pflegen das Verzeichnis; einzelne Mitglieder
   // können zusätzlich über das canEditDirectory-Flag freigeschaltet werden.
-  const mayEdit = isAdminUser(currentUser) || currentUser!.canEditDirectory
+  const mayEdit = can('contacts_manage')
 
   const departments = [...new Set(state.contacts.map((c) => c.department))].sort((a, b) => a.localeCompare(b))
   const visible = state.contacts

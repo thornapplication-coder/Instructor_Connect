@@ -2,7 +2,7 @@ import { Download, Eye, FileText, Plane, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
-import { isAdminUser, useStore } from '../store'
+import { useStore } from '../store'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
 
@@ -66,11 +66,11 @@ function UploadModal({ onClose }: { onClose: () => void }) {
 
 export function LessonPlans() {
   const { t, i18n } = useTranslation()
-  const { state, currentUser, visibleLessonPlans, deleteLessonPlan } = useStore()
+  const { state, currentUser, visibleLessonPlans, deleteLessonPlan, can } = useStore()
   const [filter, setFilter] = useState('')
   const [showUpload, setShowUpload] = useState(false)
 
-  const mayEdit = isAdminUser(currentUser)
+  const mayEdit = can('lessons_manage')
   const dateLabel = (ts: number) => new Date(ts).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
 

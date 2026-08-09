@@ -200,8 +200,15 @@ export function createSeedState(): AppState {
       imprint: { de: IMPRINT_DE, en: IMPRINT_EN },
       grading: GRADING_DEFAULTS,
       aircraftTypes: ['Challenger 350', 'Citation XLS+'],
+      // Startwerte der Rechte-Matrix: Admin darf alles, Training Admin
+      // sieht nur die Formularablage (lesen + herunterladen)
+      permissions: {
+        group_admin: { grading_create: true, grading_view_all: true, info_manage: true, lessons_manage: true, contacts_manage: true },
+        training_admin: { grading_create: false, grading_view_all: true, info_manage: false, lessons_manage: false, contacts_manage: false },
+      },
     },
     currentUserId: null,
+    pendingLogin: null,
     timeOffsetMs: 0,
     seen: {},
     contactsChangedAt: now - 2 * d,

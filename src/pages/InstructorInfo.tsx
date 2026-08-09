@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
-import { infoEntryAppliesTo, isAdminUser, useStore } from '../store'
+import { infoEntryAppliesTo, useStore } from '../store'
 import { formatDate, formatDateTime } from './Grading'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
@@ -125,7 +125,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
 
 export function InstructorInfo() {
   const { t } = useTranslation()
-  const { state, now, currentUser, deleteInfoEntry, markInfoSeen, toggleStarInfo, starredInfoIds, acknowledgeInfo, visibleInfoEntries } = useStore()
+  const { state, now, currentUser, deleteInfoEntry, markInfoSeen, toggleStarInfo, starredInfoIds, acknowledgeInfo, visibleInfoEntries, can } = useStore()
   const [query, setQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   /** aufgeklappte Bestätigungsliste (Admins) */
@@ -140,7 +140,7 @@ export function InstructorInfo() {
   const [openId, setOpenId] = useState<string | null>(null)
 
   // Löschen nur Admin/Superadmin
-  const mayEdit = isAdminUser(currentUser)
+  const mayEdit = can('info_manage')
   const categories = state.settings.infoCategories
 
   /** Zielpersonen einer Lese-Bestätigung: aktive Mitglieder der Zielgruppen */

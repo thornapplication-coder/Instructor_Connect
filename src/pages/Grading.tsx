@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
-import { isAdminUser, useStore } from '../store'
+import { useStore } from '../store'
 import type { GradingRecord } from '../types'
 
 /** Farbcodierung laut Spez. 5.3: 5/4 grün, 3 dunkelgrün, 2 orange, 1 rot, NO grau.
@@ -72,13 +72,14 @@ export function Grading() {
   // Das Grading-Modul ist immer vollständig englisch
   const { i18n } = useTranslation()
   const t = i18n.getFixedT('en')
-  const { state, currentUser, visibleGradingRecords, hideGradingRecord } = useStore()
+  const { state, currentUser, visibleGradingRecords, hideGradingRecord, can } = useStore()
 
   const formTitle = (id: string) => state.settings.grading.formTypes.find((f) => f.id === id)?.title ?? id
   const traineeLabel = (tr: { traineeName?: string; traineeId: string }) =>
     tr.traineeName || state.users.find((u) => u.id === tr.traineeId)?.name || '—'
-  const isTrainingAdmin = currentUser!.role === 'training_admin'
-  const mayGrade = !isTrainingAdmin && (currentUser!.canGrade || isAdminUser(currentUser))
+  const mayGrade = can('grading_create')
+  // nur-lesender Zugriff (Training Admin bzw. per Matrix eingeschränkt)
+  const isTrainingAdmin = !mayGrade && can('grading_view_all')
   const isMember = currentUser!.role === 'member'
   // Filter über die Ampel-Legende (antippen zum Filtern)
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')

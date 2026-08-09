@@ -6,10 +6,10 @@ import { useStore } from '../store'
 import { useIsDesktop } from '../useIsDesktop'
 import { GradingAdmin } from './admin/GradingAdmin'
 import { formatDateTime } from './Grading'
-import { APP_VERSION, type RetentionKey, type Role } from '../types'
+import { APP_VERSION, PERM_KEYS, type ConfigurableRole, type RetentionKey, type Role } from '../types'
 
 const RETENTION_KEYS: RetentionKey[] = ['24h', '7d', '30d', '90d', 'never']
-type Tab = 'users' | 'grading' | 'groups' | 'feedback' | 'settings' | 'imprint' | 'changelog'
+type Tab = 'users' | 'permissions' | 'grading' | 'groups' | 'feedback' | 'settings' | 'imprint' | 'changelog'
 
 function StringListEditor({ label, values, onChange }: { label: string; values: string[]; onChange: (v: string[]) => void }) {
   const { t } = useTranslation()
@@ -232,6 +232,57 @@ function UsersTab() {
           </div>
         </Modal>
       )}
+    </div>
+  )
+}
+
+/**
+ * Rechte-Matrix: Zeilen = Fähigkeiten, Spalten = konfigurierbare Rollen.
+ * Der Superadmin darf immer alles; Mitglieder werden über die Flags am
+ * Nutzer gesteuert (Darf bewerten, Darf „Who to call" bearbeiten).
+ */
+function PermissionsTab() {
+  const { t } = useTranslation()
+  const { state, setPermission } = useStore()
+  const roles: ConfigurableRole[] = ['group_admin', 'training_admin']
+
+  return (
+    <div className="space-y-3">
+      <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] leading-relaxed text-dim">
+        {t('admin.permMatrixHint')}
+      </p>
+      <Card className="overflow-x-auto p-4">
+        <table className="w-full min-w-105 text-[13.5px]">
+          <thead>
+            <tr className="border-b border-line/15 text-left text-[12px] uppercase tracking-wide text-dim">
+              <th className="pb-2 pr-3 font-semibold">{t('admin.permCapability')}</th>
+              {roles.map((r) => (
+                <th key={r} className="pb-2 pr-3 text-center font-semibold">
+                  {t(`roles.${r}`)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {PERM_KEYS.map((key) => (
+              <tr key={key} className="border-b border-line/[0.06] last:border-0">
+                <td className="py-2.5 pr-3">{t(`admin.perm.${key}`)}</td>
+                {roles.map((r) => (
+                  <td key={r} className="py-2.5 pr-3 text-center">
+                    <input
+                      type="checkbox"
+                      checked={state.settings.permissions[r]?.[key] ?? false}
+                      onChange={(e) => setPermission(r, key, e.target.checked)}
+                      className="h-4 w-4 accent-accent"
+                      aria-label={`${t(`roles.${r}`)}: ${t(`admin.perm.${key}`)}`}
+                    />
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
     </div>
   )
 }
@@ -563,7 +614,7 @@ export function Admin() {
     )
   }
 
-  const tabs: Tab[] = ['users', 'grading', 'groups', 'feedback', 'settings', 'imprint', 'changelog']
+  const tabs: Tab[] = ['users', 'permissions', 'grading', 'groups', 'feedback', 'settings', 'imprint', 'changelog']
 
   return (
     <>
@@ -583,6 +634,7 @@ export function Admin() {
           ))}
         </div>
         {tab === 'users' && <UsersTab />}
+        {tab === 'permissions' && <PermissionsTab />}
         {tab === 'grading' && <GradingAdmin />}
         {tab === 'groups' && <GroupsTab />}
         {tab === 'feedback' && <FeedbackTab />}

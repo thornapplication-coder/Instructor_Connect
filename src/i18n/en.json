@@ -39,11 +39,18 @@
     "identifier": "Email address",
     "placeholder": "firstname.lastname@aviationacademy.at",
     "button": "Sign in",
-    "otpHint": "You will receive a sign-in link by email.",
+    "otpHint": "You will receive a 6-digit sign-in code by email.",
     "error": "No account found for this email address. Accounts are created by an admin or superadmin.",
     "noSignup": "No self-registration — accounts are created by an admin or superadmin.",
     "encryption": "Transport-encrypted (TLS). No end-to-end encryption.",
-    "sandboxUsers": "Sandbox: sign in as"
+    "sandboxUsers": "Sandbox: sign in as",
+    "codeSentTo": "We sent a 6-digit sign-in code to {{email}}.",
+    "codeLabel": "6-digit code",
+    "codeError": "Wrong or expired code. Request a new one if needed.",
+    "verify": "Confirm and sign in",
+    "codeHint": "The code and your session are valid until midnight — you stay signed in unless you sign out.",
+    "changeEmail": "Use a different email address",
+    "sandboxCode": "Sandbox: your code is {{code}} — in production it arrives by email."
   },
   "home": {
     "hello": "Hello, {{name}}",
@@ -210,7 +217,17 @@
     "chatBlocked": "Blocked in chat",
     "userGroups": "Group assignment",
     "userGroupsHint": "Every person must belong to at least one group. Groups control chat access and Instructor Info visibility.",
-    "emailLoginHint": "The email address is the only sign-in credential — sign-in is by email only."
+    "emailLoginHint": "The email address is the only sign-in credential — sign-in is by email only.",
+    "permissions": "Permissions",
+    "permCapability": "Capability",
+    "permMatrixHint": "The superadmin always has every permission. Members are controlled via the flags on each user (“May grade”, “May edit Who to call”). This matrix defines what the Admin and Training Admin roles are allowed to do — changes take effect immediately.",
+    "perm": {
+      "grading_create": "Fill in and send grading forms",
+      "grading_view_all": "See all grading forms (unlimited retention)",
+      "info_manage": "Create and manage Instructor Info entries",
+      "lessons_manage": "Upload and manage lesson plans",
+      "contacts_manage": "Edit the Who to call directory"
+    }
   },
   "imprint": {
     "title": "Legal notice & terms of use",

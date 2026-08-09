@@ -124,6 +124,14 @@ export interface ChangelogEntry {
   changes: string
 }
 
+/** Im Berechtigungs-Tab des Superadmin-Panels schaltbare Fähigkeiten */
+export type PermKey = 'grading_create' | 'grading_view_all' | 'info_manage' | 'lessons_manage' | 'contacts_manage'
+
+export const PERM_KEYS: PermKey[] = ['grading_create', 'grading_view_all', 'info_manage', 'lessons_manage', 'contacts_manage']
+
+/** Rollen, deren Rechte der Superadmin konfiguriert (er selbst darf immer alles) */
+export type ConfigurableRole = 'group_admin' | 'training_admin'
+
 export interface Settings {
   defaultRetention: RetentionKey
   maxUploadMB: number
@@ -139,6 +147,9 @@ export interface Settings {
   grading: GradingSettings
   /** zentrale Musterliste für Lesson Plans und Grading */
   aircraftTypes: string[]
+  /** Rechte-Matrix je konfigurierbarer Rolle — Superadmin darf immer alles,
+   *  Mitglieder werden über die Flags am Nutzer gesteuert */
+  permissions: Record<ConfigurableRole, Record<PermKey, boolean>>
 }
 
 /** Zuletzt-gesehen-Zeitstempel eines Nutzers für die „Neu“-Markierungen */
@@ -171,6 +182,8 @@ export interface AppState {
   starredInfo: Record<string, string[]>
   /** Lese-Bestätigungen: Eintrag-ID -> Nutzer-ID -> Zeitstempel */
   infoAcks: Record<string, Record<string, number>>
+  /** laufender Code-Login: an diese E-Mail wurde ein Code „gesendet“ */
+  pendingLogin: { email: string; code: string; expiresAt: number } | null
 }
 
 

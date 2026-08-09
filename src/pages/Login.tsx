@@ -24,13 +24,26 @@ function LanguageToggle() {
 
 export function Login() {
   const { t } = useTranslation()
-  const { state, login } = useStore()
+  const { state, login, requestLoginCode, verifyLoginCode } = useStore()
   const [identifier, setIdentifier] = useState('')
-  const [error, setError] = useState(false)
+  const [code, setCode] = useState('')
+  // Zwei Schritte: E-Mail eingeben → 6-stelligen Code bestätigen
+  const [step, setStep] = useState<'email' | 'code'>('email')
+  const [error, setError] = useState<'' | 'email' | 'code'>('')
 
   const submit = () => {
-    if (!login(identifier)) setError(true)
-    else setError(false)
+    if (requestLoginCode(identifier)) {
+      setError('')
+      setCode('')
+      setStep('code')
+    } else {
+      setError('email')
+    }
+  }
+
+  const confirm = () => {
+    if (!verifyLoginCode(code)) setError('code')
+    else setError('')
   }
 
   return (
@@ -52,32 +65,80 @@ export function Login() {
           <p className="mt-2 text-sm text-dim">{t('login.subtitle')}</p>
         </div>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            submit()
-          }}
-          className="space-y-3"
-        >
-          <label className="block">
-            <span className="mb-1.5 block text-[13px] font-medium text-dim">{t('login.identifier')}</span>
-            <input
-              type="email"
-              inputMode="email"
-              autoComplete="email"
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              placeholder={t('login.placeholder')}
-              className={inputCls}
-              autoFocus
-            />
-          </label>
-          {error && <p className="text-[13px] text-danger">{t('login.error')}</p>}
-          <Button type="submit" className="w-full py-3">
-            {t('login.button')}
-          </Button>
-          <p className="text-center text-[12px] text-dim">{t('login.otpHint')}</p>
-        </form>
+        {step === 'email' ? (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              submit()
+            }}
+            className="space-y-3"
+          >
+            <label className="block">
+              <span className="mb-1.5 block text-[13px] font-medium text-dim">{t('login.identifier')}</span>
+              <input
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder={t('login.placeholder')}
+                className={inputCls}
+                autoFocus
+              />
+            </label>
+            {error === 'email' && <p className="text-[13px] text-danger">{t('login.error')}</p>}
+            <Button type="submit" className="w-full py-3">
+              {t('login.button')}
+            </Button>
+            <p className="text-center text-[12px] text-dim">{t('login.otpHint')}</p>
+          </form>
+        ) : (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              confirm()
+            }}
+            className="space-y-3"
+          >
+            <p className="text-[13px] leading-relaxed text-dim">{t('login.codeSentTo', { email: identifier.trim() })}</p>
+            {/* Sandbox: kein Mailversand — der Code wird hier angezeigt */}
+            {state.pendingLogin && (
+              <p className="rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-[12.5px] text-sand">
+                {t('login.sandboxCode', { code: state.pendingLogin.code })}
+              </p>
+            )}
+            <label className="block">
+              <span className="mb-1.5 block text-[13px] font-medium text-dim">{t('login.codeLabel')}</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]*"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="••••••"
+                className={`${inputCls} text-center text-[20px] tracking-[0.4em]`}
+                autoFocus
+              />
+            </label>
+            {error === 'code' && <p className="text-[13px] text-danger">{t('login.codeError')}</p>}
+            <Button type="submit" disabled={code.length !== 6} className="w-full py-3">
+              {t('login.verify')}
+            </Button>
+            <p className="text-center text-[12px] leading-relaxed text-dim">{t('login.codeHint')}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setStep('email')
+                setError('')
+              }}
+              className="mx-auto block text-[12.5px] text-dim underline underline-offset-2 hover:text-ink"
+            >
+              {t('login.changeEmail')}
+            </button>
+          </form>
+        )}
 
         <div className="mt-8 rounded-2xl border border-amber-400/25 bg-amber-400/5 p-4">
           <p className="mb-2.5 text-[12px] font-semibold uppercase tracking-wide text-sand">{t('login.sandboxUsers')}</p>

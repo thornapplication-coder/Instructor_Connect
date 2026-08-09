@@ -36,7 +36,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
   // Formulare sind immer vollständig englisch, unabhängig von der App-Sprache.
   const { i18n } = useTranslation()
   const t = useMemo(() => i18n.getFixedT('en'), [i18n])
-  const { state, currentUser, saveGradingRecord } = useStore()
+  const { state, currentUser, saveGradingRecord, can } = useStore()
   const grading = state.settings.grading
 
   const existing = recordId ? state.gradingRecords.find((r) => r.id === recordId) : undefined
@@ -75,7 +75,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
   const [recipientDraft, setRecipientDraft] = useState('')
 
   // Clientseitige Sperre analog Admin.tsx; serverseitig gilt später RLS.
-  const mayGrade = currentUser!.role !== 'training_admin' && (currentUser!.canGrade || currentUser!.role !== 'member')
+  const mayGrade = can('grading_create')
 
   const setTrainee = (i: number, patch: Partial<TraineeGrading>) =>
     setTrainees((list) => list.map((tr, j) => (j === i ? { ...tr, ...patch } : tr)))
