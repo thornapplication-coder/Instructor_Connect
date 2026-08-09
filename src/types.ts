@@ -279,6 +279,8 @@ export interface GradingRecord {
   status: RecordStatus
   mailStatus: MailStatus
   mailError?: string
+  /** vom Instruktor zusätzlich angegebene Empfänger */
+  extraRecipients?: string[]
   /** Teilnehmerliste der Formulare 307A/307B */
   attendance?: AttendanceEntry[]
   /** Nutzer, die das Formular aus ihrer Listenansicht entfernt haben —

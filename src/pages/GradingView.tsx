@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock, Printer } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, Printer, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { SignaturePad } from '../components/SignaturePad'
 import { useTranslation } from 'react-i18next'
@@ -16,7 +16,7 @@ export function GradingView({ recordId }: { recordId: string }) {
   // Formulare sind immer vollständig englisch, unabhängig von der App-Sprache
   const { i18n } = useTranslation()
   const t = i18n.getFixedT('en')
-  const { state, currentUser, saveGradingRecord } = useStore()
+  const { state, currentUser, saveGradingRecord, retryGradingMail } = useStore()
   const record = state.gradingRecords.find((r) => r.id === recordId)
   const [lateSignature, setLateSignature] = useState<string | null>(null)
 
@@ -77,12 +77,18 @@ export function GradingView({ recordId }: { recordId: string }) {
         </div>
 
         {record.mailStatus === 'failed' && (
-          <div className="flex items-start gap-2.5 rounded-xl border border-danger/30 bg-danger/10 p-3.5 text-[13px]">
-            <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
-            <div>
-              <p className="font-semibold text-danger">{t('grading.mail.failed')}</p>
-              {record.mailError && <p className="mt-0.5 text-dim">{record.mailError}</p>}
+          <div className="space-y-3 rounded-xl border border-danger/30 bg-danger/10 p-3.5 text-[13px]">
+            <div className="flex items-start gap-2.5">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
+              <div>
+                <p className="font-semibold text-danger">{t('grading.mail.failed')}</p>
+                {record.mailError && <p className="mt-0.5 text-dim">{record.mailError}</p>}
+              </div>
             </div>
+            {/* Erneut senden direkt aus dem Formular — nicht nur im Admin-Panel */}
+            <Button onClick={() => retryGradingMail(record.id)} className="flex w-full items-center justify-center gap-2">
+              <RefreshCw size={15} /> {t('grading.sendAgain')}
+            </Button>
           </div>
         )}
 
@@ -296,6 +302,7 @@ export function GradingView({ recordId }: { recordId: string }) {
               ...(record.trainees.some((tr) => tr.overall === 'not_competent') || record.sessionStatus === 'not_completed'
                 ? grading.escalationRecipients
                 : []),
+              ...(record.extraRecipients ?? []),
             ].join(', ')}
           </p>
         )}

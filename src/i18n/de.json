@@ -353,7 +353,12 @@
       "all": "Alle"
     },
     "deferredMailNote": "Form 310 (Deferred Item List) is always emailed to the Training Admin upon completion: {{recipients}}",
-    "multiStudentHint": "Mehrere Studenten in einem Durchgang dienen nur der Bedienbarkeit: Jeder Student unterschreibt einzeln, und beim Abschluss entsteht für jeden Studenten ein EIGENES Formular."
+    "multiStudentHint": "Mehrere Studenten in einem Durchgang dienen nur der Bedienbarkeit: Jeder Student unterschreibt einzeln, und beim Abschluss entsteht für jeden Studenten ein EIGENES Formular.",
+    "recipientsCard": "Empfänger",
+    "addRecipient": "Zusätzlichen Empfänger (E-Mail) hinzufügen …",
+    "extraRecipientsHint": "Standard-Empfänger werden vom Admin konfiguriert. Zusätzliche Empfänger gelten nur für dieses Formular.",
+    "sendBlocked": "Senden ist erst möglich, wenn das Formular vollständig und korrekt ausgefüllt ist — noch offen:",
+    "sendAgain": "Erneut senden"
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

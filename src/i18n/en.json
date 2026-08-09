@@ -353,7 +353,12 @@
       "all": "All"
     },
     "deferredMailNote": "Form 310 (Deferred Item List) is always emailed to the Training Admin upon completion: {{recipients}}",
-    "multiStudentHint": "Multiple students in one pass are for convenience only: each student signs individually, and on completion a SEPARATE form is created for each student."
+    "multiStudentHint": "Multiple students in one pass are for convenience only: each student signs individually, and on completion a SEPARATE form is created for each student.",
+    "recipientsCard": "Recipients",
+    "addRecipient": "Add additional recipient (email) …",
+    "extraRecipientsHint": "Standard recipients are configured by the admin. Additional recipients apply to this form only.",
+    "sendBlocked": "Sending is only possible once the form is complete and correct — still open:",
+    "sendAgain": "Send again"
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

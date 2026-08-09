@@ -70,6 +70,9 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
   const [showFollowUp, setShowFollowUp] = useState(false)
   const [followUps, setFollowUps] = useState<FormTypeId[]>([])
   const [error, setError] = useState('')
+  /** zusätzliche Empfänger, die der Instruktor am Formularende angibt */
+  const [extraRecipients, setExtraRecipients] = useState<string[]>(existing?.extraRecipients ?? [])
+  const [recipientDraft, setRecipientDraft] = useState('')
 
   // Clientseitige Sperre analog Admin.tsx; serverseitig gilt später RLS.
   const mayGrade = currentUser!.canGrade || currentUser!.role !== 'member'
@@ -160,6 +163,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
           attendance: isAttendance ? attendance.filter((a) => a.name.trim()) : undefined,
           signatureInstructor: sigInstructor,
           signatureTrainee: sigTrainee,
+          extraRecipients,
           status: signed ? 'signed' : 'awaiting_signature',
           mailStatus: signed ? (escalate ? 'pending' : 'sent') : 'pending',
           parentId: parentId ?? existing?.parentId,
@@ -186,6 +190,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
         attendance: undefined,
         signatureInstructor: sigInstructor,
         signatureTrainee: sigT,
+        extraRecipients,
         status: signed ? 'signed' : 'awaiting_signature',
         // Sandbox: Versand wird simuliert. Eskalationsfälle bleiben zunächst
         // offen, damit sich der Fehlerfall im Admin-Panel testen lässt.
@@ -708,11 +713,73 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
               </p>
             )}
 
-            {error && <p className="text-[13px] text-danger">{error}</p>}
+            {/* 6. Empfänger: Standard (Admin-Konfiguration) + zusätzliche */}
+            <Card className="space-y-3 p-4">
+              <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.recipientsCard')}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  ...grading.defaultRecipients,
+                  ...(formTypeId === '310' ? grading.deferredRecipients : []),
+                  ...(needsFollowUp ? grading.escalationRecipients : []),
+                ].map((r) => (
+                  <span key={r} className="rounded-full bg-raised px-2.5 py-1 text-[12px] text-dim">
+                    {r}
+                  </span>
+                ))}
+                {extraRecipients.map((r) => (
+                  <span key={r} className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-[12px] text-accent">
+                    {r}
+                    <button onClick={() => setExtraRecipients(extraRecipients.filter((x) => x !== r))} className="hover:text-danger">
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              {(() => {
+                const addRecipient = () => {
+                  const v = recipientDraft.trim()
+                  if (!/.+@.+\..+/.test(v) || extraRecipients.includes(v)) return
+                  setExtraRecipients([...extraRecipients, v])
+                  setRecipientDraft('')
+                }
+                return (
+                  <div className="flex gap-2">
+                    <input
+                      value={recipientDraft}
+                      onChange={(e) => setRecipientDraft(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && addRecipient()}
+                      placeholder={t('grading.addRecipient')}
+                      className={inputCls}
+                    />
+                    <Button variant="ghost" onClick={addRecipient} disabled={!/.+@.+\..+/.test(recipientDraft.trim())}>
+                      <Plus size={16} />
+                    </Button>
+                  </div>
+                )
+              })()}
+              <p className="text-[11.5px] leading-relaxed text-dim/80">{t('grading.extraRecipientsHint')}</p>
+            </Card>
 
-            <Button className="flex w-full items-center justify-center gap-2 py-3" onClick={submit}>
-              <Send size={16} /> {t('grading.finish')}
-            </Button>
+            {/* 7. Senden — erst möglich, wenn alles vollständig ausgefüllt ist */}
+            {(() => {
+              const liveError = validate()
+              return (
+                <>
+                  {liveError && (
+                    <p className="rounded-xl border border-warm/25 bg-warm/5 p-3.5 text-[12.5px] leading-relaxed text-dim">
+                      {t('grading.sendBlocked')} {liveError}
+                    </p>
+                  )}
+                  <Button
+                    disabled={!!liveError}
+                    className="flex w-full items-center justify-center gap-2 py-3 disabled:cursor-not-allowed disabled:opacity-45"
+                    onClick={submit}
+                  >
+                    <Send size={16} /> {t('grading.finish')}
+                  </Button>
+                </>
+              )
+            })()}
           </>
         )}
       </Page>
