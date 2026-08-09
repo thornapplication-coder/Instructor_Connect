@@ -7,7 +7,7 @@ import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormType } from '../../types'
-import { formatDate, formatDateTime, TrafficDot, trafficLight, type TrafficColor } from '../Grading'
+import { formatDate, formatDateTime, missingFollowUps, TrafficDot, trafficLight, type TrafficColor } from '../Grading'
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats'
 
@@ -255,6 +255,8 @@ export function GradingAdmin() {
 
   const openSignatures = records.filter((r) => r.status !== 'signed')
   const failedMails = records.filter((r) => r.mailStatus === 'failed')
+  /** Formulare, zu denen ein Pflicht-Folgeformular (306/310) fehlt */
+  const openFollowUps = records.filter((r) => missingFollowUps(r, records).length > 0)
 
   /** Trendflag: Kompetenz flottenweit im Schnitt niedrig (Spez. 6.3) */
   const trendFlags = useMemo(() => {
@@ -299,7 +301,7 @@ export function GradingAdmin() {
 
   const filtered = records.filter((r) => {
     if (filterType && r.formTypeId !== filterType) return false
-    if (trafficFilter && trafficLight(r) !== trafficFilter) return false
+    if (trafficFilter && trafficLight(r, records) !== trafficFilter) return false
     if (!query) return true
     const hay = [r.formTypeId, userName(r.instructorId), ...r.trainees.map(traineeLabel), ...Object.values(r.header)].join(' ').toLowerCase()
     return hay.includes(query.toLowerCase())
@@ -368,10 +370,11 @@ export function GradingAdmin() {
             <span className="inline-flex items-center gap-1.5"><TrafficDot color="yellow" /> {t('grading.traffic.yellow')}</span>
             <span className="inline-flex items-center gap-1.5"><TrafficDot color="red" /> {t('grading.traffic.red')}</span>
           </div>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
               { label: t('grading.admin.openSignatures'), value: openSignatures.length, icon: Clock, tone: openSignatures.length ? 'text-warm' : 'text-dim' },
               { label: t('grading.admin.failedMails'), value: failedMails.length, icon: AlertTriangle, tone: failedMails.length ? 'text-danger' : 'text-dim' },
+              { label: t('grading.admin.openFollowUps'), value: openFollowUps.length, icon: AlertTriangle, tone: openFollowUps.length ? 'text-warm' : 'text-dim' },
               { label: t('grading.admin.trendFlags'), value: trendFlags.length, icon: TrendingDown, tone: trendFlags.length ? 'text-warm' : 'text-dim' },
             ].map((k) => (
               <Card key={k.label} className="flex items-center gap-3 p-4">
@@ -409,6 +412,22 @@ export function GradingAdmin() {
                   {r.formTypeId} · {r.trainees.map(traineeLabel).join(', ') || '—'}
                 </p>
                 <p className="text-[12.5px] text-dim">{t('grading.admin.awaitingSince', { date: dateLabel(r.createdAt) })}</p>
+              </div>
+              <ChevronRight size={16} className="text-dim" />
+            </Card>
+          ))}
+
+          {/* Pflicht-Folgeformulare (306/310), die noch nicht ausgefüllt wurden */}
+          {openFollowUps.map((r) => (
+            <Card key={`fu-${r.id}`} onClick={() => navigate(`/grading/${r.id}`)} className="flex items-center gap-3 p-4">
+              <AlertTriangle size={16} className="shrink-0 text-amber-500" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[14px] font-semibold">
+                  {r.formTypeId} · {r.trainees.map(traineeLabel).join(', ') || '—'}
+                </p>
+                <p className="text-[12.5px] text-dim">
+                  {t('grading.admin.followUpMissing', { forms: missingFollowUps(r, records).join(', ') })}
+                </p>
               </div>
               <ChevronRight size={16} className="text-dim" />
             </Card>
@@ -467,7 +486,7 @@ export function GradingAdmin() {
           {filtered.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('grading.empty')}</p>}
           {filtered.map((r) => (
             <Card key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="flex items-center gap-3 p-4">
-              <TrafficDot color={trafficLight(r)} />
+              <TrafficDot color={trafficLight(r, records)} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-semibold">
                   {r.formTypeId} · {r.trainees.map(traineeLabel).join(', ') || '—'}

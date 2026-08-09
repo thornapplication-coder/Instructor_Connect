@@ -320,7 +320,9 @@
       "schemeNone": "Ohne Bewertung (Textformular)",
       "formIdTaken": "Diese Formular-Nummer existiert bereits.",
       "newFormHint": "Neue Formulartypen erhalten die Standard-Kopffelder (Aircraft Type, Date, Event, Training Device, Flight Times). Bestehende Formulare behalten ihre Daten, wenn ein Typ gelöscht wird.",
-      "deleteFormTypeConfirm": "Diesen Formulartyp löschen? Er verschwindet aus der Auswahl für neue Formulare; bestehende Formulare behalten ihre Daten."
+      "deleteFormTypeConfirm": "Diesen Formulartyp löschen? Er verschwindet aus der Auswahl für neue Formulare; bestehende Formulare behalten ihre Daten.",
+      "openFollowUps": "Offene Folgeformulare",
+      "followUpMissing": "Pflicht-Folgeformular ausständig: {{forms}}"
     },
     "attendance": "Teilnehmerliste",
     "studentName": "Name des Teilnehmers",
@@ -358,7 +360,15 @@
     "addRecipient": "Zusätzlichen Empfänger (E-Mail) hinzufügen …",
     "extraRecipientsHint": "Standard-Empfänger werden vom Admin konfiguriert. Zusätzliche Empfänger gelten nur für dieses Formular.",
     "sendBlocked": "Senden ist erst möglich, wenn das Formular vollständig und korrekt ausgefüllt ist — noch offen:",
-    "sendAgain": "Erneut senden"
+    "sendAgain": "Erneut senden",
+    "followUpBodyMandatory": "The result is “Not Competent” or the session was not completed. The forms marked as mandatory MUST be completed now — the originating grading sheet is attached to their email dispatch automatically.",
+    "mandatory": "mandatory",
+    "followUpMailNote": "Each follow-up form is emailed to the configured recipients together with the originating grading sheet.",
+    "stillRequired": "outstanding (mandatory)",
+    "followUpWarn": "A mandatory follow-up form has not been completed for this grading sheet yet:",
+    "fillNow": "Fill in {{form}} now",
+    "mailAttachment": "The originating grading sheet ({{form}}) is automatically attached to the email dispatch of this form.",
+    "openParent": "Open grading sheet"
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

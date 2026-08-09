@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { useStore } from '../store'
-import { formatDate, formatDateTime, gradeColor, TrafficDot, trafficLight } from './Grading'
+import { formatDate, formatDateTime, gradeColor, missingFollowUps, TrafficDot, trafficLight } from './Grading'
 
 /**
  * Abgeschicktes Formular: read-only nach beidseitiger Signatur (Spez. 5.5).
@@ -37,6 +37,8 @@ export function GradingView({ recordId }: { recordId: string }) {
 
   const isAdmin = currentUser!.role !== 'member'
   const linked = state.gradingRecords.filter((r) => r.parentId === record.id)
+  const missing = missingFollowUps(record, state.gradingRecords)
+  const parentRec = record.parentId ? state.gradingRecords.find((r) => r.id === record.parentId) : undefined
 
   return (
     <>
@@ -63,7 +65,7 @@ export function GradingView({ recordId }: { recordId: string }) {
 
         {/* Status */}
         <div className="flex flex-wrap items-center gap-2">
-          <TrafficDot color={trafficLight(record)} />
+          <TrafficDot color={trafficLight(record, state.gradingRecords)} />
           {record.status === 'signed' ? (
             <Badge tone="dim">
               <CheckCircle2 size={11} className="mr-1" /> {t('grading.status.signed')}
@@ -92,8 +94,34 @@ export function GradingView({ recordId }: { recordId: string }) {
           </div>
         )}
 
+        {/* Pflicht-Folgeformular fehlt noch: deutlich sichtbar + direkt ausfüllbar */}
+        {missing.length > 0 && (
+          <div className="space-y-3 rounded-xl border border-amber-500/50 bg-amber-500/10 p-3.5">
+            <div className="flex items-start gap-2.5 text-[13px]">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
+              <p className="font-semibold">{t('grading.followUpWarn')}</p>
+            </div>
+            {missing.map((id) => (
+              <Button key={id} onClick={() => navigate(`/grading/new?type=${id}&parent=${record.id}`)} className="flex w-full items-center justify-center gap-2">
+                {t('grading.fillNow', { form: `${id} — ${grading.formTypes.find((f) => f.id === id)?.title ?? ''}` })}
+              </Button>
+            ))}
+          </div>
+        )}
+
         {record.status === 'signed' && (
           <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[12.5px] leading-relaxed text-dim">{t('grading.readOnlyNote')}</p>
+        )}
+
+        {/* Folgeformulare (306/310): das auslösende Grading Sheet geht beim
+            Versand automatisch mit */}
+        {parentRec && (
+          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[12.5px] leading-relaxed text-dim">
+            {t('grading.mailAttachment', { form: `${parentRec.formTypeId} — ${grading.formTypes.find((f) => f.id === parentRec.formTypeId)?.title ?? ''}` })}{' '}
+            <button onClick={() => navigate(`/grading/${parentRec.id}`)} className="font-medium text-accent hover:underline">
+              {t('grading.openParent')}
+            </button>
+          </p>
         )}
 
         {/* Kopfdaten */}
@@ -296,13 +324,18 @@ export function GradingView({ recordId }: { recordId: string }) {
           <p className="text-center text-[12px] text-dim/70">
             {t('grading.recipients')}:{' '}
             {[
-              ...grading.defaultRecipients,
-              // Form 310 (Deferred Item List) geht IMMER an den Training Admin
-              ...(record.formTypeId === '310' ? grading.deferredRecipients : []),
-              ...(record.trainees.some((tr) => tr.overall === 'not_competent') || record.sessionStatus === 'not_completed'
-                ? grading.escalationRecipients
-                : []),
-              ...(record.extraRecipients ?? []),
+              ...new Set([
+                ...grading.defaultRecipients,
+                // Form 310 (Deferred Item List) geht IMMER an den Training Admin
+                ...(record.formTypeId === '310' ? grading.deferredRecipients : []),
+                // 306 (Additional Training) geht zusätzlich an die Eskalationsempfänger
+                ...(record.formTypeId === '306' ||
+                record.trainees.some((tr) => tr.overall === 'not_competent') ||
+                record.sessionStatus === 'not_completed'
+                  ? grading.escalationRecipients
+                  : []),
+                ...(record.extraRecipients ?? []),
+              ]),
             ].join(', ')}
           </p>
         )}

@@ -320,7 +320,9 @@
       "schemeNone": "No grading (text form)",
       "formIdTaken": "This form number already exists.",
       "newFormHint": "New form types get the standard header fields (aircraft type, date, event, training device, flight times). Existing forms keep their data if a type is deleted.",
-      "deleteFormTypeConfirm": "Delete this form type? It disappears from the selection for new forms; existing forms keep their data."
+      "deleteFormTypeConfirm": "Delete this form type? It disappears from the selection for new forms; existing forms keep their data.",
+      "openFollowUps": "Open follow-up forms",
+      "followUpMissing": "Mandatory follow-up outstanding: {{forms}}"
     },
     "attendance": "Record of attendance",
     "studentName": "Student name",
@@ -358,7 +360,15 @@
     "addRecipient": "Add additional recipient (email) …",
     "extraRecipientsHint": "Standard recipients are configured by the admin. Additional recipients apply to this form only.",
     "sendBlocked": "Sending is only possible once the form is complete and correct — still open:",
-    "sendAgain": "Send again"
+    "sendAgain": "Send again",
+    "followUpBodyMandatory": "The result is “Not Competent” or the session was not completed. The forms marked as mandatory MUST be completed now — the originating grading sheet is attached to their email dispatch automatically.",
+    "mandatory": "mandatory",
+    "followUpMailNote": "Each follow-up form is emailed to the configured recipients together with the originating grading sheet.",
+    "stillRequired": "outstanding (mandatory)",
+    "followUpWarn": "A mandatory follow-up form has not been completed for this grading sheet yet:",
+    "fillNow": "Fill in {{form}} now",
+    "mailAttachment": "The originating grading sheet ({{form}}) is automatically attached to the email dispatch of this form.",
+    "openParent": "Open grading sheet"
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

@@ -20,14 +20,15 @@ const TILES = [
 
 export function Home() {
   const { t, i18n } = useTranslation()
-  const { currentUser, logout, unreadGroups, hasNewInfo, visibleGradingRecords } = useStore()
+  const { state, currentUser, logout, unreadGroups, hasNewInfo, visibleGradingRecords } = useStore()
   const isDesktop = useIsDesktop()
   // Der Punkt auf der Grading-Kachel spiegelt die Ampel des Grading-Moduls:
-  // rot vor gelb vor grün — kein Formular vorhanden = kein Punkt.
+  // rot vor gelb vor grün — kein Formular vorhanden = kein Punkt. Fehlende
+  // Pflicht-Folgeformulare zählen als gelb.
   const gradingTraffic: TrafficColor | null = visibleGradingRecords.length
-    ? visibleGradingRecords.some((r) => trafficLight(r) === 'red')
+    ? visibleGradingRecords.some((r) => trafficLight(r, state.gradingRecords) === 'red')
       ? 'red'
-      : visibleGradingRecords.some((r) => trafficLight(r) === 'yellow')
+      : visibleGradingRecords.some((r) => trafficLight(r, state.gradingRecords) === 'yellow')
         ? 'yellow'
         : 'green'
     : null

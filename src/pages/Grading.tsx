@@ -30,15 +30,31 @@ export function formatDateTime(ts: number): string {
 }
 
 /**
+ * Pflicht-Folgeformulare, die zu diesem Formular noch fehlen:
+ * Not Competent ⇒ 306 (Additional Training) ist verpflichtend,
+ * Session not completed ⇒ 310 (Deferred Item List) ist verpflichtend.
+ */
+export function missingFollowUps(r: GradingRecord, all: GradingRecord[]): string[] {
+  if (r.parentId) return []
+  const children = all.filter((c) => c.parentId === r.id)
+  const out: string[] = []
+  if (r.trainees.some((tr) => tr.overall === 'not_competent') && !children.some((c) => c.formTypeId === '306')) out.push('306')
+  if (r.sessionStatus === 'not_completed' && !children.some((c) => c.formTypeId === '310')) out.push('310')
+  return out
+}
+
+/**
  * Ampelsystem für den Formularstatus:
  *  grün  = abgeschlossen, unterschrieben und versendet
- *  gelb  = noch offen (Unterschrift ausständig oder Versand noch nicht erfolgt)
+ *  gelb  = noch offen (Unterschrift/Versand ausständig oder
+ *          Pflicht-Folgeformular fehlt)
  *  rot   = Versand fehlgeschlagen — Handeln erforderlich
  */
 export type TrafficColor = 'green' | 'yellow' | 'red'
 
-export function trafficLight(r: GradingRecord): TrafficColor {
+export function trafficLight(r: GradingRecord, all?: GradingRecord[]): TrafficColor {
   if (r.mailStatus === 'failed') return 'red'
+  if (all && missingFollowUps(r, all).length > 0) return 'yellow'
   if (r.status === 'signed' && r.mailStatus === 'sent') return 'green'
   return 'yellow'
 }
@@ -66,7 +82,7 @@ export function Grading() {
   const isMember = currentUser!.role === 'member'
   // Filter über die Ampel-Legende (antippen zum Filtern)
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
-  const list = visibleGradingRecords.filter((r) => !trafficFilter || trafficLight(r) === trafficFilter)
+  const list = visibleGradingRecords.filter((r) => !trafficFilter || trafficLight(r, state.gradingRecords) === trafficFilter)
 
   return (
     <>
@@ -116,6 +132,7 @@ export function Grading() {
 
         {list.map((r) => {
           const notCompetent = r.trainees.some((tr) => tr.overall === 'not_competent')
+          const missing = missingFollowUps(r, state.gradingRecords)
           return (
             <Card key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="p-4">
               <div className="flex items-start gap-3">
@@ -148,11 +165,17 @@ export function Grading() {
                         <AlertTriangle size={11} /> {t('grading.mail.failed')}
                       </span>
                     )}
+                    {/* Pflicht-Folgeformular noch nicht ausgefüllt */}
+                    {missing.map((id) => (
+                      <span key={id} className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-0.5 text-[11px] font-semibold text-black">
+                        <AlertTriangle size={11} /> {id} {t('grading.stillRequired')}
+                      </span>
+                    ))}
                     {r.parentId && <Badge tone="dim">{t('grading.linked')}</Badge>}
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
-                  <TrafficDot color={trafficLight(r)} className="mt-1" />
+                  <TrafficDot color={trafficLight(r, state.gradingRecords)} className="mt-1" />
                   {/* Aus der eigenen Listenansicht entfernen — gilt nur für den
                       aktuellen Nutzer, im Admin-Panel bleibt alles erhalten */}
                   {(

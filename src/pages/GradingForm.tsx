@@ -105,6 +105,12 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
   const needsFollowUp =
     trainees.some((tr) => tr.overall === 'not_competent' || autoNotCompetent(tr)) || sessionStatus === 'not_completed'
 
+  /** Pflicht-Folgeformulare: Not Competent ⇒ 306, Session nicht abgeschlossen ⇒ 310 */
+  const requiredFollowUps: FormTypeId[] = [
+    ...(trainees.some((tr) => tr.overall === 'not_competent' || autoNotCompetent(tr)) ? (['306'] as FormTypeId[]) : []),
+    ...(sessionStatus === 'not_completed' ? (['310'] as FormTypeId[]) : []),
+  ]
+
   /** Schritt 1: Kopfdaten inkl. Student/Instructor */
   const validateHeader = (): string => {
     if (!formType) return t('grading.errFormType')
@@ -216,6 +222,8 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
     }
     setError('')
     if (needsFollowUp && !parentId) {
+      // Pflichtformulare sind vorausgewählt und nicht abwählbar
+      setFollowUps(requiredFollowUps)
       setShowFollowUp(true)
       return
     }
@@ -228,13 +236,13 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
     navigate(recs.length === 1 ? `/grading/${recs[0].id}` : '/grading')
   }
 
-  /** withFollowUps=false: bewusst ohne Folgeformulare abschließen */
-  const finish = (withFollowUps: boolean) => {
+  /** Speichern und die (Pflicht-)Folgeformulare als Kette öffnen */
+  const finish = () => {
     const recs = saveAll()
     setShowFollowUp(false)
     // Folgeformulare hängen am (ersten) Not-Competent-Formular
     const parentRec = recs.find((r) => r.trainees.some((tr) => tr.overall === 'not_competent')) ?? recs[0]
-    if (withFollowUps && followUps.length > 0) {
+    if (followUps.length > 0) {
       navigate(`/grading/new?type=${followUps[0]}&parent=${parentRec.id}&next=${followUps.slice(1).join(',')}`)
     } else {
       navigate(recs.length === 1 ? `/grading/${recs[0].id}` : '/grading')
@@ -786,34 +794,40 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
 
       {showFollowUp && (
         <Modal title={t('grading.followUpTitle')} onClose={() => setShowFollowUp(false)}>
-          <p className="mb-4 text-[13.5px] leading-relaxed text-dim">{t('grading.followUpBody')}</p>
+          <p className="mb-4 text-[13.5px] leading-relaxed text-dim">{t('grading.followUpBodyMandatory')}</p>
           <div className="space-y-2">
             {(['306', '310'] as FormTypeId[]).map((id) => {
               const ft = grading.formTypes.find((f) => f.id === id)!
+              const required = requiredFollowUps.includes(id)
               const on = followUps.includes(id)
               return (
                 <button
                   key={id}
+                  disabled={required}
                   onClick={() => setFollowUps(on ? followUps.filter((x) => x !== id) : [...followUps, id])}
                   className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition ${
                     on ? 'border-accent bg-accent/10' : 'border-line/15'
-                  }`}
+                  } ${required ? 'cursor-default' : ''}`}
                 >
-                  <span className={`flex h-5 w-5 items-center justify-center rounded border ${on ? 'border-accent bg-accent text-bg' : 'border-line/30'}`}>
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${on ? 'border-accent bg-accent text-bg' : 'border-line/30'}`}>
                     {on && '✓'}
                   </span>
-                  <span className="text-[14px]">
+                  <span className="min-w-0 flex-1 text-[14px]">
                     <span className="font-semibold">{ft.id}</span> — {ft.title}
                   </span>
+                  {/* Pflichtformular: vorausgewählt und nicht abwählbar */}
+                  {required && (
+                    <span className="shrink-0 rounded-full bg-danger/15 px-2 py-0.5 text-[11px] font-semibold text-danger">
+                      {t('grading.mandatory')}
+                    </span>
+                  )}
                 </button>
               )
             })}
           </div>
-          <div className="mt-5 flex justify-end gap-2">
-            <Button variant="ghost" onClick={() => finish(false)}>
-              {t('grading.skipFollowUp')}
-            </Button>
-            <Button onClick={() => finish(true)} disabled={followUps.length === 0}>
+          <p className="mt-3 text-[12px] leading-relaxed text-dim/80">{t('grading.followUpMailNote')}</p>
+          <div className="mt-5 flex justify-end">
+            <Button onClick={finish} disabled={followUps.length === 0}>
               {t('grading.openFollowUp')}
             </Button>
           </div>
