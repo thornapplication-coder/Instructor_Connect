@@ -3,41 +3,63 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 /**
- * Registriert den Service Worker (Offline-Start) und zeigt einen gut
- * sichtbaren Banner, sobald eine neue Version bereitsteht. Erst der Tipp
- * auf „Aktualisieren“ aktiviert sie — kein stiller Neustart mitten in der
- * Nutzung.
+ * Registriert den Service Worker (Offline-Start) und hält die App aktuell.
+ *
+ * Neue Versionen werden AUTOMATISCH übernommen, sobald das gefahrlos ist:
+ * Wer gerade nichts ausfüllt, bekommt sie sofort; wer in einem Formular
+ * steckt, sieht den Banner und entscheidet selbst. Sonst könnte ein
+ * Update, dessen Knopf man nicht erreicht, die App dauerhaft alt halten.
  *
  * Auf neue Versionen wird AKTIV geprüft: beim Start, dann jede Minute
- * sowie immer, wenn die App den Fokus bekommt oder wieder sichtbar wird —
- * so erscheint der Banner auch in einer dauerhaft geöffneten App am
- * Homescreen, nicht erst nach einem manuellen Neuladen.
+ * sowie immer, wenn die App den Fokus bekommt oder wieder sichtbar wird.
  */
+
+/** Formulare mit ungesicherter Eingabe — dort wird nie automatisch neu geladen. */
+function isEditing(): boolean {
+  const h = window.location.hash
+  return h.startsWith('#/grading/new') || h.includes('?print=1')
+}
+
 export function UpdateBanner() {
   const { t } = useTranslation()
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null)
   const clicked = useRef(false)
+  // automatische Übernahme läuft — der Neustart darf dann erfolgen
+  const tookOver = useRef(false)
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
     let cleanup: (() => void) | undefined
 
+    /**
+     * Wartende Version übernehmen: außerhalb von Formularen sofort und
+     * ohne Zutun, im Formular nur als Banner-Angebot.
+     */
+    const apply = (sw: ServiceWorker) => {
+      if (isEditing()) {
+        setWaiting(sw)
+        return
+      }
+      tookOver.current = true
+      sw.postMessage({ type: 'SKIP_WAITING' })
+    }
+
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      // Nur neu laden, wenn der Nutzer das Update angestoßen hat —
-      // sonst würde schon die Erstinstallation die Seite neu laden.
-      if (clicked.current) window.location.reload()
+      // Neu laden, sobald die neue Version übernommen hat — außer bei der
+      // Erstinstallation (dann gab es vorher keinen Controller).
+      if (clicked.current || tookOver.current) window.location.reload()
     })
 
     navigator.serviceWorker
       .register(import.meta.env.BASE_URL + 'sw.js')
       .then((reg) => {
         // Neue Version wartet bereits (App war lange geöffnet)
-        if (reg.waiting) setWaiting(reg.waiting)
+        if (reg.waiting) apply(reg.waiting)
         reg.addEventListener('updatefound', () => {
           const nw = reg.installing
           if (!nw) return
           nw.addEventListener('statechange', () => {
-            if (nw.state === 'installed' && navigator.serviceWorker.controller) setWaiting(nw)
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) apply(nw)
           })
         })
 
