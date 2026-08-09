@@ -72,6 +72,8 @@ export interface Store {
   /** löscht ein Formular endgültig (Training Admin / Superadmin) */
   deleteGradingRecord: (id: string) => void
   retryGradingMail: (id: string) => void
+  /** Ausgangskorb leeren: alle ohne Netz erfassten Formulare versenden */
+  flushOutbox: () => void
   updateGrading: (patch: Partial<GradingSettings>) => void
   /** Lesson Plans, die der aktuelle Nutzer sehen darf */
   visibleLessonPlans: LessonPlan[]
@@ -727,12 +729,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (actor?.role !== 'superadmin') return null
           return { gradingRecords: s.gradingRecords.filter((r) => r.id !== id && r.parentId !== id) }
         }),
+      // Erneut senden: ohne Netz landet der Versuch im Ausgangskorb, statt
+      // einen Erfolg zu behaupten, den es nicht gab.
       retryGradingMail: (id) =>
         patch((s) => ({
           gradingRecords: s.gradingRecords.map((r) =>
-            r.id === id ? { ...r, mailStatus: 'sent' as const, mailError: undefined } : r,
+            r.id === id
+              ? { ...r, mailStatus: navigator.onLine === false ? ('queued' as const) : ('sent' as const), mailError: undefined }
+              : r,
           ),
         })),
+      // Ohne Netz unterschriebene Formulare gehen raus, sobald wieder
+      // Empfang da ist. In der Sandbox gelingt der Versand; mit echtem
+      // Backend hängt hier der tatsächliche Sendeauftrag.
+      flushOutbox: () =>
+        patch((s) =>
+          s.gradingRecords.some((r) => r.mailStatus === 'queued')
+            ? {
+                gradingRecords: s.gradingRecords.map((r) =>
+                  r.mailStatus === 'queued' ? { ...r, mailStatus: 'sent' as const, mailError: undefined } : r,
+                ),
+              }
+            : null,
+        ),
       updateGrading: (p) =>
         patch((s) => {
           const next = { ...p }

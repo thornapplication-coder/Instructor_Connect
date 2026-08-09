@@ -430,7 +430,8 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                     ...record,
                     signatureTrainee: lateSignature,
                     status: 'signed',
-                    mailStatus: 'sent',
+                    // Ohne Netz in den Ausgangskorb statt „versendet"
+                    mailStatus: navigator.onLine === false ? 'queued' : 'sent',
                     signedAt: Date.now() + state.timeOffsetMs,
                   })
                   setLateSignature(null)

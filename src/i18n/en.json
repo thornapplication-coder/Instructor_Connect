@@ -19,7 +19,12 @@
     "updateNow": "Update now",
     "refresh": "Reload app",
     "tooLarge": "“{{name}}” is {{size}} MB — the limit is {{max}} MB.",
-    "discardConfirm": "Discard your entries and close?"
+    "discardConfirm": "Discard your entries and close?",
+    "offline": "Offline — entries are saved on this device",
+    "outboxQueued_one": "{{count}} form waiting to be sent",
+    "outboxQueued_other": "{{count}} forms waiting to be sent",
+    "outboxSending_one": "Back online — sending {{count}} form",
+    "outboxSending_other": "Back online — sending {{count}} forms"
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -340,7 +345,8 @@
     "mail": {
       "pending": "Send pending",
       "sent": "Sent",
-      "failed": "Sending failed"
+      "failed": "Sending failed",
+      "queued": "Queued (offline)"
     },
     "admin": {
       "dashboard": "Overview",

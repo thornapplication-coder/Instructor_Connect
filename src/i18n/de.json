@@ -19,7 +19,12 @@
     "updateNow": "Aktualisieren",
     "refresh": "App neu laden",
     "tooLarge": "„{{name}}“ ist {{size}} MB groß — erlaubt sind {{max}} MB.",
-    "discardConfirm": "Eingaben verwerfen und schließen?"
+    "discardConfirm": "Eingaben verwerfen und schließen?",
+    "offline": "Offline — Eingaben werden auf diesem Gerät gesichert",
+    "outboxQueued_one": "{{count}} Formular wartet auf den Versand",
+    "outboxQueued_other": "{{count}} Formulare warten auf den Versand",
+    "outboxSending_one": "Wieder online — {{count}} Formular wird versendet",
+    "outboxSending_other": "Wieder online — {{count}} Formulare werden versendet"
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -340,7 +345,8 @@
     "mail": {
       "pending": "Versand offen",
       "sent": "Versendet",
-      "failed": "Versand fehlgeschlagen"
+      "failed": "Versand fehlgeschlagen",
+      "queued": "Im Ausgangskorb (offline)"
     },
     "admin": {
       "dashboard": "Übersicht",

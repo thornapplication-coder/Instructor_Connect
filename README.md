@@ -60,6 +60,40 @@ und der PDF-Export von Chromium setzen sie; der interaktive Druckdialog von
 Chrome und Edge ignoriert diese Boxen — dort liefert die Seitenzahl die
 Kopf-/Fußzeile des Dialogs.
 
+## Offline-Betrieb
+
+Im Simulator und in Hangars gibt es regelmäßig kein Netz. Ein Service Worker
+liefert die App aus dem Cache aus, die Daten liegen ohnehin lokal — Formulare
+lassen sich vollständig ausfüllen und unterschreiben.
+
+Was ohne Netz nicht geht, ist der Versand. Ein ohne Empfang unterschriebenes
+Formular bekommt deshalb den Stand „Im Ausgangskorb“ statt „versendet“: die
+Ampel bleibt gelb (offen), wird aber nicht rot — rot heißt „Handeln
+erforderlich“, und hier ist nichts zu tun. Ein Streifen am unteren Rand zeigt
+den Offline-Zustand und die Zahl der wartenden Formulare.
+
+Sobald wieder Empfang da ist, geht der Ausgangskorb selbsttätig raus. Geprüft
+wird dafür nicht nur das `online`-Ereignis, sondern auch das Sichtbarwerden
+der App: wer das Gerät im Flugmodus einsteckt und später aufweckt, bekommt
+sonst kein `online`-Ereignis zu sehen.
+
+## Standardisierungsbericht
+
+Grading Tool → Ablage → Standardisierung. Der Bericht stellt je Kompetenzsatz
+das Bewertungsverhalten jedes Instruktors dem Flottenmittel gegenüber und ist
+die Grundlage für Standardisierungsbesprechungen nach ORA.ATO.110.
+
+Drei Festlegungen machen ihn belastbar: Piloten- und Instruktorenkompetenzen
+werden nie gegeneinander gerechnet; gekennzeichnet wird erst ab zehn Noten aus
+mindestens drei Durchgängen; die Schwellen sind feste, erklärbare Werte (0,40
+besprechen, 0,80 prüfen) statt einer Standardabweichung, die bei drei bis fünf
+Instruktoren selbst zu unsicher wäre. „NO“ senkt keinen Schnitt — nicht
+beobachtet ist keine schlechte Note.
+
+Wie die Formulare ist der Bericht durchgehend englisch, mit ATO-Kopf und
+Export-Stempel; Zeitraum und Flotte sind wählbar, der CSV-Export trägt
+dieselben Zahlen.
+
 ## Datensicherung
 
 Noch nicht aktiv — die Sandbox hält ihren Zustand im Browser. Sobald die
@@ -75,7 +109,8 @@ täglich um 03:00 Wiener Zeit, 30 Tagessicherungen, dazu die Sicherung vom
 - Zeitraffer (+1/+8/+31 Tage), um Aufbewahrung und Gültigkeiten zu beobachten
 - Daten-Reset stellt die Seed-Daten wieder her
 - Der Mailversand ist simuliert und gelingt; ein Seed-Formular zeigt bewusst
-  den Fehlerfall
+  den Fehlerfall. Ohne Netz wandert er in den Ausgangskorb — das Verhalten
+  lässt sich mit dem Offline-Schalter der Entwicklerwerkzeuge vorführen
 
 ## Barrierefreiheit
 

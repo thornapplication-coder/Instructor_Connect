@@ -1,4 +1,5 @@
 import { SandboxBar } from './components/SandboxBar'
+import { OfflineBanner } from './components/OfflineBanner'
 import { UpdateBanner } from './components/UpdateBanner'
 import { Admin } from './pages/Admin'
 import { ChatInfo } from './pages/ChatInfo'
@@ -78,6 +79,7 @@ function AppShell() {
   return (
     <div className="flex min-h-full flex-col">
       <UpdateBanner />
+      <OfflineBanner />
       <div className="flex flex-1 flex-col">
         {/* Identitätswechsel baut die Seite neu auf: sonst schrieb ein offener
             Bildschirm dem neuen Nutzer sofort „gesehen" gut und übernahm

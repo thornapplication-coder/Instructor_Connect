@@ -4,6 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
 import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
 import { navigate, scrollToTop } from '../router'
+
+/** Ohne Netz ist der Versand nicht gescheitert, sondern noch nicht erfolgt:
+ *  'queued' hält den Vorgang offen, ohne den Instruktor zum Handeln zu
+ *  zwingen — die App sendet selbst, sobald wieder Empfang da ist. */
+const mailStatusNow = () => (navigator.onLine === false ? ('queued' as const) : ('sent' as const))
 import { DURATION_OPTIONS } from '../sandbox/gradingDefaults'
 import { useStore } from '../store'
 import { GRADES, type AttendanceEntry, type FormField, type FormType, type FormTypeId, type Grade, type GradingRecord, type OverallResult, type SessionStatus, type TraineeGrading } from '../types'
@@ -389,8 +394,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
           status: signed ? 'signed' : 'awaiting_signature',
           // Der Versand wird in der Sandbox simuliert und gelingt. Nur so kann
           // ein vollständiger Vorgang grün werden; der Fehlerfall bleibt über
-          // die Seed-Daten vorführbar.
-          mailStatus: signed ? 'sent' : 'pending',
+          // die Seed-Daten vorführbar. Ohne Netz — im Simulator der Normalfall
+          // — wandert das Formular stattdessen in den Ausgangskorb.
+          mailStatus: signed ? mailStatusNow() : 'pending',
           parentId: parentId ?? existing?.parentId,
           createdAt: existing?.createdAt ?? ts,
           signedAt: signed ? ts : undefined,
@@ -424,7 +430,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         // Eskalationsfälle gehen zusätzlich an die Eskalationsempfänger, der
         // Versand gilt aber ebenso als gelungen — sonst bliebe genau der
         // wichtigste Vorgang dauerhaft gelb.
-        mailStatus: signed ? 'sent' : 'pending',
+        mailStatus: signed ? mailStatusNow() : 'pending',
         parentId: parentId ?? existing?.parentId,
         batchId,
         createdAt: existing?.createdAt ?? ts,

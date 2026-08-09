@@ -306,7 +306,10 @@ export interface TraineeGrading {
 }
 
 export type RecordStatus = 'draft' | 'awaiting_signature' | 'signed'
-export type MailStatus = 'pending' | 'sent' | 'failed'
+/** 'queued' = unterschrieben, aber ohne Netz erfasst. Der Versand liegt im
+ *  Ausgangskorb und läuft automatisch, sobald wieder Empfang da ist —
+ *  deshalb ist das kein Fehler, der den Instruktor zum Handeln zwingt. */
+export type MailStatus = 'pending' | 'queued' | 'sent' | 'failed'
 
 export interface GradingRecord {
   id: string
@@ -362,4 +365,4 @@ export const RETENTION_MS: Record<RetentionKey, number> = {
   never: Infinity,
 }
 
-export const APP_VERSION = '1.2.0'
+export const APP_VERSION = '1.3.0'

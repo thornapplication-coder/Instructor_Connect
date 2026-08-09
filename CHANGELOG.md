@@ -28,6 +28,20 @@ Erstversion (Sandbox-Modus, ohne Backend):
 - Anmeldung ausschließlich per E-Mail, wahlweise über einen Code
 - Offline-Modus (PWA) mit Update-Banner, Druck-Layout
 
+## 1.3.0 — 2026-08-09
+
+- Offline-Betrieb: Die App startet ohne Netz aus dem Cache. Ohne Empfang
+  unterschriebene Formulare gehen in den Ausgangskorb (Ampel gelb, nicht rot)
+  und werden selbsttätig versendet, sobald wieder Empfang da ist. Ein Streifen
+  zeigt Offline-Zustand und Zahl der wartenden Formulare.
+- Standardisierungsbericht je Instruktor gegen das Flottenmittel
+  (ORA.ATO.110), druckbar und als CSV, mit Mindestmenge vor jeder
+  Kennzeichnung
+- Jede Seite und jedes Formular beginnt oben — auch bei Navigation ohne
+  Adresswechsel (Admin-Kacheln, Formularschritte)
+- Dialoge: Der Fokus blieb nicht im Eingabefeld; beim Anlegen einer Gruppe kam
+  nur der erste Buchstabe an. Betraf jeden Dialog der App.
+
 ## 1.2.0 — 2026-08-09
 
 Vollaudit und Behebung. Zehn Blocker, 44 Major- und die überwiegende Zahl der
