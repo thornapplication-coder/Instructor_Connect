@@ -92,7 +92,10 @@
     "blockedNote": "You have been blocked from sending in chat by an admin. You can still read messages. Please contact your administrator.",
     "pollValidUntil": "Valid until",
     "pollValidUntilUtc": "Valid until (UTC)",
-    "pollValidHint": "Date and time are in UTC. After this time the poll closes automatically."
+    "pollValidHint": "Date and time are in UTC. After this time the poll closes automatically.",
+    "attachmentOnly": "Attachment",
+    "unknownAuthor": "Unknown",
+    "deleteMessageConfirm": "Delete this message for everyone? This cannot be undone."
   },
   "chatInfo": {
     "title": "Chat info",
@@ -107,7 +110,9 @@
     "manage": "Manage group",
     "addMember": "Add member",
     "removeMember": "Remove",
-    "retentionOverride": "Retention period for this group"
+    "retentionOverride": "Retention period for this group",
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members"
   },
   "info": {
     "searchPlaceholder": "Search entries …",
@@ -141,7 +146,8 @@
     "groupsHint": "No selection = visible to everyone. With groups selected, only their members see the entry — and only they must confirm reading.",
     "allGroups": "All groups",
     "exportAck": "Export control list (CSV)",
-    "scheduled": "Scheduled — not yet visible to the target groups"
+    "scheduled": "Scheduled — not yet visible to the target groups",
+    "sinceRelease": "from release"
   },
   "contacts": {
     "call": "Call",
@@ -155,7 +161,10 @@
     "allDepartments": "All departments",
     "deleteConfirm": "Delete “{{name}}” from the directory? This cannot be undone.",
     "editContact": "Edit contact",
-    "deleteContact": "Delete contact"
+    "deleteContact": "Delete contact",
+    "search": "Search name, position or department",
+    "empty": "The directory is empty. An admin can add contacts here.",
+    "noMatch": "No contact matches your search."
   },
   "feedback": {
     "title": "Feedback",
@@ -256,7 +265,9 @@
     "documentHeaderHint": "Appears in the header and footer of every printed form and PDF.",
     "deactivateHint": "Deactivated users keep their history and can no longer sign in. Records, messages and signatures stay attributable — that is why accounts are never deleted.",
     "emailTaken": "This email address is already assigned to another user. It is the only sign-in identifier and has to stay unique.",
-    "groupNameTaken": "A group with this name already exists."
+    "groupNameTaken": "A group with this name already exists.",
+    "noAccess": "You do not have access to the Admin Panel.",
+    "noUsersMatch": "No user matches the current filters."
   },
   "imprint": {
     "title": "Legal notice & terms of use",
@@ -479,6 +490,7 @@
     "allTypes": "All types",
     "empty": "No lesson plans available for your assigned aircraft types.",
     "noAircraft": "No aircraft type has been assigned to you yet. An admin can change this in user management — afterwards you will see the matching lesson plans.",
-    "deleteConfirm": "Delete the lesson plan “{{title}}”? This cannot be undone."
+    "deleteConfirm": "Delete the lesson plan “{{title}}”? This cannot be undone.",
+    "noFile": "No file attached"
   }
 }

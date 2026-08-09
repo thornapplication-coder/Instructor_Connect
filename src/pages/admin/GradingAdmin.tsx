@@ -1,7 +1,7 @@
 import { AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, SlidersHorizontal, Trash2, TrendingDown, X } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, Field, inputCls } from '../../components/ui'
+import { Badge, Button, Card, Field, inputCls, selectCls } from '../../components/ui'
 import { csvNum, csvRow, downloadCsv } from '../../csv'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
@@ -317,7 +317,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
               <select
                 value={draft.scheme}
                 onChange={(e) => setDraft({ ...draft, scheme: e.target.value as CompetencySetKey | 'none' })}
-                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+                className={selectCls}
               >
                 <option value="pilot">{t('grading.admin.schemePilot')}</option>
                 <option value="instructor">{t('grading.admin.schemeInstructor')}</option>
@@ -481,7 +481,18 @@ export function GradingAdmin() {
     if (filterInstructor && r.instructorId !== filterInstructor) return false
     if (filterAircraft && r.header.aircraftType !== filterAircraft) return false
     if (!query) return true
-    const hay = [r.formTypeId, userName(r.instructorId), ...traineesOf(r, records).map(traineeLabel), ...Object.values(r.header)].join(' ').toLowerCase()
+    // Auch die angezeigte Datumsform durchsuchbar machen — gesucht wurde
+    // bisher nur der Rohwert 2026-08-04, angezeigt wird 04.08.2026.
+    const hay = [
+      r.formTypeId,
+      userName(r.instructorId),
+      ...traineesOf(r, records).map(traineeLabel),
+      ...Object.values(r.header),
+      r.header.date ? formatDate(r.header.date) : '',
+      dateLabel(r.createdAt),
+    ]
+      .join(' ')
+      .toLowerCase()
     return hay.includes(query.toLowerCase())
   })
 
@@ -861,7 +872,11 @@ export function GradingAdmin() {
                       <span className="min-w-0 flex-1 truncate">{userName(row.id)}</span>
                       <span className="mx-3 text-[12px] text-dim">{t('grading.admin.sessionCount', { count: row.sessions })}</span>
                       <span className="w-14 text-right font-semibold">{row.avg?.toFixed(2)}</span>
-                      <span className={`w-16 text-right text-[12.5px] ${Math.abs(diff) >= 0.5 ? 'font-semibold text-warm' : 'text-dim'}`}>
+                      {/* Schwelle auf dem angezeigten Wert: -0,497 wurde als
+                          „-0.50" gedruckt, aber nicht hervorgehoben. */}
+                      <span
+                        className={`w-16 text-right text-[12.5px] ${Math.abs(Number(diff.toFixed(2))) >= 0.5 ? 'font-semibold text-warm' : 'text-dim'}`}
+                      >
                         {diff >= 0 ? '+' : ''}
                         {diff.toFixed(2)}
                       </span>

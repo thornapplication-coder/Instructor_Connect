@@ -1,6 +1,6 @@
 import { Bell, BellOff, Clock, HardDriveDownload, Shield, Trash2, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Badge, Card, Field, Page, TopBar } from '../components/ui'
+import { Avatar, Badge, Card, Field, Page, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { isGroupAdmin, mayAccessGroup, useStore } from '../store'
 import type { RetentionKey } from '../types'
@@ -101,7 +101,7 @@ export function ChatInfo({ groupId }: { groupId: string }) {
               <select
                 value={group.retention ?? 'default'}
                 onChange={(e) => setGroupRetention(group.id, e.target.value === 'default' ? null : (e.target.value as RetentionKey))}
-                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+                className={selectCls}
               >
                 <option value="default">{t('retention.default', { value: t(`retention.${state.settings.defaultRetention}`) })}</option>
                 {RETENTION_KEYS.map((k) => (
@@ -116,7 +116,7 @@ export function ChatInfo({ groupId }: { groupId: string }) {
                 <select
                   value=""
                   onChange={(e) => e.target.value && setGroupMembers(group.id, [...group.memberIds, e.target.value])}
-                  className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+                  className={selectCls}
                 >
                   <option value="">…</option>
                   {nonMembers.map((u) => (

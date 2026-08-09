@@ -64,6 +64,7 @@ export function WhoToCall() {
   const { t } = useTranslation()
   const { state, currentUser, deleteContact, markContactsSeen, can } = useStore()
   const [filter, setFilter] = useState('')
+  const [query, setQuery] = useState('')
 
   // Besuch der Seite gilt als „gesehen“ — der grüne Punkt auf der Kachel
   // erlischt. markContactsSeen ist idempotent, volle Dependencies sind sicher.
@@ -77,8 +78,12 @@ export function WhoToCall() {
   const mayEdit = can('contacts_manage')
 
   const departments = [...new Set(state.contacts.map((c) => c.department))].sort((a, b) => a.localeCompare(b))
+  const needle = query.trim().toLowerCase()
   const visible = state.contacts
     .filter((c) => !filter || c.department === filter)
+    // Ohne Suchfeld war ein Kontakt in einem langen Verzeichnis nur durch
+    // Scrollen zu finden.
+    .filter((c) => !needle || `${c.name} ${c.position} ${c.department} ${c.email} ${c.phone}`.toLowerCase().includes(needle))
     .sort((a, b) => a.department.localeCompare(b.department) || a.name.localeCompare(b.name))
   const grouped = departments
     .filter((d) => !filter || d === filter)
@@ -102,6 +107,13 @@ export function WhoToCall() {
         }
       />
       <Page className="space-y-4">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={t('contacts.search')}
+          aria-label={t('contacts.search')}
+          className={inputCls}
+        />
         <div className="flex gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setFilter('')}
@@ -123,6 +135,12 @@ export function WhoToCall() {
             </button>
           ))}
         </div>
+
+        {/* Leerer Zustand: die Seite sah sonst aus, als würde sie noch laden */}
+        {state.contacts.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('contacts.empty')}</p>}
+        {state.contacts.length > 0 && visible.length === 0 && (
+          <p className="pt-6 text-center text-sm text-dim">{t('contacts.noMatch')}</p>
+        )}
 
         {grouped.map(({ department, contacts }) => (
           <section key={department}>

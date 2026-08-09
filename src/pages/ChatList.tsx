@@ -1,7 +1,7 @@
 import { BellOff, ChevronRight, Clock, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Button, Card, Field, inputCls, Modal, NewDot, Page, TopBar } from '../components/ui'
+import { Avatar, Button, Card, Field, inputCls, Modal, NewDot, Page, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { isAdminUser, useStore } from '../store'
 
@@ -64,7 +64,13 @@ export function ChatList() {
                     {g.muted && <BellOff size={13} className="shrink-0 text-dim" />}
                   </div>
                   <p className="truncate text-[13px] text-dim">
-                    {last ? `${lastAuthor?.name.split(' ')[0]}: ${last.text}` : t('chat.noMessages')}
+                    {/* Ein gelöschter Autor ergab „undefined:", ein reiner
+                        Anhang eine leere Zeile — beides sah nach Fehler aus. */}
+                    {last
+                      ? `${lastAuthor?.name.split(' ')[0] ?? t('chat.unknownAuthor')}: ${
+                          last.text.trim() || (last.attachment ? `📎 ${last.attachment.name}` : t('chat.attachmentOnly'))
+                        }`
+                      : t('chat.noMessages')}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
@@ -91,7 +97,7 @@ export function ChatList() {
                 <select
                   value={aircraft}
                   onChange={(e) => setAircraft(e.target.value)}
-                  className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+                  className={selectCls}
                 >
                   <option value="">{t('admin.groupNoAircraft')}</option>
                   {aircraftTypes.map((a) => (

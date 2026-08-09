@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight, ChevronDown, Info, Plus, Send, Trash2 } from 'lu
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
-import { Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
+import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { DURATION_OPTIONS } from '../sandbox/gradingDefaults'
 import { useStore } from '../store'
@@ -484,7 +484,8 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     // Dashboard (bei einer 306/310-Kette erst hier, nach dem letzten Glied).
     // Blieb etwas offen (Unterschrift, Versand), zeigt die Detailansicht warum.
     const allOk = recs.every((r) => r.status === 'signed' && r.mailStatus === 'sent')
-    navigate(allOk || recs.length > 1 ? '/grading' : `/grading/${recs[0].id}`)
+    // replace: die Formularadresse verschwindet aus dem Verlauf
+    navigate(allOk || recs.length > 1 ? '/grading' : `/grading/${recs[0].id}`, true)
   }
 
   /** Speichern und die (Pflicht-)Folgeformulare als Kette öffnen */
@@ -508,7 +509,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
       navigate(`/grading/new?type=${chain[0].type}&parent=${chain[0].parentId}&next=${encodeChain(chain.slice(1))}`)
     } else {
       const allOk = recs.every((r) => r.status === 'signed' && r.mailStatus === 'sent')
-      navigate(allOk || recs.length > 1 ? '/grading' : `/grading/${recs[0].id}`)
+      navigate(allOk || recs.length > 1 ? '/grading' : `/grading/${recs[0].id}`, true)
     }
   }
 
@@ -541,7 +542,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             id={`field-${f.key}`}
             value={header[f.key] ?? ''}
             onChange={(e) => setField(f, e.target.value)}
-            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+            className={selectCls}
           >
             <option value="">…</option>
             {[...optionsOf(f)].sort((a, b) => a.localeCompare(b)).map((o) => (
@@ -556,7 +557,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             id={`field-${f.key}`}
             value={header[f.key] ?? ''}
             onChange={(e) => setField(f, e.target.value)}
-            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+            className={selectCls}
           >
             <option value="">hh:mm …</option>
             {DURATION_OPTIONS.map((o) => (
@@ -600,7 +601,13 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
               return (
                 <button
                   key={o}
-                  onClick={() => setField(f, (on ? sel.filter((x) => x !== o) : [...sel, o]).sort().join(', '))}
+                  onClick={() => {
+                    // Reihenfolge des Originalformulars beibehalten — eine
+                    // alphabetische Sortierung verdrehte z. B. die ATA-Kapitel.
+                    const next = on ? sel.filter((x) => x !== o) : [...sel, o]
+                    const ordered = optionsOf(f).filter((x) => next.includes(x))
+                    setField(f, ordered.join(', '))
+                  }}
                   className={`min-h-11 rounded-lg border px-2.5 py-1.5 text-[12.5px] transition ${
                     on ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/15 text-dim'
                   }`}

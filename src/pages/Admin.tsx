@@ -1,7 +1,7 @@
 import { AlertTriangle, ArrowLeft, ChevronDown, ClipboardList, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Users, UsersRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
+import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
 import { useStore } from '../store'
 import { GradingAdmin } from './admin/GradingAdmin'
 import { formatDateTime } from './Grading'
@@ -120,7 +120,7 @@ function UsersTab() {
         </span>
       </div>
       <p className="px-1 text-[12px] leading-relaxed text-dim">{t('admin.deactivateHint')}</p>
-      {users.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('info.empty')}</p>}
+      {users.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('admin.noUsersMatch')}</p>}
       {users.map((u, i) => (
         <div key={u.id}>
         {sortMode === 'role' && (i === 0 || users[i - 1].role !== u.role) && (
@@ -285,7 +285,7 @@ function UsersTab() {
               <select
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
-                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+                className={selectCls}
               >
                 {(['member', 'training_admin', 'group_admin', 'superadmin'] as Role[]).map((r) => (
                   <option key={r} value={r}>
@@ -543,7 +543,7 @@ function GroupsTab() {
               <select
                 value={newAircraft}
                 onChange={(e) => setNewAircraft(e.target.value)}
-                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+                className={selectCls}
               >
                 <option value="">{t('admin.groupNoAircraft')}</option>
                 {aircraftTypes.map((a) => (
@@ -683,7 +683,7 @@ function SettingsTab() {
           <select
             value={s.defaultRetention}
             onChange={(e) => updateSettings({ defaultRetention: e.target.value as RetentionKey })}
-            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+            className={selectCls}
           >
             {RETENTION_KEYS.map((k) => (
               <option key={k} value={k}>
@@ -858,7 +858,7 @@ export function Admin() {
       <>
         <TopBar title={t('admin.title')} back="/" />
         <Page>
-          <p className="pt-10 text-center text-sm text-dim">—</p>
+          <p className="pt-10 text-center text-sm text-dim">{t('admin.noAccess')}</p>
         </Page>
       </>
     )

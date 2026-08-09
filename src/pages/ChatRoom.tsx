@@ -76,6 +76,27 @@ function PollCard({ poll }: { poll: Poll }) {
   const author = state.users.find((u) => u.id === poll.authorId)
   const options = poll.type === 'yesno' ? [t('common.yes'), t('common.no')] : poll.options
   const totalVotes = Object.keys(poll.votes).length
+  /**
+   * Prozentanteile nach dem Größte-Reste-Verfahren: unabhängig gerundete
+   * Werte ergaben in Summe 99 % oder 101 %.
+   */
+  const pctOf = (() => {
+    const counts = options.map((_, i) => Object.values(poll.votes).filter((v) => v === i).length)
+    if (totalVotes === 0) return counts.map(() => 0)
+    const exact = counts.map((c) => (c / totalVotes) * 100)
+    const floors = exact.map(Math.floor)
+    let rest = 100 - floors.reduce((a, b) => a + b, 0)
+    const order = exact
+      .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+      .sort((a, b) => b.frac - a.frac)
+    const out = [...floors]
+    for (const { i } of order) {
+      if (rest <= 0) break
+      out[i] += 1
+      rest -= 1
+    }
+    return out
+  })()
   const myVote = poll.votes[currentUser!.id]
   // Abgelaufene Umfragen sind automatisch geschlossen
   const expired = !!poll.validUntil && poll.validUntil <= Date.now() + state.timeOffsetMs
@@ -338,8 +359,16 @@ export function ChatRoom({ groupId }: { groupId: string }) {
               isOwn={item.msg.authorId === currentUser!.id}
               authorName={state.users.find((u) => u.id === item.msg!.authorId)?.name ?? '—'}
               bold={isAdminAuthor(item.msg.authorId)}
-              canDelete={currentUser!.role === 'superadmin' || item.msg.authorId === currentUser!.id}
-              onDelete={() => deleteMessage(item.msg!.id)}
+              // Auch der Admin der Gruppe darf moderieren — bisher konnte er
+              // in seiner eigenen Gruppe nichts entfernen.
+              canDelete={
+                currentUser!.role === 'superadmin' ||
+                item.msg.authorId === currentUser!.id ||
+                (state.groups.find((g) => g.id === groupId)?.adminIds.includes(currentUser!.id) ?? false)
+              }
+              onDelete={() => {
+                if (window.confirm(t('chat.deleteMessageConfirm'))) deleteMessage(item.msg!.id)
+              }}
               lng={i18n.language}
             />
           ) : (
@@ -370,6 +399,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
           <div className="flex items-end gap-1.5">
             <button
               onClick={() =>
+                // Sandbox: ein Bild wird simuliert; das Limit gilt trotzdem
                 setPendingAttachment({ name: 'photo-' + Math.floor(Math.random() * 900 + 100) + '.jpg', kind: 'image', sizeMB: 3.2 })
               }
               title={t('chat.attach', { max: state.settings.maxUploadMB })}

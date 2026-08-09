@@ -1,9 +1,9 @@
 import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
+import { Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
-import { infoEntryAppliesTo, infoIsPublished, useStore, userMayModule } from '../store'
+import { infoEntryAppliesTo, infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
 import { formatDate, formatDateTime } from './Grading'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
@@ -57,7 +57,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+            className={selectCls}
           >
             <option value="">…</option>
             {[...state.settings.infoCategories].sort((a, b) => a.localeCompare(b)).map((c) => (
@@ -72,7 +72,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
           <select
             value={aircraftType}
             onChange={(e) => setAircraftType(e.target.value)}
-            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+            className={selectCls}
           >
             <option value="">{t('admin.groupNoAircraft')}</option>
             {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
@@ -163,15 +163,19 @@ export function InstructorInfo() {
 
   // Löschen nur Admin/Superadmin
   const mayEdit = can('info_manage')
-  const categories = state.settings.infoCategories
+  // Alphabetisch wie das Auswahlfeld im Anlegen-Dialog — die Chips folgten
+  // bisher der internen Reihenfolge der Einstellungen.
+  const categories = [...state.settings.infoCategories].sort((a, b) => a.localeCompare(b))
 
   /** Zielpersonen einer Lese-Bestätigung: aktive Mitglieder der Zielgruppen */
   // Bestätigen kann nur, wer die Instructor Info auch erreicht — ein Training
   // Admin ohne Zugang zählte sonst in jeder Quote als dauerhaft säumig.
   const ackTargets = (entry: { groupIds?: string[] }) =>
-    state.users.filter(
-      (u) => u.active && userMayModule(state.settings, u, 'info') && infoEntryAppliesTo(entry, u.id, state.groups),
-    )
+    state.users
+      .filter((u) => u.active && userMayModule(state.settings, u, 'info') && infoEntryAppliesTo(entry, u.id, state.groups))
+      // Alphabetisch — die interne Reihenfolge war für eine Kontrollliste
+      // nicht nachvollziehbar.
+      .sort((a, b) => a.name.localeCompare(b.name))
 
   const groupNames = (ids?: string[]) =>
     ids?.length ? ids.map((id) => state.groups.find((g) => g.id === id)?.name ?? '—').join(', ') : t('info.allGroups')
@@ -203,7 +207,9 @@ export function InstructorInfo() {
 
   // Nach Muster unterteilt; innerhalb: markierte zuoberst, dann neueste zuerst
   const entries = visibleInfoEntries
-    .filter((e) => (e.title + ' ' + e.description).toLowerCase().includes(query.toLowerCase()))
+    // Suche greift auch in den Text und die Kategorie — Titel und
+    // Beschreibung allein ließen den Inhalt unauffindbar.
+    .filter((e) => [e.title, e.description, e.body ?? '', e.category, e.fileName ?? ''].join(' ').toLowerCase().includes(query.toLowerCase()))
     .filter((e) => !categoryFilter || e.category === categoryFilter)
     .sort((a, b) => {
       const acDiff = (aircraftOf(a) || 'zzz').localeCompare(aircraftOf(b) || 'zzz')
@@ -214,14 +220,19 @@ export function InstructorInfo() {
   // Überschriften nur, wenn es wirklich mehrere Abschnitte gibt
   const sectionCount = new Set(entries.map((e) => aircraftOf(e))).size
 
+  /**
+   * Beschriftung der Gültigkeit. „Valid: 17.08.2026" war nicht von einem
+   * Beginn zu unterscheiden — deshalb wird die fehlende Seite benannt
+   * statt weggelassen.
+   */
   const validityLabel = (e: { validFrom?: string; validUntil?: string }) => {
     const from = e.validFrom ? formatDate(e.validFrom) : null
     const until = e.validUntil ? formatDate(e.validUntil) : 'UFN'
-    return from ? `${from} – ${until}` : until
+    if (from) return `${from} – ${until}`
+    return `${t('info.sinceRelease')} – ${until}`
   }
 
-  const isExpired = (e: { validUntil?: string }) =>
-    !!e.validUntil && new Date(`${e.validUntil}T23:59:59`).getTime() < now()
+  const isExpired = (e: { validUntil?: string }) => infoIsExpired(e, now())
 
   /** Noch nicht gültig — nur Verwalter sehen solche Einträge (Vorbereitung) */
   const isScheduled = (e: { validFrom?: string }) => !infoIsPublished(e, now())
@@ -248,6 +259,7 @@ export function InstructorInfo() {
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-dim" />
           <input
             value={query}
+            aria-label={t('info.searchPlaceholder')}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('info.searchPlaceholder')}
             className={`${inputCls} pl-10`}
@@ -281,7 +293,9 @@ export function InstructorInfo() {
 
         {entries.map((entry, i) => {
           const open = openId === entry.id
-          const isNew = now() - entry.createdAt < NEW_MS
+          // „Neu" zählt ab Veröffentlichung, nicht ab Erstellung: ein
+          // vorbereiteter Eintrag ging sonst ohne Markierung online.
+          const isNew = now() - infoPublishedAt(entry) < NEW_MS
           const starred = starredInfoIds.has(entry.id)
           const expired = isExpired(entry)
           const scheduled = isScheduled(entry)
@@ -312,7 +326,7 @@ export function InstructorInfo() {
                     <button
                       onClick={() => toggleStarInfo(entry.id)}
                       title={t('info.star')}
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition ${starred ? 'text-amber-300' : 'text-dim hover:text-amber-300'}`}
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition ${starred ? 'text-wait' : 'text-dim hover:text-wait'}`}
                     >
                       <Star size={17} fill={starred ? 'currentColor' : 'none'} />
                     </button>
@@ -341,8 +355,11 @@ export function InstructorInfo() {
                     const acks = state.infoAcks[entry.id] ?? {}
                     const myAck = acks[currentUser!.id]
                     const targets = ackTargets(entry)
-                    // Vor dem Gültigkeitsbeginn wird nichts bestätigt
-                    const amTarget = targets.some((u) => u.id === currentUser!.id) && !isScheduled(entry)
+                    // Vor dem Gültigkeitsbeginn und nach dem Gültigkeitsende
+                    // wird nichts bestätigt — ein überholtes Dokument darf
+                    // nicht als „gelesen" in die Kontrollliste wandern.
+                    const amTarget =
+                      targets.some((u) => u.id === currentUser!.id) && !isScheduled(entry) && !infoIsExpired(entry, now())
                     const done = targets.filter((u) => acks[u.id]).length
                     return (
                       <div className="mt-2.5 space-y-1.5">

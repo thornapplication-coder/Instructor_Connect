@@ -1,7 +1,7 @@
 import { Download, Eye, FileText, Plane, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
+import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
 import { useStore } from '../store'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
@@ -24,7 +24,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
     >
       <div className="space-y-3.5">
         <Field label={t('lessons.aircraftType') + ' *'}>
-          <select value={aircraftType} onChange={(e) => setAircraftType(e.target.value)} className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]">
+          <select value={aircraftType} onChange={(e) => setAircraftType(e.target.value)} className={selectCls}>
             <option value="">…</option>
             {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
               <option key={a} value={a}>
@@ -56,7 +56,10 @@ function UploadModal({ onClose }: { onClose: () => void }) {
           <Button
             disabled={!valid}
             onClick={() => {
-              addLessonPlan({ title: title.trim(), description: description.trim(), aircraftType, fileName: fileName || 'lesson-plan.pdf' })
+              // Ohne hochgeladene Datei wird auch keine behauptet — die Karte
+              // bot sonst Ansehen und Herunterladen für ein Dokument an, das
+              // es nie gab.
+              addLessonPlan({ title: title.trim(), description: description.trim(), aircraftType, fileName: fileName.trim() })
               onClose()
             }}
           >
@@ -152,24 +155,30 @@ export function LessonPlans() {
                       <p className="text-[15px] font-semibold leading-snug">{p.title}</p>
                       {p.description && <p className="mt-0.5 text-[13px] text-dim">{p.description}</p>}
                       <p className="mt-1 text-[11.5px] text-dim">
-                        {p.fileName} · {dateLabel(p.createdAt)} · {t('info.by', { name: userName(p.uploadedBy) })}
+                        {[p.fileName, dateLabel(p.createdAt), t('info.by', { name: userName(p.uploadedBy) })].filter(Boolean).join(' · ')}
                       </p>
                       <div className="mt-2.5 flex flex-wrap gap-2">
-                        <a
-                          href={SAMPLE_PDF}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
-                        >
-                          <Eye size={14} /> {t('info.view')}
-                        </a>
-                        <a
-                          href={SAMPLE_PDF}
-                          download={p.fileName}
-                          className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
-                        >
-                          <Download size={14} /> {t('info.download')}
-                        </a>
+                        {p.fileName ? (
+                          <>
+                            <a
+                              href={SAMPLE_PDF}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
+                            >
+                              <Eye size={14} /> {t('info.view')}
+                            </a>
+                            <a
+                              href={SAMPLE_PDF}
+                              download={p.fileName}
+                              className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
+                            >
+                              <Download size={14} /> {t('info.download')}
+                            </a>
+                          </>
+                        ) : (
+                          <span className="text-[12.5px] text-dim">{t('lessons.noFile')}</span>
+                        )}
                         {mayEdit && (
                           <button
                             onClick={() => {

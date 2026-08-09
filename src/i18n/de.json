@@ -92,7 +92,10 @@
     "blockedNote": "Du wurdest von einem Admin für das Senden im Chat gesperrt. Mitlesen ist weiterhin möglich. Bitte wende dich an den Admin.",
     "pollValidUntil": "Gültig bis",
     "pollValidUntilUtc": "Gültig bis (UTC)",
-    "pollValidHint": "Datum und Uhrzeit gelten in UTC. Danach schließt die Umfrage automatisch."
+    "pollValidHint": "Datum und Uhrzeit gelten in UTC. Danach schließt die Umfrage automatisch.",
+    "attachmentOnly": "Anhang",
+    "unknownAuthor": "Unbekannt",
+    "deleteMessageConfirm": "Diese Nachricht für alle löschen? Das lässt sich nicht rückgängig machen."
   },
   "chatInfo": {
     "title": "Chat-Info",
@@ -107,7 +110,9 @@
     "manage": "Gruppe verwalten",
     "addMember": "Mitglied hinzufügen",
     "removeMember": "Entfernen",
-    "retentionOverride": "Aufbewahrungsdauer für diese Gruppe"
+    "retentionOverride": "Aufbewahrungsdauer für diese Gruppe",
+    "members_one": "{{count}} Mitglied",
+    "members_other": "{{count}} Mitglieder"
   },
   "info": {
     "searchPlaceholder": "Einträge durchsuchen …",
@@ -141,7 +146,8 @@
     "groupsHint": "Keine Auswahl = für alle sichtbar. Mit Gruppen sehen nur deren Mitglieder den Eintrag — und nur sie müssen die Lese-Bestätigung leisten.",
     "allGroups": "Alle Gruppen",
     "exportAck": "Kontrollliste exportieren (CSV)",
-    "scheduled": "Geplant — für die Zielgruppen noch nicht sichtbar"
+    "scheduled": "Geplant — für die Zielgruppen noch nicht sichtbar",
+    "sinceRelease": "ab Veröffentlichung"
   },
   "contacts": {
     "call": "Anrufen",
@@ -155,7 +161,10 @@
     "allDepartments": "Alle Abteilungen",
     "deleteConfirm": "„{{name}}“ aus dem Verzeichnis löschen? Das lässt sich nicht rückgängig machen.",
     "editContact": "Kontakt bearbeiten",
-    "deleteContact": "Kontakt löschen"
+    "deleteContact": "Kontakt löschen",
+    "search": "Name, Funktion oder Abteilung suchen",
+    "empty": "Das Verzeichnis ist leer. Ein Admin kann hier Kontakte anlegen.",
+    "noMatch": "Kein Kontakt passt zur Suche."
   },
   "feedback": {
     "title": "Feedback",
@@ -256,7 +265,9 @@
     "documentHeaderHint": "Erscheint in Kopf- und Fußzeile jedes ausgedruckten Formulars und jedes PDFs.",
     "deactivateHint": "Deaktivierte Nutzer behalten ihre Historie und können sich nicht mehr anmelden. Formulare, Nachrichten und Unterschriften bleiben zuordenbar — deshalb werden Konten nicht gelöscht.",
     "emailTaken": "Diese E-Mail-Adresse gehört bereits zu einem anderen Nutzer. Sie ist die einzige Anmeldekennung und muss eindeutig bleiben.",
-    "groupNameTaken": "Eine Gruppe mit diesem Namen gibt es bereits."
+    "groupNameTaken": "Eine Gruppe mit diesem Namen gibt es bereits.",
+    "noAccess": "Du hast keinen Zugriff auf das Admin-Panel.",
+    "noUsersMatch": "Kein Nutzer passt zu den gewählten Filtern."
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",
@@ -479,6 +490,7 @@
     "allTypes": "Alle Muster",
     "empty": "Keine Lesson Plans für die zugewiesenen Muster vorhanden.",
     "noAircraft": "Dir ist noch kein Aircraft Type zugewiesen. Der Admin kann das im Benutzer-Management ändern — danach siehst du die passenden Lesson Plans.",
-    "deleteConfirm": "Lesson Plan „{{title}}“ löschen? Das lässt sich nicht rückgängig machen."
+    "deleteConfirm": "Lesson Plan „{{title}}“ löschen? Das lässt sich nicht rückgängig machen.",
+    "noFile": "Keine Datei hinterlegt"
   }
 }

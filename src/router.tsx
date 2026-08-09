@@ -11,6 +11,18 @@ export function useRoute(): string {
   return route
 }
 
-export function navigate(to: string) {
+/**
+ * @param replace ersetzt den aktuellen Verlaufseintrag, statt einen neuen
+ * anzulegen. Nach dem Absenden eines Formulars führt die Zurück-Taste sonst
+ * auf dieselbe Adresse zurück und zeigt dort ein leeres Formular — mit der
+ * Gefahr einer zweiten Erfassung.
+ */
+export function navigate(to: string, replace = false) {
+  if (replace) {
+    const url = `${window.location.pathname}${window.location.search}#${to}`
+    window.history.replaceState(null, '', url)
+    window.dispatchEvent(new HashChangeEvent('hashchange'))
+    return
+  }
   window.location.hash = to
 }

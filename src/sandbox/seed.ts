@@ -98,6 +98,9 @@ function seedState(now: number): AppState {
         options: [],
         votes: { 'u-patrick': 0, 'u-michael': 0 },
         closed: false,
+        // Gültigkeit ist Pflicht, seit Umfragen ein Ablaufdatum tragen —
+        // die Seed-Umfragen führen sie deshalb ebenfalls.
+        validUntil: now + 3 * d,
         createdAt: now - 23 * h,
       },
       {
@@ -109,6 +112,7 @@ function seedState(now: number): AppState {
         options: ['Montag früh', 'Mittwoch Abend', 'Samstag'],
         votes: { 'u-christian': 1, 'u-michael': 1 },
         closed: false,
+        validUntil: now + 5 * d,
         createdAt: now - 4 * h,
       },
     ],

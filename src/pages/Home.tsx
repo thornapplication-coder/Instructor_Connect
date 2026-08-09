@@ -1,5 +1,5 @@
 import { BookOpenCheck, LogOut, MessageSquareText, MessagesSquare, Phone, Plane, GraduationCap, RefreshCw, ShieldCheck, Share } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
 import { Avatar, Modal, NewDot, ThemeToggle } from '../components/ui'
@@ -19,9 +19,14 @@ const TILES = [
   { to: '/contacts', label: 'Who to call', icon: Phone },
 ] as const
 
-export function Home() {
+export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
   const { t, i18n } = useTranslation()
-  const { state, currentUser, logout, unreadGroups, hasNewInfo, visibleGradingRecords, can, moduleAllowed } = useStore()
+  // Ein Tippfehler in der Adresse zeigte die Startseite, ließ aber den
+  // ungültigen Hash stehen — ein Neuladen landete dann wieder im Nichts.
+  useEffect(() => {
+    if (unknownRoute) navigate('/')
+  }, [unknownRoute])
+  const { state, currentUser, logout, unreadGroups, hasNewInfo, hasNewContacts, visibleGradingRecords, can, moduleAllowed } = useStore()
   const isDesktop = useIsDesktop()
   const [showInstall, setShowInstall] = useState(false)
   // Öffnet das iOS-Share-Sheet (dort: „Zum Home-Bildschirm") — sonst Anleitung
@@ -48,9 +53,10 @@ export function Home() {
     '/grading': false, // Grading trägt stattdessen den Ampel-Punkt
     '/lessons': false,
     '/chat': unreadGroups.size > 0,
-    '/feedback': false, // bewusst ohne Punkt
+    '/feedback': false, // bewusst ohne Punkt — Feedback ist eine Einbahnstraße
     '/info': hasNewInfo,
-    '/contacts': false, // bewusst ohne Punkt
+    // Änderungen am Verzeichnis wurden berechnet, aber nie angezeigt
+    '/contacts': hasNewContacts,
   }
 
   // Die Kacheln folgen der Rechte-Matrix: was der Superadmin einer Rolle
@@ -98,13 +104,6 @@ export function Home() {
               </button>
             ))}
           </div>
-          <button
-            onClick={logout}
-            aria-label={t('common.logout')}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-ink"
-          >
-            <LogOut size={18} />
-          </button>
         </div>
       </header>
 

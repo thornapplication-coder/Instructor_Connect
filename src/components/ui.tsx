@@ -145,6 +145,12 @@ export function Button({
   )
 }
 
+/** Auswahlfelder tragen dieselbe Optik wie Eingabefelder — vorher stand die
+ *  Klassenliste an vierzehn Stellen wortgleich im Code und wich an zwei
+ *  Stellen davon ab. */
+export const selectCls =
+  'w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px] text-ink outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+
 export const inputCls =
   'w-full rounded-xl border border-line/10 bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 

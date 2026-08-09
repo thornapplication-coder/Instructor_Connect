@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle2, Info, Paperclip, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, Field, inputCls, Page, TopBar } from '../components/ui'
+import { Button, Card, Field, inputCls, Page, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { useStore } from '../store'
 import type { Attachment } from '../types'
@@ -51,6 +51,10 @@ export function Feedback() {
           <h2 className="text-xl font-bold">{t('feedback.sentTitle')}</h2>
           <p className="mt-1.5 max-w-sm text-[14px] text-dim">{t('feedback.sentBody')}</p>
           <Card className="mt-6 w-full max-w-sm p-4 text-left text-[13px]">
+            {/* Die Kategorie fehlte in der Bestätigung, obwohl sie die
+                Zuordnung im Admin-Panel bestimmt. */}
+            <p className="mb-1 font-semibold text-dim">{t('feedback.category')}</p>
+            <p className="mb-3 truncate">{category}</p>
             <p className="mb-1 font-semibold text-dim">{t('feedback.recipients')}</p>
             <p className="truncate">{recipient}</p>
             {urgent && (
@@ -90,7 +94,7 @@ export function Feedback() {
           <select
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
-            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+            className={selectCls}
           >
             <option value="">…</option>
             {recipients.map((r) => (
@@ -105,7 +109,7 @@ export function Feedback() {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+            className={selectCls}
           >
             <option value="">…</option>
             {categories.map((c) => (

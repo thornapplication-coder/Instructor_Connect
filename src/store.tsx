@@ -277,7 +277,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [state.infoEntries, state.groups, state.settings, currentUser, now])
 
   const latestForeignInfo = visibleInfoEntries.reduce(
-    (max, e) => (e.authorId !== state.currentUserId ? Math.max(max, e.createdAt) : max),
+    (max, e) => (e.authorId !== state.currentUserId ? Math.max(max, infoPublishedAt(e)) : max),
     0,
   )
   const hasNewInfo = !!state.currentUserId && latestForeignInfo > seenOfCurrent.info
@@ -483,6 +483,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       createPoll: (groupId, question, type, options, validUntil) =>
         patch((s) => {
           if (s.users.find((u) => u.id === s.currentUserId)?.chatBlocked) return null
+          // Eine Umfrage, deren Gültigkeit schon abgelaufen ist, käme
+          // geschlossen zur Welt — niemand könnte je abstimmen.
+          if (validUntil !== undefined && validUntil <= Date.now() + s.timeOffsetMs) return null
           return {
             polls: [
               ...s.polls,
@@ -550,7 +553,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         patch((s) => {
           if (!s.currentUserId) return null
           const entry = s.infoEntries.find((e) => e.id === id)
-          if (!entry || !infoIsPublished(entry, Date.now() + s.timeOffsetMs)) return null
+          const ts = Date.now() + s.timeOffsetMs
+          if (!entry || !infoIsPublished(entry, ts) || infoIsExpired(entry, ts)) return null
           const forEntry = s.infoAcks[id] ?? {}
           if (forEntry[s.currentUserId]) return null // bereits bestätigt
           return { infoAcks: { ...s.infoAcks, [id]: { ...forEntry, [s.currentUserId]: Date.now() + s.timeOffsetMs } } }
@@ -809,6 +813,24 @@ export function infoIsPublished(entry: { validFrom?: string }, ts: number): bool
   if (!entry.validFrom) return true
   const from = new Date(`${entry.validFrom}T00:00:00`).getTime()
   return Number.isNaN(from) || from <= ts
+}
+
+/** Abgelaufen? Nach dem Gültigkeitsende ist der Eintrag nicht mehr
+ *  bestätigungspflichtig — eine Bestätigung auf ein überholtes Dokument
+ *  landete sonst als „gelesen" in der Kontrollliste. */
+export function infoIsExpired(entry: { validUntil?: string }, ts: number): boolean {
+  if (!entry.validUntil) return false
+  const until = new Date(`${entry.validUntil}T23:59:59`).getTime()
+  return !Number.isNaN(until) && until < ts
+}
+
+/** Ab wann der Eintrag für die Leser sichtbar wurde — maßgeblich für die
+ *  „Neu"-Markierung. Ein vorbereiteter Eintrag ging bisher ohne Markierung
+ *  online, weil ab seiner Erstellung gerechnet wurde. */
+export function infoPublishedAt(entry: { validFrom?: string; createdAt: number }): number {
+  if (!entry.validFrom) return entry.createdAt
+  const from = new Date(`${entry.validFrom}T00:00:00`).getTime()
+  return Number.isNaN(from) ? entry.createdAt : Math.max(entry.createdAt, from)
 }
 
 /** Gilt ein Info-Eintrag für diesen Nutzer? (leer = alle Gruppen) — eine

@@ -233,9 +233,9 @@ export const INSTRUCTOR_SET: CompetencySet = {
 
 const AIRCRAFT = ['ATR 42/72', 'C525 CJ1+', 'C525 M2', 'C560 XLS', 'C560 XLS+', 'CL30', 'CL604/605', 'EMB505']
 
-/** Uhrzeit-/Dauerwerte: 00:30 bis 14:30 in 30-Minuten-Schritten */
-/** Zeitangaben in Halbstundenschritten — beginnend bei 00:00, weil eine
- *  Position auch ohne Flugzeit besetzt sein kann (z. B. reine Beobachtung). */
+/** Zeitangaben in Halbstundenschritten von 00:00 bis 14:30 — beginnend bei
+ *  00:00, weil eine Position auch ohne Flugzeit besetzt sein kann
+ *  (z. B. reine Beobachtung). */
 export const DURATION_OPTIONS = Array.from({ length: 30 }, (_, i) => {
   const mins = i * 30
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`

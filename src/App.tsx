@@ -68,21 +68,31 @@ function Screen() {
   else if (route === '/contacts') page = <WhoToCall />
   else if (route === '/feedback') page = <Feedback />
   else if (route.startsWith('/admin')) page = <Admin />
-  else page = <Home />
+  else page = <Home unknownRoute={route !== '/' && route !== ''} />
 
   return page
+}
+
+function AppShell() {
+  const { currentUser } = useStore()
+  return (
+    <div className="flex min-h-full flex-col">
+      <UpdateBanner />
+      <div className="flex flex-1 flex-col">
+        {/* Identitätswechsel baut die Seite neu auf: sonst schrieb ein offener
+            Bildschirm dem neuen Nutzer sofort „gesehen" gut und übernahm
+            fremden Formularzustand. */}
+        <Screen key={currentUser?.id ?? 'anon'} />
+      </div>
+      <SandboxBar />
+    </div>
+  )
 }
 
 export default function App() {
   return (
     <StoreProvider>
-      <div className="flex min-h-full flex-col">
-        <UpdateBanner />
-        <div className="flex flex-1 flex-col">
-          <Screen />
-        </div>
-        <SandboxBar />
-      </div>
+      <AppShell />
     </StoreProvider>
   )
 }
