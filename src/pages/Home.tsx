@@ -1,6 +1,7 @@
 import { BookOpenCheck, LogOut, MessageSquareText, MessagesSquare, Phone, GraduationCap, ShieldCheck, Share } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
+import { LogoMark } from '../components/Logo'
 import { Avatar, NewDot, ThemeToggle } from '../components/ui'
 import { navigate } from '../router'
 import { useStore } from '../store'
@@ -79,9 +80,12 @@ export function Home() {
       </header>
 
       <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8">
-        <h1 className="mb-1 text-2xl font-bold tracking-tight">
-          Instructor <span className="text-accent">Connect</span>
-        </h1>
+        <div className="mb-1 flex items-center gap-3">
+          <LogoMark size={40} />
+          <h1 className="text-2xl font-bold tracking-tight">
+            Instructor <span className="text-accent">Connect</span>
+          </h1>
+        </div>
         <p className="mb-6 text-sm text-dim">{t('home.subtitle')}</p>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">

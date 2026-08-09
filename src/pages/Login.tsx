@@ -1,6 +1,7 @@
-import { Lock, Plane } from 'lucide-react'
+import { Lock } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { LogoFull, LogoMark } from '../components/Logo'
 import { Avatar, Button, inputCls, ThemeToggle } from '../components/ui'
 import { useStore } from '../store'
 import { APP_VERSION } from '../types'
@@ -42,8 +43,8 @@ export function Login() {
 
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-raised shadow-tile">
-            <Plane size={30} className="text-accent" />
+          <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-2xl bg-raised shadow-tile">
+            <LogoMark size={58} />
           </div>
           <p className="text-sm text-dim">{t('login.welcome')}</p>
           <h1 className="mt-1 text-3xl font-bold tracking-tight">
@@ -110,6 +111,9 @@ export function Login() {
           </p>
           <p className="pt-1 text-dim/50">v{APP_VERSION}</p>
         </div>
+
+        {/* Wort-Bild-Marke als Abschluss der Seite */}
+        <LogoFull size={52} className="mt-10 opacity-90" />
       </div>
     </div>
   )

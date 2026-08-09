@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Clock, Printer, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { SignaturePad } from '../components/SignaturePad'
+import { LogoFull } from '../components/Logo'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
@@ -353,6 +354,9 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             ].join(', ')}
           </p>
         )}
+
+        {/* Wort-Bild-Marke als Abschluss — erscheint auch auf dem PDF-Ausdruck */}
+        <LogoFull size={44} className="pt-2 opacity-90" />
       </Page>
     </>
   )
