@@ -21,7 +21,7 @@ const TILES = [
 
 export function Home() {
   const { t, i18n } = useTranslation()
-  const { state, currentUser, logout, unreadGroups, hasNewInfo, visibleGradingRecords } = useStore()
+  const { state, currentUser, logout, unreadGroups, hasNewInfo, visibleGradingRecords, can, moduleAllowed } = useStore()
   const isDesktop = useIsDesktop()
   const [showInstall, setShowInstall] = useState(false)
   // Öffnet das iOS-Share-Sheet (dort: „Zum Home-Bildschirm") — sonst Anleitung
@@ -53,8 +53,18 @@ export function Home() {
     '/contacts': false, // bewusst ohne Punkt
   }
 
-  // Training Admin: reiner Formular-Zugriff — nur die Grading-Kachel
-  const tiles = currentUser!.role === 'training_admin' ? TILES.filter((tl) => tl.to === '/grading') : TILES
+  // Die Kacheln folgen der Rechte-Matrix: was der Superadmin einer Rolle
+  // freischaltet, wird auch sichtbar. Vorher war die Startseite für den
+  // Training Admin fest verdrahtet und freigegebene Rechte unerreichbar.
+  const tiles = TILES.filter((tl) => {
+    if (tl.to === '/grading') return can('grading_create') || can('grading_view_all')
+    if (tl.to === '/lessons') return moduleAllowed('lessons')
+    if (tl.to === '/info') return moduleAllowed('info')
+    if (tl.to === '/chat') return moduleAllowed('chat')
+    if (tl.to === '/feedback') return moduleAllowed('feedback')
+    if (tl.to === '/contacts') return moduleAllowed('contacts')
+    return true
+  })
 
   return (
     <div className="flex flex-1 flex-col">

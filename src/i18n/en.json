@@ -17,7 +17,8 @@
     "version": "Version",
     "updateAvailable": "A new version is available",
     "updateNow": "Update now",
-    "refresh": "Reload app"
+    "refresh": "Reload app",
+    "tooLarge": "“{{name}}” is {{size}} MB — the limit is {{max}} MB."
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -251,7 +252,10 @@
     "atoName": "Organisation (ATO)",
     "approvalNumber": "Approval number",
     "formRevision": "Form revision",
-    "documentHeaderHint": "Appears in the header and footer of every printed form and PDF."
+    "documentHeaderHint": "Appears in the header and footer of every printed form and PDF.",
+    "deactivateHint": "Deactivated users keep their history and can no longer sign in. Records, messages and signatures stay attributable — that is why accounts are never deleted.",
+    "emailTaken": "This email address is already assigned to another user. It is the only sign-in identifier and has to stay unique.",
+    "groupNameTaken": "A group with this name already exists."
   },
   "imprint": {
     "title": "Legal notice & terms of use",

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
-import { infoEntryAppliesTo, infoIsPublished, useStore } from '../store'
+import { infoEntryAppliesTo, infoIsPublished, useStore, userMayModule } from '../store'
 import { formatDate, formatDateTime } from './Grading'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
@@ -162,8 +162,12 @@ export function InstructorInfo() {
   const categories = state.settings.infoCategories
 
   /** Zielpersonen einer Lese-Bestätigung: aktive Mitglieder der Zielgruppen */
+  // Bestätigen kann nur, wer die Instructor Info auch erreicht — ein Training
+  // Admin ohne Zugang zählte sonst in jeder Quote als dauerhaft säumig.
   const ackTargets = (entry: { groupIds?: string[] }) =>
-    state.users.filter((u) => u.active && infoEntryAppliesTo(entry, u.id, state.groups))
+    state.users.filter(
+      (u) => u.active && userMayModule(state.settings, u, 'info') && infoEntryAppliesTo(entry, u.id, state.groups),
+    )
 
   const groupNames = (ids?: string[]) =>
     ids?.length ? ids.map((id) => state.groups.find((g) => g.id === id)?.name ?? '—').join(', ') : t('info.allGroups')

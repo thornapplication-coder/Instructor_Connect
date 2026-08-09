@@ -135,6 +135,10 @@ export type PermKey = 'grading_create' | 'grading_view_all' | 'info_manage' | 'l
 
 export const PERM_KEYS: PermKey[] = ['grading_create', 'grading_view_all', 'info_manage', 'lessons_manage', 'contacts_manage']
 
+/** Module der App — steuert Kacheln UND Routen, damit ein gesperrtes Modul
+ *  nicht über die Adresszeile erreichbar bleibt. */
+export type ModuleKey = 'grading' | 'lessons' | 'chat' | 'info' | 'feedback' | 'contacts'
+
 /** Rollen, deren Rechte der Superadmin konfiguriert (er selbst darf immer alles) */
 export type ConfigurableRole = 'group_admin' | 'training_admin'
 
@@ -191,8 +195,10 @@ export interface AppState {
   starredInfo: Record<string, string[]>
   /** Lese-Bestätigungen: Eintrag-ID -> Nutzer-ID -> Zeitstempel */
   infoAcks: Record<string, Record<string, number>>
-  /** laufender Code-Login: an diese E-Mail wurde ein Code „gesendet“ */
-  pendingLogin: { email: string; code: string; expiresAt: number } | null
+  /** laufender Code-Login: an diese E-Mail wurde ein Code „gesendet“.
+   *  attempts begrenzt das Durchprobieren — nach fünf Fehlversuchen ist der
+   *  Code verbraucht und muss neu angefordert werden. */
+  pendingLogin: { email: string; code: string; expiresAt: number; attempts: number } | null
 }
 
 

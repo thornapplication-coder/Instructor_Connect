@@ -17,16 +17,31 @@ import { Login } from './pages/Login'
 import { WhoToCall } from './pages/WhoToCall'
 import { useRoute } from './router'
 import { StoreProvider, useStore } from './store'
+import type { ModuleKey } from './types'
 
 function Screen() {
   const route = useRoute()
-  const { currentUser } = useStore()
+  const { currentUser, moduleAllowed } = useStore()
 
   // Impressum und Gerätevorschau sind auch ohne Anmeldung erreichbar.
   if (route === '/imprint') return <Imprint />
   if (route === '/device') return <DevicePreview />
 
   if (!currentUser) return <Login />
+
+  // Ein gesperrtes Modul darf auch über die Adresszeile nicht aufgehen —
+  // die Kachel auszublenden reicht nicht.
+  const moduleOfRoute = (r: string): ModuleKey | null => {
+    if (r.startsWith('/chat')) return 'chat'
+    if (r.startsWith('/grading')) return 'grading'
+    if (r.startsWith('/lessons')) return 'lessons'
+    if (r.startsWith('/info')) return 'info'
+    if (r.startsWith('/feedback')) return 'feedback'
+    if (r.startsWith('/contacts')) return 'contacts'
+    return null
+  }
+  const blocked = moduleOfRoute(route)
+  if (blocked && !moduleAllowed(blocked)) return <Home />
 
   const chatMatch = route.match(/^\/chat\/([^/]+)(\/info)?$/)
   let page

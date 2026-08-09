@@ -49,7 +49,7 @@ function StringListEditor({ label, values, onChange }: { label: string; values: 
 
 function UsersTab() {
   const { t } = useTranslation()
-  const { state, updateUser, deleteUser, addUser, setGroupMembers } = useStore()
+  const { state, updateUser, addUser, setGroupMembers } = useStore()
   const [showNew, setShowNew] = useState(false)
   // Bei rund 130 Instruktoren ist die Liste kompakt und aufklappbar:
   // sichtbar bleiben Name, E-Mail und Rolle — Details erst auf Klick.
@@ -62,6 +62,8 @@ function UsersTab() {
   // Sortierung: alphabetisch nach Name oder nach Funktion (Superadmin zuerst)
   const [sortMode, setSortMode] = useState<'name' | 'role'>('name')
   const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'member' as Role, groupIds: [] as string[] })
+  const emailTaken =
+    !!form.email.trim() && state.users.some((u) => u.email.trim().toLowerCase() === form.email.trim().toLowerCase())
 
   const sortedGroups = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
   const ROLE_RANK: Record<Role, number> = { superadmin: 0, group_admin: 1, training_admin: 2, member: 3 }
@@ -118,6 +120,7 @@ function UsersTab() {
           {users.length}/{allUsers.length}
         </span>
       </div>
+      <p className="px-1 text-[12px] leading-relaxed text-dim/80">{t('admin.deactivateHint')}</p>
       {users.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('info.empty')}</p>}
       {users.map((u, i) => (
         <div key={u.id}>
@@ -188,15 +191,15 @@ function UsersTab() {
               />
               {t('admin.chatBlocked')}
             </label>
+            {/* Konten werden deaktiviert, nicht gelöscht — sonst stünde auf
+                unterschriebenen Formularen und in Chats ein Verweis ins
+                Leere, und die Historie verlöre ihren Urheber. */}
             <span className="ml-auto flex gap-2">
-              <button onClick={() => updateUser(u.id, { active: !u.active })} className="text-dim hover:text-ink">
-                {u.active ? t('admin.deactivate') : t('admin.activate')}
-              </button>
               <button
-                onClick={() => window.confirm(t('admin.confirmDeleteUser')) && deleteUser(u.id)}
-                className="text-danger/80 hover:text-danger"
+                onClick={() => updateUser(u.id, { active: !u.active })}
+                className="rounded-lg px-2 py-1 text-dim hover:bg-line/5 hover:text-ink"
               >
-                {t('common.delete')}
+                {u.active ? t('admin.deactivate') : t('admin.activate')}
               </button>
             </span>
           </div>
@@ -256,8 +259,19 @@ function UsersTab() {
             </Field>
             {/* Die E-Mail ist die einzige Anmeldekennung — Pflichtfeld */}
             <Field label={t('contacts.email') + ' *'}>
-              <input type="email" className={inputCls} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('admin.emailLoginHint')}</p>
+              <input
+                type="email"
+                className={`${inputCls} ${emailTaken ? 'border-danger/60' : ''}`}
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+              {/* Die Adresse muss eindeutig bleiben — sonst hätten zwei Konten
+                  denselben Login. Direkt am Feld, nicht erst beim Speichern. */}
+              {emailTaken ? (
+                <p className="mt-1.5 text-[11.5px] leading-relaxed text-danger">{t('admin.emailTaken')}</p>
+              ) : (
+                <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('admin.emailLoginHint')}</p>
+              )}
             </Field>
             <Field label={t('contacts.phone')}>
               <input type="tel" className={inputCls} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
@@ -290,7 +304,9 @@ function UsersTab() {
                 {t('common.cancel')}
               </Button>
               <Button
-                disabled={!form.name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) || form.groupIds.length === 0}
+                disabled={
+                  !form.name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) || form.groupIds.length === 0 || emailTaken
+                }
                 onClick={() => {
                   addUser(form)
                   setShowNew(false)
@@ -360,19 +376,24 @@ function PermissionsTab() {
 
 function GroupsTab() {
   const { t } = useTranslation()
-  const { state, addGroup, renameGroup, deleteGroup, setGroupAdmins, setGroupMembers, setGroupRetention, setGroupAircraft } = useStore()
+  const { state, currentUser, addGroup, renameGroup, deleteGroup, setGroupAdmins, setGroupMembers, setGroupRetention, setGroupAircraft } =
+    useStore()
   const [showNew, setShowNew] = useState(false)
   // aufgeklappte Gruppe (kompakte Liste bei vielen Gruppen)
   const [openId, setOpenId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [purpose, setPurpose] = useState('')
   const [newAircraft, setNewAircraft] = useState('')
+  // Doppelte Gruppennamen wären im Chat nicht auseinanderzuhalten
+  const nameTaken = !!name.trim() && state.groups.some((g) => g.name.trim().toLowerCase() === name.trim().toLowerCase())
 
   // Gruppen nach Muster sortiert: erst je Aircraft Type, dann die
   // musterübergreifenden — die Chat-Themen unterscheiden sich je Typ.
-  const groups = [...state.groups].sort(
-    (a, b) => (a.aircraftType || 'zzz').localeCompare(b.aircraftType || 'zzz') || a.name.localeCompare(b.name),
-  )
+  // Ein Gruppenadmin verwaltet nur die Gruppen, in denen er als Admin
+  // eingetragen ist — fremde Gruppen sind hier weder sicht- noch änderbar.
+  const groups = state.groups
+    .filter((g) => currentUser!.role === 'superadmin' || g.adminIds.includes(currentUser!.id))
+    .sort((a, b) => (a.aircraftType || 'zzz').localeCompare(b.aircraftType || 'zzz') || a.name.localeCompare(b.name))
   const activeUsers = state.users.filter((u) => u.active).sort((a, b) => a.name.localeCompare(b.name))
   const aircraftTypes = [...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b))
   // Zwischenüberschrift, sobald ein neues Muster beginnt
@@ -498,7 +519,13 @@ function GroupsTab() {
         <Modal title={t('admin.addGroup')} onClose={() => setShowNew(false)}>
           <div className="space-y-3.5">
             <Field label={t('admin.groupName')}>
-              <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+              <input
+                className={`${inputCls} ${nameTaken ? 'border-danger/60' : ''}`}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoFocus
+              />
+              {nameTaken && <p className="mt-1.5 text-[11.5px] leading-relaxed text-danger">{t('admin.groupNameTaken')}</p>}
             </Field>
             <Field label={t('admin.purpose')}>
               <input className={inputCls} value={purpose} onChange={(e) => setPurpose(e.target.value)} />
@@ -522,7 +549,7 @@ function GroupsTab() {
                 {t('common.cancel')}
               </Button>
               <Button
-                disabled={!name.trim()}
+                disabled={!name.trim() || nameTaken}
                 onClick={() => {
                   addGroup(name.trim(), purpose.trim(), newAircraft || undefined)
                   setShowNew(false)
@@ -544,12 +571,19 @@ function GroupsTab() {
 /** Eingegangenes Feedback: bleibt gespeichert, kann hier bei Bedarf gelöscht werden */
 function FeedbackTab() {
   const { t } = useTranslation()
-  const { state, deleteFeedback } = useStore()
+  const { state, currentUser, deleteFeedback } = useStore()
   // Filter: Kategorie, Empfänger, nur Dringendes
   const [fCat, setFCat] = useState('')
   const [fRec, setFRec] = useState('')
   const [onlyUrgent, setOnlyUrgent] = useState(false)
-  const all = [...state.feedbackEntries].sort((a, b) => b.createdAt - a.createdAt)
+  // Ein Gruppenadmin sieht nur Rückmeldungen aus seinen eigenen Gruppen —
+  // vorher lag ihm auch das offen, was an HR gerichtet war.
+  const myMemberIds = new Set(
+    state.groups.filter((g) => g.adminIds.includes(currentUser!.id)).flatMap((g) => g.memberIds),
+  )
+  const all = [...state.feedbackEntries]
+    .filter((f) => currentUser!.role === 'superadmin' || myMemberIds.has(f.authorId))
+    .sort((a, b) => b.createdAt - a.createdAt)
   const entries = all.filter((f) => {
     if (fCat && f.category !== fCat) return false
     if (fRec && f.recipient !== fRec) return false

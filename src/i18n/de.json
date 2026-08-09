@@ -17,7 +17,8 @@
     "version": "Version",
     "updateAvailable": "Eine neue Version ist verfügbar",
     "updateNow": "Aktualisieren",
-    "refresh": "App neu laden"
+    "refresh": "App neu laden",
+    "tooLarge": "„{{name}}“ ist {{size}} MB groß — erlaubt sind {{max}} MB."
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -251,7 +252,10 @@
     "atoName": "Organisation (ATO)",
     "approvalNumber": "Genehmigungsnummer",
     "formRevision": "Formularstand",
-    "documentHeaderHint": "Erscheint in Kopf- und Fußzeile jedes ausgedruckten Formulars und jedes PDFs."
+    "documentHeaderHint": "Erscheint in Kopf- und Fußzeile jedes ausgedruckten Formulars und jedes PDFs.",
+    "deactivateHint": "Deaktivierte Nutzer behalten ihre Historie und können sich nicht mehr anmelden. Formulare, Nachrichten und Unterschriften bleiben zuordenbar — deshalb werden Konten nicht gelöscht.",
+    "emailTaken": "Diese E-Mail-Adresse gehört bereits zu einem anderen Nutzer. Sie ist die einzige Anmeldekennung und muss eindeutig bleiben.",
+    "groupNameTaken": "Eine Gruppe mit diesem Namen gibt es bereits."
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",

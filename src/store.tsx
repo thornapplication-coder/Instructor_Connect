@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { isComplete } from './gradingRules'
 import { createSeedState } from './sandbox/seed'
-import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
+import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import type { InfoEntry } from './types'
 
 const EMPTY_SEEN: SeenState = { chat: {}, info: 0, contacts: 0 }
@@ -55,7 +55,6 @@ export interface Store {
   /** Info-Einträge, die der aktuelle Nutzer sehen darf (Gruppen-Sichtbarkeit) */
   visibleInfoEntries: AppState['infoEntries']
   updateUser: (id: string, patch: Partial<User>) => void
-  deleteUser: (id: string) => void
   addGroup: (name: string, purpose: string, aircraftType?: string) => void
   setGroupAircraft: (id: string, aircraftType: string) => void
   renameGroup: (id: string, name: string) => void
@@ -80,6 +79,8 @@ export interface Store {
   deleteLessonPlan: (id: string) => void
   /** Rechte-Matrix: darf der aktuelle Nutzer diese Fähigkeit nutzen? */
   can: (key: PermKey) => boolean
+  /** Darf der aktuelle Nutzer dieses Modul betreten? (Kachel und Route) */
+  moduleAllowed: (module: ModuleKey) => boolean
   setPermission: (role: ConfigurableRole, key: PermKey, value: boolean) => void
   /** Code-Login: Code an die E-Mail „senden“ bzw. prüfen */
   requestLoginCode: (email: string) => boolean
@@ -325,6 +326,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const seenOf = (s: AppState) => (s.currentUserId && s.seen[s.currentUserId]) || EMPTY_SEEN
 
+    /** Der Handelnde im Moment der Änderung — Rechte werden an der Aktion
+     *  geprüft, nicht nur beim Rendern der Oberfläche. */
+    const actorOf = (s: AppState) => s.users.find((u) => u.id === s.currentUserId) ?? null
+    const isSuper = (s: AppState) => actorOf(s)?.role === 'superadmin'
+    /** Darf der Handelnde diese Gruppe verwalten? Superadmin überall,
+     *  Gruppenadmin nur dort, wo er als Admin eingetragen ist. */
+    const maySeeGroup = (s: AppState, groupId: string) => {
+      const actor = actorOf(s)
+      if (!actor) return false
+      if (actor.role === 'superadmin') return true
+      return s.groups.find((g) => g.id === groupId)?.adminIds.includes(actor.id) ?? false
+    }
+    /** E-Mail ist die einzige Anmeldekennung und muss eindeutig bleiben. */
+    const emailTaken = (s: AppState, email: string, exceptId?: string) =>
+      s.users.some((u) => u.id !== exceptId && u.email.trim().toLowerCase() === email.trim().toLowerCase())
+    /** Gruppen eines Nutzers — für die Pflicht „mindestens eine Gruppe" */
+    const groupsOf = (s: AppState, userId: string) => s.groups.filter((g) => g.memberIds.includes(userId))
+
     return {
       state,
       now,
@@ -369,6 +388,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // Anmeldung ausschließlich per E-Mail — die Adressen legt der
         // Admin/Superadmin im Admin Panel an
         const needle = identifier.trim().toLowerCase()
+        const domains = state.settings.allowedDomains
+        if (domains.length > 0 && !domains.some((d) => needle.endsWith(`@${d.toLowerCase()}`))) return false
         const user = state.users.find((u) => u.active && u.email.toLowerCase() === needle)
         if (!user) return false
         persistUser(user.id)
@@ -380,14 +401,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       requestLoginCode: (email) => {
         const needle = email.trim().toLowerCase()
         const user = state.users.find((u) => u.active && u.email.toLowerCase() === needle)
+        // Die erlaubten Domains aus den Einstellungen gelten hier tatsächlich —
+        // vorher war die Liste im Admin-Panel ohne jede Wirkung.
+        const domains = state.settings.allowedDomains
+        if (domains.length > 0 && !domains.some((d) => needle.endsWith(`@${d.toLowerCase()}`))) return false
         if (!user) return false
         const code = String(Math.floor(100000 + Math.random() * 900000))
-        patch(() => ({ pendingLogin: { email: user.email, code, expiresAt: endOfDay() } }))
+        patch(() => ({ pendingLogin: { email: user.email, code, expiresAt: endOfDay(), attempts: 0 } }))
         return true
       },
       verifyLoginCode: (code) => {
         const pending = state.pendingLogin
-        if (!pending || pending.expiresAt < Date.now() || pending.code !== code.trim()) return false
+        if (!pending || pending.expiresAt < Date.now()) return false
+        if (pending.code !== code.trim()) {
+          // Fehlversuche zählen; nach fünf ist der Code verbraucht, damit sich
+          // sechsstellige Codes nicht durchprobieren lassen.
+          patch((s) =>
+            s.pendingLogin
+              ? { pendingLogin: s.pendingLogin.attempts + 1 >= 5 ? null : { ...s.pendingLogin, attempts: s.pendingLogin.attempts + 1 } }
+              : null,
+          )
+          return false
+        }
         const user = state.users.find((u) => u.active && u.email === pending.email)
         if (!user) return false
         persistUser(user.id)
@@ -395,6 +430,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return true
       },
       can: (key) => userHasPerm(state.settings, currentUser, key),
+      moduleAllowed: (module) => userMayModule(state.settings, currentUser, module),
       setPermission: (role, key, value) =>
         patch((s) => ({
           settings: {
@@ -420,6 +456,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         patch((s) => {
           // Chat-Sperre greift auch hier, nicht nur in der Oberfläche
           if (s.users.find((u) => u.id === s.currentUserId)?.chatBlocked) return null
+          // Nur Mitglieder der Gruppe dürfen darin schreiben.
+          if (!s.groups.find((g) => g.id === groupId)?.memberIds.includes(s.currentUserId ?? '')) return null
+          // Das Upload-Limit aus den Einstellungen gilt auch für Anhänge.
+          if (attachment && attachment.sizeMB > s.settings.maxUploadMB) return null
           return {
             messages: [
               ...s.messages,
@@ -427,7 +467,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ],
           }
         }),
-      deleteMessage: (id) => patch((s) => ({ messages: s.messages.filter((m) => m.id !== id) })),
+      deleteMessage: (id) =>
+        patch((s) => {
+          const msg = s.messages.find((m) => m.id === id)
+          const actor = actorOf(s)
+          if (!msg || !actor) return null
+          // Löschen darf der Autor, der Admin der Gruppe und der Superadmin —
+          // bisher konnte ein Gruppenadmin in seiner eigenen Gruppe nichts
+          // entfernen.
+          const isGroupAdmin = s.groups.find((g) => g.id === msg.groupId)?.adminIds.includes(actor.id) ?? false
+          if (msg.authorId !== actor.id && !isGroupAdmin && actor.role !== 'superadmin') return null
+          return { messages: s.messages.filter((m) => m.id !== id) }
+        }),
 
       createPoll: (groupId, question, type, options, validUntil) =>
         patch((s) => {
@@ -454,9 +505,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toggleMute: (groupId) =>
         patch((s) => ({ groups: s.groups.map((g) => (g.id === groupId ? { ...g, muted: !g.muted } : g)) })),
       setGroupRetention: (groupId, retention) =>
-        patch((s) => ({ groups: s.groups.map((g) => (g.id === groupId ? { ...g, retention } : g)) })),
+        patch((s) =>
+          maySeeGroup(s, groupId) ? { groups: s.groups.map((g) => (g.id === groupId ? { ...g, retention } : g)) } : null,
+        ),
       setGroupMembers: (groupId, memberIds) =>
-        patch((s) => ({ groups: s.groups.map((g) => (g.id === groupId ? { ...g, memberIds } : g)) })),
+        patch((s) => {
+          if (!maySeeGroup(s, groupId)) return null
+          const group = s.groups.find((g) => g.id === groupId)
+          if (!group) return null
+          // „Mindestens eine Gruppe" gilt auch hier: wer sonst nirgends
+          // Mitglied ist, kann nicht aus seiner letzten Gruppe fallen.
+          const dropped = group.memberIds.filter((m) => !memberIds.includes(m))
+          if (dropped.some((m) => groupsOf(s, m).length <= 1)) return null
+          return {
+            groups: s.groups.map((g) =>
+              g.id === groupId
+                ? // Wer die Gruppe verlässt, verliert auch seine Adminrechte
+                  // darin — sonst verwaltet ein Außenstehender weiter mit.
+                  { ...g, memberIds, adminIds: g.adminIds.filter((a) => memberIds.includes(a)) }
+                : g,
+            ),
+          }
+        }),
 
       addInfoEntry: (entry) =>
         patch((s) => ({
@@ -513,6 +583,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // Invarianten auch im Store: ohne Gruppe und ohne E-Mail kein
           // neuer Nutzer — die E-Mail ist die einzige Anmeldekennung
           if (groupIds.length === 0 || !user.email.trim()) return null
+          // Doppelte Adresse hieße: zwei Konten, ein Login — der zweite
+          // Nutzer könnte die Identität des ersten übernehmen.
+          if (emailTaken(s, user.email)) return null
           const id = uid('u')
           return {
             users: [...s.users, { ...user, id, canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: [], active: true }],
@@ -522,24 +595,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
       updateUser: (id, p) =>
         patch((s) => {
+          const target = s.users.find((u) => u.id === id)
+          if (!target) return null
           // Die Rolle vergibt ausschließlich der Superadmin. Sonst könnte sich
           // ein group_admin über eine offen gebliebene Ansicht selbst befördern.
-          const actor = s.users.find((u) => u.id === s.currentUserId)
-          const safe = actor?.role === 'superadmin' ? p : { ...p, role: undefined }
-          return { users: s.users.map((u) => (u.id === id ? { ...u, ...safe, role: safe.role ?? u.role } : u)) }
+          const safe: Partial<User> = isSuper(s) ? { ...p } : { ...p, role: undefined }
+          // E-Mail bleibt eindeutig — sie ist die einzige Anmeldekennung.
+          if (safe.email !== undefined && (!safe.email.trim() || emailTaken(s, safe.email, id))) delete safe.email
+          // Die Organisation braucht immer mindestens einen Superadmin.
+          const lastSuper =
+            target.role === 'superadmin' && s.users.filter((u) => u.role === 'superadmin' && u.active).length <= 1
+          if (lastSuper && (safe.role !== undefined && safe.role !== 'superadmin')) delete safe.role
+          if (lastSuper && safe.active === false) delete safe.active
+          // Sich selbst stillzulegen sperrt einen aus der laufenden Sitzung aus.
+          if (id === s.currentUserId && safe.active === false) delete safe.active
+          const users = s.users.map((u) => (u.id === id ? { ...u, ...safe } : u))
+          // Wer deaktiviert wird, verliert seine Sitzung — in der Sandbox ist
+          // das die aktuell angemeldete Identität.
+          if (safe.active === false && s.currentUserId === id) {
+            persistUser(null)
+            return { users, currentUserId: null }
+          }
+          return { users }
         }),
-      deleteUser: (id) =>
-        patch((s) => ({
-          users: s.users.filter((u) => u.id !== id),
-          groups: s.groups.map((g) => ({
-            ...g,
-            memberIds: g.memberIds.filter((m) => m !== id),
-            adminIds: g.adminIds.filter((m) => m !== id),
-          })),
-        })),
 
       addGroup: (name, purpose, aircraftType) =>
         patch((s) => {
+          // Leere oder doppelte Namen wären im Chat nicht unterscheidbar.
+          if (!name.trim() || s.groups.some((g) => g.name.trim().toLowerCase() === name.trim().toLowerCase())) return null
           // Wer die Gruppe anlegt (Admin/Superadmin), verwaltet sie auch
           // und ist sofort Mitglied.
           const creator = s.currentUserId ? [s.currentUserId] : []
@@ -551,11 +634,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }),
       setGroupAircraft: (id, aircraftType) =>
-        patch((s) => ({ groups: s.groups.map((g) => (g.id === id ? { ...g, aircraftType } : g)) })),
+        patch((s) => (maySeeGroup(s, id) ? { groups: s.groups.map((g) => (g.id === id ? { ...g, aircraftType } : g)) } : null)),
       renameGroup: (id, name) =>
-        patch((s) => ({ groups: s.groups.map((g) => (g.id === id ? { ...g, name } : g)) })),
+        patch((s) => {
+          if (!maySeeGroup(s, id) || !name.trim()) return null
+          // Doppelte Gruppennamen sind im Chat nicht auseinanderzuhalten.
+          if (s.groups.some((g) => g.id !== id && g.name.trim().toLowerCase() === name.trim().toLowerCase())) return null
+          return { groups: s.groups.map((g) => (g.id === id ? { ...g, name: name.trim() } : g)) }
+        }),
       deleteGroup: (id) =>
-        patch((s) => ({
+        patch((s) => {
+          if (!maySeeGroup(s, id)) return null
+          // Niemand darf ohne Gruppe zurückbleiben — sonst verliert er
+          // Chat-Zugang und Instructor-Info-Sichtbarkeit.
+          const orphan = s.groups.find((g) => g.id === id)?.memberIds.some((m) => groupsOf(s, m).length <= 1)
+          if (orphan) return null
+          return {
           groups: s.groups.filter((g) => g.id !== id),
           messages: s.messages.filter((m) => m.groupId !== id),
           polls: s.polls.filter((p) => p.groupId !== id),
@@ -564,11 +658,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           infoEntries: s.infoEntries.map((e) =>
             e.groupIds?.includes(id) ? { ...e, groupIds: e.groupIds.filter((g) => g !== id) } : e,
           ),
-        })),
+          }
+        }),
       setGroupAdmins: (id, adminIds) =>
-        patch((s) => ({ groups: s.groups.map((g) => (g.id === id ? { ...g, adminIds } : g)) })),
+        patch((s) =>
+          maySeeGroup(s, id)
+            ? // Adminrechte nur für Mitglieder der Gruppe — wer nicht drin ist,
+              // kann sie auch nicht verwalten.
+              { groups: s.groups.map((g) => (g.id === id ? { ...g, adminIds: adminIds.filter((a) => g.memberIds.includes(a)) } : g)) }
+            : null,
+        ),
 
-      updateSettings: (p) => patch((s) => ({ settings: { ...s.settings, ...p } })),
+      updateSettings: (p) =>
+        patch((s) => {
+          const next = { ...p }
+          // Ein Muster, das noch an Gruppen, Nutzern, Lesson Plans oder
+          // Formularen hängt, darf nicht verschwinden — sonst zeigen diese
+          // Verweise ins Leere.
+          if (next.aircraftTypes) {
+            const removed = s.settings.aircraftTypes.filter((a) => !next.aircraftTypes!.includes(a))
+            const stillUsed = removed.filter(
+              (a) =>
+                s.groups.some((g) => g.aircraftType === a) ||
+                s.users.some((u) => u.aircraftTypes.includes(a)) ||
+                s.lessonPlans.some((l) => l.aircraftType === a) ||
+                s.gradingRecords.some((r) => r.header.aircraftType === a) ||
+                s.infoEntries.some((e) => e.aircraftType === a),
+            )
+            if (stillUsed.length > 0) next.aircraftTypes = [...next.aircraftTypes!, ...stillUsed]
+          }
+          return { settings: { ...s.settings, ...next } }
+        }),
 
       visibleGradingRecords,
       // Objektbezogene Berechtigung: eigenes Formular oder Vollzugriff.
@@ -609,7 +729,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             r.id === id ? { ...r, mailStatus: 'sent' as const, mailError: undefined } : r,
           ),
         })),
-      updateGrading: (p) => patch((s) => ({ settings: { ...s.settings, grading: { ...s.settings.grading, ...p } } })),
+      updateGrading: (p) =>
+        patch((s) => {
+          const next = { ...p }
+          // Ein Formulartyp, zu dem es Datensätze gibt, bleibt im Katalog —
+          // sonst verliert ein unterschriebenes Dokument seine Struktur.
+          if (next.formTypes) {
+            const removed = s.settings.grading.formTypes.filter((f) => !next.formTypes!.some((n) => n.id === f.id))
+            const stillUsed = removed.filter((f) => s.gradingRecords.some((r) => r.formTypeId === f.id))
+            if (stillUsed.length > 0) next.formTypes = [...next.formTypes!, ...stillUsed]
+          }
+          return { settings: { ...s.settings, grading: { ...s.settings.grading, ...next } } }
+        }),
 
       visibleLessonPlans,
       addLessonPlan: (plan) =>
@@ -640,6 +771,22 @@ export function isAdminUser(user: { role: Role } | null | undefined): boolean {
  * Flags am Nutzer gesteuert (canGrade, canEditDirectory); Admin und
  * Training Admin folgen der im Superadmin-Panel gepflegten Matrix.
  */
+/**
+ * Darf dieser Nutzer das Modul überhaupt betreten? Der Training Admin ist auf
+ * die Formularablage begrenzt; weitere Module öffnen sich nur, wenn die
+ * Rechte-Matrix sie ihm freischaltet. Alle anderen Rollen sehen alles —
+ * die Feinsteuerung passiert innerhalb der Module.
+ */
+export function userMayModule(settings: Settings, user: User | null | undefined, module: ModuleKey): boolean {
+  if (!user) return false
+  if (module === 'grading') return userHasPerm(settings, user, 'grading_create') || userHasPerm(settings, user, 'grading_view_all')
+  if (user.role !== 'training_admin') return true
+  if (module === 'info') return userHasPerm(settings, user, 'info_manage')
+  if (module === 'lessons') return userHasPerm(settings, user, 'lessons_manage')
+  if (module === 'contacts') return userHasPerm(settings, user, 'contacts_manage')
+  return false
+}
+
 export function userHasPerm(settings: Settings, user: User | null | undefined, key: PermKey): boolean {
   if (!user) return false
   if (user.role === 'superadmin') return true

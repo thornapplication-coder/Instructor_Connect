@@ -23,11 +23,13 @@ export function Feedback() {
 
   const pickFile = (file: File | null) => {
     if (!file) return
-    setAttachment({
-      name: file.name,
-      kind: file.type.startsWith('image/') ? 'image' : 'file',
-      sizeMB: Math.round((file.size / 1024 / 1024) * 10) / 10,
-    })
+    const sizeMB = Math.round((file.size / 1024 / 1024) * 10) / 10
+    // Das Limit aus den Einstellungen galt bisher nur als Beschriftung.
+    if (sizeMB > state.settings.maxUploadMB) {
+      window.alert(t('common.tooLarge', { name: file.name, size: sizeMB, max: state.settings.maxUploadMB }))
+      return
+    }
+    setAttachment({ name: file.name, kind: file.type.startsWith('image/') ? 'image' : 'file', sizeMB })
   }
 
   const submit = () => {
