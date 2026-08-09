@@ -104,23 +104,28 @@ export function Grading() {
       <Page className="space-y-3">
         {!mayGrade && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.noPermission')}</p>}
 
-        {/* Ampel-Legende — antippen filtert die Liste */}
-        <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-line/10 bg-surface/60 px-2.5 py-2 text-[11.5px] text-dim">
+        {/* Ampel-Legende — antippen filtert die Liste. Mobil sauber
+            untereinander, ab Tablet als symmetrisches 2×2-Raster. */}
+        <div className="flex flex-col gap-0.5 rounded-xl border border-line/10 bg-surface/60 p-1.5 text-[12px] text-dim sm:grid sm:grid-cols-2 sm:gap-1">
           <button
             onClick={() => setTrafficFilter('')}
-            className={`rounded-full border px-2.5 py-1 transition ${trafficFilter === '' ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-transparent'}`}
+            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition ${
+              trafficFilter === '' ? 'bg-accent/15 font-semibold text-accent' : 'hover:bg-line/5'
+            }`}
           >
+            <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-line/40" />
             {t('grading.traffic.all')}
           </button>
           {(['green', 'yellow', 'red'] as TrafficColor[]).map((c) => (
             <button
               key={c}
               onClick={() => setTrafficFilter(trafficFilter === c ? '' : c)}
-              className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition ${
-                trafficFilter === c ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-transparent'
+              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition ${
+                trafficFilter === c ? 'bg-accent/15 font-semibold text-accent' : 'hover:bg-line/5'
               }`}
             >
-              <TrafficDot color={c} /> {t(`grading.traffic.${c}`)}
+              <TrafficDot color={c} />
+              {t(`grading.traffic.${c}`)}
             </button>
           ))}
         </div>
