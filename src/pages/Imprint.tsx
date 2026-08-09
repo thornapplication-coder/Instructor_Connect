@@ -1,5 +1,4 @@
 import { useTranslation } from 'react-i18next'
-import { LogoFull } from '../components/Logo'
 import { Card, Page, TopBar } from '../components/ui'
 import { useStore } from '../store'
 import { APP_VERSION } from '../types'
@@ -81,8 +80,6 @@ export function Imprint() {
           ),
         )}
         <p className="pt-2 text-center text-[12px] text-dim/80">{t('imprint.stand', { version: APP_VERSION })}</p>
-        {/* Wort-Bild-Marke als Abschluss der Seite */}
-        <LogoFull size={52} className="pt-4 opacity-90" />
       </Page>
     </>
   )
