@@ -1,7 +1,8 @@
-import { BookOpenCheck, LogOut, MessageSquareText, MessagesSquare, Phone, GraduationCap, ShieldCheck, Share } from 'lucide-react'
+import { BookOpenCheck, LogOut, MessageSquareText, MessagesSquare, Phone, Plane, GraduationCap, RefreshCw, ShieldCheck, Share } from 'lucide-react'
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
-import { Avatar, NewDot, ThemeToggle } from '../components/ui'
+import { Avatar, Modal, NewDot, ThemeToggle } from '../components/ui'
 import { navigate } from '../router'
 import { useStore } from '../store'
 import { useIsDesktop } from '../useIsDesktop'
@@ -22,6 +23,13 @@ export function Home() {
   const { t, i18n } = useTranslation()
   const { state, currentUser, logout, unreadGroups, hasNewInfo, visibleGradingRecords } = useStore()
   const isDesktop = useIsDesktop()
+  const [showInstall, setShowInstall] = useState(false)
+  // Öffnet das iOS-Share-Sheet (dort: „Zum Home-Bildschirm") — sonst Anleitung
+  const openInstall = () => {
+    const nav = navigator as Navigator & { share?: (data: { title: string; url: string }) => Promise<void> }
+    if (nav.share) nav.share({ title: 'Instructor Connect', url: window.location.href.split('#')[0] }).catch(() => setShowInstall(true))
+    else setShowInstall(true)
+  }
   // Der Punkt auf der Grading-Kachel spiegelt die Ampel des Grading-Moduls:
   // rot vor gelb vor grün — kein Formular vorhanden = kein Punkt. Fehlende
   // Pflicht-Folgeformulare zählen als gelb.
@@ -45,6 +53,9 @@ export function Home() {
     '/contacts': false, // bewusst ohne Punkt
   }
 
+  // Training Admin: reiner Formular-Zugriff — nur die Grading-Kachel
+  const tiles = currentUser!.role === 'training_admin' ? TILES.filter((tl) => tl.to === '/grading') : TILES
+
   return (
     <div className="flex flex-1 flex-col">
       <header className="mx-auto flex w-full max-w-3xl items-center justify-between px-5 pt-6">
@@ -56,6 +67,15 @@ export function Home() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
+          {/* App neu laden — bleibt dank Hash-Routing auf der aktuellen Seite */}
+          <button
+            onClick={() => window.location.reload()}
+            aria-label={t('common.refresh')}
+            title={t('common.refresh')}
+            className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-ink"
+          >
+            <RefreshCw size={17} />
+          </button>
           <ThemeToggle />
           <div className="flex overflow-hidden rounded-lg border border-line/15 text-[11px]">
             {(['de', 'en'] as const).map((lng) => (
@@ -78,14 +98,21 @@ export function Home() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8">
-        <h1 className="mb-1 text-2xl font-bold tracking-tight">
-          Instructor <span className="text-accent">Connect</span>
-        </h1>
-        <p className="mb-6 text-sm text-dim">{t('home.subtitle')}</p>
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 md:max-w-4xl">
+        <div className="mb-1 flex items-center gap-3">
+          {/* Flugzeug-Icon wie am Login — die Bildmarke der App */}
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised shadow-tile">
+            <Plane size={21} className="text-accent" />
+          </span>
+          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+            Instructor <span className="text-accent">Connect</span>
+          </h1>
+        </div>
+        <p className="mb-6 text-sm text-dim md:mb-8">{t('home.subtitle')}</p>
 
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
-          {TILES.map(({ to, label, icon: Icon }) => (
+        {/* 2 Spalten am Handy, 3 ab Tablet — große, gut greifbare Kacheln */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5">
+          {tiles.map(({ to, label, icon: Icon }) => (
             <button
               key={to}
               onClick={() => navigate(to)}
@@ -99,10 +126,11 @@ export function Home() {
               ) : (
                 hasNews[to] && <NewDot className="right-3.5 top-3.5" />
               )}
-              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg">
-                <Icon size={28} />
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg sm:h-16 sm:w-16">
+                <Icon size={28} className="sm:hidden" />
+                <Icon size={32} className="hidden sm:block" />
               </span>
-              <span className="px-2 text-center text-[14px] font-semibold leading-tight">{label}</span>
+              <span className="px-2 text-center text-[14px] font-semibold leading-tight sm:text-[15px]">{label}</span>
             </button>
           ))}
         </div>
@@ -117,9 +145,23 @@ export function Home() {
           </button>
         )}
 
-        <p className="mx-auto mt-6 flex max-w-xs items-center gap-2 text-center text-[11px] leading-snug text-dim/70">
+        {/* Antippen öffnet das Share-Sheet (iOS: „Zum Home-Bildschirm") */}
+        <button
+          onClick={openInstall}
+          className="mx-auto mt-6 flex max-w-xs items-center gap-2 text-center text-[11px] leading-snug text-dim/70 underline-offset-2 transition hover:text-ink hover:underline md:mt-8"
+        >
           <Share size={13} className="shrink-0" /> {t('home.installHint')}
-        </p>
+        </button>
+
+        {showInstall && (
+          <Modal title={t('home.installTitle')} onClose={() => setShowInstall(false)}>
+            <ol className="list-decimal space-y-2 pl-5 text-[13.5px] leading-relaxed">
+              <li>{t('home.installStep1')}</li>
+              <li>{t('home.installStep2')}</li>
+              <li>{t('home.installStep3')}</li>
+            </ol>
+          </Modal>
+        )}
       </main>
 
       <footer className="space-y-2 pb-4 text-center">

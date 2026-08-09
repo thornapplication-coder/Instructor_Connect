@@ -80,7 +80,7 @@ function UsersTab() {
               onChange={(e) => updateUser(u.id, { role: e.target.value as Role })}
               className="rounded-lg border border-line/10 bg-bg/60 px-2 py-1.5"
             >
-              {(['member', 'group_admin', 'superadmin'] as Role[]).map((r) => (
+              {(['member', 'training_admin', 'group_admin', 'superadmin'] as Role[]).map((r) => (
                 <option key={r} value={r}>
                   {t(`roles.${r}`)}
                 </option>
@@ -197,7 +197,7 @@ function UsersTab() {
                 onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
                 className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
               >
-                {(['member', 'group_admin', 'superadmin'] as Role[]).map((r) => (
+                {(['member', 'training_admin', 'group_admin', 'superadmin'] as Role[]).map((r) => (
                   <option key={r} value={r}>
                     {t(`roles.${r}`)}
                   </option>

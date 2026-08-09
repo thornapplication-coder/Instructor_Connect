@@ -16,12 +16,14 @@
     "imprint": "Impressum",
     "version": "Version",
     "updateAvailable": "Eine neue Version ist verfügbar",
-    "updateNow": "Aktualisieren"
+    "updateNow": "Aktualisieren",
+    "refresh": "App neu laden"
   },
   "roles": {
     "superadmin": "Superadmin",
     "group_admin": "Admin",
-    "member": "Mitglied"
+    "member": "Mitglied",
+    "training_admin": "Training Admin"
   },
   "retention": {
     "24h": "24 Stunden",
@@ -35,7 +37,7 @@
     "welcome": "Willkommen bei",
     "subtitle": "Die interne Kommunikations-App für Instruktoren.",
     "identifier": "E-Mail-Adresse",
-    "placeholder": "name@aviationacademy.at",
+    "placeholder": "firstname.lastname@aviationacademy.at",
     "button": "Anmelden",
     "otpHint": "Du erhältst einen Anmeldelink per E-Mail.",
     "error": "Kein Konto für diese E-Mail-Adresse gefunden. Konten werden vom Admin bzw. Superadmin angelegt.",
@@ -47,7 +49,11 @@
     "hello": "Hallo, {{name}}",
     "subtitle": "Was möchtest du öffnen?",
     "admin": "Admin Panel",
-    "installHint": "iPhone/iPad: App zum Home-Bildschirm hinzufügen, um Benachrichtigungen zu erhalten."
+    "installHint": "iPhone/iPad: App zum Home-Bildschirm hinzufügen, um Benachrichtigungen zu erhalten.",
+    "installTitle": "Zum Home-Bildschirm hinzufügen",
+    "installStep1": "App in Safari öffnen und auf das Teilen-Symbol tippen.",
+    "installStep2": "„Zum Home-Bildschirm“ auswählen.",
+    "installStep3": "Mit „Hinzufügen“ bestätigen — die App öffnet dann im Vollbild und kann Benachrichtigungen erhalten."
   },
   "chat": {
     "title": "Chat",
@@ -75,7 +81,10 @@
     "muted": "Benachrichtigungen stumm",
     "today": "Heute",
     "you": "Du",
-    "blockedNote": "Du wurdest von einem Admin für das Senden im Chat gesperrt. Mitlesen ist weiterhin möglich. Bitte wende dich an den Admin."
+    "blockedNote": "Du wurdest von einem Admin für das Senden im Chat gesperrt. Mitlesen ist weiterhin möglich. Bitte wende dich an den Admin.",
+    "pollValidUntil": "Gültig bis",
+    "pollValidUntilUtc": "Gültig bis (UTC)",
+    "pollValidHint": "Datum und Uhrzeit gelten in UTC. Danach schließt die Umfrage automatisch."
   },
   "chatInfo": {
     "title": "Chat-Info",
@@ -323,7 +332,10 @@
       "newFormHint": "Neue Formulartypen erhalten die Standard-Kopffelder (Aircraft Type, Date, Event, Training Device, Flight Times). Bestehende Formulare behalten ihre Daten, wenn ein Typ gelöscht wird.",
       "deleteFormTypeConfirm": "Diesen Formulartyp löschen? Er verschwindet aus der Auswahl für neue Formulare; bestehende Formulare behalten ihre Daten.",
       "openFollowUps": "Offene Folgeformulare",
-      "followUpMissing": "Pflicht-Folgeformular ausständig: {{forms}}"
+      "followUpMissing": "Pflicht-Folgeformular ausständig: {{forms}}",
+      "allTrainees": "Alle Trainees",
+      "allInstructors": "Alle Instruktoren",
+      "allAircraft": "Alle Aircraft Types"
     },
     "attendance": "Teilnehmerliste",
     "studentName": "Name des Teilnehmers",
@@ -370,7 +382,11 @@
     "fillNow": "{{form}} jetzt ausfüllen",
     "mailAttachment": "The originating grading sheet ({{form}}) is automatically attached to the email dispatch of this form.",
     "openParent": "Grading Sheet öffnen",
-    "downloadPdf": "Als PDF herunterladen"
+    "downloadPdf": "Als PDF herunterladen",
+    "printHintBody": "Um dieses Formular als PDF zu sichern, unten antippen und im Dialog „Als PDF sichern“ oder einen Drucker wählen.",
+    "printNow": "Drucken / als PDF sichern",
+    "printShareFallback": "Falls sich kein Dialog öffnet: das Teilen-Menü des Browsers öffnen und dort „Drucken“ wählen.",
+    "trainingAdminNote": "Training-Admin-Zugriff: Du kannst alle ausgefüllten und offenen Formulare ansehen und herunterladen. Anlegen oder Entfernen ist nicht möglich."
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

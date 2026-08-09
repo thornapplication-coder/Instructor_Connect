@@ -60,6 +60,13 @@ function MessageBubble({ msg, isOwn, authorName, bold, canDelete, onDelete, lng 
   )
 }
 
+/** Ablaufzeitpunkt einheitlich als UTC anzeigen: DD.MM.YYYY HH:MM UTC */
+function formatUtc(ts: number): string {
+  const d = new Date(ts)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getUTCDate())}.${p(d.getUTCMonth() + 1)}.${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`
+}
+
 function PollCard({ poll }: { poll: Poll }) {
   const { t } = useTranslation()
   const { state, currentUser, vote, closePoll } = useStore()
@@ -68,7 +75,10 @@ function PollCard({ poll }: { poll: Poll }) {
   const options = poll.type === 'yesno' ? [t('common.yes'), t('common.no')] : poll.options
   const totalVotes = Object.keys(poll.votes).length
   const myVote = poll.votes[currentUser!.id]
-  const mayClose = !poll.closed && (poll.authorId === currentUser!.id || isGroupAdmin(currentUser, group))
+  // Abgelaufene Umfragen sind automatisch geschlossen
+  const expired = !!poll.validUntil && poll.validUntil <= Date.now() + state.timeOffsetMs
+  const closed = poll.closed || expired
+  const mayClose = !closed && (poll.authorId === currentUser!.id || isGroupAdmin(currentUser, group))
 
   return (
     <div className="mx-auto w-full max-w-md rounded-2xl border border-accent/20 bg-surface p-4 shadow-soft">
@@ -77,11 +87,16 @@ function PollCard({ poll }: { poll: Poll }) {
         <span>
           {t('chat.poll')} · {author?.name}
         </span>
-        {poll.closed && (
+        {closed && (
           <span className="ml-auto rounded-full bg-line/10 px-2 py-0.5 text-[10.5px] font-medium">{t('chat.closed')}</span>
         )}
       </div>
-      <p className="mb-3 text-[15px] font-semibold leading-snug">{poll.question}</p>
+      <p className="mb-1 text-[15px] font-semibold leading-snug">{poll.question}</p>
+      {poll.validUntil && (
+        <p className={`mb-3 text-[11.5px] ${expired ? 'text-danger' : 'text-dim'}`}>
+          {t('chat.pollValidUntil')}: {formatUtc(poll.validUntil)}
+        </p>
+      )}
       <div className="space-y-2">
         {options.map((opt, i) => {
           const count = Object.values(poll.votes).filter((v) => v === i).length
@@ -90,11 +105,11 @@ function PollCard({ poll }: { poll: Poll }) {
           return (
             <button
               key={i}
-              disabled={poll.closed}
+              disabled={closed}
               onClick={() => vote(poll.id, i)}
               className={`relative block w-full overflow-hidden rounded-xl border px-3 py-2 text-left transition ${
                 chosen ? 'border-accent bg-accent/10' : 'border-line/10 hover:border-line/25'
-              } ${poll.closed ? 'cursor-default' : ''}`}
+              } ${closed ? 'cursor-default' : ''}`}
             >
               <span
                 className="absolute inset-y-0 left-0 bg-accent/15 transition-all"
@@ -130,8 +145,21 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
   const [question, setQuestion] = useState('')
   const [type, setType] = useState<PollType>('yesno')
   const [options, setOptions] = useState(['', ''])
+  // Gültigkeit in UTC — Datum + Uhrzeit werden als UTC interpretiert
+  const [validDate, setValidDate] = useState('')
+  const [validTime, setValidTime] = useState('23:59')
 
-  const valid = question.trim() && (type === 'yesno' || options.filter((o) => o.trim()).length >= 2)
+  const validUntil = validDate
+    ? Date.UTC(
+        Number(validDate.slice(0, 4)),
+        Number(validDate.slice(5, 7)) - 1,
+        Number(validDate.slice(8, 10)),
+        Number((validTime || '23:59').slice(0, 2)),
+        Number((validTime || '23:59').slice(3, 5)),
+      )
+    : undefined
+  const valid =
+    question.trim() && validDate && (type === 'yesno' || options.filter((o) => o.trim()).length >= 2)
 
   return (
     <Modal title={t('chat.poll')} onClose={onClose}>
@@ -179,6 +207,14 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
             </button>
           </div>
         )}
+        {/* Ablauf: Datum und Uhrzeit, beides in UTC */}
+        <Field label={t('chat.pollValidUntilUtc') + ' *'}>
+          <div className="flex gap-2">
+            <input type="date" className={inputCls} value={validDate} onChange={(e) => setValidDate(e.target.value)} />
+            <input type="time" className={inputCls} value={validTime} onChange={(e) => setValidTime(e.target.value)} />
+          </div>
+          <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('chat.pollValidHint')}</p>
+        </Field>
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -186,7 +222,7 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
           <Button
             disabled={!valid}
             onClick={() => {
-              createPoll(groupId, question.trim(), type, options.filter((o) => o.trim()))
+              createPoll(groupId, question.trim(), type, options.filter((o) => o.trim()), validUntil)
               onClose()
             }}
           >

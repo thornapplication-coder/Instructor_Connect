@@ -26,9 +26,10 @@ export function createSeedState(): AppState {
   const now = Date.now()
   return {
     users: [
-      { id: 'u-patrick', name: 'Patrick Thorn', email: 'p.thorn@aviationacademy.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['Challenger 350', 'Citation XLS+'], active: true },
-      { id: 'u-christian', name: 'Christian Terler', email: 'c.terler@aviationacademy.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['Challenger 350'], active: true },
-      { id: 'u-michael', name: 'Michael Holy', email: 'm.holy@aviationacademy.at', phone: '+43 664 1000003', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['Citation XLS+'], active: true },
+      { id: 'u-patrick', name: 'Patrick Thorn', email: 'patrick.thorn@aviationacademy.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['Challenger 350', 'Citation XLS+'], active: true },
+      { id: 'u-christian', name: 'Christian Terler', email: 'christian.terler@aviationacademy.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['Challenger 350'], active: true },
+      { id: 'u-michael', name: 'Michael Holy', email: 'michael.holy@aviationacademy.at', phone: '+43 664 1000003', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['Citation XLS+'], active: true },
+      { id: 'u-max', name: 'Max Mustermann', email: 'training.admin@aviationacademy.at', phone: '+43 1 5550 300', role: 'training_admin', canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: [], active: true },
     ],
     groups: [
       {
@@ -157,7 +158,7 @@ export function createSeedState(): AppState {
         id: 'fb1',
         authorId: 'u-michael',
         category: 'IT / Technik',
-        recipient: 'SIM Technik (technik@aviationacademy.at)',
+        recipient: 'SIM Technik (daniel.duesentrieb@aviationacademy.at)',
         urgent: true,
         message: 'Der IOS-Touchscreen rechts im Citation-XLS+-Sim reagiert immer träger — heute Nachmittag sind zwei Sessions geplant.',
         attachment: { name: 'ios-touchscreen.jpg', kind: 'image', sizeMB: 1.4 },
@@ -167,7 +168,7 @@ export function createSeedState(): AppState {
         id: 'fb2',
         authorId: 'u-christian',
         category: 'Organisation / Ablauf',
-        recipient: 'Training Admin (trainingadmin@aviationacademy.at)',
+        recipient: 'Training Admin (training.admin@aviationacademy.at)',
         urgent: false,
         message: 'Vorschlag: Die Sim-Slots für die Folgewoche schon donnerstags veröffentlichen, dann lassen sich die Ground-Training-Termine besser planen.',
         createdAt: now - 2 * d,
@@ -175,9 +176,9 @@ export function createSeedState(): AppState {
     ],
     starredInfo: { 'u-michael': ['i2'] },
     contacts: [
-      { id: 'c1', department: 'Simulator-Technik', position: 'FSTD-Technik', name: 'Daniel Düsentrieb', phone: '+43 1 5550 200', email: 'technik@aviationacademy.at' },
-      { id: 'c2', department: 'Training', position: 'Training Admin', name: 'Max Mustermann', phone: '+43 1 5550 300', email: 'trainingadmin@aviationacademy.at' },
-      { id: 'c3', department: 'Administration', position: 'Office / Dispo Sim-Planung', name: 'James Bond', phone: '+43 1 5550 100', email: 'office@aviationacademy.at' },
+      { id: 'c1', department: 'Simulator-Technik', position: 'FSTD-Technik', name: 'Daniel Düsentrieb', phone: '+43 1 5550 200', email: 'daniel.duesentrieb@aviationacademy.at' },
+      { id: 'c2', department: 'Training', position: 'Training Admin', name: 'Max Mustermann', phone: '+43 1 5550 300', email: 'training.admin@aviationacademy.at' },
+      { id: 'c3', department: 'Administration', position: 'Office / Dispo Sim-Planung', name: 'James Bond', phone: '+43 1 5550 100', email: 'james.bond@aviationacademy.at' },
     ],
     changelog: [
       { version: '1.0.0', date: '2026-08-04', changes: 'Erstversion: Chat mit Gruppen und Umfragen, Instructor Info, Who to call, Feedback, Admin-Panel, Sandbox-Modus.' },
@@ -189,9 +190,9 @@ export function createSeedState(): AppState {
       feedbackCategories: ['Instructor / Training', 'IT / Technik', 'Kursinhalt', 'Organisation / Ablauf', 'Safety', 'Sonstiges'],
       feedbackCC: ['admin@aviationacademy.at'],
       feedbackRecipients: [
-        'Training Admin (trainingadmin@aviationacademy.at)',
-        'Office (office@aviationacademy.at)',
-        'SIM Technik (technik@aviationacademy.at)',
+        'Training Admin (training.admin@aviationacademy.at)',
+        'Office (james.bond@aviationacademy.at)',
+        'SIM Technik (daniel.duesentrieb@aviationacademy.at)',
         'HR (hr@aviationacademy.at)',
       ],
       infoCategories: ['Ground Training', 'Simulator Training', 'HR', 'Operator Info', 'SIM Defects', 'AAA intern', 'Approved Manuals'],

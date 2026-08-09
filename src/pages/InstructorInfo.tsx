@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
-import { infoEntryAppliesTo, useStore } from '../store'
+import { infoEntryAppliesTo, isAdminUser, useStore } from '../store'
 import { formatDate, formatDateTime } from './Grading'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
@@ -140,7 +140,7 @@ export function InstructorInfo() {
   const [openId, setOpenId] = useState<string | null>(null)
 
   // Löschen nur Admin/Superadmin
-  const mayEdit = currentUser!.role !== 'member'
+  const mayEdit = isAdminUser(currentUser)
   const categories = state.settings.infoCategories
 
   /** Zielpersonen einer Lese-Bestätigung: aktive Mitglieder der Zielgruppen */

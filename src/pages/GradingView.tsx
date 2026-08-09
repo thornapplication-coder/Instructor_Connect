@@ -25,16 +25,30 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
     if (!record) navigate('/grading')
   }, [record])
 
+  // iOS/iPadOS erlaubt window.print() nur aus einer Nutzergeste heraus —
+  // ein automatischer Aufruf nach Navigation verpufft dort wirkungslos.
+  const isIOS =
+    /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+  const [printHint, setPrintHint] = useState(false)
+
   // PDF-Download aus der Liste: Ansicht rendern, dann PDF-/Druckdialog
   // öffnen (dort „Als PDF sichern" wählen) und die URL wieder bereinigen.
+  // Am iPad/iPhone stattdessen einen deutlichen Knopf zeigen, der den
+  // Dialog per Fingertipp (= gültige Geste) öffnet.
   useEffect(() => {
     if (!autoPrint || !record) return
+    if (isIOS) {
+      // URL bewusst noch nicht bereinigen: die Navigation würde die
+      // Komponente neu aufbauen und den Hinweis-Zustand verwerfen.
+      setPrintHint(true)
+      return
+    }
     const tm = setTimeout(() => {
       window.print()
       navigate(`/grading/${recordId}`)
     }, 400)
     return () => clearTimeout(tm)
-  }, [autoPrint, record, recordId])
+  }, [autoPrint, record, recordId, isIOS])
 
   if (!record) return null
 
@@ -74,6 +88,24 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             {t('grading.exportStamp', { date: formatDateTime(Date.now() + state.timeOffsetMs), name: currentUser!.name })}
           </p>
         </div>
+
+        {/* iPad/iPhone: Druckdialog braucht einen Fingertipp */}
+        {printHint && (
+          <div className="space-y-3 rounded-xl border border-accent/40 bg-accent/10 p-3.5 print:hidden">
+            <p className="text-[13px] leading-relaxed">{t('grading.printHintBody')}</p>
+            <Button
+              onClick={() => {
+                setPrintHint(false)
+                window.print()
+                navigate(`/grading/${recordId}`)
+              }}
+              className="flex w-full items-center justify-center gap-2"
+            >
+              <Printer size={16} /> {t('grading.printNow')}
+            </Button>
+            <p className="text-[11.5px] leading-relaxed text-dim">{t('grading.printShareFallback')}</p>
+          </div>
+        )}
 
         {/* Status */}
         <div className="flex flex-wrap items-center gap-2">

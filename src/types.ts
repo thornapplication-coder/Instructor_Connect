@@ -1,4 +1,4 @@
-export type Role = 'superadmin' | 'group_admin' | 'member'
+export type Role = 'superadmin' | 'group_admin' | 'training_admin' | 'member'
 
 export type RetentionKey = '24h' | '7d' | '30d' | '90d' | 'never'
 
@@ -58,6 +58,8 @@ export interface Poll {
   /** userId -> Index der gewählten Option */
   votes: Record<string, number>
   closed: boolean
+  /** Ablaufzeitpunkt (ms epoch, UTC) — danach ist die Umfrage automatisch geschlossen */
+  validUntil?: number
   createdAt: number
 }
 

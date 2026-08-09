@@ -2,7 +2,7 @@ import { Mail, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
-import { useStore } from '../store'
+import { isAdminUser, useStore } from '../store'
 import type { Contact } from '../types'
 
 function ContactModal({ contact, onClose }: { contact: Partial<Contact> | null; onClose: () => void }) {
@@ -69,7 +69,7 @@ export function WhoToCall() {
 
   // Superadmin und Admins pflegen das Verzeichnis; einzelne Mitglieder
   // können zusätzlich über das canEditDirectory-Flag freigeschaltet werden.
-  const mayEdit = currentUser!.role !== 'member' || currentUser!.canEditDirectory
+  const mayEdit = isAdminUser(currentUser) || currentUser!.canEditDirectory
 
   const departments = [...new Set(state.contacts.map((c) => c.department))].sort((a, b) => a.localeCompare(b))
   const visible = state.contacts

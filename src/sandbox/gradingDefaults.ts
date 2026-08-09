@@ -330,10 +330,10 @@ export const FORM_TYPES: FormType[] = [
 ]
 
 export const GRADING_DEFAULTS: GradingSettings = {
-  defaultRecipients: ['training-records@aviationacademy.at'],
-  escalationRecipients: ['admin@aviationacademy.at', 'head-of-training@aviationacademy.at'],
+  defaultRecipients: ['training.records@aviationacademy.at'],
+  escalationRecipients: ['admin@aviationacademy.at', 'head.of.training@aviationacademy.at'],
   // Form 310 (Deferred Item List) geht IMMER zusätzlich an den Training Admin
-  deferredRecipients: ['trainingadmin@aviationacademy.at'],
+  deferredRecipients: ['training.admin@aviationacademy.at'],
   competencySets: [PILOT_SET, INSTRUCTOR_SET],
   formTypes: FORM_TYPES,
 }

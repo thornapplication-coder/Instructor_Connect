@@ -82,7 +82,7 @@ export function Login() {
         <div className="mt-8 rounded-2xl border border-amber-400/25 bg-amber-400/5 p-4">
           <p className="mb-2.5 text-[12px] font-semibold uppercase tracking-wide text-sand">{t('login.sandboxUsers')}</p>
           <div className="space-y-1">
-            {(['superadmin', 'group_admin', 'member'] as const)
+            {(['superadmin', 'group_admin', 'training_admin', 'member'] as const)
               .map((role) => state.users.find((u) => u.active && u.role === role))
               .filter((u): u is NonNullable<typeof u> => !!u)
               .map((u) => (

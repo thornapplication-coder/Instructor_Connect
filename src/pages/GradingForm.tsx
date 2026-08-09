@@ -75,7 +75,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
   const [recipientDraft, setRecipientDraft] = useState('')
 
   // Clientseitige Sperre analog Admin.tsx; serverseitig gilt später RLS.
-  const mayGrade = currentUser!.canGrade || currentUser!.role !== 'member'
+  const mayGrade = currentUser!.role !== 'training_admin' && (currentUser!.canGrade || currentUser!.role !== 'member')
 
   const setTrainee = (i: number, patch: Partial<TraineeGrading>) =>
     setTrainees((list) => list.map((tr, j) => (j === i ? { ...tr, ...patch } : tr)))

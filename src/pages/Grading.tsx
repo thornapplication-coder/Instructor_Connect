@@ -1,10 +1,9 @@
-import { AlertTriangle, CheckCircle2, Clock, FileDown, FileText, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, FileDown, HelpCircle, Plus, Trash2, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { GradingIcon } from '../components/GradingIcon'
 import { Badge, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
-import { useStore } from '../store'
+import { isAdminUser, useStore } from '../store'
 import type { GradingRecord } from '../types'
 
 /** Farbcodierung laut Spez. 5.3: 5/4 grün, 3 dunkelgrün, 2 orange, 1 rot, NO grau.
@@ -78,7 +77,8 @@ export function Grading() {
   const formTitle = (id: string) => state.settings.grading.formTypes.find((f) => f.id === id)?.title ?? id
   const traineeLabel = (tr: { traineeName?: string; traineeId: string }) =>
     tr.traineeName || state.users.find((u) => u.id === tr.traineeId)?.name || '—'
-  const mayGrade = currentUser!.canGrade || currentUser!.role !== 'member'
+  const isTrainingAdmin = currentUser!.role === 'training_admin'
+  const mayGrade = !isTrainingAdmin && (currentUser!.canGrade || isAdminUser(currentUser))
   const isMember = currentUser!.role === 'member'
   // Filter über die Ampel-Legende (antippen zum Filtern)
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
@@ -102,7 +102,9 @@ export function Grading() {
         }
       />
       <Page className="space-y-3">
-        {!mayGrade && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.noPermission')}</p>}
+        {!mayGrade && !isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.noPermission')}</p>}
+        {/* Training Admin: reiner Lese-/Download-Zugriff auf alle Formulare */}
+        {isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.trainingAdminNote')}</p>}
 
         {/* Ampel-Legende — antippen filtert die Liste. Mobil sauber
             untereinander, ab Tablet als symmetrisches 2×2-Raster. */}
@@ -138,11 +140,19 @@ export function Grading() {
         {list.map((r) => {
           const notCompetent = r.trainees.some((tr) => tr.overall === 'not_competent')
           const missing = missingFollowUps(r, state.gradingRecords)
+          const light = trafficLight(r, state.gradingRecords)
           return (
             <Card key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="p-4">
               <div className="flex items-start gap-3">
-                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised text-accent">
-                  {r.formTypeId === '306' || r.formTypeId === '310' ? <FileText size={19} /> : <GradingIcon size={20} />}
+                {/* Status-Icon spiegelt die Ampel: grün ✓, gelb ?, rot ✕ */}
+                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised">
+                  {light === 'green' ? (
+                    <CheckCircle2 size={22} className="text-emerald-500" />
+                  ) : light === 'red' ? (
+                    <XCircle size={22} className="text-red-500" />
+                  ) : (
+                    <HelpCircle size={22} className="text-amber-500" />
+                  )}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[15px] font-semibold leading-snug">
@@ -179,8 +189,9 @@ export function Grading() {
                     {r.parentId && <Badge tone="dim">{t('grading.linked')}</Badge>}
                   </div>
                 </div>
-                <div className="flex shrink-0 flex-col items-end gap-2">
-                  <TrafficDot color={trafficLight(r, state.gradingRecords)} className="mt-1" />
+                {/* Ampel + Aktionen in EINER Reihe */}
+                <div className="mt-0.5 flex shrink-0 items-center gap-1">
+                  <TrafficDot color={light} className="mr-1" />
                   {/* Komplett ausgefüllte Formulare als PDF herunterladen —
                       öffnet die Ein-Seiten-Druckansicht mit PDF-Dialog */}
                   {r.status === 'signed' && (
@@ -192,22 +203,23 @@ export function Grading() {
                       title={t('grading.downloadPdf')}
                       className="rounded-lg p-1.5 text-dim transition hover:bg-accent/10 hover:text-accent"
                     >
-                      <FileDown size={15} />
+                      <FileDown size={16} />
                     </button>
                   )}
                   {/* Aus der eigenen Listenansicht entfernen — gilt nur für den
-                      aktuellen Nutzer, im Admin-Panel bleibt alles erhalten */}
-                  {(
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (window.confirm(t('grading.deleteOwnConfirm'))) hideGradingRecord(r.id)
-                      }}
-                      title={t('grading.deleteOwn')}
-                      className="rounded-lg p-1.5 text-dim transition hover:bg-danger/10 hover:text-danger"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                      aktuellen Nutzer, im Admin-Panel bleibt alles erhalten.
+                      Training Admin ist nur-lesend und hat keinen Mülleimer. */}
+                  {!isTrainingAdmin && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      if (window.confirm(t('grading.deleteOwnConfirm'))) hideGradingRecord(r.id)
+                    }}
+                    title={t('grading.deleteOwn')}
+                    className="rounded-lg p-1.5 text-dim transition hover:bg-danger/10 hover:text-danger"
+                  >
+                    <Trash2 size={16} />
+                  </button>
                   )}
                 </div>
               </div>

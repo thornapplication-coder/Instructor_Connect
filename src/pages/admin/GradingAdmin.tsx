@@ -244,6 +244,10 @@ export function GradingAdmin() {
   const [query, setQuery] = useState('')
   const [filterType, setFilterType] = useState('')
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
+  // Filter nach Trainee (Standard-Sicht), Instruktor und Aircraft Type
+  const [filterTrainee, setFilterTrainee] = useState('')
+  const [filterInstructor, setFilterInstructor] = useState('')
+  const [filterAircraft, setFilterAircraft] = useState('')
 
   const g = state.settings.grading
   // Neueste immer zuoberst
@@ -299,9 +303,19 @@ export function GradingAdmin() {
     return { fleets, codes, cell }
   }, [records])
 
+  // Auswahllisten aus den vorhandenen Formularen ableiten
+  const traineeOptions = [...new Set(records.flatMap((r) => r.trainees.map(traineeLabel)))].filter((n) => n !== '—').sort()
+  const instructorOptions = [...new Set(records.map((r) => r.instructorId))]
+    .map((id) => ({ id, name: userName(id) }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const aircraftOptions = [...new Set(records.map((r) => r.header.aircraftType).filter(Boolean))].sort()
+
   const filtered = records.filter((r) => {
     if (filterType && r.formTypeId !== filterType) return false
     if (trafficFilter && trafficLight(r, records) !== trafficFilter) return false
+    if (filterTrainee && !r.trainees.some((tr) => traineeLabel(tr) === filterTrainee)) return false
+    if (filterInstructor && r.instructorId !== filterInstructor) return false
+    if (filterAircraft && r.header.aircraftType !== filterAircraft) return false
     if (!query) return true
     const hay = [r.formTypeId, userName(r.instructorId), ...r.trainees.map(traineeLabel), ...Object.values(r.header)].join(' ').toLowerCase()
     return hay.includes(query.toLowerCase())
@@ -453,7 +467,32 @@ export function GradingAdmin() {
       {section === 'records' && (
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('grading.admin.search')} className={`${inputCls} flex-1`} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('grading.admin.search')} className={`${inputCls} min-w-40 flex-1`} />
+            {/* Trainee-Filter zuerst — die Standard-Sicht auf die Ablage */}
+            <select value={filterTrainee} onChange={(e) => setFilterTrainee(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+              <option value="">{t('grading.admin.allTrainees')}</option>
+              {traineeOptions.map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+            <select value={filterInstructor} onChange={(e) => setFilterInstructor(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+              <option value="">{t('grading.admin.allInstructors')}</option>
+              {instructorOptions.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+            <select value={filterAircraft} onChange={(e) => setFilterAircraft(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+              <option value="">{t('grading.admin.allAircraft')}</option>
+              {aircraftOptions.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
             <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
               <option value="">{t('grading.admin.allTypes')}</option>
               {[...g.formTypes].sort((a, b) => a.id.localeCompare(b.id)).map((f) => (

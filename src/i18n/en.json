@@ -16,12 +16,14 @@
     "imprint": "Legal notice",
     "version": "Version",
     "updateAvailable": "A new version is available",
-    "updateNow": "Update now"
+    "updateNow": "Update now",
+    "refresh": "Reload app"
   },
   "roles": {
     "superadmin": "Superadmin",
     "group_admin": "Admin",
-    "member": "Member"
+    "member": "Member",
+    "training_admin": "Training Admin"
   },
   "retention": {
     "24h": "24 hours",
@@ -35,7 +37,7 @@
     "welcome": "Welcome to",
     "subtitle": "The internal communication app for instructors.",
     "identifier": "Email address",
-    "placeholder": "name@aviationacademy.at",
+    "placeholder": "firstname.lastname@aviationacademy.at",
     "button": "Sign in",
     "otpHint": "You will receive a sign-in link by email.",
     "error": "No account found for this email address. Accounts are created by an admin or superadmin.",
@@ -47,7 +49,11 @@
     "hello": "Hello, {{name}}",
     "subtitle": "What would you like to open?",
     "admin": "Admin Panel",
-    "installHint": "iPhone/iPad: add this app to your home screen to receive notifications."
+    "installHint": "iPhone/iPad: add this app to your home screen to receive notifications.",
+    "installTitle": "Add to home screen",
+    "installStep1": "Open the app in Safari and tap the Share icon.",
+    "installStep2": "Choose “Add to Home Screen”.",
+    "installStep3": "Confirm with “Add” — the app then opens full-screen and can receive notifications."
   },
   "chat": {
     "title": "Chat",
@@ -75,7 +81,10 @@
     "muted": "Notifications muted",
     "today": "Today",
     "you": "You",
-    "blockedNote": "You have been blocked from sending in chat by an admin. You can still read messages. Please contact your administrator."
+    "blockedNote": "You have been blocked from sending in chat by an admin. You can still read messages. Please contact your administrator.",
+    "pollValidUntil": "Valid until",
+    "pollValidUntilUtc": "Valid until (UTC)",
+    "pollValidHint": "Date and time are in UTC. After this time the poll closes automatically."
   },
   "chatInfo": {
     "title": "Chat info",
@@ -323,7 +332,10 @@
       "newFormHint": "New form types get the standard header fields (aircraft type, date, event, training device, flight times). Existing forms keep their data if a type is deleted.",
       "deleteFormTypeConfirm": "Delete this form type? It disappears from the selection for new forms; existing forms keep their data.",
       "openFollowUps": "Open follow-up forms",
-      "followUpMissing": "Mandatory follow-up outstanding: {{forms}}"
+      "followUpMissing": "Mandatory follow-up outstanding: {{forms}}",
+      "allTrainees": "All trainees",
+      "allInstructors": "All instructors",
+      "allAircraft": "All aircraft types"
     },
     "attendance": "Record of Attendance",
     "studentName": "Student name",
@@ -370,7 +382,11 @@
     "fillNow": "Fill in {{form}} now",
     "mailAttachment": "The originating grading sheet ({{form}}) is automatically attached to the email dispatch of this form.",
     "openParent": "Open grading sheet",
-    "downloadPdf": "Download as PDF"
+    "downloadPdf": "Download as PDF",
+    "printHintBody": "To save this form as a PDF, tap the button below and choose “Save as PDF” or a printer in the dialog.",
+    "printNow": "Print / save as PDF",
+    "printShareFallback": "If no dialog opens: use the browser Share menu and choose “Print” there.",
+    "trainingAdminNote": "Training Admin access: you can view and download all completed and open forms. Creating or removing forms is not possible."
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

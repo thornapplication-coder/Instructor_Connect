@@ -31,7 +31,7 @@ export interface Store {
   resetSandbox: () => void
   sendMessage: (groupId: string, text: string, attachment?: Attachment) => void
   deleteMessage: (id: string) => void
-  createPoll: (groupId: string, question: string, type: PollType, options: string[]) => void
+  createPoll: (groupId: string, question: string, type: PollType, options: string[], validUntil?: number) => void
   vote: (pollId: string, optionIndex: number) => void
   closePoll: (pollId: string) => void
   toggleMute: (groupId: string) => void
@@ -298,20 +298,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
       deleteMessage: (id) => patch((s) => ({ messages: s.messages.filter((m) => m.id !== id) })),
 
-      createPoll: (groupId, question, type, options) =>
+      createPoll: (groupId, question, type, options, validUntil) =>
         patch((s) => {
           if (s.users.find((u) => u.id === s.currentUserId)?.chatBlocked) return null
           return {
             polls: [
               ...s.polls,
-              { id: uid('p'), groupId, authorId: s.currentUserId!, question, type, options, votes: {}, closed: false, createdAt: Date.now() + s.timeOffsetMs },
+              { id: uid('p'), groupId, authorId: s.currentUserId!, question, type, options, votes: {}, closed: false, validUntil, createdAt: Date.now() + s.timeOffsetMs },
             ],
           }
         }),
       vote: (pollId, optionIndex) =>
         patch((s) => ({
           polls: s.polls.map((p) =>
-            p.id === pollId && !p.closed ? { ...p, votes: { ...p.votes, [s.currentUserId!]: optionIndex } } : p,
+            // Abstimmen nur solange offen und nicht abgelaufen (Gültigkeit in UTC)
+            p.id === pollId && !p.closed && !(p.validUntil && p.validUntil <= Date.now() + s.timeOffsetMs)
+              ? { ...p, votes: { ...p.votes, [s.currentUserId!]: optionIndex } }
+              : p,
           ),
         })),
       closePoll: (pollId) =>
@@ -462,6 +465,11 @@ export function useStore(): Store {
 }
 
 /** Darf der Nutzer in dieser Gruppe administrieren? */
+/** Admin-Rechte: Superadmin und Admin — NICHT der nur-lesende Training Admin */
+export function isAdminUser(user: { role: Role } | null | undefined): boolean {
+  return user?.role === 'superadmin' || user?.role === 'group_admin'
+}
+
 export function isGroupAdmin(user: User | null, group: Group): boolean {
   if (!user) return false
   return user.role === 'superadmin' || group.adminIds.includes(user.id)
