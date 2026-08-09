@@ -7,7 +7,8 @@ const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('aaa-l
 
 i18n.use(initReactI18next).init({
   resources: { en: { translation: en }, de: { translation: de } },
-  lng: stored || 'de',
+  // Standardsprache ist Englisch; eine bewusst gewählte Sprache bleibt gespeichert
+  lng: stored || 'en',
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
 })
