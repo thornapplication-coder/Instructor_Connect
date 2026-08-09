@@ -178,19 +178,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const hasNewInfo = !!state.currentUserId && latestForeignInfo > seenOfCurrent.info
   const hasNewContacts = !!state.currentUserId && state.contactsChangedAt > seenOfCurrent.contacts
 
-  // Instruktoren sehen ihre eigenen Formulare eine Woche lang und können
-  // sie aus der eigenen Ansicht entfernen — Admins sehen alles unbegrenzt,
-  // können aber ihre EIGENEN Formulare ebenfalls aus der Liste nehmen
-  // (im Admin-Panel bleiben alle erhalten). Neueste immer zuoberst.
+  // Instruktoren sehen ihre eigenen Formulare eine Woche lang, Admins alles
+  // unbegrenzt. Jede/r kann Formulare aus der EIGENEN Listenansicht
+  // entfernen (hiddenFor je Nutzer) — im Admin-Panel bleibt alles erhalten
+  // und für andere Nutzer ändert sich nichts. Neueste immer zuoberst.
   const visibleGradingRecords = useMemo(() => {
     if (!currentUser) return []
-    const all = [...state.gradingRecords].sort((a, b) => b.createdAt - a.createdAt)
-    if (currentUser.role !== 'member')
-      return all.filter((r) => !(r.instructorId === currentUser.id && r.hiddenForInstructor))
+    const all = [...state.gradingRecords]
+      .sort((a, b) => b.createdAt - a.createdAt)
+      .filter((r) => !r.hiddenFor?.includes(currentUser.id))
+    if (currentUser.role !== 'member') return all
     const weekMs = 7 * 24 * 3600_000
-    return all.filter(
-      (r) => r.instructorId === currentUser.id && !r.hiddenForInstructor && now() - r.createdAt < weekMs,
-    )
+    return all.filter((r) => r.instructorId === currentUser.id && now() - r.createdAt < weekMs)
   }, [state.gradingRecords, currentUser, now])
 
   // Instruktoren sehen nur Lesson Plans ihrer zugewiesenen Muster;
@@ -408,7 +407,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })),
       hideGradingRecord: (id) =>
         patch((s) => ({
-          gradingRecords: s.gradingRecords.map((r) => (r.id === id ? { ...r, hiddenForInstructor: true } : r)),
+          gradingRecords: s.gradingRecords.map((r) =>
+            r.id === id && !r.hiddenFor?.includes(s.currentUserId!)
+              ? { ...r, hiddenFor: [...(r.hiddenFor ?? []), s.currentUserId!] }
+              : r,
+          ),
         })),
       retryGradingMail: (id) =>
         patch((s) => ({

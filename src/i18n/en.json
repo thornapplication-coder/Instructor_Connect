@@ -254,7 +254,7 @@
     "openFollowUp": "Open form",
     "errFormType": "Please choose a form type.",
     "errRequired": "Required field missing: {{field}}",
-    "errNoTrainee": "Please select a trainee for every pilot.",
+    "errNoTrainee": "Please enter a name for every student.",
     "errGrades": "Please grade all competencies.",
     "errOverall": "Please select the overall result.",
     "errSession": "Please select the session status.",
@@ -285,7 +285,7 @@
       "defaultRecipients": "Default recipients",
       "escalationRecipients": "Additional recipients on “Not Competent”",
       "competencySets": "Competency sets",
-      "competencyHint": "Competencies and observable behaviours are maintained centrally and apply to all forms of the respective set.",
+      "competencyHint": "Competencies and observable behaviours apply to all forms of the respective set. Changes take effect for new forms immediately.",
       "formTypes": "Form types",
       "requiredFields": "required fields",
       "fieldsTotal": "fields total",
@@ -300,7 +300,12 @@
       "export_competencies": "Competencies (CSV)",
       "export_people": "People (CSV)",
       "exportHint": "Unprocessed raw data for audits, separated by training, competencies and people.",
-      "deferredRecipients": "Recipients Form 310 (Deferred Item List) — always notified"
+      "deferredRecipients": "Recipients Form 310 (Deferred Item List) — always notified",
+      "addCompetency": "Add competency",
+      "codeLabel": "Code",
+      "titleLabel": "Title",
+      "obLabel": "Observable behaviours (one per line)",
+      "deleteCompetencyConfirm": "Delete this competency? It disappears from new forms; existing records keep their grades."
     },
     "attendance": "Record of attendance",
     "studentName": "Student name",
@@ -332,7 +337,8 @@
       "red": "sending failed — action required",
       "all": "All"
     },
-    "deferredMailNote": "Form 310 (Deferred Item List) is always emailed to the Training Admin upon completion: {{recipients}}"
+    "deferredMailNote": "Form 310 (Deferred Item List) is always emailed to the Training Admin upon completion: {{recipients}}",
+    "multiStudentHint": "Multiple students in one pass are for convenience only: each student signs individually, and on completion a SEPARATE form is created for each student."
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

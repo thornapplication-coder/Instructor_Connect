@@ -254,7 +254,7 @@
     "openFollowUp": "Formular öffnen",
     "errFormType": "Bitte einen Formulartyp wählen.",
     "errRequired": "Pflichtfeld fehlt: {{field}}",
-    "errNoTrainee": "Bitte für jeden Piloten einen Trainee wählen.",
+    "errNoTrainee": "Bitte für jeden Studenten einen Namen eintippen.",
     "errGrades": "Bitte alle Kompetenzen bewerten.",
     "errOverall": "Bitte Overall Result wählen.",
     "errSession": "Bitte Session-Status wählen.",
@@ -285,7 +285,7 @@
       "defaultRecipients": "Standard-Empfänger",
       "escalationRecipients": "Zusätzliche Empfänger bei „Not Competent“",
       "competencySets": "Kompetenz-Sets",
-      "competencyHint": "Kompetenzen und Observable Behaviours werden zentral gepflegt und gelten für alle Formulare des jeweiligen Sets.",
+      "competencyHint": "Kompetenzen und Observable Behaviours gelten für alle Formulare des jeweiligen Sets. Änderungen wirken sofort für neue Formulare.",
       "formTypes": "Formulartypen",
       "requiredFields": "Pflichtfelder",
       "fieldsTotal": "Felder gesamt",
@@ -300,7 +300,12 @@
       "export_competencies": "Kompetenzen (CSV)",
       "export_people": "Personen (CSV)",
       "exportHint": "Unaufbereitete Rohdaten für Audits, getrennt nach Training, Kompetenzen und Personen.",
-      "deferredRecipients": "Empfänger Form 310 (Deferred Item List) — wird immer benachrichtigt"
+      "deferredRecipients": "Empfänger Form 310 (Deferred Item List) — wird immer benachrichtigt",
+      "addCompetency": "Kompetenz hinzufügen",
+      "codeLabel": "Code",
+      "titleLabel": "Titel",
+      "obLabel": "Observable Behaviours (eine pro Zeile)",
+      "deleteCompetencyConfirm": "Diese Kompetenz löschen? Sie verschwindet aus neuen Formularen; bestehende Bewertungen bleiben erhalten."
     },
     "attendance": "Teilnehmerliste",
     "studentName": "Name des Teilnehmers",
@@ -332,7 +337,8 @@
       "red": "Versand fehlgeschlagen — Handeln erforderlich",
       "all": "Alle"
     },
-    "deferredMailNote": "Form 310 (Deferred Item List) is always emailed to the Training Admin upon completion: {{recipients}}"
+    "deferredMailNote": "Form 310 (Deferred Item List) is always emailed to the Training Admin upon completion: {{recipients}}",
+    "multiStudentHint": "Mehrere Studenten in einem Durchgang dienen nur der Bedienbarkeit: Jeder Student unterschreibt einzeln, und beim Abschluss entsteht für jeden Studenten ein EIGENES Formular."
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

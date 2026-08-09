@@ -1,9 +1,10 @@
-import { AlertTriangle, ChevronRight, Clock, Download, RefreshCw, TrendingDown } from 'lucide-react'
+import { AlertTriangle, ChevronRight, Clock, Download, Pencil, Plus, RefreshCw, Trash2, TrendingDown } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls } from '../../components/ui'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
+import type { Competency, CompetencySet } from '../../types'
 import { formatDate, formatDateTime, TrafficDot, trafficLight, type TrafficColor } from '../Grading'
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats'
@@ -46,6 +47,86 @@ function StringList({ label, values, onChange }: { label: string; values: string
   )
 }
 
+/** Kompetenzen samt Observable Behaviours anlegen, bearbeiten, löschen */
+function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: (competencies: Competency[]) => void }) {
+  const { t } = useTranslation()
+  // Code der bearbeiteten Kompetenz oder '__new__' für einen neuen Eintrag
+  const [editCode, setEditCode] = useState<string | null>(null)
+  const [draft, setDraft] = useState({ code: '', title: '', behaviours: '' })
+
+  const startEdit = (c?: Competency) => {
+    setEditCode(c ? c.code : '__new__')
+    setDraft(c ? { code: c.code, title: c.title, behaviours: c.behaviours.join('\n') } : { code: '', title: '', behaviours: '' })
+  }
+
+  const save = () => {
+    const comp: Competency = {
+      code: draft.code.trim().toUpperCase(),
+      title: draft.title.trim(),
+      behaviours: draft.behaviours.split('\n').map((b) => b.trim()).filter(Boolean),
+    }
+    if (!comp.code || !comp.title) return
+    onChange(editCode === '__new__' ? [...set.competencies, comp] : set.competencies.map((c) => (c.code === editCode ? comp : c)))
+    setEditCode(null)
+  }
+
+  const editorForm = (
+    <div className="mt-2 space-y-2.5 rounded-xl border border-accent/30 bg-bg/40 p-3">
+      <div className="flex gap-2">
+        <Field label={t('grading.admin.codeLabel')}>
+          <input className={`${inputCls} w-24 font-mono uppercase`} value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })} />
+        </Field>
+        <div className="flex-1">
+          <Field label={t('grading.admin.titleLabel')}>
+            <input className={inputCls} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+          </Field>
+        </div>
+      </div>
+      <Field label={t('grading.admin.obLabel')}>
+        <textarea className={`${inputCls} min-h-28 text-[12.5px]`} value={draft.behaviours} onChange={(e) => setDraft({ ...draft, behaviours: e.target.value })} />
+      </Field>
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" onClick={() => setEditCode(null)}>{t('common.cancel')}</Button>
+        <Button disabled={!draft.code.trim() || !draft.title.trim()} onClick={save}>{t('common.save')}</Button>
+      </div>
+    </div>
+  )
+
+  return (
+    <div className="mb-4 last:mb-0">
+      <p className="mb-1.5 text-[13.5px] font-semibold">{set.name}</p>
+      <div className="divide-y divide-line/[0.06] rounded-xl border border-line/10">
+        {set.competencies.map((c) => (
+          <div key={c.code} className="px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="w-12 shrink-0 font-mono text-[12.5px] font-semibold">{c.code}</span>
+              <span className="min-w-0 flex-1 truncate text-[13px]">{c.title}</span>
+              <span className="shrink-0 text-[11.5px] text-dim">{c.behaviours.length} OB</span>
+              <button onClick={() => startEdit(c)} title={t('common.edit')} className="shrink-0 rounded-lg p-1.5 text-dim hover:text-accent">
+                <Pencil size={14} />
+              </button>
+              <button
+                onClick={() => window.confirm(t('grading.admin.deleteCompetencyConfirm')) && onChange(set.competencies.filter((x) => x.code !== c.code))}
+                title={t('common.delete')}
+                className="shrink-0 rounded-lg p-1.5 text-dim hover:text-danger"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+            {editCode === c.code && editorForm}
+          </div>
+        ))}
+        <div className="px-3 py-2">
+          <button onClick={() => startEdit()} className="flex items-center gap-1.5 text-[13px] font-medium text-accent hover:underline">
+            <Plus size={14} /> {t('grading.admin.addCompetency')}
+          </button>
+          {editCode === '__new__' && editorForm}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export function GradingAdmin() {
   const { t } = useTranslation()
   const { state, currentUser, retryGradingMail, updateGrading } = useStore()
@@ -58,6 +139,7 @@ export function GradingAdmin() {
   // Neueste immer zuoberst
   const records = [...state.gradingRecords].sort((a, b) => b.createdAt - a.createdAt)
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
+  const traineeLabel = (tr: { traineeName?: string; traineeId: string }) => tr.traineeName || userName(tr.traineeId)
   // einheitlich DD.MM.YYYY
   const dateLabel = (ts: number) => formatDate(ts)
 
@@ -109,7 +191,7 @@ export function GradingAdmin() {
     if (filterType && r.formTypeId !== filterType) return false
     if (trafficFilter && trafficLight(r) !== trafficFilter) return false
     if (!query) return true
-    const hay = [r.formTypeId, userName(r.instructorId), ...r.trainees.map((tr) => userName(tr.traineeId)), ...Object.values(r.header)].join(' ').toLowerCase()
+    const hay = [r.formTypeId, userName(r.instructorId), ...r.trainees.map(traineeLabel), ...Object.values(r.header)].join(' ').toLowerCase()
     return hay.includes(query.toLowerCase())
   })
 
@@ -127,7 +209,7 @@ export function GradingAdmin() {
         r.trainees.forEach((tr) => {
           // Durchschnitt je Pilot, nicht des gesamten Formulars
           const avg = avgOf(tr.grades.map((g) => g.grade))
-          csv += row([r.formTypeId, userName(r.instructorId), userName(tr.traineeId), r.header.aircraftType, r.header.trainingDevice, r.header.date, tr.overall, r.sessionStatus, avg?.toFixed(2)])
+          csv += row([r.formTypeId, userName(r.instructorId), traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice, r.header.date, tr.overall, r.sessionStatus, avg?.toFixed(2)])
         }),
       )
     } else if (scope === 'competencies') {
@@ -135,7 +217,7 @@ export function GradingAdmin() {
       records.forEach((r) =>
         r.trainees.forEach((tr) =>
           tr.grades.forEach((gr) => {
-            csv += row([r.formTypeId, userName(tr.traineeId), gr.code, gr.grade, gr.comment])
+            csv += row([r.formTypeId, traineeLabel(tr), gr.code, gr.grade, gr.comment])
           }),
         ),
       )
@@ -204,7 +286,7 @@ export function GradingAdmin() {
                 <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
                 <div className="min-w-0 flex-1">
                   <p className="text-[14px] font-semibold">
-                    {r.formTypeId} · {r.trainees.map((tr) => userName(tr.traineeId)).join(', ')}
+                    {r.formTypeId} · {r.trainees.map(traineeLabel).join(', ')}
                   </p>
                   <p className="text-[12.5px] text-dim">{r.mailError}</p>
                 </div>
@@ -220,7 +302,7 @@ export function GradingAdmin() {
               <Clock size={16} className="shrink-0 text-warm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-semibold">
-                  {r.formTypeId} · {r.trainees.map((tr) => userName(tr.traineeId)).join(', ') || '—'}
+                  {r.formTypeId} · {r.trainees.map(traineeLabel).join(', ') || '—'}
                 </p>
                 <p className="text-[12.5px] text-dim">{t('grading.admin.awaitingSince', { date: dateLabel(r.createdAt) })}</p>
               </div>
@@ -284,7 +366,7 @@ export function GradingAdmin() {
               <TrafficDot color={trafficLight(r)} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-semibold">
-                  {r.formTypeId} · {r.trainees.map((tr) => userName(tr.traineeId)).join(', ') || '—'}
+                  {r.formTypeId} · {r.trainees.map(traineeLabel).join(', ') || '—'}
                 </p>
                 <p className="truncate text-[12.5px] text-dim">
                   {userName(r.instructorId)} · {r.header.aircraftType} · {dateLabel(r.createdAt)}
@@ -308,16 +390,13 @@ export function GradingAdmin() {
           <Card className="p-4">
             <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.competencySets')}</p>
             {g.competencySets.map((set) => (
-              <div key={set.key} className="mb-3 last:mb-0">
-                <p className="mb-1.5 text-[13.5px] font-semibold">{set.name}</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {set.competencies.map((c) => (
-                    <span key={c.code} className="rounded-full bg-raised px-2.5 py-1 text-[12px]" title={c.title}>
-                      {c.code}
-                    </span>
-                  ))}
-                </div>
-              </div>
+              <CompetencySetEditor
+                key={set.key}
+                set={set}
+                onChange={(competencies) =>
+                  updateGrading({ competencySets: g.competencySets.map((s) => (s.key === set.key ? { ...s, competencies } : s)) })
+                }
+              />
             ))}
             <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.competencyHint')}</p>
           </Card>

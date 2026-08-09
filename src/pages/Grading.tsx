@@ -60,7 +60,8 @@ export function Grading() {
   const { state, currentUser, visibleGradingRecords, hideGradingRecord } = useStore()
 
   const formTitle = (id: string) => state.settings.grading.formTypes.find((f) => f.id === id)?.title ?? id
-  const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
+  const traineeLabel = (tr: { traineeName?: string; traineeId: string }) =>
+    tr.traineeName || state.users.find((u) => u.id === tr.traineeId)?.name || '—'
   const mayGrade = currentUser!.canGrade || currentUser!.role !== 'member'
   const isMember = currentUser!.role === 'member'
   // Filter über die Ampel-Legende (antippen zum Filtern)
@@ -126,7 +127,7 @@ export function Grading() {
                     {r.formTypeId} · {formTitle(r.formTypeId)}
                   </p>
                   <p className="mt-0.5 truncate text-[13px] text-dim">
-                    {r.trainees.length > 0 ? r.trainees.map((tr) => userName(tr.traineeId)).join(', ') : t('grading.noTrainee')} ·{' '}
+                    {r.trainees.length > 0 ? r.trainees.map(traineeLabel).join(', ') : t('grading.noTrainee')} ·{' '}
                     {r.header.aircraftType} · {formatDate(r.createdAt)}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -152,9 +153,9 @@ export function Grading() {
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <TrafficDot color={trafficLight(r)} className="mt-1" />
-                  {/* Aus der eigenen Ansicht entfernen: jede/r für die eigenen
-                      Formulare — im Admin-Panel bleiben sie erhalten */}
-                  {r.instructorId === currentUser!.id && (
+                  {/* Aus der eigenen Listenansicht entfernen — gilt nur für den
+                      aktuellen Nutzer, im Admin-Panel bleibt alles erhalten */}
+                  {(
                     <button
                       onClick={(e) => {
                         e.stopPropagation()

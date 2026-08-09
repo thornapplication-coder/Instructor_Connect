@@ -33,6 +33,7 @@ export function GradingView({ recordId }: { recordId: string }) {
     ? grading.competencySets.find((c) => c.key === formType.competencySet)?.competencies ?? []
     : []
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
+  const traineeLabel = (tr: { traineeName?: string; traineeId: string }) => tr.traineeName || userName(tr.traineeId)
 
   const isAdmin = currentUser!.role !== 'member'
   const linked = state.gradingRecords.filter((r) => r.parentId === record.id)
@@ -134,13 +135,13 @@ export function GradingView({ recordId }: { recordId: string }) {
         {record.trainees.map((tr, i) => (
           <Card key={i} className="p-4">
             <div className="mb-3 flex items-center justify-between gap-2">
-              <p className="text-[15px] font-semibold">{userName(tr.traineeId)}</p>
+              <p className="text-[15px] font-semibold">{traineeLabel(tr)}</p>
               <span className="flex items-center gap-2">
                 <span className="text-[12px] text-dim">{tr.position}</span>
                 {tr.overall && (
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${
-                      tr.overall === 'competent' ? 'bg-emerald-500/20 text-emerald-300' : 'bg-danger/20 text-danger'
+                      tr.overall === 'competent' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
                     }`}
                   >
                     {t(`grading.${tr.overall}`)}

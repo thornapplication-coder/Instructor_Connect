@@ -240,6 +240,9 @@ export type SessionStatus = 'completed' | 'not_completed'
 
 /** Bewertung eines einzelnen Piloten innerhalb eines Formulars */
 export interface TraineeGrading {
+  /** frei eingetippter Studentenname (kein Dropdown) */
+  traineeName?: string
+  /** Alt-/Seed-Daten: Verweis auf einen Nutzer; Anzeige fällt darauf zurück */
   traineeId: string
   /** CDR oder FO */
   position: string
@@ -272,8 +275,9 @@ export interface GradingRecord {
   mailError?: string
   /** Teilnehmerliste der Formulare 307A/307B */
   attendance?: AttendanceEntry[]
-  /** vom Instruktor aus der eigenen Ansicht entfernt — Admin sieht es weiter */
-  hiddenForInstructor?: boolean
+  /** Nutzer, die das Formular aus ihrer Listenansicht entfernt haben —
+   *  im Admin-Panel bleibt es für alle erhalten */
+  hiddenFor?: string[]
   /** Verweis auf ein zugehöriges Formular (306/310 an ein Grading Sheet) */
   parentId?: string
   createdAt: number
