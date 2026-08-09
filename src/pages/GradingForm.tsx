@@ -373,9 +373,10 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
             })}
           </div>
         ) : f.type === 'checkgroup' ? (
-          // Ankreuzfeld-Gruppe wie im Original (z. B. ATA Chapters bei 308F)
+          // Ankreuzfeld-Gruppe in der Reihenfolge des Original-Formulars
+          // (z. B. IOS / RH Seat / LH Seat auf 308G, ATA Chapters auf 308F)
           <div className="flex flex-wrap gap-1.5">
-            {[...optionsOf(f)].sort((a, b) => a.localeCompare(b)).map((o) => {
+            {optionsOf(f).map((o) => {
               const sel = (header[f.key] ?? '').split(', ').filter(Boolean)
               const on = sel.includes(o)
               return (

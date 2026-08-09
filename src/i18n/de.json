@@ -54,7 +54,6 @@
   },
   "home": {
     "hello": "Hallo, {{name}}",
-    "subtitle": "Was möchtest du öffnen?",
     "admin": "Admin Panel",
     "installHint": "iPhone/iPad: App zum Home-Bildschirm hinzufügen, um Benachrichtigungen zu erhalten.",
     "installTitle": "Zum Home-Bildschirm hinzufügen",
@@ -165,7 +164,7 @@
     "recipients": "Empfänger",
     "cc": "CC",
     "backHome": "Zurück zur Startseite",
-    "errorEmpty": "Bitte einen Empfänger wählen und eine Nachricht eingeben.",
+    "errorEmpty": "Bitte Empfänger und Kategorie wählen und eine Nachricht eingeben.",
     "recipient": "Senden an",
     "urgent": "Urgent",
     "urgentOn": "als dringend markiert",
@@ -240,7 +239,10 @@
     "allStatus": "Aktiv + deaktiviert",
     "allRecipients": "Alle Empfänger",
     "onlyUrgent": "Nur Dringendes",
-    "allCategories": "Alle Kategorien"
+    "allCategories": "Alle Kategorien",
+    "backToOverview": "Zur Übersicht",
+    "sortByName": "Sortierung: Name",
+    "sortByRole": "Sortierung: Funktion"
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",
@@ -368,7 +370,9 @@
       "allAircraft": "Alle Aircraft Types",
       "editOptions": "Auswahlwerte bearbeiten",
       "editOptionsHint": "Alle Dropdowns und Ankreuzlisten dieses Formulars sind hier pflegbar: Eintrag direkt umbenennen, mit × entfernen oder neuen hinzufügen. Änderungen gelten sofort für neue Formulare.",
-      "aircraftCentral": "Wird zentral unter Einstellungen → Aircraft Types gepflegt — in allen Formularen identisch."
+      "aircraftCentral": "Wird zentral unter Einstellungen → Aircraft Types gepflegt — in allen Formularen identisch.",
+      "fleetFilter": "Flotte",
+      "noTrendFlags": "Keine Trendflags — keine Kompetenz unter dem Schwellwert."
     },
     "attendance": "Teilnehmerliste",
     "studentName": "Name des Teilnehmers",
@@ -442,7 +446,6 @@
     "file": "PDF-Datei",
     "allTypes": "Alle Muster",
     "empty": "Keine Lesson Plans für die zugewiesenen Muster vorhanden.",
-    "noAircraft": "Dir ist noch kein Aircraft Type zugewiesen. Der Admin kann das im Benutzer-Management ändern — danach siehst du die passenden Lesson Plans.",
-    "assignedNote": "Du siehst Lesson Plans für: {{types}}"
+    "noAircraft": "Dir ist noch kein Aircraft Type zugewiesen. Der Admin kann das im Benutzer-Management ändern — danach siehst du die passenden Lesson Plans."
   }
 }

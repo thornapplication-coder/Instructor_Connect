@@ -9,7 +9,7 @@ import type { Attachment } from '../types'
 export function Feedback() {
   const { t } = useTranslation()
   const { state, currentUser, submitFeedback } = useStore()
-  const [category, setCategory] = useState(state.settings.feedbackCategories[0] ?? '')
+  const [category, setCategory] = useState('')
   const [recipient, setRecipient] = useState('')
   const [urgent, setUrgent] = useState(false)
   const [message, setMessage] = useState('')
@@ -19,7 +19,7 @@ export function Feedback() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const categories = [...state.settings.feedbackCategories].sort((a, b) => a.localeCompare(b))
-  const recipients = state.settings.feedbackRecipients
+  const recipients = [...state.settings.feedbackRecipients].sort((a, b) => a.localeCompare(b))
 
   const pickFile = (file: File | null) => {
     if (!file) return
@@ -31,7 +31,7 @@ export function Feedback() {
   }
 
   const submit = () => {
-    if (!recipient || !message.trim()) {
+    if (!recipient || !category || !message.trim()) {
       setError(true)
       return
     }
@@ -99,12 +99,13 @@ export function Feedback() {
           </select>
         </Field>
 
-        <Field label={t('feedback.category')}>
+        <Field label={t('feedback.category') + ' *'}>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
           >
+            <option value="">…</option>
             {categories.map((c) => (
               <option key={c} value={c}>
                 {c}

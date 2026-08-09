@@ -54,6 +54,14 @@ export function missingFollowUps(r: GradingRecord, all: GradingRecord[]): string
  */
 export type TrafficColor = 'green' | 'yellow' | 'red'
 
+/** Piloten eines Formulars — Folgeformulare (306/310) erben sie vom
+ *  Ausgangsformular, damit in der Liste nicht „kein Trainee“ steht. */
+export function traineesOf(r: GradingRecord, all: GradingRecord[]) {
+  if (r.trainees.length > 0) return r.trainees
+  const parent = r.parentId ? all.find((x) => x.id === r.parentId) : undefined
+  return parent?.trainees ?? []
+}
+
 export function trafficLight(r: GradingRecord, all?: GradingRecord[]): TrafficColor {
   if (r.mailStatus === 'failed') return 'red'
   if (all && missingFollowUps(r, all).length > 0) return 'yellow'
@@ -189,7 +197,7 @@ function TrainingAdminGrading() {
                   {r.formTypeId} · {formTitle(r.formTypeId)}
                 </p>
                 <p className="truncate text-[12px] text-dim">
-                  {r.trainees.length > 0 ? r.trainees.map(traineeLabel).join(', ') : t('grading.noTrainee')} ·{' '}
+                  {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('grading.noTrainee')} ·{' '}
                   {userName(r.instructorId)} · {r.header.aircraftType || '—'} · {formatDate(r.createdAt)}
                 </p>
               </div>
@@ -321,7 +329,7 @@ export function Grading() {
                     {r.formTypeId} · {formTitle(r.formTypeId)}
                   </p>
                   <p className="mt-0.5 truncate text-[13px] text-dim">
-                    {r.trainees.length > 0 ? r.trainees.map(traineeLabel).join(', ') : t('grading.noTrainee')} ·{' '}
+                    {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('grading.noTrainee')} ·{' '}
                     {r.header.aircraftType} · {formatDate(r.createdAt)}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">

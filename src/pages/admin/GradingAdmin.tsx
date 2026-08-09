@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronRight, Clock, Download, ListChecks, Pencil, Plus, RefreshCw, Trash2, TrendingDown, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, SlidersHorizontal, Trash2, TrendingDown, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls } from '../../components/ui'
@@ -7,7 +7,7 @@ import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType } from '../../types'
-import { formatDate, formatDateTime, missingFollowUps, TrafficDot, trafficLight, type TrafficColor } from '../Grading'
+import { formatDate, formatDateTime, missingFollowUps, TrafficDot, traineesOf, trafficLight, type TrafficColor } from '../Grading'
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats'
 
@@ -325,7 +325,8 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
 export function GradingAdmin() {
   const { t } = useTranslation()
   const { state, currentUser, retryGradingMail, updateGrading } = useStore()
-  const [section, setSection] = useState<Section>('dashboard')
+  // null = Kachel-Übersicht wie am Dashboard (Wunsch: leichter auffindbar)
+  const [section, setSection] = useState<Section | null>(null)
   const [query, setQuery] = useState('')
   const [filterType, setFilterType] = useState('')
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
@@ -335,10 +336,13 @@ export function GradingAdmin() {
   const [filterAircraft, setFilterAircraft] = useState('')
   // Zeitraum: beliebig / 24h / 7 Tage / Monat / Jahr
   const [filterPeriod, setFilterPeriod] = useState('all')
+  // Statistik: leer = gesamte Flotte, sonst ein einzelner Aircraft Type
+  const [statsFleet, setStatsFleet] = useState('')
 
   const g = state.settings.grading
-  // Neueste immer zuoberst
-  const records = [...state.gradingRecords].sort((a, b) => b.createdAt - a.createdAt)
+  // Neueste immer zuoberst — memoisiert, damit die Statistik-Aggregationen
+  // nicht bei jedem Tastendruck im Suchfeld neu rechnen.
+  const records = useMemo(() => [...state.gradingRecords].sort((a, b) => b.createdAt - a.createdAt), [state.gradingRecords])
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
   const traineeLabel = (tr: { traineeName?: string; traineeId: string }) => tr.traineeName || userName(tr.traineeId)
   // einheitlich DD.MM.YYYY
@@ -349,29 +353,35 @@ export function GradingAdmin() {
   /** Formulare, zu denen ein Pflicht-Folgeformular (306/310) fehlt */
   const openFollowUps = records.filter((r) => missingFollowUps(r, records).length > 0)
 
+  /** Datenbasis der Statistik: alle Formulare oder eine einzelne Flotte */
+  const statsRecords = useMemo(
+    () => (statsFleet ? records.filter((r) => r.header.aircraftType === statsFleet) : records),
+    [records, statsFleet],
+  )
+
   /** Trendflag: Kompetenz flottenweit im Schnitt niedrig (Spez. 6.3) */
   const trendFlags = useMemo(() => {
     const byCode: Record<string, (number | 'NO' | null)[]> = {}
-    records.forEach((r) => r.trainees.forEach((tr) => tr.grades.forEach((gr) => (byCode[gr.code] ??= []).push(gr.grade))))
+    statsRecords.forEach((r) => r.trainees.forEach((tr) => tr.grades.forEach((gr) => (byCode[gr.code] ??= []).push(gr.grade))))
     return Object.entries(byCode)
       .map(([code, vals]) => ({ code, avg: avgOf(vals), n: vals.filter((v) => typeof v === 'number').length }))
       .filter((x) => x.avg !== null && x.n >= 2 && x.avg < 3.2)
       .sort((a, b) => (a.avg ?? 0) - (b.avg ?? 0))
-  }, [records])
+  }, [statsRecords])
 
   /** Instruktor-Kalibrierung: Abweichung vom Gesamtdurchschnitt (Spez. 6.3) */
   const calibration = useMemo(() => {
-    const overall = avgOf(records.flatMap((r) => r.trainees.flatMap((tr) => tr.grades.map((x) => x.grade))))
+    const overall = avgOf(statsRecords.flatMap((r) => r.trainees.flatMap((tr) => tr.grades.map((x) => x.grade))))
     const byInstr: Record<string, (number | 'NO' | null)[]> = {}
-    records.forEach((r) => r.trainees.forEach((tr) => tr.grades.forEach((gr) => (byInstr[r.instructorId] ??= []).push(gr.grade))))
+    statsRecords.forEach((r) => r.trainees.forEach((tr) => tr.grades.forEach((gr) => (byInstr[r.instructorId] ??= []).push(gr.grade))))
     return {
       overall,
       rows: Object.entries(byInstr)
-        .map(([id, vals]) => ({ id, avg: avgOf(vals), sessions: records.filter((r) => r.instructorId === id).length }))
+        .map(([id, vals]) => ({ id, avg: avgOf(vals), sessions: statsRecords.filter((r) => r.instructorId === id).length }))
         .filter((r) => r.avg !== null)
         .sort((a, b) => (b.avg ?? 0) - (a.avg ?? 0)),
     }
-  }, [records])
+  }, [statsRecords])
 
   /** Flotten-Matrix: Kompetenz × Aircraft Type */
   const fleetMatrix = useMemo(() => {
@@ -437,6 +447,9 @@ export function GradingAdmin() {
         ),
       )
     } else {
+      // Die Kalibrierung folgt dem Flotten-Filter der Statistik — das muss
+      // im Export ersichtlich sein, sonst wirken die Zahlen flottenweit.
+      csv += row(['Fleet', statsFleet || 'All fleets'])
       csv += row(['Person', 'Role', 'Sessions', 'AvgGrade'])
       calibration.rows.forEach((r2) => {
         csv += row([userName(r2.id), 'Instructor', r2.sessions, r2.avg?.toFixed(2)])
@@ -448,23 +461,42 @@ export function GradingAdmin() {
     downloadCsv(`grading-${scope}_${stamp}.csv`, csv)
   }
 
-  const sections: Section[] = ['dashboard', 'records', 'config', 'stats']
+  // Kachel-Navigation im Stil des Dashboards
+  const SECTION_TILES: { key: Section; icon: typeof Gauge; badge?: number }[] = [
+    { key: 'dashboard', icon: Gauge, badge: openSignatures.length + failedMails.length + openFollowUps.length },
+    { key: 'records', icon: FolderOpen },
+    { key: 'stats', icon: BarChart3 },
+    { key: 'config', icon: SlidersHorizontal },
+  ]
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {sections.map((s) => (
-          <button
-            key={s}
-            onClick={() => setSection(s)}
-            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
-              section === s ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
-            }`}
-          >
-            {t(`grading.admin.${s}`)}
-          </button>
-        ))}
-      </div>
+      {section === null && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {SECTION_TILES.map(({ key, icon: Icon, badge }) => (
+            <button
+              key={key}
+              onClick={() => setSection(key)}
+              className="group relative flex aspect-square flex-col items-center justify-center gap-2.5 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
+            >
+              {!!badge && (
+                <span className="absolute right-3 top-3 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-warm px-1.5 text-[11px] font-bold text-bg ring-2 ring-bg">
+                  {badge}
+                </span>
+              )}
+              <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg">
+                <Icon size={24} />
+              </span>
+              <span className="px-2 text-center text-[13.5px] font-semibold leading-tight">{t(`grading.admin.${key}`)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+      {section !== null && (
+        <button onClick={() => setSection(null)} className="flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink">
+          <ArrowLeft size={15} /> {t('admin.grading')}
+        </button>
+      )}
 
       {section === 'dashboard' && (
         <div className="space-y-3">
@@ -474,12 +506,11 @@ export function GradingAdmin() {
             <span className="inline-flex items-center gap-1.5"><TrafficDot color="yellow" /> {t('grading.traffic.yellow')}</span>
             <span className="inline-flex items-center gap-1.5"><TrafficDot color="red" /> {t('grading.traffic.red')}</span>
           </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {[
               { label: t('grading.admin.openSignatures'), value: openSignatures.length, icon: Clock, tone: openSignatures.length ? 'text-warm' : 'text-dim' },
               { label: t('grading.admin.failedMails'), value: failedMails.length, icon: AlertTriangle, tone: failedMails.length ? 'text-danger' : 'text-dim' },
               { label: t('grading.admin.openFollowUps'), value: openFollowUps.length, icon: AlertTriangle, tone: openFollowUps.length ? 'text-warm' : 'text-dim' },
-              { label: t('grading.admin.trendFlags'), value: trendFlags.length, icon: TrendingDown, tone: trendFlags.length ? 'text-warm' : 'text-dim' },
             ].map((k) => (
               <Card key={k.label} className="flex items-center gap-3 p-4">
                 <k.icon size={20} className={k.tone} />
@@ -497,7 +528,7 @@ export function GradingAdmin() {
                 <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
                 <div className="min-w-0 flex-1">
                   <p className="text-[14px] font-semibold">
-                    {r.formTypeId} · {r.trainees.map(traineeLabel).join(', ')}
+                    {r.formTypeId} · {traineesOf(r, records).map(traineeLabel).join(', ')}
                   </p>
                   <p className="text-[12.5px] text-dim">{r.mailError}</p>
                 </div>
@@ -513,7 +544,7 @@ export function GradingAdmin() {
               <Clock size={16} className="shrink-0 text-warm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-semibold">
-                  {r.formTypeId} · {r.trainees.map(traineeLabel).join(', ') || '—'}
+                  {r.formTypeId} · {traineesOf(r, records).map(traineeLabel).join(', ') || '—'}
                 </p>
                 <p className="text-[12.5px] text-dim">{t('grading.admin.awaitingSince', { date: dateLabel(r.createdAt) })}</p>
               </div>
@@ -527,7 +558,7 @@ export function GradingAdmin() {
               <AlertTriangle size={16} className="shrink-0 text-amber-500" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-semibold">
-                  {r.formTypeId} · {r.trainees.map(traineeLabel).join(', ') || '—'}
+                  {r.formTypeId} · {traineesOf(r, records).map(traineeLabel).join(', ') || '—'}
                 </p>
                 <p className="text-[12.5px] text-dim">
                   {t('grading.admin.followUpMissing', { forms: missingFollowUps(r, records).join(', ') })}
@@ -537,20 +568,6 @@ export function GradingAdmin() {
             </Card>
           ))}
 
-          {trendFlags.length > 0 && (
-            <Card className="p-4">
-              <p className="mb-2 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-dim">
-                <TrendingDown size={15} /> {t('grading.admin.trendFlags')}
-              </p>
-              {trendFlags.map((f) => (
-                <div key={f.code} className="flex items-center justify-between border-b border-line/[0.06] py-1.5 text-[13.5px] last:border-0">
-                  <span className="font-medium">{f.code}</span>
-                  <span className="text-dim">Ø {f.avg!.toFixed(2)} · n={f.n}</span>
-                </div>
-              ))}
-              <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.trendHint')}</p>
-            </Card>
-          )}
         </div>
       )}
 
@@ -625,7 +642,7 @@ export function GradingAdmin() {
               <TrafficDot color={trafficLight(r, records)} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-semibold">
-                  {r.formTypeId} · {r.trainees.map(traineeLabel).join(', ') || '—'}
+                  {r.formTypeId} · {traineesOf(r, records).map(traineeLabel).join(', ') || '—'}
                 </p>
                 <p className="truncate text-[12.5px] text-dim">
                   {userName(r.instructorId)} · {r.header.aircraftType} · {dateLabel(r.createdAt)}
@@ -669,6 +686,36 @@ export function GradingAdmin() {
 
       {section === 'stats' && (
         <div className="space-y-4">
+          {/* Vergleich einzelner Flotten: Auswahl gilt für Trendflags und Kalibrierung */}
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-[13px] font-medium text-dim">{t('grading.admin.fleetFilter')}</label>
+            <select value={statsFleet} onChange={(e) => setStatsFleet(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+              <option value="">{t('grading.admin.allAircraft')}</option>
+              {aircraftOptions.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+            <span className="text-[12.5px] text-dim">
+              {statsRecords.length} {t('grading.admin.sessions')}
+            </span>
+          </div>
+
+          <Card className="p-4">
+            <p className="mb-2 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-dim">
+              <TrendingDown size={15} /> {t('grading.admin.trendFlags')}
+            </p>
+            {trendFlags.length === 0 && <p className="text-[13px] text-dim">{t('grading.admin.noTrendFlags')}</p>}
+            {trendFlags.map((f) => (
+              <div key={f.code} className="flex items-center justify-between border-b border-line/[0.06] py-1.5 text-[13.5px] last:border-0">
+                <span className="font-medium">{f.code}</span>
+                <span className="text-dim">Ø {f.avg!.toFixed(2)} · n={f.n}</span>
+              </div>
+            ))}
+            <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.trendHint')}</p>
+          </Card>
+
           <Card className="p-4">
             <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.calibration')}</p>
             <p className="mb-2 text-[12.5px] text-dim">

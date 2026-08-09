@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronDown, Monitor, Paperclip, Plus, Trash2, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ChevronDown, ClipboardList, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Users, UsersRound, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
@@ -59,10 +59,15 @@ function UsersTab() {
   const [fRole, setFRole] = useState('')
   const [fStatus, setFStatus] = useState('')
   const [fGroup, setFGroup] = useState('')
+  // Sortierung: alphabetisch nach Name oder nach Funktion (Superadmin zuerst)
+  const [sortMode, setSortMode] = useState<'name' | 'role'>('name')
   const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'member' as Role, groupIds: [] as string[] })
 
   const sortedGroups = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
-  const allUsers = [...state.users].sort((a, b) => a.name.localeCompare(b.name))
+  const ROLE_RANK: Record<Role, number> = { superadmin: 0, group_admin: 1, training_admin: 2, member: 3 }
+  const allUsers = [...state.users].sort((a, b) =>
+    sortMode === 'role' ? ROLE_RANK[a.role] - ROLE_RANK[b.role] || a.name.localeCompare(b.name) : a.name.localeCompare(b.name),
+  )
   const users = allUsers.filter((u) => {
     if (query.trim() && !`${u.name} ${u.email}`.toLowerCase().includes(query.trim().toLowerCase())) return false
     if (fRole && u.role !== fRole) return false
@@ -105,13 +110,21 @@ function UsersTab() {
             </option>
           ))}
         </select>
+        <select value={sortMode} onChange={(e) => setSortMode(e.target.value as 'name' | 'role')} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+          <option value="name">{t('admin.sortByName')}</option>
+          <option value="role">{t('admin.sortByRole')}</option>
+        </select>
         <span className="shrink-0 text-[12.5px] text-dim">
           {users.length}/{allUsers.length}
         </span>
       </div>
       {users.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('info.empty')}</p>}
-      {users.map((u) => (
-        <Card key={u.id} className={`p-3 ${u.active ? '' : 'opacity-55'}`}>
+      {users.map((u, i) => (
+        <div key={u.id}>
+        {sortMode === 'role' && (i === 0 || users[i - 1].role !== u.role) && (
+          <p className="mb-1.5 mt-2 px-1 text-[12px] font-semibold uppercase tracking-wide text-dim">{t(`roles.${u.role}`)}</p>
+        )}
+        <Card className={`p-3 ${u.active ? '' : 'opacity-55'}`}>
           {/* Kopfzeile: immer sichtbar, ganze Zeile klappt auf */}
           <button onClick={() => setOpenId(openId === u.id ? null : u.id)} className="flex w-full items-center gap-3 text-left">
             <Avatar name={u.name} size={34} />
@@ -233,6 +246,7 @@ function UsersTab() {
           </div>
           </div>
         </Card>
+        </div>
       ))}
       {showNew && (
         <Modal title={t('admin.addUser')} onClose={() => setShowNew(false)}>
@@ -376,7 +390,7 @@ function GroupsTab() {
       {groups.map((g, i) => (
         <div key={g.id}>
         {headingFor(i) && (
-          <p className="mb-1.5 mt-3 px-1 text-[12px] font-semibold uppercase tracking-wide text-dim first:mt-0">{headingFor(i)}</p>
+          <p className="mb-1.5 mt-2 px-1 text-[12px] font-semibold uppercase tracking-wide text-dim">{headingFor(i)}</p>
         )}
         <Card className="space-y-3 p-3">
           {/* Kompakte Kopfzeile: Name und Mitgliederzahl, Details auf Klick */}
@@ -738,11 +752,24 @@ function ChangelogTab() {
   )
 }
 
+/* Icons der Admin-Kacheln — gleiche Optik wie die Dashboard-Kacheln */
+const TAB_ICONS: Record<Tab, typeof Users> = {
+  users: Users,
+  permissions: ShieldCheck,
+  grading: ClipboardList,
+  groups: UsersRound,
+  feedback: MessageSquareText,
+  settings: Settings,
+  imprint: ScrollText,
+  changelog: History,
+}
+
 export function Admin() {
   const { t } = useTranslation()
   const { currentUser } = useStore()
   const isDesktop = useIsDesktop()
-  const [tab, setTab] = useState<Tab>(currentUser?.role === 'group_admin' ? 'groups' : 'users')
+  // null = Kachel-Übersicht; erst ein Klick öffnet den Bereich
+  const [tab, setTab] = useState<Tab | null>(null)
 
   // Am Tablet/Handy ist das Panel zu unübersichtlich — Hinweis statt Inhalt.
   if (!isDesktop) {
@@ -780,30 +807,48 @@ export function Admin() {
 
   return (
     <>
-      <TopBar title={t('admin.title')} back="/" />
+      <TopBar title={tab ? `${t('admin.title')} · ${t(`admin.${tab}`)}` : t('admin.title')} back="/" />
       <Page>
-        <div className="mb-4 flex gap-2 overflow-x-auto pb-1">
-          {tabs.map((tb) => (
+        {tab === null ? (
+          <>
+            {/* Kachel-Übersicht wie am Dashboard — leichter zu finden und zu ändern */}
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              {tabs.map((tb) => {
+                const Icon = TAB_ICONS[tb]
+                return (
+                  <button
+                    key={tb}
+                    onClick={() => setTab(tb)}
+                    className="group flex aspect-square flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
+                  >
+                    <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg">
+                      <Icon size={28} />
+                    </span>
+                    <span className="px-2 text-center text-[14px] font-semibold leading-tight">{t(`admin.${tb}`)}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-5 text-center text-[12px] text-dim/80">{t('admin.autoSaveHint')}</p>
+          </>
+        ) : (
+          <>
             <button
-              key={tb}
-              onClick={() => setTab(tb)}
-              className={`shrink-0 rounded-full border px-4 py-2 text-[13.5px] transition ${
-                tab === tb ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
-              }`}
+              onClick={() => setTab(null)}
+              className="mb-4 flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink"
             >
-              {t(`admin.${tb}`)}
+              <ArrowLeft size={15} /> {t('admin.backToOverview')}
             </button>
-          ))}
-        </div>
-        <p className="mb-3 text-[12px] text-dim/80">{t('admin.autoSaveHint')}</p>
-        {tab === 'users' && <UsersTab />}
-        {tab === 'permissions' && <PermissionsTab />}
-        {tab === 'grading' && <GradingAdmin />}
-        {tab === 'groups' && <GroupsTab />}
-        {tab === 'feedback' && <FeedbackTab />}
-        {tab === 'settings' && <SettingsTab />}
-        {tab === 'imprint' && <ImprintTab />}
-        {tab === 'changelog' && <ChangelogTab />}
+            {tab === 'users' && <UsersTab />}
+            {tab === 'permissions' && <PermissionsTab />}
+            {tab === 'grading' && <GradingAdmin />}
+            {tab === 'groups' && <GroupsTab />}
+            {tab === 'feedback' && <FeedbackTab />}
+            {tab === 'settings' && <SettingsTab />}
+            {tab === 'imprint' && <ImprintTab />}
+            {tab === 'changelog' && <ChangelogTab />}
+          </>
+        )}
       </Page>
     </>
   )

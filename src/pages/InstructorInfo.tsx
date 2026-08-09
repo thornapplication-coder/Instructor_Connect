@@ -18,7 +18,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [body, setBody] = useState('')
-  const [category, setCategory] = useState(state.settings.infoCategories[0] ?? '')
+  const [category, setCategory] = useState('')
   const [validFrom, setValidFrom] = useState('')
   const [validUntil, setValidUntil] = useState('')
   const [requiresAck, setRequiresAck] = useState(false)
@@ -54,7 +54,8 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
             onChange={(e) => setCategory(e.target.value)}
             className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
           >
-            {state.settings.infoCategories.map((c) => (
+            <option value="">…</option>
+            {[...state.settings.infoCategories].sort((a, b) => a.localeCompare(b)).map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>

@@ -54,7 +54,6 @@
   },
   "home": {
     "hello": "Hello, {{name}}",
-    "subtitle": "What would you like to open?",
     "admin": "Admin Panel",
     "installHint": "iPhone/iPad: add this app to your home screen to receive notifications.",
     "installTitle": "Add to home screen",
@@ -165,7 +164,7 @@
     "recipients": "Recipients",
     "cc": "CC",
     "backHome": "Back to home",
-    "errorEmpty": "Please choose a recipient and enter a message.",
+    "errorEmpty": "Please choose a recipient and a category and enter a message.",
     "recipient": "Send to",
     "urgent": "Urgent",
     "urgentOn": "marked as urgent",
@@ -240,7 +239,10 @@
     "allStatus": "Active + deactivated",
     "allRecipients": "All recipients",
     "onlyUrgent": "Urgent only",
-    "allCategories": "All categories"
+    "allCategories": "All categories",
+    "backToOverview": "Back to overview",
+    "sortByName": "Sort: Name",
+    "sortByRole": "Sort: Role"
   },
   "imprint": {
     "title": "Legal notice & terms of use",
@@ -368,7 +370,9 @@
       "allAircraft": "All aircraft types",
       "editOptions": "Edit the field options",
       "editOptionsHint": "Every dropdown and tick list of this form can be maintained here: rename an entry directly, remove it with ×, or add a new one. Changes apply to new forms immediately.",
-      "aircraftCentral": "Maintained centrally under Settings → Aircraft types — identical on every form."
+      "aircraftCentral": "Maintained centrally under Settings → Aircraft types — identical on every form.",
+      "fleetFilter": "Fleet",
+      "noTrendFlags": "No trend flags — no competency below the threshold."
     },
     "attendance": "Record of Attendance",
     "studentName": "Student name",
@@ -442,7 +446,6 @@
     "file": "PDF file",
     "allTypes": "All types",
     "empty": "No lesson plans available for your assigned aircraft types.",
-    "noAircraft": "No aircraft type has been assigned to you yet. An admin can change this in user management — afterwards you will see the matching lesson plans.",
-    "assignedNote": "You see lesson plans for: {{types}}"
+    "noAircraft": "No aircraft type has been assigned to you yet. An admin can change this in user management — afterwards you will see the matching lesson plans."
   }
 }

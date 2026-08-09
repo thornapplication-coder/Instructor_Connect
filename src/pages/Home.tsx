@@ -58,7 +58,7 @@ export function Home() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="safe-top-6 mx-auto flex w-full max-w-3xl items-center justify-between px-5">
+      <header className="safe-top-6 mx-auto flex w-full max-w-3xl items-center justify-between px-5 xl:max-w-none xl:px-10">
         <div className="flex items-center gap-3">
           <Avatar name={currentUser!.name} size={40} />
           <div>
@@ -98,20 +98,20 @@ export function Home() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 md:max-w-4xl">
-        <div className="mb-1 flex items-center gap-3">
-          {/* Flugzeug-Icon wie am Login — die Bildmarke der App */}
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised shadow-tile">
-            <Plane size={21} className="text-accent" />
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 md:max-w-4xl xl:max-w-none xl:px-10">
+        {/* Bildmarke und Titel mittig über den Kacheln */}
+        <div className="mb-8 flex flex-col items-center gap-4">
+          <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-raised shadow-tile md:h-24 md:w-24">
+            <Plane size={44} className="text-accent md:hidden" />
+            <Plane size={52} className="hidden text-accent md:block" />
           </span>
-          <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+          <h1 className="text-center text-4xl font-bold tracking-tight md:text-5xl">
             Instructor <span className="text-accent">Connect</span>
           </h1>
         </div>
-        <p className="mb-6 text-sm text-dim md:mb-8">{t('home.subtitle')}</p>
 
         {/* 2 Spalten am Handy, 3 ab Tablet — große, gut greifbare Kacheln */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-6">
           {tiles.map(({ to, label, icon: Icon }) => (
             <button
               key={to}

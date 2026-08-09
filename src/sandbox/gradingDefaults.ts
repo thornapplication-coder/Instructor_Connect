@@ -9,95 +9,133 @@ import type { CompetencySet, FormField, FormType, GradingSettings } from '../typ
 export const PILOT_SET: CompetencySet = {
   key: 'pilot',
   name: 'Pilot competencies (308A–F, H)',
+  // Observable Behaviours wörtlich aus dem OM (Rev. 3.0, 1.20.3)
   competencies: [
     {
       code: 'KNO',
       title: 'Application of knowledge',
       behaviours: [
-        'Demonstrates practical and applicable knowledge of limitations and systems.',
-        'Demonstrates required knowledge of published operating instructions and procedures.',
-        'Applies knowledge effectively to the situation at hand.',
-        'Identifies own knowledge gaps and seeks clarification.',
+        'OB 0.1 Demonstrates practical and applicable knowledge of limitations and systems and their interaction',
+        'OB 0.2 Demonstrates required knowledge of published operating instructions',
+        'OB 0.3 Demonstrates knowledge of the physical environment, the air traffic environment and the operational infrastructure (including air traffic routings, weather, airports)',
+        'OB 0.4 Demonstrates appropriate knowledge of applicable legislation',
+        'OB 0.5 Knows where to source required information',
+        'OB 0.6 Demonstrates a positive interest in acquiring knowledge',
+        'OB 0.7 Is able to apply knowledge effectively',
       ],
     },
     {
       code: 'PRO',
       title: 'Application of procedures and compliance with regulations',
       behaviours: [
-        'Identifies and applies procedures in accordance with published operating instructions.',
-        'Executes checklists correctly and at the appropriate time.',
-        'Operates aircraft systems and associated equipment correctly.',
-        'Identifies deviations from SOPs and justifies them where warranted.',
+        'OB 1.1 Identifies where to find procedures and regulations',
+        'OB 1.2 Applies relevant operating instructions, procedures and techniques in a timely manner',
+        'OB 1.3 Follows SOPs unless a higher degree of safety dictates an appropriate deviation',
+        'OB 1.4 Operates aircraft systems and associated equipment correctly',
+        'OB 1.5 Monitors aircraft systems status',
+        'OB 1.6 Complies with applicable regulations',
+        'OB 1.7 Applies relevant procedural knowledge',
       ],
     },
     {
       code: 'COM',
       title: 'Communication',
       behaviours: [
-        'Ensures the recipient is ready and able to receive information.',
-        'Selects appropriate content, timing and means of communication.',
-        'Confirms that information has been correctly understood.',
-        'Listens actively and asks relevant questions.',
+        'OB 2.1 Determines that the recipient is ready and able to receive information',
+        'OB 2.2 Selects appropriately what, when, how and with whom to communicate',
+        'OB 2.3 Conveys messages clearly, accurately and concisely',
+        'OB 2.4 Confirms that the recipient demonstrates understanding of important information',
+        'OB 2.5 Listens actively and demonstrates understanding when receiving information',
+        'OB 2.6 Asks relevant and effective questions',
+        'OB 2.7 Uses appropriate escalation in communication to resolve identified deviations',
+        'OB 2.8 Uses and interprets non-verbal communication in a manner appropriate to the organisational and social culture',
+        'OB 2.9 Adheres to standard radiotelephone phraseology and procedures',
+        'OB 2.10 Accurately reads, interprets, constructs and responds to datalink messages in English',
       ],
     },
     {
       code: 'FPA',
       title: 'Aeroplane flight path management — automation',
       behaviours: [
-        'Controls the flight path through automation within tolerances.',
-        'Monitors automation modes and state transitions.',
-        'Selects the appropriate level of automation in a timely manner.',
-        'Detects deviations and intervenes in time.',
+        'OB 3.1 Uses appropriate flight management, guidance systems and automation, as installed and applicable to the conditions',
+        'OB 3.2 Monitors and detects deviations from the intended flight path and takes appropriate action',
+        'OB 3.3 Manages the flight path to achieve optimum operational performance',
+        'OB 3.4 Maintains the intended flight path during flight using automation whilst managing other tasks and distractions',
+        'OB 3.5 Selects appropriate level and mode of automation in a timely manner considering phase of flight and workload',
+        'OB 3.6 Effectively monitors automation, including engagement and automatic mode transitions',
       ],
     },
     {
       code: 'FPM',
       title: 'Aeroplane flight path management — manual control',
       behaviours: [
-        'Controls the flight path manually within tolerances.',
-        'Maintains a safe attitude with appropriate control precision.',
-        'Compensates for disturbances calmly and with anticipation.',
-        'Retains sufficient capacity for monitoring during manual flight.',
+        'OB 4.1 Controls the aircraft manually with accuracy and smoothness as appropriate to the situation',
+        'OB 4.2 Monitors and detects deviations from the intended flight path and takes appropriate action',
+        'OB 4.3 Manually controls the aeroplane using the relationship between aeroplane attitude, speed and thrust, and navigation signals or visual information',
+        'OB 4.4 Manages the flight path to achieve optimum operational performance',
+        'OB 4.5 Maintains the intended flight path during manual flight whilst managing other tasks and distractions',
+        'OB 4.6 Uses appropriate flight management and guidance systems, as installed and applicable to the conditions',
+        'OB 4.7 Effectively monitors flight guidance systems including engagement and automatic mode transitions',
       ],
     },
     {
       code: 'LTW',
-      title: 'Leadership and teamwork',
+      title: 'Leadership & teamwork',
       behaviours: [
-        'Encourages an open atmosphere and active team participation.',
-        'Takes responsibility and makes decisions transparently.',
-        'Delegates tasks appropriately and supports others.',
-        'Addresses deviations respectfully but clearly.',
+        'OB 5.1 Encourages team participation and open communication',
+        'OB 5.2 Demonstrates initiative and provides direction when required',
+        'OB 5.3 Engages others in planning',
+        'OB 5.4 Considers inputs from others',
+        'OB 5.5 Gives and receives feedback constructively',
+        'OB 5.6 Addresses and resolves conflicts and disagreements in a constructive manner',
+        'OB 5.7 Exercises decisive leadership when required',
+        'OB 5.8 Accepts responsibility for decisions and actions',
+        'OB 5.9 Carries out instructions when directed',
+        'OB 5.10 Applies effective intervention strategies to resolve identified deviations',
+        'OB 5.11 Manages cultural and language challenges, as applicable',
       ],
     },
     {
       code: 'PSD',
       title: 'Problem-solving — decision-making',
       behaviours: [
-        'Identifies deviations and states the problem clearly.',
-        'Gathers information and evaluates the available options.',
-        'Decides in a timely manner and justifies the choice.',
-        'Reviews the outcome of the decision and adjusts as required.',
+        'OB 6.1 Identifies, assesses and manages threats and errors in a timely manner',
+        'OB 6.2 Seeks accurate and adequate information from appropriate sources',
+        'OB 6.3 Identifies and verifies what and why things have gone wrong, if appropriate',
+        'OB 6.4 Perseveres in working through problems whilst prioritising safety',
+        'OB 6.5 Identifies and considers appropriate options',
+        'OB 6.6 Applies appropriate and timely decision-making techniques',
+        'OB 6.7 Monitors, reviews and adapts decisions as required',
+        'OB 6.8 Adapts when faced with situations where no guidance or procedure exists',
+        'OB 6.9 Demonstrates resilience when encountering an unexpected event',
       ],
     },
     {
       code: 'SAW',
       title: 'Situation awareness and management of information',
       behaviours: [
-        'Monitors the state of the aircraft, its environment and the crew.',
-        'Identifies threats early and anticipates developments.',
-        'Maintains a realistic mental model of the situation.',
-        'Recognises loss of situation awareness and re-establishes it.',
+        'OB 7.1 Monitors and assesses the state of the aeroplane and its systems',
+        'OB 7.2 Monitors and assesses the aeroplane’s energy state, and its anticipated flight path',
+        'OB 7.3 Monitors and assesses the general environment as it may affect the operation',
+        'OB 7.4 Validates the accuracy of information and checks for gross errors',
+        'OB 7.5 Maintains awareness of the people involved in or affected by the operation and their capacity to perform as expected',
+        'OB 7.6 Develops effective contingency plans based upon potential risks associated with threats and errors',
+        'OB 7.7 Responds to indications of reduced situation awareness',
       ],
     },
     {
       code: 'WLM',
       title: 'Workload management',
       behaviours: [
-        'Plans and prioritises tasks with foresight.',
-        'Retains spare capacity even under high workload.',
-        'Makes effective use of available resources.',
-        'Recognises overload and takes countermeasures.',
+        'OB 8.1 Exercises self-control in all situations',
+        'OB 8.2 Plans, prioritises and schedules appropriate tasks effectively',
+        'OB 8.3 Manages time efficiently when carrying out tasks',
+        'OB 8.4 Offers and gives assistance',
+        'OB 8.5 Delegates tasks',
+        'OB 8.6 Seeks and accepts assistance, when appropriate',
+        'OB 8.7 Monitors, reviews and cross-checks actions conscientiously',
+        'OB 8.8 Verifies that tasks are completed to the expected outcome',
+        'OB 8.9 Manages and recovers from interruptions, distractions, variations and failures effectively while performing tasks',
       ],
     },
   ],
@@ -106,22 +144,89 @@ export const PILOT_SET: CompetencySet = {
 export const INSTRUCTOR_SET: CompetencySet = {
   key: 'instructor',
   name: 'Instructor competencies (308G)',
+  // Observable Behaviours wörtlich aus dem 308G-Formular; EVA und REP
+// waren auf der Vorlage abgeschnitten und behalten vorerst die bisherige
+// Formulierung — bitte bei Vorliegen des Originals nachziehen. (TRI/SFI/MCCI)
   competencies: [
-    { code: 'PRE', title: 'Prepare resources', behaviours: ['Prepares documentation, equipment and scenarios completely.', 'Verifies availability and serviceability of the training device.'] },
-    { code: 'CLI', title: 'Create a climate conducive to learning', behaviours: ['Creates an open and respectful learning atmosphere.', 'Lowers barriers and encourages questions.'] },
-    { code: 'PRK', title: 'Present knowledge', behaviours: ['Presents content in a structured and comprehensible manner.', 'Adapts depth and pace to the trainee’s level of knowledge.'] },
-    { code: 'TEM', title: 'Integrate TEM or CRM', behaviours: ['Integrates technical content with TEM/CRM principles.', 'Uses real-world examples for illustration.'] },
-    { code: 'TIM', title: 'Manage time to achieve training objectives', behaviours: ['Keeps to the schedule and prioritises training objectives.', 'Responds flexibly to delays without loss of quality.'] },
-    { code: 'FAC', title: 'Facilitate learning', behaviours: ['Guides trainees to their own conclusions through questioning.', 'Has solutions worked out rather than prescribed.'] },
-    { code: 'ASS', title: 'Assess trainee performance', behaviours: ['Assesses transparently against defined criteria.', 'Separates observation from interpretation.'] },
-    { code: 'MON', title: 'Monitor and review progress', behaviours: ['Tracks learning progress throughout the session.', 'Adapts the training to the observed progress.'] },
-    { code: 'EVA', title: 'Evaluate training sessions', behaviours: ['Critically reflects on the conducted session.', 'Derives concrete improvements from the review.'] },
-    { code: 'REP', title: 'Report outcome', behaviours: ['Documents the outcome completely and in a timely manner.', 'Reports significant findings to the responsible office.'] },
+    {
+      code: 'PRE',
+      title: 'Prepare resources',
+      behaviours: [
+        '(a) ensures adequate facilities',
+        '(b) prepares briefing material',
+        '(c) manages available tools',
+        '(d) plans training within the training envelope of the training platform',
+      ],
+    },
+    {
+      code: 'CLI',
+      title: 'Create a climate conducive to learning',
+      behaviours: [
+        '(a) establishes credentials, role models appropriate behaviour',
+        '(b) clarifies roles',
+        '(c) states objectives',
+        '(d) ascertains and supports trainees needs',
+      ],
+    },
+    {
+      code: 'PRK',
+      title: 'Present knowledge',
+      behaviours: ['(a) communicates clearly', '(b) creates and sustains realism', '(c) looks for training opportunities'],
+    },
+    {
+      code: 'TEM',
+      title: 'Integrate TEM or CRM',
+      behaviours: [
+        '(a) makes TEM and CRM links with technical training',
+        '(b) for aeroplanes: makes upset prevention links with technical training',
+      ],
+    },
+    {
+      code: 'TIM',
+      title: 'Manage time to achieve training objectives',
+      behaviours: ['allocates time appropriate to achieving competency objective'],
+    },
+    {
+      code: 'FAC',
+      title: 'Facilitate learning',
+      behaviours: [
+        '(a) encourages trainee participation',
+        '(b) shows motivating, patient, confident and assertive manner',
+        '(c) conducts one-to-one coaching',
+        '(d) encourages mutual support',
+      ],
+    },
+    {
+      code: 'ASS',
+      title: 'Assesses trainee performance',
+      behaviours: [
+        '(a) assesses and encourages trainee self-assessment of performance against competency standards',
+        '(b) makes assessment decision and provides clear feedback',
+        '(c) observes CRM behaviour',
+      ],
+    },
+    {
+      code: 'MON',
+      title: 'Monitor and review progress',
+      behaviours: [
+        '(a) compares individual outcomes to defined objectives',
+        '(b) identifies individual differences in learning rates',
+        '(c) applies appropriate corrective action',
+      ],
+    },
+    {
+      code: 'EVA',
+      title: 'Evaluate training sessions',
+      behaviours: ['Critically reflects on the conducted session.', 'Derives concrete improvements from the review.'],
+    },
+    {
+      code: 'REP',
+      title: 'Report outcome',
+      behaviours: ['Documents the outcome completely and in a timely manner.', 'Reports significant findings to the responsible office.'],
+    },
   ],
 }
 
-/** Muster der Aviation Academy Austria — gilt für ALLE Formulare.
- *  Im Admin Panel pflegbar (Einstellungen → Aircraft Types). */
 const AIRCRAFT = ['ATR 42/72', 'C525 CJ1+', 'C525 M2', 'C560 XLS', 'C560 XLS+', 'CL30', 'CL604/605', 'EMB505']
 
 /** Uhrzeit-/Dauerwerte: 00:30 bis 14:30 in 30-Minuten-Schritten */
@@ -382,12 +487,12 @@ export const FORM_TYPES: FormType[] = [
         required: true,
         wide: true,
       }),
-      f('candidateSeat', 'Candidate Instructor — position', 'radiogroup', {
+      f('candidateSeat', 'Candidate Instructor — position', 'checkgroup', {
         options: ['IOS', 'RH Seat', 'LH Seat'],
         required: true,
         wide: true,
       }),
-      f('coiSeat', 'Course Instructor', 'radiogroup', {
+      f('coiSeat', 'Course Instructor', 'checkgroup', {
         options: ['Either Pilot Seat (EPS)', 'IOS', 'Observer'],
         required: true,
         wide: true,
@@ -396,7 +501,7 @@ export const FORM_TYPES: FormType[] = [
       f('date', 'Date', 'date', { required: true }),
       f('operation', 'Operation', 'radiogroup', { options: ['SPO', 'MPO', 'SPO + MPO'], required: true }),
       f('other', 'Other', 'text'),
-      f('program', 'Program (PRG)', 'radiogroup', {
+      f('program', 'Program (PRG)', 'checkgroup', {
         options: ['PRG 1*', 'PRG 2**', 'PRG 3', 'PRG 4', 'PRG 5', 'PRG 6', 'PRG 7', 'PRG 8'],
         required: true,
         wide: true,

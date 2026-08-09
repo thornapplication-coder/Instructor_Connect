@@ -183,11 +183,6 @@ export function LessonPlans() {
           </section>
         ))}
 
-        {currentUser!.role === 'member' && currentUser!.aircraftTypes.length > 0 && (
-          <p className="pt-2 text-center text-[11.5px] text-dim/70">
-            {t('lessons.assignedNote', { types: currentUser!.aircraftTypes.join(', ') })}
-          </p>
-        )}
       </Page>
       {showUpload && <UploadModal onClose={() => setShowUpload(false)} />}
     </>
