@@ -139,7 +139,8 @@
     "groupsLabel": "Zielgruppen (Mehrfachauswahl)",
     "groupsHint": "Keine Auswahl = für alle sichtbar. Mit Gruppen sehen nur deren Mitglieder den Eintrag — und nur sie müssen die Lese-Bestätigung leisten.",
     "allGroups": "Alle Gruppen",
-    "exportAck": "Kontrollliste exportieren (CSV)"
+    "exportAck": "Kontrollliste exportieren (CSV)",
+    "scheduled": "Geplant — für die Zielgruppen noch nicht sichtbar"
   },
   "contacts": {
     "call": "Anrufen",
@@ -227,7 +228,8 @@
       "info_manage": "Instructor-Info-Einträge anlegen und verwalten",
       "lessons_manage": "Lesson Plans hochladen und verwalten",
       "contacts_manage": "Who-to-call-Verzeichnis bearbeiten"
-    }
+    },
+    "lastGroupBlocked": "Jeder Nutzer muss mindestens einer Gruppe angehören — sonst verliert er den Zugang zu Chats und gruppenbezogener Instructor Info. Bitte zuerst eine andere Gruppe zuweisen."
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",

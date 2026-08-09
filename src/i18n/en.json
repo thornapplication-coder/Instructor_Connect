@@ -139,7 +139,8 @@
     "groupsLabel": "Target groups (multi-select)",
     "groupsHint": "No selection = visible to everyone. With groups selected, only their members see the entry — and only they must confirm reading.",
     "allGroups": "All groups",
-    "exportAck": "Export control list (CSV)"
+    "exportAck": "Export control list (CSV)",
+    "scheduled": "Scheduled — not yet visible to the target groups"
   },
   "contacts": {
     "call": "Call",
@@ -227,7 +228,8 @@
       "info_manage": "Create and manage Instructor Info entries",
       "lessons_manage": "Upload and manage lesson plans",
       "contacts_manage": "Edit the Who to call directory"
-    }
+    },
+    "lastGroupBlocked": "Every user must belong to at least one group — otherwise they lose access to chats and group-scoped Instructor Info. Assign a different group first."
   },
   "imprint": {
     "title": "Legal notice & terms of use",

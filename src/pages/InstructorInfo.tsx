@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
-import { infoEntryAppliesTo, useStore } from '../store'
+import { infoEntryAppliesTo, infoIsPublished, useStore } from '../store'
 import { formatDate, formatDateTime } from './Grading'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
@@ -182,6 +182,9 @@ export function InstructorInfo() {
   const isExpired = (e: { validUntil?: string }) =>
     !!e.validUntil && new Date(`${e.validUntil}T23:59:59`).getTime() < now()
 
+  /** Noch nicht gültig — nur Verwalter sehen solche Einträge (Vorbereitung) */
+  const isScheduled = (e: { validFrom?: string }) => !infoIsPublished(e, now())
+
   return (
     <>
       {/* Modulname bleibt laut Spez. in beiden Sprachen Englisch */}
@@ -240,6 +243,7 @@ export function InstructorInfo() {
           const isNew = now() - entry.createdAt < NEW_MS
           const starred = starredInfoIds.has(entry.id)
           const expired = isExpired(entry)
+          const scheduled = isScheduled(entry)
           return (
             <Card key={entry.id} className={`p-4 ${expired ? 'opacity-60' : ''}`}>
               <div className="flex items-start gap-3">
@@ -274,6 +278,13 @@ export function InstructorInfo() {
                     {t('info.validity')}: {validityLabel(entry)}
                     {expired && ` · ${t('info.expired')}`}
                   </p>
+                  {/* Für Verwalter sichtbar: der Eintrag gilt erst später und
+                      ist für die Zielgruppen noch nicht sichtbar */}
+                  {scheduled && (
+                    <p className="mt-1 inline-flex items-center rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-semibold text-black">
+                      {t('info.scheduled')}
+                    </p>
+                  )}
 
                   {/* Lese-Bestätigung: Button für Zielgruppen-Mitglieder,
                       Übersicht + Kontrolllisten-Export für Admins */}
@@ -281,7 +292,8 @@ export function InstructorInfo() {
                     const acks = state.infoAcks[entry.id] ?? {}
                     const myAck = acks[currentUser!.id]
                     const targets = ackTargets(entry)
-                    const amTarget = targets.some((u) => u.id === currentUser!.id)
+                    // Vor dem Gültigkeitsbeginn wird nichts bestätigt
+                    const amTarget = targets.some((u) => u.id === currentUser!.id) && !isScheduled(entry)
                     const done = targets.filter((u) => acks[u.id]).length
                     return (
                       <div className="mt-2.5 space-y-1.5">

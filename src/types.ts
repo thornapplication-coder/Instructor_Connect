@@ -301,6 +301,10 @@ export interface GradingRecord {
   /** Nutzer, die das Formular aus ihrer Listenansicht entfernt haben —
    *  im Admin-Panel bleibt es für alle erhalten */
   hiddenFor?: string[]
+  /** Formulare, die in EINEM Durchgang entstanden sind (ein Formular je
+   *  Student), teilen sich diese ID — ein Pflicht-Folgeformular gilt damit
+   *  für alle Geschwister-Formulare des Durchgangs. */
+  batchId?: string
   /** Verweis auf ein zugehöriges Formular (306/310 an ein Grading Sheet) */
   parentId?: string
   createdAt: number

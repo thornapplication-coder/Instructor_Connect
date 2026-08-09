@@ -35,7 +35,10 @@ export function formatDateTime(ts: number): string {
  */
 export function missingFollowUps(r: GradingRecord, all: GradingRecord[]): string[] {
   if (r.parentId) return []
-  const children = all.filter((c) => c.parentId === r.id)
+  // Ein Durchgang mit mehreren Studenten ergibt mehrere Formulare; ein dort
+  // ausgefülltes 306/310 hängt an genau einem davon, gilt aber für alle.
+  const family = new Set([r.id, ...(r.batchId ? all.filter((x) => x.batchId === r.batchId).map((x) => x.id) : [])])
+  const children = all.filter((c) => c.parentId && family.has(c.parentId))
   const out: string[] = []
   if (r.trainees.some((tr) => tr.overall === 'not_competent') && !children.some((c) => c.formTypeId === '306')) out.push('306')
   if (r.sessionStatus === 'not_completed' && !children.some((c) => c.formTypeId === '310')) out.push('310')

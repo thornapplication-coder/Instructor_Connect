@@ -204,8 +204,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const visibleInfoEntries = useMemo(() => {
     if (!currentUser) return []
     if (userHasPerm(state.settings, currentUser, 'info_manage')) return state.infoEntries
-    return state.infoEntries.filter((e) => infoEntryAppliesTo(e, currentUser.id, state.groups))
-  }, [state.infoEntries, state.groups, state.settings, currentUser])
+    return state.infoEntries.filter(
+      (e) => infoEntryAppliesTo(e, currentUser.id, state.groups) && infoIsPublished(e, now()),
+    )
+  }, [state.infoEntries, state.groups, state.settings, currentUser, now])
 
   const latestForeignInfo = visibleInfoEntries.reduce(
     (max, e) => (e.authorId !== state.currentUserId ? Math.max(max, e.createdAt) : max),
@@ -396,9 +398,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
       starredInfoIds: new Set(state.currentUserId ? state.starredInfo[state.currentUserId] ?? [] : []),
       visibleInfoEntries,
+      // Bestätigen erst möglich, wenn der Eintrag auch gilt
       acknowledgeInfo: (id) =>
         patch((s) => {
           if (!s.currentUserId) return null
+          const entry = s.infoEntries.find((e) => e.id === id)
+          if (!entry || !infoIsPublished(entry, Date.now() + s.timeOffsetMs)) return null
           const forEntry = s.infoAcks[id] ?? {}
           if (forEntry[s.currentUserId]) return null // bereits bestätigt
           return { infoAcks: { ...s.infoAcks, [id]: { ...forEntry, [s.currentUserId]: Date.now() + s.timeOffsetMs } } }
@@ -541,6 +546,14 @@ export function userHasPerm(settings: Settings, user: User | null | undefined, k
 export function isGroupAdmin(user: User | null, group: Group): boolean {
   if (!user) return false
   return user.role === 'superadmin' || group.adminIds.includes(user.id)
+}
+
+/** Ist der Eintrag schon veröffentlicht? „Gültig ab“ in der Zukunft heißt:
+ *  noch nicht sichtbar und nicht bestätigbar (nur Verwalter sehen ihn). */
+export function infoIsPublished(entry: { validFrom?: string }, ts: number): boolean {
+  if (!entry.validFrom) return true
+  const from = new Date(`${entry.validFrom}T00:00:00`).getTime()
+  return Number.isNaN(from) || from <= ts
 }
 
 /** Gilt ein Info-Eintrag für diesen Nutzer? (leer = alle Gruppen) — eine

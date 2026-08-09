@@ -144,13 +144,19 @@ function UsersTab() {
             <ChipMultiSelect
               options={sortedGroups.map((g) => ({ id: g.id, label: g.name }))}
               selected={sortedGroups.filter((g) => g.memberIds.includes(u.id)).map((g) => g.id)}
-              onChange={(ids) =>
+              onChange={(ids) => {
+                // Dieselbe Invariante wie beim Anlegen: ohne Gruppe verliert
+                // der Nutzer Chat-Zugang und Instructor-Info-Sichtbarkeit.
+                if (ids.length === 0) {
+                  window.alert(t('admin.lastGroupBlocked'))
+                  return
+                }
                 sortedGroups.forEach((g) => {
                   const has = g.memberIds.includes(u.id)
                   const want = ids.includes(g.id)
                   if (has !== want) setGroupMembers(g.id, want ? [...g.memberIds, u.id] : g.memberIds.filter((x) => x !== u.id))
                 })
-              }
+              }}
             />
           </div>
           {/* Zugewiesene Muster steuern, welche Lesson Plans der Nutzer sieht */}

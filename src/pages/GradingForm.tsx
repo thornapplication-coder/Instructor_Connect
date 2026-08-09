@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, ChevronDown, Info, Plus, Send, Trash2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
 import { Button, Card, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
@@ -79,6 +79,24 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
 
   const setTrainee = (i: number, patch: Partial<TraineeGrading>) =>
     setTrainees((list) => list.map((tr, j) => (j === i ? { ...tr, ...patch } : tr)))
+
+  /**
+   * Studenten entfernen: die Unterschriften hängen am Listenindex und müssen
+   * mit-verschoben werden — sonst erbt der nachrückende Student die
+   * Unterschrift des gelöschten (falsches Dokument!).
+   */
+  const removeTrainee = (i: number) => {
+    setTrainees((list) => list.filter((_, j) => j !== i))
+    setSigTrainees((sigs) => {
+      const next: Record<number, string | null> = {}
+      Object.entries(sigs).forEach(([key, sig]) => {
+        const idx = Number(key)
+        if (idx < i) next[idx] = sig
+        else if (idx > i) next[idx - 1] = sig
+      })
+      return next
+    })
+  }
 
   const setGrade = (i: number, code: string, grade: Grade) =>
     setTrainees((list) =>
@@ -178,6 +196,9 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
         },
       ]
     }
+    // Ein Durchgang = ein Batch: alle daraus entstehenden Formulare teilen
+    // sich die ID, damit ein 306/310 für den ganzen Durchgang zählt.
+    const batchId = existing?.batchId ?? newId()
     return trainees.map((tr, i) => {
       // Automatik nochmals hart durchsetzen, falls ein alter Zustand vorliegt.
       const fixed = autoNotCompetent(tr) ? { ...tr, overall: 'not_competent' as OverallResult } : tr
@@ -202,11 +223,17 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
         // offen, damit sich der Fehlerfall im Admin-Panel testen lässt.
         mailStatus: signed ? (escalate ? 'pending' : 'sent') : 'pending',
         parentId: parentId ?? existing?.parentId,
+        batchId,
         createdAt: existing?.createdAt ?? ts,
         signedAt: signed ? ts : undefined,
       }
     })
   }
+
+  // Doppeltipp-Schutz: navigate() setzt nur den Hash, die Komponente bleibt
+  // kurz stehen — ohne Sperre entstünde ein zweiter Satz Formulare.
+  const submittingRef = useRef(false)
+  const [submitting, setSubmitting] = useState(false)
 
   const saveAll = (): GradingRecord[] => {
     const recs = buildRecords()
@@ -227,6 +254,9 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
       setShowFollowUp(true)
       return
     }
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setSubmitting(true)
     const recs = saveAll()
     // Teil einer Folgeformular-Kette (306 und 310 gewählt): nächstes öffnen.
     if (parentId && nextTypes.length > 0) {
@@ -242,6 +272,9 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
 
   /** Speichern und die (Pflicht-)Folgeformulare als Kette öffnen */
   const finish = () => {
+    if (submittingRef.current) return
+    submittingRef.current = true
+    setSubmitting(true)
     const recs = saveAll()
     setShowFollowUp(false)
     // Folgeformulare hängen am (ersten) Not-Competent-Formular
@@ -374,6 +407,8 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                 const ft = grading.formTypes.find((f) => f.id === id)
                 const cs = ft?.competencySet ? grading.competencySets.find((c) => c.key === ft.competencySet)?.competencies ?? [] : []
                 setTrainees(cs.length > 0 ? [emptyTrainee(cs.map((c) => c.code), 'CDR')] : [])
+                // Liste wird neu aufgebaut — alte Unterschriften dürfen nicht stehen bleiben
+                setSigTrainees({})
               }}
               className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px] disabled:opacity-60"
             >
@@ -403,7 +438,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                         {t('grading.student')} {trainees.length > 1 ? i + 1 : ''}
                       </p>
                       {trainees.length > 1 && (
-                        <button onClick={() => setTrainees(trainees.filter((_, j) => j !== i))} className="text-dim hover:text-danger">
+                        <button onClick={() => removeTrainee(i)} className="text-dim hover:text-danger">
                           <Trash2 size={15} />
                         </button>
                       )}
@@ -788,7 +823,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                     </p>
                   )}
                   <Button
-                    disabled={!!liveError}
+                    disabled={!!liveError || submitting}
                     className="flex w-full items-center justify-center gap-2 py-3 disabled:cursor-not-allowed disabled:opacity-45"
                     onClick={submit}
                   >
@@ -836,7 +871,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
           </div>
           <p className="mt-3 text-[12px] leading-relaxed text-dim/80">{t('grading.followUpMailNote')}</p>
           <div className="mt-5 flex justify-end">
-            <Button onClick={finish} disabled={followUps.length === 0}>
+            <Button onClick={finish} disabled={followUps.length === 0 || submitting}>
               {t('grading.openFollowUp')}
             </Button>
           </div>
