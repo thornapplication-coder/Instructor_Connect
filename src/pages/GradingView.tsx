@@ -12,7 +12,7 @@ import { formatDate, formatDateTime, gradeColor, missingFollowUps, TrafficDot, t
  * Die Druckansicht ist der Vorläufer des 1:1-PDF-Nachbaus — sie folgt der
  * Tabellenstruktur des Originalformulars.
  */
-export function GradingView({ recordId }: { recordId: string }) {
+export function GradingView({ recordId, autoPrint = false }: { recordId: string; autoPrint?: boolean }) {
   // Formulare sind immer vollständig englisch, unabhängig von der App-Sprache
   const { i18n } = useTranslation()
   const t = i18n.getFixedT('en')
@@ -24,6 +24,17 @@ export function GradingView({ recordId }: { recordId: string }) {
   useEffect(() => {
     if (!record) navigate('/grading')
   }, [record])
+
+  // PDF-Download aus der Liste: Ansicht rendern, dann PDF-/Druckdialog
+  // öffnen (dort „Als PDF sichern" wählen) und die URL wieder bereinigen.
+  useEffect(() => {
+    if (!autoPrint || !record) return
+    const tm = setTimeout(() => {
+      window.print()
+      navigate(`/grading/${recordId}`)
+    }, 400)
+    return () => clearTimeout(tm)
+  }, [autoPrint, record, recordId])
 
   if (!record) return null
 

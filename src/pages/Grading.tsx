@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock, FileText, Plus, Trash2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, FileDown, FileText, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
@@ -176,6 +176,20 @@ export function Grading() {
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-2">
                   <TrafficDot color={trafficLight(r, state.gradingRecords)} className="mt-1" />
+                  {/* Komplett ausgefüllte Formulare als PDF herunterladen —
+                      öffnet die Ein-Seiten-Druckansicht mit PDF-Dialog */}
+                  {r.status === 'signed' && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        navigate(`/grading/${r.id}?print=1`)
+                      }}
+                      title={t('grading.downloadPdf')}
+                      className="rounded-lg p-1.5 text-dim transition hover:bg-accent/10 hover:text-accent"
+                    >
+                      <FileDown size={15} />
+                    </button>
+                  )}
                   {/* Aus der eigenen Listenansicht entfernen — gilt nur für den
                       aktuellen Nutzer, im Admin-Panel bleibt alles erhalten */}
                   {(

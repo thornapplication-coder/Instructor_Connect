@@ -43,8 +43,11 @@ function Screen() {
     const parent = params.get('parent') ?? undefined
     const next = (params.get('next') ?? '').split(',').filter(Boolean) as NonNullable<Parameters<typeof GradingForm>[0]['nextTypes']>
     page = <GradingForm key={route} presetType={type ?? undefined} parentId={parent} nextTypes={next} />
-  } else if (route.startsWith('/grading/')) page = <GradingView key={route} recordId={route.slice('/grading/'.length)} />
-  else if (route === '/lessons') page = <LessonPlans />
+  } else if (route.startsWith('/grading/')) {
+    // ?print=1 öffnet die Ansicht und startet direkt den PDF-/Druckdialog
+    const [id, query] = route.slice('/grading/'.length).split('?')
+    page = <GradingView key={route} recordId={id} autoPrint={new URLSearchParams(query ?? '').get('print') === '1'} />
+  } else if (route === '/lessons') page = <LessonPlans />
   else if (route === '/info') page = <InstructorInfo />
   else if (route === '/contacts') page = <WhoToCall />
   else if (route === '/feedback') page = <Feedback />

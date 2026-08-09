@@ -368,7 +368,8 @@
     "followUpWarn": "A mandatory follow-up form has not been completed for this grading sheet yet:",
     "fillNow": "Fill in {{form}} now",
     "mailAttachment": "The originating grading sheet ({{form}}) is automatically attached to the email dispatch of this form.",
-    "openParent": "Open grading sheet"
+    "openParent": "Open grading sheet",
+    "downloadPdf": "Download as PDF"
   },
   "lessons": {
     "newPlan": "Upload lesson plan",
