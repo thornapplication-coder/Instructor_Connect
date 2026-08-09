@@ -55,6 +55,17 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
   // Code der bearbeiteten Kompetenz oder '__new__' für einen neuen Eintrag
   const [editCode, setEditCode] = useState<string | null>(null)
   const [draft, setDraft] = useState({ code: '', title: '', behaviours: '' })
+  // Das Instruktoren-Blatt (308G) kennt keine Kürzel — sie werden hier weder
+  // angezeigt noch eingegeben, intern aber weiter als Schlüssel geführt.
+  const hideCodes = set.key === 'instructor'
+
+  /** Schlüssel aus dem Titel ableiten, wenn kein Kürzel eingegeben wird */
+  const codeFromTitle = (title: string, taken: string[]) => {
+    const base = (title.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'CMP').padEnd(3, 'X')
+    let code = base
+    for (let n = 2; taken.includes(code); n++) code = `${base}${n}`
+    return code
+  }
 
   const startEdit = (c?: Competency) => {
     setEditCode(c ? c.code : '__new__')
@@ -62,9 +73,11 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
   }
 
   const save = () => {
+    const title = draft.title.trim()
+    const taken = set.competencies.filter((c) => c.code !== editCode).map((c) => c.code)
     const comp: Competency = {
-      code: draft.code.trim().toUpperCase(),
-      title: draft.title.trim(),
+      code: draft.code.trim().toUpperCase() || codeFromTitle(title, taken),
+      title,
       behaviours: draft.behaviours.split('\n').map((b) => b.trim()).filter(Boolean),
     }
     if (!comp.code || !comp.title) return
@@ -75,9 +88,11 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
   const editorForm = (
     <div className="mt-2 space-y-2.5 rounded-xl border border-accent/30 bg-bg/40 p-3">
       <div className="flex gap-2">
-        <Field label={t('grading.admin.codeLabel')}>
-          <input className={`${inputCls} w-24 font-mono uppercase`} value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })} />
-        </Field>
+        {!hideCodes && (
+          <Field label={t('grading.admin.codeLabel')}>
+            <input className={`${inputCls} w-24 font-mono uppercase`} value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })} />
+          </Field>
+        )}
         <div className="flex-1">
           <Field label={t('grading.admin.titleLabel')}>
             <input className={inputCls} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
@@ -89,7 +104,7 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
       </Field>
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={() => setEditCode(null)}>{t('common.cancel')}</Button>
-        <Button disabled={!draft.code.trim() || !draft.title.trim()} onClick={save}>{t('common.save')}</Button>
+        <Button disabled={(!hideCodes && !draft.code.trim()) || !draft.title.trim()} onClick={save}>{t('common.save')}</Button>
       </div>
     </div>
   )
@@ -101,7 +116,7 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
         {set.competencies.map((c) => (
           <div key={c.code} className="px-3 py-2">
             <div className="flex items-center gap-2">
-              <span className="w-12 shrink-0 font-mono text-[12.5px] font-semibold">{c.code}</span>
+              {!hideCodes && <span className="w-12 shrink-0 font-mono text-[12.5px] font-semibold">{c.code}</span>}
               <span className="min-w-0 flex-1 truncate text-[13px]">{c.title}</span>
               <span className="shrink-0 text-[11.5px] text-dim">{c.behaviours.length} OB</span>
               <button onClick={() => startEdit(c)} title={t('common.edit')} className="shrink-0 rounded-lg p-1.5 text-dim hover:text-accent">

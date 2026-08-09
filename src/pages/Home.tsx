@@ -126,11 +126,14 @@ export function Home() {
               ) : (
                 hasNews[to] && <NewDot className="right-3.5 top-3.5" />
               )}
-              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg sm:h-16 sm:w-16">
+              {/* Kachelgröße bleibt — Symbol und Beschriftung wachsen ab Tablet
+                  deutlich mit, damit sie am iPad und Desktop gut lesbar sind. */}
+              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg sm:h-20 sm:w-20 lg:h-24 lg:w-24">
                 <Icon size={28} className="sm:hidden" />
-                <Icon size={32} className="hidden sm:block" />
+                <Icon size={40} className="hidden sm:block lg:hidden" />
+                <Icon size={48} className="hidden lg:block" />
               </span>
-              <span className="px-2 text-center text-[14px] font-semibold leading-tight sm:text-[15px]">{label}</span>
+              <span className="px-2 text-center text-[14px] font-semibold leading-tight sm:text-[17px] lg:text-[19px]">{label}</span>
             </button>
           ))}
         </div>

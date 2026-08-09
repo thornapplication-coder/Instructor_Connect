@@ -54,6 +54,9 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
 
   const grading = state.settings.grading
   const formType = grading.formTypes.find((f) => f.id === record.formTypeId)
+  // Das Instruktoren-Blatt (308G) führt laut Original keine Kürzel —
+  // dort steht ausschließlich die ausgeschriebene Kompetenz.
+  const hideCodes = formType?.competencySet === 'instructor'
   const competencies = formType?.competencySet
     ? grading.competencySets.find((c) => c.key === formType.competencySet)?.competencies ?? []
     : []
@@ -243,7 +246,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                     </span>
                     <div className="min-w-0 flex-1">
                       <p className="text-[13.5px] font-medium">
-                        {c.code} <span className="font-normal text-dim">· {c.title}</span>
+                        {hideCodes ? c.title : <>{c.code} <span className="font-normal text-dim">· {c.title}</span></>}
                       </p>
                       {g?.comment && <p className="mt-0.5 text-[12.5px] text-dim">{g.comment}</p>}
                     </div>

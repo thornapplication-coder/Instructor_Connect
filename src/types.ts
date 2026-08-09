@@ -84,6 +84,9 @@ export interface InfoEntry {
   /** Zielgruppen des Eintrags (Sichtbarkeit UND Bestätigungspflicht);
    *  leer = alle Gruppen/alle Nutzer */
   groupIds?: string[]
+  /** Muster des Eintrags — bestimmt den Abschnitt in der Liste. Leer:
+   *  wird aus den Zielgruppen abgeleitet, sonst musterübergreifend. */
+  aircraftType?: string
   authorId: string
   createdAt: number
 }

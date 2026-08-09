@@ -23,6 +23,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
   const [validUntil, setValidUntil] = useState('')
   const [requiresAck, setRequiresAck] = useState(false)
   const [groupIds, setGroupIds] = useState<string[]>([])
+  const [aircraftType, setAircraftType] = useState('')
   const groups = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
 
   const valid = title.trim() && category && (type === 'pdf' || body.trim())
@@ -58,6 +59,21 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
             {[...state.settings.infoCategories].sort((a, b) => a.localeCompare(b)).map((c) => (
               <option key={c} value={c}>
                 {c}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {/* Muster des Eintrags — sortiert die Liste in Abschnitte je Flotte */}
+        <Field label={t('lessons.aircraftType')}>
+          <select
+            value={aircraftType}
+            onChange={(e) => setAircraftType(e.target.value)}
+            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+          >
+            <option value="">{t('admin.groupNoAircraft')}</option>
+            {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
+              <option key={a} value={a}>
+                {a}
               </option>
             ))}
           </select>
@@ -108,6 +124,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
                 body: type === 'text' ? body.trim() : undefined,
                 fileName: type === 'pdf' ? 'sample.pdf' : undefined,
                 category,
+                aircraftType,
                 validFrom,
                 validUntil,
                 requiresAck,
@@ -169,7 +186,8 @@ export function InstructorInfo() {
    * Muster eines Eintrags: eindeutig, wenn alle Zielgruppen demselben
    * Aircraft Type zugeordnet sind — sonst musterübergreifend ('').
    */
-  const aircraftOf = (e: { groupIds?: string[] }): string => {
+  const aircraftOf = (e: { groupIds?: string[]; aircraftType?: string }): string => {
+    if (e.aircraftType) return e.aircraftType
     if (!e.groupIds?.length) return ''
     const types = [...new Set(e.groupIds.map((gid) => state.groups.find((g) => g.id === gid)?.aircraftType || ''))]
     return types.length === 1 ? types[0] : ''

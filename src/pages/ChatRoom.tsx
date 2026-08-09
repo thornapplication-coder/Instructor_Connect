@@ -42,7 +42,9 @@ function MessageBubble({ msg, isOwn, authorName, bold, canDelete, onDelete, lng 
           isOwn ? 'rounded-br-md bg-accent/20' : 'rounded-bl-md bg-surface'
         }`}
       >
-        {!isOwn && <p className="mb-0.5 text-[12px] font-semibold text-accent">{authorName}</p>}
+        {/* Der Absender steht über JEDER Nachricht — auch über den eigenen,
+            damit in Gruppen immer klar ist, wer geschrieben hat. */}
+        <p className={`mb-0.5 text-[12px] font-semibold ${isOwn ? 'text-dim' : 'text-accent'}`}>{authorName}</p>
         <p className={`whitespace-pre-wrap text-[14.5px] leading-relaxed ${bold ? 'font-bold' : ''}`}>{msg.text}</p>
         {msg.attachment && <AttachmentChip a={msg.attachment} />}
         <p className="mt-1 text-right text-[10.5px] text-dim">{timeLabel(msg.createdAt, lng)}</p>

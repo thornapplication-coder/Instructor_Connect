@@ -152,6 +152,8 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
   // 308G bewertet einen Candidate Instructor durch einen Course Instructor —
   // die Sitz-/Positionsangaben stehen dort im Kopf, nicht als Chips.
   const isInstructorSheet = formTypeId === '308G'
+  // Instruktoren-Kompetenzen werden ausgeschrieben, ohne Kürzel (Original 308G)
+  const hideCodes = formType?.competencySet === 'instructor'
 
   const needsFollowUp =
     trainees.some((tr) => tr.overall === 'not_competent' || autoNotCompetent(tr)) || sessionStatus === 'not_completed'
@@ -653,7 +655,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                           <div className="mb-2 flex items-start gap-2">
                             <div className="min-w-0 flex-1">
                               <p className="text-[14px] font-semibold">
-                                {c.code} <span className="font-normal text-dim">· {c.title}</span>
+                                {hideCodes ? c.title : <>{c.code} <span className="font-normal text-dim">· {c.title}</span></>}
                               </p>
                             </div>
                             <button
