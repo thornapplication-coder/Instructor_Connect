@@ -215,11 +215,14 @@ export interface AttendanceEntry {
   signature: string | null
 }
 
-/** Formulartypen laut OM Appendix 5 */
-export type FormTypeId =
-  | '306' | '307A' | '307B'
-  | '308A' | '308B' | '308C' | '308D' | '308E'
-  | '308F' | '308G' | '308H' | '310'
+/**
+ * Formularnummer. Standard laut OM Appendix 5: 306, 307A/B, 308A–H, 310 —
+ * Admins können im Admin-Panel weitere Formulartypen mit freier Nummer
+ * anlegen, daher bewusst string. Sonderverhalten bleibt an die
+ * Standard-Nummern geknüpft (306/310 Folgeformulare, 307 Anwesenheit,
+ * 308G COI/CAI, 310 Training-Admin-Versand).
+ */
+export type FormTypeId = string
 
 export interface FormType {
   id: FormTypeId

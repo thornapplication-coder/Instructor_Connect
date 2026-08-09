@@ -149,8 +149,9 @@ const f = (key: string, label: string, type: FormField['type'] = 'text', opts?: 
   postGrading: opts?.postGrading,
 })
 
-/* Kopffelder gemäß Original-Formularen (OM Appendix 5, Rev. 0.2) */
-const HEAD_STANDARD: FormField[] = [
+/* Kopffelder gemäß Original-Formularen (OM Appendix 5, Rev. 0.2) —
+   exportiert, damit neu angelegte Formulartypen dieselbe Struktur bekommen */
+export const HEAD_STANDARD: FormField[] = [
   f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
   f('date', 'Date', 'date', { required: true }),
   f('event', 'Event', 'text', { required: true }),

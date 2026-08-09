@@ -5,7 +5,8 @@ import { Badge, Button, Card, Field, inputCls } from '../../components/ui'
 import { csvRow, downloadCsv } from '../../csv'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
-import type { Competency, CompetencySet } from '../../types'
+import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
+import type { Competency, CompetencySet, CompetencySetKey, FormType } from '../../types'
 import { formatDate, formatDateTime, TrafficDot, trafficLight, type TrafficColor } from '../Grading'
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats'
@@ -123,6 +124,114 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
           </button>
           {editCode === '__new__' && editorForm}
         </div>
+      </div>
+    </div>
+  )
+}
+
+/** Formulartypen: Namen editieren, neue anlegen, löschen */
+function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChange: (types: FormType[]) => void }) {
+  const { t } = useTranslation()
+  // ID des bearbeiteten Typs oder '__new__'
+  const [editId, setEditId] = useState<string | null>(null)
+  const [draft, setDraft] = useState({ id: '', title: '', scheme: 'pilot' as CompetencySetKey | 'none' })
+
+  const startEdit = (f?: FormType) => {
+    setEditId(f ? f.id : '__new__')
+    setDraft(f ? { id: f.id, title: f.title, scheme: f.competencySet ?? 'none' } : { id: '', title: '', scheme: 'pilot' })
+  }
+
+  const idTaken = editId === '__new__' && formTypes.some((f) => f.id.toUpperCase() === draft.id.trim().toUpperCase())
+
+  const save = () => {
+    const id = draft.id.trim().toUpperCase()
+    const title = draft.title.trim()
+    if (!id || !title || idTaken) return
+    if (editId === '__new__') {
+      // Neue Typen erhalten die Standard-Kopffelder; ohne Bewertungsschema
+      // nur die Basisdaten plus einen Freitextabschnitt.
+      const competencySet = draft.scheme === 'none' ? null : draft.scheme
+      const fields = competencySet
+        ? HEAD_STANDARD
+        : HEAD_STANDARD.filter((f) => ['aircraftType', 'date', 'event'].includes(f.key))
+      onChange([...formTypes, { id, title, competencySet, fields, freeTextSections: competencySet ? [] : ['Notes'] }])
+    } else {
+      // Bearbeiten: nur der Name ist änderbar — die Nummer identifiziert
+      // bestehende Formulare und bleibt daher fix.
+      onChange(formTypes.map((f) => (f.id === editId ? { ...f, title } : f)))
+    }
+    setEditId(null)
+  }
+
+  return (
+    <div className="divide-y divide-line/[0.06] rounded-xl border border-line/10">
+      {[...formTypes].sort((a, b) => a.id.localeCompare(b.id)).map((f) => (
+        <div key={f.id} className="px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span className="w-14 shrink-0 font-mono text-[12.5px] font-semibold">{f.id}</span>
+            <span className="min-w-0 flex-1 truncate text-[13px]">{f.title}</span>
+            <span className="shrink-0 text-[11.5px] text-dim">
+              {f.fields.filter((x) => x.required).length} {t('grading.admin.requiredFields')} · {f.fields.length} {t('grading.admin.fieldsTotal')}
+            </span>
+            <button onClick={() => startEdit(f)} title={t('common.edit')} className="shrink-0 rounded-lg p-1.5 text-dim hover:text-accent">
+              <Pencil size={14} />
+            </button>
+            <button
+              onClick={() => window.confirm(t('grading.admin.deleteFormTypeConfirm')) && onChange(formTypes.filter((x) => x.id !== f.id))}
+              title={t('common.delete')}
+              className="shrink-0 rounded-lg p-1.5 text-dim hover:text-danger"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+          {editId === f.id && (
+            <div className="mt-2 space-y-2.5 rounded-xl border border-accent/30 bg-bg/40 p-3">
+              <Field label={t('grading.admin.titleLabel')}>
+                <input className={inputCls} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} autoFocus />
+              </Field>
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => setEditId(null)}>{t('common.cancel')}</Button>
+                <Button disabled={!draft.title.trim()} onClick={save}>{t('common.save')}</Button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      <div className="px-3 py-2">
+        <button onClick={() => startEdit()} className="flex items-center gap-1.5 text-[13px] font-medium text-accent hover:underline">
+          <Plus size={14} /> {t('grading.admin.addFormType')}
+        </button>
+        {editId === '__new__' && (
+          <div className="mt-2 space-y-2.5 rounded-xl border border-accent/30 bg-bg/40 p-3">
+            <div className="flex gap-2">
+              <Field label={t('grading.admin.formIdLabel')}>
+                <input className={`${inputCls} w-28 font-mono uppercase`} value={draft.id} onChange={(e) => setDraft({ ...draft, id: e.target.value })} autoFocus />
+              </Field>
+              <div className="flex-1">
+                <Field label={t('grading.admin.titleLabel')}>
+                  <input className={inputCls} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
+                </Field>
+              </div>
+            </div>
+            <Field label={t('grading.admin.schemeLabel')}>
+              <select
+                value={draft.scheme}
+                onChange={(e) => setDraft({ ...draft, scheme: e.target.value as CompetencySetKey | 'none' })}
+                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+              >
+                <option value="pilot">{t('grading.admin.schemePilot')}</option>
+                <option value="instructor">{t('grading.admin.schemeInstructor')}</option>
+                <option value="none">{t('grading.admin.schemeNone')}</option>
+              </select>
+            </Field>
+            {idTaken && <p className="text-[12.5px] text-danger">{t('grading.admin.formIdTaken')}</p>}
+            <p className="text-[11.5px] leading-relaxed text-dim/80">{t('grading.admin.newFormHint')}</p>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setEditId(null)}>{t('common.cancel')}</Button>
+              <Button disabled={!draft.id.trim() || !draft.title.trim() || idTaken} onClick={save}>{t('common.save')}</Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -398,16 +507,7 @@ export function GradingAdmin() {
 
           <Card className="p-4">
             <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.formTypes')}</p>
-            {[...g.formTypes].sort((a, b) => a.id.localeCompare(b.id)).map((f) => (
-              <div key={f.id} className="border-b border-line/[0.06] py-2 last:border-0">
-                <p className="text-[13.5px] font-medium">
-                  {f.id} — {f.title}
-                </p>
-                <p className="text-[12px] text-dim">
-                  {f.fields.filter((x) => x.required).length} {t('grading.admin.requiredFields')} · {f.fields.length} {t('grading.admin.fieldsTotal')}
-                </p>
-              </div>
-            ))}
+            <FormTypeEditor formTypes={g.formTypes} onChange={(formTypes) => updateGrading({ formTypes })} />
           </Card>
         </div>
       )}

@@ -311,7 +311,16 @@
       "codeLabel": "Code",
       "titleLabel": "Title",
       "obLabel": "Observable behaviours (one per line)",
-      "deleteCompetencyConfirm": "Delete this competency? It disappears from new forms; existing records keep their grades."
+      "deleteCompetencyConfirm": "Delete this competency? It disappears from new forms; existing records keep their grades.",
+      "addFormType": "Add form type",
+      "formIdLabel": "Form no.",
+      "schemeLabel": "Grading scheme",
+      "schemePilot": "Pilot competencies (KNO, PRO, COM, …)",
+      "schemeInstructor": "Instructor competencies (PRE, CLI, PRK, …)",
+      "schemeNone": "No grading (text form)",
+      "formIdTaken": "This form number already exists.",
+      "newFormHint": "New form types get the standard header fields (aircraft type, date, event, training device, flight times). Existing forms keep their data if a type is deleted.",
+      "deleteFormTypeConfirm": "Delete this form type? It disappears from the selection for new forms; existing forms keep their data."
     },
     "attendance": "Record of attendance",
     "studentName": "Student name",

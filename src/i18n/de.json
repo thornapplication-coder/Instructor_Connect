@@ -311,7 +311,16 @@
       "codeLabel": "Code",
       "titleLabel": "Titel",
       "obLabel": "Observable Behaviours (eine pro Zeile)",
-      "deleteCompetencyConfirm": "Diese Kompetenz löschen? Sie verschwindet aus neuen Formularen; bestehende Bewertungen bleiben erhalten."
+      "deleteCompetencyConfirm": "Diese Kompetenz löschen? Sie verschwindet aus neuen Formularen; bestehende Bewertungen bleiben erhalten.",
+      "addFormType": "Formulartyp hinzufügen",
+      "formIdLabel": "Formular-Nr.",
+      "schemeLabel": "Bewertungsschema",
+      "schemePilot": "Piloten-Kompetenzen (KNO, PRO, COM, …)",
+      "schemeInstructor": "Instruktor-Kompetenzen (PRE, CLI, PRK, …)",
+      "schemeNone": "Ohne Bewertung (Textformular)",
+      "formIdTaken": "Diese Formular-Nummer existiert bereits.",
+      "newFormHint": "Neue Formulartypen erhalten die Standard-Kopffelder (Aircraft Type, Date, Event, Training Device, Flight Times). Bestehende Formulare behalten ihre Daten, wenn ein Typ gelöscht wird.",
+      "deleteFormTypeConfirm": "Diesen Formulartyp löschen? Er verschwindet aus der Auswahl für neue Formulare; bestehende Formulare behalten ihre Daten."
     },
     "attendance": "Teilnehmerliste",
     "studentName": "Name des Teilnehmers",
