@@ -1,0 +1,72 @@
+# Zeitplan für die tägliche Datensicherung.
+#
+# Diese Datei liegt bewusst unter docs/backup/ und NICHT unter
+# .github/workflows/ — sie soll erst anlaufen, wenn die Datenbank steht und
+# die Zugangsdaten hinterlegt sind. Zum Aktivieren:
+#
+#   1. Secrets anlegen: DATABASE_URL, BACKUP_REMOTE, RCLONE_CONFIG
+#   2. Datei nach .github/workflows/backup.yml kopieren
+#   3. Einmal über "Run workflow" von Hand starten und das Protokoll prüfen
+#
+name: Tägliche Datensicherung
+
+on:
+  # cron läuft in UTC. 03:00 Wiener Zeit ist im Winter 02:00 UTC und im
+  # Sommer 01:00 UTC — deshalb sind beide Zeiten eingetragen. Das Skript
+  # bricht ab, wenn es in Wien nicht gerade 3 Uhr ist, sodass ganzjährig
+  # genau ein Lauf zur richtigen Ortszeit stattfindet.
+  schedule:
+    - cron: '0 1 * * *' # 03:00 Europe/Vienna während der Sommerzeit
+    - cron: '0 2 * * *' # 03:00 Europe/Vienna während der Winterzeit
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Auch außerhalb von 03:00 Ortszeit sichern'
+        type: boolean
+        default: true
+
+concurrency:
+  group: database-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      # Die Version des Clients muss mindestens der des Servers entsprechen,
+      # sonst verweigert pg_dump den Dienst.
+      - name: PostgreSQL-Client und rclone bereitstellen
+        run: |
+          sudo sh -c 'echo "deb https://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client-16 rclone
+
+      - name: Zugangsdaten der Ablage schreiben
+        run: |
+          mkdir -p ~/.config/rclone
+          printf '%s' "${{ secrets.RCLONE_CONFIG }}" > ~/.config/rclone/rclone.conf
+          chmod 600 ~/.config/rclone/rclone.conf
+
+      - name: Sicherung erstellen
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BACKUP_REMOTE: ${{ secrets.BACKUP_REMOTE }}
+          TZ_LOCAL: Europe/Vienna
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && '1' || '0' }}
+        run: |
+          chmod +x docs/backup/backup.sh
+          docs/backup/backup.sh
+
+      # Ein stiller Fehlschlag ist schlimmer als keine Sicherung, weil man
+      # sich auf sie verlässt. Empfänger in den Secrets hinterlegen.
+      - name: Bei Fehlschlag benachrichtigen
+        if: failure()
+        run: |
+          echo "Die Sicherung ist fehlgeschlagen — Protokoll prüfen." >&2
+          # Hier die Benachrichtigung eintragen (E-Mail, Teams, Slack …),
+          # siehe docs/backup.md, offene Entscheidung 2.
+          exit 1

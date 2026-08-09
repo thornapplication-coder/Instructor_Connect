@@ -60,6 +60,13 @@ und der PDF-Export von Chromium setzen sie; der interaktive Druckdialog von
 Chrome und Edge ignoriert diese Boxen — dort liefert die Seitenzahl die
 Kopf-/Fußzeile des Dialogs.
 
+## Datensicherung
+
+Noch nicht aktiv — die Sandbox hält ihren Zustand im Browser. Sobald die
+Datenbank steht, gilt die Vorgabe aus [`docs/backup.md`](docs/backup.md):
+täglich um 03:00 Wiener Zeit, 30 Tagessicherungen, dazu die Sicherung vom
+1. jedes Monats dauerhaft. Die Vorlagen dafür liegen in `docs/backup/`.
+
 ## Sandbox-Modus
 
 - Rollenwechsler (Superadmin / Group Admin / Training Admin / Member) in der
