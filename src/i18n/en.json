@@ -34,12 +34,12 @@
   "login": {
     "welcome": "Welcome to",
     "subtitle": "The internal communication app for instructors.",
-    "identifier": "Email address or phone number",
-    "placeholder": "name@aviationacademy.at or +43 …",
+    "identifier": "Email address",
+    "placeholder": "name@aviationacademy.at",
     "button": "Sign in",
-    "otpHint": "You will receive a magic link by email or a one-time code by SMS.",
-    "error": "No account found for this identifier. Accounts are created by your admin.",
-    "noSignup": "No self-registration — accounts are provisioned by the admin.",
+    "otpHint": "You will receive a sign-in link by email.",
+    "error": "No account found for this email address. Accounts are created by an admin or superadmin.",
+    "noSignup": "No self-registration — accounts are created by an admin or superadmin.",
     "encryption": "Transport-encrypted (TLS). No end-to-end encryption.",
     "sandboxUsers": "Sandbox: sign in as"
   },
@@ -200,7 +200,8 @@
     "feedbackRecipients": "Feedback recipients (selectable)",
     "chatBlocked": "Blocked in chat",
     "userGroups": "Group assignment",
-    "userGroupsHint": "Every person must belong to at least one group. Groups control chat access and Instructor Info visibility."
+    "userGroupsHint": "Every person must belong to at least one group. Groups control chat access and Instructor Info visibility.",
+    "emailLoginHint": "The email address is the only sign-in credential — sign-in is by email only."
   },
   "imprint": {
     "title": "Legal notice & terms of use",

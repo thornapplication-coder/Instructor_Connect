@@ -68,7 +68,8 @@ function UsersTab() {
             <div className="min-w-0 flex-1">
               <p className="truncate text-[14.5px] font-semibold">{u.name}</p>
               <p className="truncate text-[12.5px] text-dim">
-                {u.email} · {u.phone}
+                {u.email}
+                {u.phone ? ` · ${u.phone}` : ''}
               </p>
             </div>
             <Badge tone={u.active ? 'accent' : 'dim'}>{u.active ? t('admin.active') : t('admin.inactive')}</Badge>
@@ -182,11 +183,13 @@ function UsersTab() {
             <Field label={t('contacts.name')}>
               <input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
             </Field>
-            <Field label={t('contacts.email')}>
-              <input className={inputCls} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+            {/* Die E-Mail ist die einzige Anmeldekennung — Pflichtfeld */}
+            <Field label={t('contacts.email') + ' *'}>
+              <input type="email" className={inputCls} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+              <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('admin.emailLoginHint')}</p>
             </Field>
             <Field label={t('contacts.phone')}>
-              <input className={inputCls} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <input type="tel" className={inputCls} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             </Field>
             <Field label={t('admin.role')}>
               <select
@@ -216,7 +219,7 @@ function UsersTab() {
                 {t('common.cancel')}
               </Button>
               <Button
-                disabled={!form.name.trim() || (!form.email.trim() && !form.phone.trim()) || form.groupIds.length === 0}
+                disabled={!form.name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) || form.groupIds.length === 0}
                 onClick={() => {
                   addUser(form)
                   setShowNew(false)

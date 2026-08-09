@@ -62,6 +62,9 @@ export function Login() {
           <label className="block">
             <span className="mb-1.5 block text-[13px] font-medium text-dim">{t('login.identifier')}</span>
             <input
+              type="email"
+              inputMode="email"
+              autoComplete="email"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               placeholder={t('login.placeholder')}

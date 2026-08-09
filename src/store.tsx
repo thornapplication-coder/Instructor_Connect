@@ -265,13 +265,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
 
       login: (identifier) => {
-        const needle = identifier.trim().toLowerCase().replace(/\s+/g, '')
-        const user = state.users.find(
-          (u) =>
-            u.active &&
-            (u.email.toLowerCase() === identifier.trim().toLowerCase() ||
-              u.phone.replace(/\s+/g, '') === needle),
-        )
+        // Anmeldung ausschließlich per E-Mail — die Adressen legt der
+        // Admin/Superadmin im Admin Panel an
+        const needle = identifier.trim().toLowerCase()
+        const user = state.users.find((u) => u.active && u.email.toLowerCase() === needle)
         if (!user) return false
         persistUser(user.id)
         patch(() => ({ currentUserId: user.id }))
@@ -376,8 +373,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       addUser: ({ groupIds, ...user }) =>
         patch((s) => {
-          // Invariante auch im Store: ohne Gruppe kein neuer Nutzer
-          if (groupIds.length === 0) return null
+          // Invarianten auch im Store: ohne Gruppe und ohne E-Mail kein
+          // neuer Nutzer — die E-Mail ist die einzige Anmeldekennung
+          if (groupIds.length === 0 || !user.email.trim()) return null
           const id = uid('u')
           return {
             users: [...s.users, { ...user, id, canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: [], active: true }],

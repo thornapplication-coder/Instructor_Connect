@@ -34,12 +34,12 @@
   "login": {
     "welcome": "Willkommen bei",
     "subtitle": "Die interne Kommunikations-App für Instruktoren.",
-    "identifier": "E-Mail-Adresse oder Telefonnummer",
-    "placeholder": "name@aviationacademy.at oder +43 …",
+    "identifier": "E-Mail-Adresse",
+    "placeholder": "name@aviationacademy.at",
     "button": "Anmelden",
-    "otpHint": "Du erhältst einen Magic Link per E-Mail oder einen Einmalcode per SMS.",
-    "error": "Kein Konto für diese Kennung gefunden. Konten werden vom Admin angelegt.",
-    "noSignup": "Keine Selbstregistrierung — Konten werden vom Admin vergeben.",
+    "otpHint": "Du erhältst einen Anmeldelink per E-Mail.",
+    "error": "Kein Konto für diese E-Mail-Adresse gefunden. Konten werden vom Admin bzw. Superadmin angelegt.",
+    "noSignup": "Keine Selbstregistrierung — Konten werden vom Admin bzw. Superadmin angelegt.",
     "encryption": "Transportverschlüsselt (TLS). Keine Ende-zu-Ende-Verschlüsselung.",
     "sandboxUsers": "Sandbox: anmelden als"
   },
@@ -200,7 +200,8 @@
     "feedbackRecipients": "Feedback-Empfänger (auswählbar)",
     "chatBlocked": "Im Chat gesperrt",
     "userGroups": "Gruppenzuweisung",
-    "userGroupsHint": "Jede Person muss mindestens einer Gruppe angehören. Gruppen steuern Chat-Zugang und Instructor-Info-Sichtbarkeit."
+    "userGroupsHint": "Jede Person muss mindestens einer Gruppe angehören. Gruppen steuern Chat-Zugang und Instructor-Info-Sichtbarkeit.",
+    "emailLoginHint": "Die E-Mail-Adresse ist die einzige Anmeldekennung — der Login erfolgt ausschließlich per E-Mail."
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",
