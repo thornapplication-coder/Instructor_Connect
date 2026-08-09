@@ -42,12 +42,13 @@ export function ThemeToggle() {
 }
 
 /** home=false unterdrückt den Home-Button — genutzt in den Grading-Forms,
- *  damit man dort nicht versehentlich aus dem Formular springt. */
-export function TopBar({ title, back, right, home = true }: { title: ReactNode; back?: string; right?: ReactNode; home?: boolean }) {
+ *  damit man dort nicht versehentlich aus dem Formular springt.
+ *  wide=true nutzt am Desktop die volle Breite (Grading-Formulare). */
+export function TopBar({ title, back, right, home = true, wide = false }: { title: ReactNode; back?: string; right?: ReactNode; home?: boolean; wide?: boolean }) {
   const { t } = useTranslation()
   return (
     <header className="sticky top-0 z-20 border-b border-line/10 bg-bg/85 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-3xl items-center gap-2 px-3">
+      <div className={`mx-auto flex h-14 items-center gap-2 px-3 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>
         {back !== undefined && (
           <button
             onClick={() => navigate(back)}
@@ -74,8 +75,8 @@ export function TopBar({ title, back, right, home = true }: { title: ReactNode; 
   )
 }
 
-export function Page({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <main className={`mx-auto w-full max-w-3xl flex-1 px-4 pb-24 pt-4 ${className}`}>{children}</main>
+export function Page({ children, className = '', wide = false }: { children: ReactNode; className?: string; wide?: boolean }) {
+  return <main className={`mx-auto w-full flex-1 px-4 pb-24 pt-4 ${wide ? 'max-w-5xl' : 'max-w-3xl'} ${className}`}>{children}</main>
 }
 
 export function Card({ children, className = '', onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {

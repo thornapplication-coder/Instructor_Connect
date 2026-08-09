@@ -46,13 +46,14 @@ export function GradingView({ recordId }: { recordId: string }) {
         title={`${record.formTypeId} · ${formType?.title ?? ''}`}
         back="/grading"
         home={false}
+        wide
         right={
           <button onClick={() => window.print()} title={t('grading.print')} className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-accent">
             <Printer size={19} />
           </button>
         }
       />
-      <Page className="space-y-4">
+      <Page wide className="space-y-4">
         {/* Druck-Kopf: Formularbenennung als Überschrift + Export-Stempel */}
         <div className="hidden border-b-2 border-line/60 pb-2 print:block">
           <h1 className="text-2xl font-bold tracking-tight">
@@ -79,7 +80,7 @@ export function GradingView({ recordId }: { recordId: string }) {
         </div>
 
         {record.mailStatus === 'failed' && (
-          <div className="space-y-3 rounded-xl border border-danger/30 bg-danger/10 p-3.5 text-[13px]">
+          <div className="space-y-3 rounded-xl border border-danger/30 bg-danger/10 p-3.5 text-[13px] print:hidden">
             <div className="flex items-start gap-2.5">
               <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
               <div>
@@ -96,7 +97,7 @@ export function GradingView({ recordId }: { recordId: string }) {
 
         {/* Pflicht-Folgeformular fehlt noch: deutlich sichtbar + direkt ausfüllbar */}
         {missing.length > 0 && (
-          <div className="space-y-3 rounded-xl border border-amber-500/50 bg-amber-500/10 p-3.5">
+          <div className="space-y-3 rounded-xl border border-amber-500/50 bg-amber-500/10 p-3.5 print:hidden">
             <div className="flex items-start gap-2.5 text-[13px]">
               <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
               <p className="font-semibold">{t('grading.followUpWarn')}</p>
@@ -110,13 +111,13 @@ export function GradingView({ recordId }: { recordId: string }) {
         )}
 
         {record.status === 'signed' && (
-          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[12.5px] leading-relaxed text-dim">{t('grading.readOnlyNote')}</p>
+          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[12.5px] leading-relaxed text-dim print:hidden">{t('grading.readOnlyNote')}</p>
         )}
 
         {/* Folgeformulare (306/310): das auslösende Grading Sheet geht beim
             Versand automatisch mit */}
         {parentRec && (
-          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[12.5px] leading-relaxed text-dim">
+          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[12.5px] leading-relaxed text-dim print:hidden">
             {t('grading.mailAttachment', { form: `${parentRec.formTypeId} — ${grading.formTypes.find((f) => f.id === parentRec.formTypeId)?.title ?? ''}` })}{' '}
             <button onClick={() => navigate(`/grading/${parentRec.id}`)} className="font-medium text-accent hover:underline">
               {t('grading.openParent')}
@@ -189,7 +190,7 @@ export function GradingView({ recordId }: { recordId: string }) {
               </span>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:space-y-0 print:grid print:grid-cols-2 print:gap-x-4 print:space-y-0">
               {competencies.map((c) => {
                 const g = tr.grades.find((x) => x.code === c.code)
                 return (
@@ -208,18 +209,20 @@ export function GradingView({ recordId }: { recordId: string }) {
               })}
             </div>
 
-            {[
-              ['positive', tr.positiveComment],
-              ['development', tr.developmentComment],
-              ['summary', tr.summaryComment],
-            ].map(([key, val]) =>
-              val ? (
-                <div key={key} className="mt-3">
-                  <p className="text-[12.5px] font-semibold text-dim">{t(`grading.${key}`)}</p>
-                  <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed">{val}</p>
-                </div>
-              ) : null,
-            )}
+            <div className="mt-3 grid gap-3 sm:grid-cols-3 print:grid-cols-3">
+              {[
+                ['positive', tr.positiveComment],
+                ['development', tr.developmentComment],
+                ['summary', tr.summaryComment],
+              ].map(([key, val]) =>
+                val ? (
+                  <div key={key}>
+                    <p className="text-[12.5px] font-semibold text-dim">{t(`grading.${key}`)}</p>
+                    <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed">{val}</p>
+                  </div>
+                ) : null,
+              )}
+            </div>
           </Card>
         ))}
 
@@ -292,7 +295,7 @@ export function GradingView({ recordId }: { recordId: string }) {
           {/* Offene Unterschrift nachholen: nur das fehlende Feld ist offen,
               danach wird das Formular wie üblich gesperrt und versendet. */}
           {record.status === 'awaiting_signature' && !record.signatureTrainee && (
-            <div className="mt-4 space-y-3 rounded-xl border border-warm/25 bg-warm/5 p-3.5">
+            <div className="mt-4 space-y-3 rounded-xl border border-warm/25 bg-warm/5 p-3.5 print:hidden">
               <SignaturePad
                 value={lateSignature}
                 onChange={setLateSignature}

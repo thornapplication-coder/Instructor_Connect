@@ -343,7 +343,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
   if (!mayGrade) {
     return (
       <>
-        <TopBar title={t('grading.newForm')} back="/grading" home={false} />
+        <TopBar title={t('grading.newForm')} back="/grading" home={false} wide />
         <Page>
           <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] leading-relaxed text-dim">{t('grading.noPermission')}</p>
         </Page>
@@ -353,8 +353,8 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
 
   return (
     <>
-      <TopBar title={parent ? `${formTypeId} · ${t('grading.followUpFor')} ${parent.formTypeId}` : t('grading.newForm')} back="/grading" home={false} />
-      <Page className="space-y-4 pb-32">
+      <TopBar title={parent ? `${formTypeId} · ${t('grading.followUpFor')} ${parent.formTypeId}` : t('grading.newForm')} back="/grading" home={false} wide />
+      <Page wide className="space-y-4 pb-32">
         {/* 1. Formulartyp */}
         <Card className="p-4">
           <Field label={t('grading.formType')}>
@@ -410,7 +410,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                       placeholder={t('grading.studentName')}
                       className={`${inputCls} mb-2`}
                     />
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       {['CDR', 'FO'].map((o) => (
                         <button
                           key={o}
@@ -422,7 +422,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                           {tr.position === o ? '☒' : '☐'} {o}
                         </button>
                       ))}
-                      <span className="w-full" />
+                      <span className="mx-1 h-6 w-px shrink-0 bg-line/15" />
                       {['Left', 'Right'].map((o) => (
                         <button
                           key={o}
@@ -451,7 +451,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                 <div className="rounded-xl border border-line/10 p-3">
                   <p className="mb-2 text-[13px] font-semibold text-accent">{t('grading.instructor')}</p>
                   <p className="mb-2 rounded-lg bg-bg/40 px-3 py-2 text-[14px]">{currentUser!.name}</p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {['TKI', 'SFI', 'TRI'].map((o) => (
                       <button
                         key={o}
@@ -463,7 +463,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                         {header.instructorQual === o ? '☒' : '☐'} {o}
                       </button>
                     ))}
-                    <span className="w-full" />
+                    <span className="mx-1 h-6 w-px shrink-0 bg-line/15" />
                     {['Left', 'Right', 'Rear'].map((o) => (
                       <button
                         key={o}
@@ -541,7 +541,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                   </div>
 
 
-                  <div className="space-y-3">
+                  <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
                     {competencies.map((c) => {
                       const g = tr.grades.find((x) => x.code === c.code)
                       const key = `${i}-${c.code}`
@@ -593,15 +593,17 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                     })}
                   </div>
 
-                  <Field label={t('grading.positive') + ' *'}>
-                    <textarea value={tr.positiveComment} onChange={(e) => setTrainee(i, { positiveComment: e.target.value })} className={`${inputCls} min-h-20`} />
-                  </Field>
-                  <Field label={t('grading.development') + ' *'}>
-                    <textarea value={tr.developmentComment} onChange={(e) => setTrainee(i, { developmentComment: e.target.value })} className={`${inputCls} min-h-20`} />
-                  </Field>
-                  <Field label={t('grading.summary') + ' *'}>
-                    <textarea value={tr.summaryComment} onChange={(e) => setTrainee(i, { summaryComment: e.target.value })} className={`${inputCls} min-h-20`} />
-                  </Field>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <Field label={t('grading.positive') + ' *'}>
+                      <textarea value={tr.positiveComment} onChange={(e) => setTrainee(i, { positiveComment: e.target.value })} className={`${inputCls} min-h-24`} />
+                    </Field>
+                    <Field label={t('grading.development') + ' *'}>
+                      <textarea value={tr.developmentComment} onChange={(e) => setTrainee(i, { developmentComment: e.target.value })} className={`${inputCls} min-h-24`} />
+                    </Field>
+                    <Field label={t('grading.summary') + ' *'}>
+                      <textarea value={tr.summaryComment} onChange={(e) => setTrainee(i, { summaryComment: e.target.value })} className={`${inputCls} min-h-24`} />
+                    </Field>
+                  </div>
 
                   <Field label={t('grading.overall') + ' *'}>
                     <div className="flex gap-2">
@@ -694,19 +696,21 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
                 entsteht beim Abschluss ein eigenes Formular. */}
             <Card className="space-y-4 p-4">
               <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.signatures')}</p>
-              <SignaturePad value={sigInstructor} onChange={setSigInstructor} label={t('grading.sigInstructor')} />
-              {competencies.length > 0 ? (
-                trainees.map((tr, i) => (
-                  <SignaturePad
-                    key={i}
-                    value={sigTrainees[i] ?? null}
-                    onChange={(v) => setSigTrainees((s) => ({ ...s, [i]: v }))}
-                    label={`${t('grading.sigTrainee')} — ${tr.traineeName?.trim() || t('grading.traineeN', { n: i + 1 })}`}
-                  />
-                ))
-              ) : (
-                !isAttendance && <SignaturePad value={sigTrainee} onChange={setSigTrainee} label={t('grading.sigTrainee')} />
-              )}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <SignaturePad value={sigInstructor} onChange={setSigInstructor} label={t('grading.sigInstructor')} />
+                {competencies.length > 0 ? (
+                  trainees.map((tr, i) => (
+                    <SignaturePad
+                      key={i}
+                      value={sigTrainees[i] ?? null}
+                      onChange={(v) => setSigTrainees((s) => ({ ...s, [i]: v }))}
+                      label={`${t('grading.sigTrainee')} — ${tr.traineeName?.trim() || t('grading.traineeN', { n: i + 1 })}`}
+                    />
+                  ))
+                ) : (
+                  !isAttendance && <SignaturePad value={sigTrainee} onChange={setSigTrainee} label={t('grading.sigTrainee')} />
+                )}
+              </div>
               {trainees.length > 1 && (
                 <p className="text-[11.5px] leading-relaxed text-dim/80">{t('grading.multiStudentHint')}</p>
               )}
