@@ -1,12 +1,12 @@
 import { AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, SlidersHorizontal, Trash2, TrendingDown, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls } from '../../components/ui'
-import { csvRow, downloadCsv } from '../../csv'
+import { csvNum, csvRow, downloadCsv } from '../../csv'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
-import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType } from '../../types'
+import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType, GradingRecord } from '../../types'
 import { formatDate, formatDateTime, missingFollowUps, TrafficDot, traineesOf, trafficLight, type TrafficColor } from '../Grading'
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats'
@@ -368,52 +368,99 @@ export function GradingAdmin() {
   /** Formulare, zu denen ein Pflicht-Folgeformular (306/310) fehlt */
   const openFollowUps = records.filter((r) => missingFollowUps(r, records).length > 0)
 
+  /** Kompetenzsatz eines Formulars — Piloten (308A–F/H) oder Instruktoren (308G) */
+  const setOfRecord = useCallback(
+    (r: GradingRecord): CompetencySetKey | null => g.formTypes.find((f) => f.id === r.formTypeId)?.competencySet ?? null,
+    [g.formTypes],
+  )
+
   /** Datenbasis der Statistik: alle Formulare oder eine einzelne Flotte */
   const statsRecords = useMemo(
     () => (statsFleet ? records.filter((r) => r.header.aircraftType === statsFleet) : records),
     [records, statsFleet],
   )
 
-  /** Trendflag: Kompetenz flottenweit im Schnitt niedrig (Spez. 6.3) */
-  const trendFlags = useMemo(() => {
-    const byCode: Record<string, (number | 'NO' | null)[]> = {}
-    statsRecords.forEach((r) => r.trainees.forEach((tr) => tr.grades.forEach((gr) => (byCode[gr.code] ??= []).push(gr.grade))))
-    return Object.entries(byCode)
-      .map(([code, vals]) => ({ code, avg: avgOf(vals), n: vals.filter((v) => typeof v === 'number').length }))
-      .filter((x) => x.avg !== null && x.n >= 2 && x.avg < 3.2)
-      .sort((a, b) => (a.avg ?? 0) - (b.avg ?? 0))
-  }, [statsRecords])
+  /** Ein Durchgang kann mehrere Formulare ergeben (ein Blatt je Pilot) —
+   *  gezählt wird der Durchgang, Folgeformulare zählen nicht mit. */
+  const sessionCount = useCallback(
+    (rs: GradingRecord[]) => new Set(rs.filter((r) => !r.parentId).map((r) => r.batchId ?? r.id)).size,
+    [],
+  )
 
-  /** Instruktor-Kalibrierung: Abweichung vom Gesamtdurchschnitt (Spez. 6.3) */
-  const calibration = useMemo(() => {
-    const overall = avgOf(statsRecords.flatMap((r) => r.trainees.flatMap((tr) => tr.grades.map((x) => x.grade))))
-    const byInstr: Record<string, (number | 'NO' | null)[]> = {}
-    statsRecords.forEach((r) => r.trainees.forEach((tr) => tr.grades.forEach((gr) => (byInstr[r.instructorId] ??= []).push(gr.grade))))
-    return {
-      overall,
-      rows: Object.entries(byInstr)
-        .map(([id, vals]) => ({ id, avg: avgOf(vals), sessions: statsRecords.filter((r) => r.instructorId === id).length }))
-        .filter((r) => r.avg !== null)
-        .sort((a, b) => (b.avg ?? 0) - (a.avg ?? 0)),
-    }
-  }, [statsRecords])
+  /**
+   * Auswertung je Kompetenzsatz. Piloten- und Instruktorenbewertungen folgen
+   * unterschiedlichen Maßstäben und dürfen nie gegeneinander gerechnet werden:
+   * ein Instruktor, der viele 308G schreibt, wäre sonst gegen Piloten-
+   * Durchschnitte kalibriert.
+   */
+  const statsBySet = useMemo(() => {
+    const sets: CompetencySetKey[] = ['pilot', 'instructor']
+    return sets
+      .map((key) => {
+        const rs = statsRecords.filter((r) => setOfRecord(r) === key)
+        const allOfSet = records.filter((r) => setOfRecord(r) === key)
+        // Beschriftung aus dem eingefrorenen Wortlaut des Formulars, sonst aus
+        // dem Katalog. Das 308G führt keine Kürzel — dort wird ausgeschrieben.
+        const catalogue = g.competencySets.find((c) => c.key === key)
+        const labelOf = (code: string) => {
+          if (key !== 'instructor') return code
+          const fromRecord = allOfSet.flatMap((r) => r.competencies ?? []).find((c) => c.code === code)?.title
+          return fromRecord ?? catalogue?.competencies.find((c) => c.code === code)?.title ?? code
+        }
 
-  /** Flotten-Matrix: Kompetenz × Aircraft Type */
-  const fleetMatrix = useMemo(() => {
-    const fleets = [...new Set(records.map((r) => r.header.aircraftType).filter(Boolean))].sort()
-    const codes = [...new Set(records.flatMap((r) => r.trainees.flatMap((tr) => tr.grades.map((x) => x.code))))]
-    const cell: Record<string, Record<string, number | null>> = {}
-    fleets.forEach((f) => {
-      cell[f] = {}
-      codes.forEach((c) => {
-        const vals = records
-          .filter((r) => r.header.aircraftType === f)
-          .flatMap((r) => r.trainees.flatMap((tr) => tr.grades.filter((x) => x.code === c).map((x) => x.grade)))
-        cell[f][c] = avgOf(vals)
+        const byCode: Record<string, (number | 'NO' | null)[]> = {}
+        rs.forEach((r) => r.trainees.forEach((tr) => tr.grades.forEach((gr) => (byCode[gr.code] ??= []).push(gr.grade))))
+        const trendFlags = Object.entries(byCode)
+          .map(([code, vals]) => ({
+            code,
+            label: labelOf(code),
+            avg: avgOf(vals),
+            // n zählt bewertete Durchgänge, nicht einzelne Noten — sonst hebt
+            // ein einziger Durchgang eine flottenweite Auffälligkeit.
+            n: new Set(
+              rs
+                .filter((r) => r.trainees.some((tr) => tr.grades.some((x) => x.code === code && typeof x.grade === 'number')))
+                .map((r) => r.batchId ?? r.id),
+            ).size,
+          }))
+          .filter((x) => x.avg !== null && x.n >= 2 && x.avg < 3.2)
+          .sort((a, b) => (a.avg ?? 0) - (b.avg ?? 0))
+
+        const overall = avgOf(rs.flatMap((r) => r.trainees.flatMap((tr) => tr.grades.map((x) => x.grade))))
+        const byInstr: Record<string, (number | 'NO' | null)[]> = {}
+        rs.forEach((r) => r.trainees.forEach((tr) => tr.grades.forEach((gr) => (byInstr[r.instructorId] ??= []).push(gr.grade))))
+        const calibration = {
+          overall,
+          rows: Object.entries(byInstr)
+            .map(([id, vals]) => ({ id, avg: avgOf(vals), sessions: sessionCount(rs.filter((r) => r.instructorId === id)) }))
+            .filter((r) => r.avg !== null)
+            .sort((a, b) => (b.avg ?? 0) - (a.avg ?? 0)),
+        }
+
+        const fleets = [...new Set(allOfSet.map((r) => r.header.aircraftType).filter(Boolean))].sort()
+        const codes = [...new Set(allOfSet.flatMap((r) => r.trainees.flatMap((tr) => tr.grades.map((x) => x.code))))]
+        const cell: Record<string, Record<string, number | null>> = {}
+        fleets.forEach((f) => {
+          cell[f] = {}
+          codes.forEach((c) => {
+            const vals = allOfSet
+              .filter((r) => r.header.aircraftType === f)
+              .flatMap((r) => r.trainees.flatMap((tr) => tr.grades.filter((x) => x.code === c).map((x) => x.grade)))
+            cell[f][c] = avgOf(vals)
+          })
+        })
+
+        return {
+          key,
+          name: catalogue?.name ?? key,
+          sessions: sessionCount(rs),
+          trendFlags,
+          calibration,
+          fleetMatrix: { fleets, codes, cell, labelOf },
+        }
       })
-    })
-    return { fleets, codes, cell }
-  }, [records])
+      .filter((x) => x.calibration.rows.length > 0 || x.fleetMatrix.fleets.length > 0)
+  }, [statsRecords, records, setOfRecord, g.competencySets, sessionCount])
 
   // Auswahllisten aus den vorhandenen Formularen ableiten
   // Folgeformulare (306/310/311) führen ihren Piloten in den Kopfdaten —
@@ -438,6 +485,12 @@ export function GradingAdmin() {
     return hay.includes(query.toLowerCase())
   })
 
+  /** Kurzbezeichnung des Ausgangsformulars eines Folgeformulars */
+  const parentLabel = (r: GradingRecord) => {
+    const parent = records.find((x) => x.id === r.parentId)
+    return parent ? `${parent.formTypeId} · ${formatDate(parent.createdAt)}` : ''
+  }
+
   const exportCsv = (scope: 'records' | 'competencies' | 'people') => {
     // csvRow escapet Trennzeichen und entschärft Formelzeichen (siehe csv.ts).
     const row = csvRow
@@ -445,32 +498,64 @@ export function GradingAdmin() {
     let csv = row(['Instructor Connect — Grading Export'])
     csv += row(['Exported (date/time)', formatDateTime(Date.now() + state.timeOffsetMs), 'Exported by', currentUser!.name])
     csv += row([])
+    // Der Flotten-Filter der Statistik gilt für JEDEN Export — sonst zeigt die
+    // Oberfläche eine Flotte und die Datei alle.
+    const scopeRecords = statsFleet ? records.filter((r) => r.header.aircraftType === statsFleet) : records
+    csv += row(['Fleet', statsFleet || 'All fleets'])
+    csv += row([])
     if (scope === 'records') {
-      csv += row(['Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Avg'])
-      records.forEach((r) =>
-        r.trainees.forEach((tr) => {
-          // Durchschnitt je Pilot, nicht des gesamten Formulars
-          const avg = avgOf(tr.grades.map((g) => g.grade))
-          csv += row([r.formTypeId, userName(r.instructorId), traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice, r.header.date, tr.overall, r.sessionStatus, avg?.toFixed(2)])
-        }),
-      )
+      csv += row(['Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Status', 'FollowUpTo', 'Avg'])
+      scopeRecords.forEach((r) => {
+        if (r.trainees.length > 0) {
+          r.trainees.forEach((tr) => {
+            // Durchschnitt je Pilot, nicht des gesamten Formulars
+            const avg = avgOf(tr.grades.map((g2) => g2.grade))
+            csv += row([
+              r.formTypeId, userName(r.instructorId), traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice,
+              r.header.date, tr.overall, r.sessionStatus, r.status, r.parentId ? parentLabel(r) : '', csvNum(avg),
+            ])
+          })
+          return
+        }
+        // Folgeformulare (306/310/311) führen keine Bewertung, gehören aber in
+        // die Ablage — sie belegen die Nachschulung.
+        traineesOf(r, records).forEach((tr) => {
+          csv += row([
+            r.formTypeId, userName(r.instructorId), traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice ?? '',
+            r.header.date, '', '', r.status, r.parentId ? parentLabel(r) : '', '',
+          ])
+        })
+      })
     } else if (scope === 'competencies') {
-      csv += row(['Form', 'Trainee', 'Competency', 'Grade', 'Comment'])
-      records.forEach((r) =>
+      csv += row(['Form', 'Trainee', 'Competency', 'Title', 'Grade', 'Comment'])
+      scopeRecords.forEach((r) =>
         r.trainees.forEach((tr) =>
           tr.grades.forEach((gr) => {
-            csv += row([r.formTypeId, traineeLabel(tr), gr.code, gr.grade, gr.comment])
+            const title = r.competencies?.find((c) => c.code === gr.code)?.title ?? ''
+            csv += row([r.formTypeId, traineeLabel(tr), gr.code, title, gr.grade, gr.comment])
           }),
         ),
       )
+      // Folgeformulare haben keine Kompetenzen, ihre Freitexte sind aber der
+      // eigentliche Nachweis — deshalb als eigene Zeilen mitgeben.
+      scopeRecords
+        .filter((r) => r.trainees.length === 0)
+        .forEach((r) =>
+          Object.entries(r.freeText).forEach(([section, text]) => {
+            traineesOf(r, records).forEach((tr) => {
+              csv += row([r.formTypeId, traineeLabel(tr), '', section, '', text])
+            })
+          }),
+        )
     } else {
-      // Die Kalibrierung folgt dem Flotten-Filter der Statistik — das muss
-      // im Export ersichtlich sein, sonst wirken die Zahlen flottenweit.
-      csv += row(['Fleet', statsFleet || 'All fleets'])
-      csv += row(['Person', 'Role', 'Sessions', 'AvgGrade'])
-      calibration.rows.forEach((r2) => {
-        csv += row([userName(r2.id), 'Instructor', r2.sessions, r2.avg?.toFixed(2)])
-      })
+      // Kalibrierung getrennt je Kompetenzsatz — Piloten- und
+      // Instruktorenbewertungen werden nie miteinander verglichen.
+      csv += row(['CompetencySet', 'Person', 'Role', 'Sessions', 'AvgGrade', 'DeviationFromSetAvg'])
+      statsBySet.forEach((st) =>
+        st.calibration.rows.forEach((r2) => {
+          csv += row([st.name, userName(r2.id), 'Instructor', r2.sessions, csvNum(r2.avg), csvNum((r2.avg ?? 0) - (st.calibration.overall ?? 0))])
+        }),
+      )
     }
     // Exportzeitpunkt auch im Dateinamen
     const d = new Date(Date.now() + state.timeOffsetMs)
@@ -730,81 +815,106 @@ export function GradingAdmin() {
               ))}
             </select>
             <span className="text-[12.5px] text-dim">
-              {statsRecords.length} {t('grading.admin.sessions')}
+              {sessionCount(statsRecords)} {t('grading.admin.sessions')}
             </span>
           </div>
 
-          <Card className="p-4">
-            <p className="mb-2 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-dim">
-              <TrendingDown size={15} /> {t('grading.admin.trendFlags')}
-            </p>
-            {trendFlags.length === 0 && <p className="text-[13px] text-dim">{t('grading.admin.noTrendFlags')}</p>}
-            {trendFlags.map((f) => (
-              <div key={f.code} className="flex items-center justify-between border-b border-line/[0.06] py-1.5 text-[13.5px] last:border-0">
-                <span className="font-medium">{f.code}</span>
-                <span className="text-dim">Ø {f.avg!.toFixed(2)} · n={f.n}</span>
-              </div>
-            ))}
-            <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.trendHint')}</p>
-          </Card>
+          {statsBySet.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('grading.empty')}</p>}
 
-          <Card className="p-4">
-            <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.calibration')}</p>
-            <p className="mb-2 text-[12.5px] text-dim">
-              {t('grading.admin.overallAvg')}: <span className="font-semibold text-ink">{calibration.overall?.toFixed(2) ?? '–'}</span>
-            </p>
-            {calibration.rows.map((row) => {
-              const diff = (row.avg ?? 0) - (calibration.overall ?? 0)
-              return (
-                <div key={row.id} className="flex items-center justify-between border-b border-line/[0.06] py-2 text-[13.5px] last:border-0">
-                  <span className="min-w-0 flex-1 truncate">{userName(row.id)}</span>
-                  <span className="mx-3 text-[12px] text-dim">
-                    {row.sessions} {t('grading.admin.sessions')}
-                  </span>
-                  <span className="w-14 text-right font-semibold">{row.avg?.toFixed(2)}</span>
-                  <span className={`w-16 text-right text-[12.5px] ${Math.abs(diff) >= 0.5 ? 'font-semibold text-warm' : 'text-dim'}`}>
-                    {diff >= 0 ? '+' : ''}
-                    {diff.toFixed(2)}
-                  </span>
+          {/* Je Kompetenzsatz eine eigene Auswertung — Piloten- und
+              Instruktorenbewertungen folgen verschiedenen Maßstäben und
+              werden nie miteinander verrechnet. */}
+          {statsBySet.map((st) => (
+            <div key={st.key} className="space-y-4">
+              <p className="border-b border-line/10 pb-1 text-[14px] font-semibold">
+                {st.name}{' '}
+                <span className="font-normal text-dim">
+                  · {st.sessions} {t('grading.admin.sessions')}
+                </span>
+              </p>
+
+              <Card className="p-4">
+                <p className="mb-2 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-dim">
+                  <TrendingDown size={15} /> {t('grading.admin.trendFlags')}
+                </p>
+                {st.trendFlags.length === 0 && <p className="text-[13px] text-dim">{t('grading.admin.noTrendFlags')}</p>}
+                {st.trendFlags.map((f) => (
+                  <div key={f.code} className="flex items-center justify-between gap-3 border-b border-line/[0.06] py-1.5 text-[13.5px] last:border-0">
+                    <span className="min-w-0 flex-1 font-medium">{f.label}</span>
+                    <span className="shrink-0 text-dim">Ø {f.avg!.toFixed(2)} · n={f.n}</span>
+                  </div>
+                ))}
+                <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.trendHint')}</p>
+              </Card>
+
+              <Card className="p-4">
+                <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.calibration')}</p>
+                <p className="mb-2 text-[12.5px] text-dim">
+                  {t('grading.admin.overallAvg')}: <span className="font-semibold text-ink">{st.calibration.overall?.toFixed(2) ?? '–'}</span>
+                </p>
+                {st.calibration.rows.map((row) => {
+                  const diff = (row.avg ?? 0) - (st.calibration.overall ?? 0)
+                  return (
+                    <div key={row.id} className="flex items-center justify-between border-b border-line/[0.06] py-2 text-[13.5px] last:border-0">
+                      <span className="min-w-0 flex-1 truncate">{userName(row.id)}</span>
+                      <span className="mx-3 text-[12px] text-dim">
+                        {row.sessions} {t('grading.admin.sessions')}
+                      </span>
+                      <span className="w-14 text-right font-semibold">{row.avg?.toFixed(2)}</span>
+                      <span className={`w-16 text-right text-[12.5px] ${Math.abs(diff) >= 0.5 ? 'font-semibold text-warm' : 'text-dim'}`}>
+                        {diff >= 0 ? '+' : ''}
+                        {diff.toFixed(2)}
+                      </span>
+                    </div>
+                  )
+                })}
+                <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.calibrationHint')}</p>
+              </Card>
+
+              <Card className="p-4">
+                <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.fleetMatrix')}</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12.5px]">
+                    <thead>
+                      <tr className="text-dim">
+                        <th className="p-1.5 text-left font-medium">{t('grading.admin.fleet')}</th>
+                        {st.fleetMatrix.codes.map((c) => (
+                          <th key={c} className="p-1.5 font-medium">
+                            {st.fleetMatrix.labelOf(c)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {st.fleetMatrix.fleets.map((f) => (
+                        <tr key={f}>
+                          <td className="p-1.5 font-medium">{f}</td>
+                          {st.fleetMatrix.codes.map((c) => {
+                            const v = st.fleetMatrix.cell[f][c]
+                            const tone =
+                              v === null
+                                ? 'text-dim'
+                                : v >= 4
+                                  ? 'bg-emerald-500/20'
+                                  : v >= 3
+                                    ? 'bg-emerald-700/20'
+                                    : v >= 2
+                                      ? 'bg-amber-500/20'
+                                      : 'bg-red-500/20'
+                            return (
+                              <td key={c} className="p-1">
+                                <span className={`block rounded px-1 py-1 text-center ${tone}`}>{v === null ? '–' : v.toFixed(1)}</span>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              )
-            })}
-            <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.calibrationHint')}</p>
-          </Card>
-
-          <Card className="p-4">
-            <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.fleetMatrix')}</p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12.5px]">
-                <thead>
-                  <tr className="text-dim">
-                    <th className="p-1.5 text-left font-medium">{t('grading.admin.fleet')}</th>
-                    {fleetMatrix.codes.map((c) => (
-                      <th key={c} className="p-1.5 font-medium">
-                        {c}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {fleetMatrix.fleets.map((f) => (
-                    <tr key={f}>
-                      <td className="p-1.5 font-medium">{f}</td>
-                      {fleetMatrix.codes.map((c) => {
-                        const v = fleetMatrix.cell[f][c]
-                        const tone = v === null ? 'text-dim' : v >= 4 ? 'bg-emerald-500/20' : v >= 3 ? 'bg-emerald-700/20' : v >= 2 ? 'bg-amber-500/20' : 'bg-red-500/20'
-                        return (
-                          <td key={c} className="p-1">
-                            <span className={`block rounded px-1 py-1 text-center ${tone}`}>{v === null ? '–' : v.toFixed(1)}</span>
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              </Card>
             </div>
-          </Card>
+          ))}
 
           <Card className="p-4">
             <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.export')}</p>
