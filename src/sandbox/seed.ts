@@ -280,7 +280,7 @@ export function createSeedState(): AppState {
         trainees: [],
         sessionStatus: null,
         freeText: {
-          'State exercises marked with grade "2" or below': 'PRO (2), FPM (2), WLM (2) — FFS 4 of the previous day.',
+          'State exercises marked with grade "2" or below': 'PRO (2), FPM (2), PSD (2), WLM (2) — FFS 4 of the previous day.',
           'Description of deficiency': 'Engine-out handling and workload prioritisation not stabilised under high workload.',
           'Description of agreed retraining': 'Additional 90-minute session focusing on EFATO and checklist timing.',
         },

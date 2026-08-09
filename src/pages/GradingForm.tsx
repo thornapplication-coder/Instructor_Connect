@@ -6,7 +6,7 @@ import { Button, Card, Field, inputCls, Modal, Page, TopBar } from '../component
 import { navigate } from '../router'
 import { DURATION_OPTIONS } from '../sandbox/gradingDefaults'
 import { useStore } from '../store'
-import { GRADES, type AttendanceEntry, type FormField, type FormTypeId, type Grade, type GradingRecord, type OverallResult, type SessionStatus, type TraineeGrading } from '../types'
+import { GRADES, type AttendanceEntry, type FormField, type FormType, type FormTypeId, type Grade, type GradingRecord, type OverallResult, type SessionStatus, type TraineeGrading } from '../types'
 import { gradeColor } from './Grading'
 
 let seq = 0
@@ -32,6 +32,36 @@ export function autoNotCompetent(tr: TraineeGrading): boolean {
   return ones >= 1 || twos >= 2
 }
 
+/**
+ * Folgeformular 306: Der Abschnitt „State exercises marked with grade '2' or
+ * below" wird aus dem Ausgangsformular vorbefüllt — händisch abgetippte Listen
+ * gingen bisher an einzelnen Kompetenzen vorbei. Der Text bleibt änderbar.
+ */
+function prefillFromParent(
+  parent: GradingRecord | undefined,
+  presetType: FormTypeId | undefined,
+  formTypes: FormType[],
+): Record<string, string> {
+  if (!parent || !presetType) return {}
+  const sections = formTypes.find((f) => f.id === presetType)?.freeTextSections ?? []
+  // Abschnitt anhand seiner Bedeutung finden, damit ein umbenannter Titel
+  // im Admin Panel die Vorbefüllung nicht abschaltet.
+  const section = sections.find((sec) => /\b2\b/.test(sec) && /below|unter/i.test(sec))
+  if (!section) return {}
+  const named = parent.trainees.length > 1
+  const lines = parent.trainees
+    .map((tr) => {
+      const low = tr.grades.filter((gr) => typeof gr.grade === 'number' && gr.grade <= 2)
+      if (low.length === 0) return null
+      const list = low.map((gr) => `${gr.code} (${gr.grade})`).join(', ')
+      return named ? `${tr.traineeName || ''}: ${list}`.trim() : list
+    })
+    .filter(Boolean)
+  if (lines.length === 0) return {}
+  const source = parent.header.event ? ` — ${parent.header.event}` : ''
+  return { [section]: `${lines.join('\n')}${source}` }
+}
+
 export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: { recordId?: string; presetType?: FormTypeId; parentId?: string; nextTypes?: FormTypeId[] }) {
   // Formulare sind immer vollständig englisch, unabhängig von der App-Sprache.
   const { i18n } = useTranslation()
@@ -53,7 +83,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
     existing?.header ?? (parent ? { aircraftType: parent.header.aircraftType, date: parent.header.date, trainingDevice: parent.header.trainingDevice ?? '' } : {}),
   )
   const [trainees, setTrainees] = useState<TraineeGrading[]>(existing?.trainees ?? [])
-  const [freeText, setFreeText] = useState<Record<string, string>>(existing?.freeText ?? {})
+  const [freeText, setFreeText] = useState<Record<string, string>>(existing?.freeText ?? prefillFromParent(parent, presetType, grading.formTypes))
   const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(existing?.sessionStatus ?? null)
   // Unterschriften werden grundsätzlich NIE übernommen — auch beim Bearbeiten
   // eines bestehenden Formulars muss neu unterschrieben werden.
