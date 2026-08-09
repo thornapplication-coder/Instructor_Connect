@@ -60,6 +60,26 @@ und der PDF-Export von Chromium setzen sie; der interaktive Druckdialog von
 Chrome und Edge ignoriert diese Boxen — dort liefert die Seitenzahl die
 Kopf-/Fußzeile des Dialogs.
 
+## Verwaltung
+
+Das Admin Panel liegt unter `#/admin`; jeder Bereich hat eine eigene Adresse
+(`#/admin/users`, `#/admin/grading/stats`). Ein Bereich lässt sich damit
+verlinken, die Zurück-Taste geht eine Ebene hoch statt aus dem Panel heraus.
+Eine Adresse, die der Rolle nicht offensteht, führt in die Übersicht zurück
+und wird auch in der Adresszeile zurückgesetzt.
+
+Wer welche Bereiche sieht: Superadmin alle acht; Admin die Bereiche Gruppen
+und Feedback; der Training Admin arbeitet nicht im Panel, sondern in der
+Formularablage des Grading Tools. Ab 1024 px Breite ist das Panel bedienbar,
+darunter erscheint ein Hinweis — dieselbe Grenze gilt für den Einstieg auf der
+Startseite.
+
+Gruppen löschen geht an zwei Stellen: im Panel unter Gruppen und direkt im
+Chat unter Gruppen-Info. Beide fragen vorher nach und nennen, wie viele
+Nachrichten mitgelöscht werden. Bliebe ein Mitglied dadurch ohne jede Gruppe
+zurück — es verlöre den Chat-Zugang und die Sichtbarkeit der Instructor Info —,
+wird das Löschen mit Namensnennung gesperrt, statt wirkungslos zu bleiben.
+
 ## Offline-Betrieb
 
 Im Simulator und in Hangars gibt es regelmäßig kein Netz. Ein Service Worker

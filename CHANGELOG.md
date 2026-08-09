@@ -30,6 +30,14 @@ Erstversion (Sandbox-Modus, ohne Backend):
 
 ## 1.3.0 — 2026-08-09
 
+- Gruppen lassen sich jetzt auch im Chat löschen (Gruppen-Info), nicht nur im
+  Admin Panel. Ist ein Mitglied nur in dieser einen Gruppe, wird das Löschen
+  mit Namensnennung gesperrt — vorher verpuffte der Klick wortlos, auch im
+  Admin Panel.
+- Die Bereiche der Verwaltung haben eigene Adressen (`#/admin/users`,
+  `#/admin/grading/stats`): verlinkbar, Zurück-Taste geht eine Ebene hoch, ein
+  erneuter Aufruf von `#/admin` führt in die Übersicht zurück.
+
 - Offline-Betrieb: Die App startet ohne Netz aus dem Cache. Ohne Empfang
   unterschriebene Formulare gehen in den Ausgangskorb (Ampel gelb, nicht rot)
   und werden selbsttätig versendet, sobald wieder Empfang da ist. Ein Streifen

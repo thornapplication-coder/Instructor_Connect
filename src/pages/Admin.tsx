@@ -2,7 +2,7 @@ import { AlertTriangle, ArrowLeft, ChevronDown, ClipboardList, History, MessageS
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
-import { scrollToTop } from '../router'
+import { navigate } from '../router'
 import { useStore } from '../store'
 import { GradingAdmin } from './admin/GradingAdmin'
 import { formatDateTime } from './Grading'
@@ -382,7 +382,7 @@ function PermissionsTab() {
 
 function GroupsTab() {
   const { t } = useTranslation()
-  const { state, currentUser, addGroup, renameGroup, deleteGroup, setGroupAdmins, setGroupMembers, setGroupRetention, setGroupAircraft } =
+  const { state, currentUser, addGroup, renameGroup, deleteGroup, groupDeleteBlockers, setGroupAdmins, setGroupMembers, setGroupRetention, setGroupAircraft } =
     useStore()
   const [showNew, setShowNew] = useState(false)
   // aufgeklappte Gruppe (kompakte Liste bei vielen Gruppen)
@@ -431,8 +431,19 @@ function GroupsTab() {
               <span className="shrink-0 text-[12px] text-dim">{t('chatInfo.members', { count: g.memberIds.length })}</span>
               <ChevronDown size={16} className={`shrink-0 text-dim transition ${openId === g.id ? 'rotate-180' : ''}`} />
             </button>
+            {/* Blockiert das Löschen, weil jemand ohne Gruppe zurückbliebe,
+                nennt der Knopf den Grund — vorher verpuffte der Klick. */}
             <button
-              onClick={() => window.confirm(t('admin.confirmDeleteGroup')) && deleteGroup(g.id)}
+              onClick={() => {
+                const blockers = groupDeleteBlockers(g.id)
+                if (blockers.length > 0) {
+                  window.alert(t('chatInfo.deleteBlocked', { names: blockers.map((u) => u.name).join(', ') }))
+                  return
+                }
+                if (window.confirm(t('admin.confirmDeleteGroup'))) deleteGroup(g.id)
+              }}
+              aria-label={t('chatInfo.deleteGroup')}
+              title={t('chatInfo.deleteGroup')}
               className="flex h-11 w-11 items-center justify-center rounded-full text-dim hover:text-danger"
             >
               <Trash2 size={16} />
@@ -833,11 +844,21 @@ const TAB_ICONS: Record<Tab, typeof Users> = {
   changelog: History,
 }
 
-export function Admin() {
+/**
+ * Die Bereiche sind Adressen, keine Komponenten-Zustände: #/admin zeigt die
+ * Kachelübersicht, #/admin/users den Benutzer-Bereich. Vorher stand die
+ * Adresse immer auf #/admin — ein Bereich ließ sich niemandem schicken, die
+ * Zurück-Taste sprang aus dem Panel heraus statt eine Ebene hoch, und ein
+ * erneuter Aufruf von #/admin führte nicht zurück in die Übersicht.
+ *
+ * @param sub Pfad hinter „/admin/" — erstes Segment ist der Bereich, ein
+ *            zweites reicht die Grading-Ablage an ihre Unterbereiche weiter.
+ */
+export function Admin({ sub = '' }: { sub?: string }) {
   const { t } = useTranslation()
   const { currentUser } = useStore()
-  // null = Kachel-Übersicht; erst ein Klick öffnet den Bereich
-  const [tab, setTab] = useState<Tab | null>(null)
+  const [tabSeg, sectionSeg] = sub.split('/')
+  const tab = (TAB_ICONS as Record<string, unknown>)[tabSeg] ? (tabSeg as Tab) : null
 
   // Wechselt die Identität (Sandbox-Leiste) oder die Rolle, darf ein bereits
   // geöffneter Bereich nicht stehen bleiben — sonst bedient die neue Identität
@@ -847,9 +868,26 @@ export function Admin() {
   useEffect(() => {
     if (lastIdentity.current !== identity) {
       lastIdentity.current = identity
-      setTab(null)
+      if (tab) navigate('/admin', true)
     }
-  }, [identity])
+  }, [identity, tab])
+
+  const isSuper = currentUser!.role === 'superadmin'
+  // Maßgeblich ist die Freigabeliste: ein Bereich, den die aktuelle Rolle
+  // nicht öffnen darf, wird gar nicht erst gerendert.
+  const tabs: Tab[] = isSuper
+    ? ['users', 'permissions', 'grading', 'groups', 'feedback', 'settings', 'imprint', 'changelog']
+    : ['groups', 'feedback']
+  const openTab = tab && tabs.includes(tab) ? tab : null
+
+  // Eine Adresse, die dieser Rolle nicht offensteht (oder es gar nicht gibt),
+  // darf nicht stehen bleiben, während die Übersicht gezeigt wird — sonst
+  // behauptet die Adresszeile einen Bereich, der nicht offen ist. Der Sprung
+  // ersetzt den Verlaufseintrag, damit die Zurück-Taste nicht dorthin
+  // zurückspringt.
+  useEffect(() => {
+    if (sub && !openTab) navigate('/admin', true)
+  }, [sub, openTab])
 
   // Serverseitig gilt RLS; hier zusätzlich die Client-Absicherung.
   // Admins bekommen ein kleines Panel (Gruppen + Feedback), alles
@@ -865,14 +903,6 @@ export function Admin() {
     )
   }
 
-  const isSuper = currentUser!.role === 'superadmin'
-  const tabs: Tab[] = isSuper
-    ? ['users', 'permissions', 'grading', 'groups', 'feedback', 'settings', 'imprint', 'changelog']
-    : ['groups', 'feedback']
-
-  // Maßgeblich ist die Freigabeliste, nicht der gemerkte Zustand: ein Bereich,
-  // den die aktuelle Rolle nicht öffnen darf, wird gar nicht erst gerendert.
-  const openTab = tab && tabs.includes(tab) ? tab : null
 
   return (
     <>
@@ -897,7 +927,7 @@ export function Admin() {
                 return (
                   <button
                     key={tb}
-                    onClick={() => { setTab(tb); scrollToTop() }}
+                    onClick={() => navigate(`/admin/${tb}`)}
                     className="group flex aspect-square flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
                   >
                     <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg">
@@ -913,14 +943,14 @@ export function Admin() {
         ) : (
           <>
             <button
-              onClick={() => { setTab(null); scrollToTop() }}
+              onClick={() => navigate('/admin')}
               className="mb-4 flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink"
             >
               <ArrowLeft size={15} /> {t('admin.backToOverview')}
             </button>
             {openTab === 'users' && <UsersTab />}
             {openTab === 'permissions' && <PermissionsTab />}
-            {openTab === 'grading' && <GradingAdmin />}
+            {openTab === 'grading' && <GradingAdmin section={sectionSeg} />}
             {openTab === 'groups' && <GroupsTab />}
             {openTab === 'feedback' && <FeedbackTab />}
             {openTab === 'settings' && <SettingsTab />}

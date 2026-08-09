@@ -68,7 +68,8 @@ function Screen() {
   else if (route === '/info') page = <InstructorInfo />
   else if (route === '/contacts') page = <WhoToCall />
   else if (route === '/feedback') page = <Feedback />
-  else if (route.startsWith('/admin')) page = <Admin />
+  // #/admin/<bereich>[/<unterbereich>] — die Verwaltung ist adressierbar
+  else if (route.startsWith('/admin')) page = <Admin sub={route.slice('/admin'.length).replace(/^\//, '').split('?')[0]} />
   else page = <Home unknownRoute={route !== '/' && route !== ''} />
 
   return page

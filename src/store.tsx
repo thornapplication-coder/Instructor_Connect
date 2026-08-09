@@ -59,6 +59,9 @@ export interface Store {
   setGroupAircraft: (id: string, aircraftType: string) => void
   renameGroup: (id: string, name: string) => void
   deleteGroup: (id: string) => void
+  /** Mitglieder, die durch das Löschen ohne Gruppe zurückblieben — leer =
+   *  die Gruppe darf gelöscht werden. */
+  groupDeleteBlockers: (id: string) => User[]
   setGroupAdmins: (id: string, adminIds: string[]) => void
   updateSettings: (patch: Partial<AppState['settings']>) => void
   /** Formulare, die der aktuelle Nutzer sehen darf (eigene; Admins alle) */
@@ -648,6 +651,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (s.groups.some((g) => g.id !== id && g.name.trim().toLowerCase() === name.trim().toLowerCase())) return null
           return { groups: s.groups.map((g) => (g.id === id ? { ...g, name: name.trim() } : g)) }
         }),
+      // Gleiche Regel wie in deleteGroup — die Oberfläche muss den Grund
+      // NENNEN können, statt den Klick wirkungslos verpuffen zu lassen.
+      groupDeleteBlockers: (id) => {
+        const group = state.groups.find((g) => g.id === id)
+        if (!group) return []
+        return group.memberIds
+          .filter((m) => groupsOf(state, m).length <= 1)
+          .map((m) => state.users.find((u) => u.id === m))
+          .filter((u): u is User => !!u)
+      },
       deleteGroup: (id) =>
         patch((s) => {
           if (!maySeeGroup(s, id)) return null

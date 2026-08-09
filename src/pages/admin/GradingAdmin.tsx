@@ -1,9 +1,9 @@
 import { AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, Scale, SlidersHorizontal, Trash2, TrendingDown, X } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls, selectCls } from '../../components/ui'
 import { csvNum, csvRow, downloadCsv } from '../../csv'
-import { navigate, scrollToTop } from '../../router'
+import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType, GradingRecord } from '../../types'
@@ -11,6 +11,7 @@ import { formatDate, formatDateTime, missingFollowUps, TrafficDot, traineesOf, t
 import { StandardisationReport } from './StandardisationReport'
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats' | 'standardisation'
+const SECTIONS: Section[] = ['dashboard', 'records', 'stats', 'standardisation', 'config']
 
 /** Durchschnitt der numerischen Noten (NO zählt nicht mit) */
 function avgOf(values: (number | 'NO' | null)[]): number | null {
@@ -338,11 +339,17 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
   )
 }
 
-export function GradingAdmin() {
+/** @param section Zweites Adresssegment (#/admin/grading/<section>) —
+ *  leer zeigt die Kachelübersicht der Ablage. */
+export function GradingAdmin({ section: sectionSeg = '' }: { section?: string }) {
   const { t } = useTranslation()
   const { state, currentUser, retryGradingMail, updateGrading, deleteGradingRecord } = useStore()
-  // null = Kachel-Übersicht wie am Dashboard (Wunsch: leichter auffindbar)
-  const [section, setSection] = useState<Section | null>(null)
+  const section = SECTIONS.includes(sectionSeg as Section) ? (sectionSeg as Section) : null
+  // Unbekannter Unterbereich: Adresse ehrlich auf die Übersicht der Ablage
+  // zurücksetzen, statt sie stehen zu lassen.
+  useEffect(() => {
+    if (sectionSeg && !section) navigate('/admin/grading', true)
+  }, [sectionSeg, section])
   const [query, setQuery] = useState('')
   const [filterType, setFilterType] = useState('')
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
@@ -605,7 +612,7 @@ export function GradingAdmin() {
           {SECTION_TILES.map(({ key, icon: Icon, badge }) => (
             <button
               key={key}
-              onClick={() => { setSection(key); scrollToTop() }}
+              onClick={() => navigate(`/admin/grading/${key}`)}
               className="group relative flex aspect-square flex-col items-center justify-center gap-2.5 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
             >
               {!!badge && (
@@ -622,7 +629,7 @@ export function GradingAdmin() {
         </div>
       )}
       {section !== null && (
-        <button onClick={() => { setSection(null); scrollToTop() }} className="flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink">
+        <button onClick={() => navigate('/admin/grading')} className="flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink">
           <ArrowLeft size={15} /> {t('admin.grading')}
         </button>
       )}

@@ -1,6 +1,6 @@
 import { Bell, BellOff, Clock, HardDriveDownload, Shield, Trash2, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Badge, Card, Field, Page, selectCls, TopBar } from '../components/ui'
+import { Avatar, Badge, Button, Card, Field, Page, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { isGroupAdmin, mayAccessGroup, useStore } from '../store'
 import type { RetentionKey } from '../types'
@@ -9,7 +9,8 @@ const RETENTION_KEYS: RetentionKey[] = ['24h', '7d', '30d', '90d', 'never']
 
 export function ChatInfo({ groupId }: { groupId: string }) {
   const { t } = useTranslation()
-  const { state, currentUser, effectiveRetention, setGroupRetention, setGroupMembers, toggleMute } = useStore()
+  const { state, currentUser, effectiveRetention, setGroupRetention, setGroupMembers, toggleMute, deleteGroup, groupDeleteBlockers } =
+    useStore()
   const group = state.groups.find((g) => g.id === groupId)
   // Gruppendetails (Mitgliederliste, Einstellungen) nur für Zugriffsberechtigte
   if (!group || !mayAccessGroup(currentUser, group)) {
@@ -25,6 +26,10 @@ export function ChatInfo({ groupId }: { groupId: string }) {
     .filter((u) => u.active && !group.memberIds.includes(u.id))
     .sort((a, b) => a.name.localeCompare(b.name))
   const mayManage = isGroupAdmin(currentUser, group)
+  // Wer nur in dieser einen Gruppe ist, verlöre mit ihr den Chat-Zugang und
+  // die Sichtbarkeit der Instructor Info. Das Löschen wird dann nicht still
+  // abgelehnt, sondern begründet gesperrt.
+  const blockers = mayManage ? groupDeleteBlockers(group.id) : []
 
   return (
     <>
@@ -127,6 +132,31 @@ export function ChatInfo({ groupId }: { groupId: string }) {
                 </select>
               </Field>
             )}
+
+            {/* Löschen gehört dorthin, wo die Gruppe verwaltet wird — bisher
+                lag es nur im Admin Panel, und der Gruppenadmin kommt dort
+                nicht überall hin. */}
+            <div className="border-t border-line/10 pt-4">
+              <Button
+                variant="danger"
+                disabled={blockers.length > 0}
+                className="flex w-full items-center justify-center gap-2"
+                onClick={() => {
+                  if (blockers.length > 0) return
+                  const count = state.messages.filter((m) => m.groupId === group.id).length
+                  if (!window.confirm(t('chatInfo.deleteGroupConfirm', { name: group.name, count }))) return
+                  deleteGroup(group.id)
+                  navigate('/chat')
+                }}
+              >
+                <Trash2 size={16} /> {t('chatInfo.deleteGroup')}
+              </Button>
+              <p className={`mt-2 text-[12.5px] leading-relaxed ${blockers.length > 0 ? 'text-danger' : 'text-dim'}`}>
+                {blockers.length > 0
+                  ? t('chatInfo.deleteBlocked', { names: blockers.map((u) => u.name).join(', ') })
+                  : t('chatInfo.deleteGroupHint')}
+              </p>
+            </div>
           </Card>
         )}
       </Page>
