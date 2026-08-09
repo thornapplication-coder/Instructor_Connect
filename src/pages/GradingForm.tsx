@@ -1069,7 +1069,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
               <p className="text-[11.5px] leading-relaxed text-dim">{t('grading.sigLiveNote')}</p>
             </Card>
 
-            {/* Deferred Item List: Versand geht immer an den Training Admin */}
+            {/* Deferred Item: Versand geht immer an den Training Admin */}
             {formTypeId === '310' && (
               <p className="rounded-xl border border-warm/25 bg-warm/5 p-3.5 text-[12.5px] leading-relaxed text-dim">
                 {t('grading.deferredMailNote', { recipients: grading.deferredRecipients.join(', ') })}

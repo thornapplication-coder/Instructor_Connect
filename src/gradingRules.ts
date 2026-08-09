@@ -9,7 +9,7 @@ import type { GradingRecord } from './types'
 /**
  * Pflicht-Folgeformulare, die zu diesem Formular noch fehlen:
  * Not Competent ⇒ 306 (Additional Training) ist verpflichtend,
- * Session not completed ⇒ 310 (Deferred Item List) ist verpflichtend.
+ * Session not completed ⇒ 310 (Deferred Item) ist verpflichtend.
  *
  * Die beiden Formulare haben bewusst unterschiedliche Reichweite:
  * das 306 dokumentiert die Defizite EINES Piloten und muss deshalb an
@@ -42,7 +42,7 @@ export function followUpStarted(r: GradingRecord, all: GradingRecord[], formType
   return all.some((c) => c.parentId !== undefined && inScope(c.parentId) && c.formTypeId === formTypeId && c.status !== 'signed')
 }
 
-/** Piloten eines Formulars — Folgeformulare (306/310/311) führen ihren Piloten
+/** Piloten eines Formulars — Folgeformulare (306/310) führen ihren Piloten
  *  in den Kopfdaten, ältere erben ihn vom Ausgangsformular. */
 export function traineesOf(r: GradingRecord, all: GradingRecord[]) {
   if (r.trainees.length > 0) return r.trainees

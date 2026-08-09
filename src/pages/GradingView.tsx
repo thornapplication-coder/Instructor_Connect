@@ -76,18 +76,6 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
   const pilotFootnotes = formType?.competencySet !== 'instructor'
   const isAdmin = currentUser!.role !== 'member'
   const linked = state.gradingRecords.filter((r) => r.parentId === record.id)
-  // Formular 311 anbieten, solange das Blatt bestanden ist, es noch kein 311
-  // gibt und der führende Instruktor es selbst anlegt.
-  const canCreate311 =
-    // Nur Pilotenformulare: eine TRI/SFI/MCCI-Beurteilung führt zu keinem
-    // Skill Test nach Form 311.
-    pilotFootnotes &&
-    record.instructorId === currentUser!.id &&
-    record.trainees.length > 0 &&
-    record.trainees.every((tr) => tr.overall === 'competent') &&
-    record.sessionStatus === 'completed' &&
-    !linked.some((r) => r.formTypeId === '311') &&
-    state.settings.grading.formTypes.some((f) => f.id === '311')
   const missing = missingFollowUps(record, state.gradingRecords)
   const parentRec = record.parentId ? state.gradingRecords.find((r) => r.id === record.parentId) : undefined
 
@@ -362,7 +350,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 </div>
               ))}
             </div>
-            {/* Die Fußnoten verweisen auf die Pilotenformulare 306/310/311 —
+            {/* Die Fußnoten verweisen auf die Pilotenformulare 306 und 310 —
                 auf einer TRI/SFI/MCCI-Beurteilung haben sie nichts verloren. */}
             {pilotFootnotes && (
               <div className="mt-3 space-y-1 text-[11.5px] leading-relaxed text-dim">
@@ -371,18 +359,6 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 <p>{t('grading.footnote3')}</p>
               </div>
             )}
-          </Card>
-        )}
-
-        {/* „Competent / Continue to next session ***" — Fußnote *** verweist auf
-            Formular 311. Ohne diesen Weg bliebe die Skill-Test-Reife auf dem
-            Papier stehen, ohne je einen eigenen Nachweis zu bekommen. */}
-        {canCreate311 && (
-          <Card className="space-y-2.5 p-4 print:hidden">
-            <p className="text-[12.5px] leading-relaxed text-dim">{t('grading.readyForSkillTestHint')}</p>
-            <Button variant="ghost" className="w-full" onClick={() => navigate(`/grading/new?type=311&parent=${record.id}`)}>
-              {t('grading.readyForSkillTest')}
-            </Button>
           </Card>
         )}
 
@@ -474,7 +450,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             {[
               ...new Set([
                 ...grading.defaultRecipients,
-                // Form 310 (Deferred Item List) geht IMMER an den Training Admin
+                // Form 310 (Deferred Item) geht IMMER an den Training Admin
                 ...(record.formTypeId === '310' ? grading.deferredRecipients : []),
                 // 306 (Additional Training) geht zusätzlich an die Eskalationsempfänger
                 ...(record.formTypeId === '306' ||

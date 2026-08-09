@@ -94,7 +94,7 @@ const SESSION_EXP_KEY = 'aaa-session-exp'
 const STATE_KEY = 'aaa-state'
 /** Bei jeder Änderung an der Form von AppState hochzählen — ein alter
  *  gespeicherter Stand wird dann verworfen statt halb geladen. */
-const STATE_VERSION = 1
+const STATE_VERSION = 2
 
 /** Gespeicherten Anwendungszustand lesen. Ein unlesbarer oder veralteter
  *  Stand wird verworfen, die App startet dann auf den Seed-Daten. */

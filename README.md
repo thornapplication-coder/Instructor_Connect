@@ -8,7 +8,7 @@ Twilio oder Kosten. Der Anwendungszustand wird im Browser gespeichert und
 ## Module
 
 - **Grading Tool** — Ausbildungsformulare nach OM Appendix 5: 306, 307A/B,
-  308A–H, 310 und 311. Kompetenzbewertung 1–5 plus NO, Unterschriften auf dem
+  308A–H und 310. Kompetenzbewertung 1–5 plus NO, Unterschriften auf dem
   Gerät, Pflicht-Folgeformulare, Ampelstatus und Druck-/PDF-Ausgabe.
   Auswertung mit Trendflags, Instruktoren-Kalibrierung, Flottenmatrix und
   CSV-Export.

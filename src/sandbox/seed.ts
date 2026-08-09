@@ -206,7 +206,7 @@ function seedState(now: number): AppState {
     changelog: [
       { version: '1.0.0', date: '2026-08-04', changes: 'Erstversion: Chat mit Gruppen und Umfragen, Instructor Info, Who to call, Feedback, Admin-Panel, Sandbox-Modus.' },
       { version: '1.1.0', date: '2026-08-09', changes: 'Grading Tool und Lesson Plans, Lese-Bestätigungen mit Kontrollliste, Gruppen-Sichtbarkeit, Feedback-Empfänger und Urgent, Offline-Modus (PWA) mit Update-Banner, Druck-Layout.' },
-      { version: '1.2.0', date: '2026-08-09', changes: 'Vollaudit behoben: ein Formular 306 je Pilot, Formular 311, unterschriebene Formulare gegen Katalogänderungen eingefroren, objektbezogene Berechtigungen, Konten werden deaktiviert statt gelöscht, Zustand übersteht das Neuladen, Druck auf A4 mit einem Blatt je Formular, Trefferflächen ab 44 px und Kontraste durchgehend WCAG AA.' },
+      { version: '1.2.0', date: '2026-08-09', changes: 'Vollaudit behoben: ein Formular 306 je Pilot, unterschriebene Formulare gegen Katalogänderungen eingefroren, objektbezogene Berechtigungen, Konten werden deaktiviert statt gelöscht, Zustand übersteht das Neuladen, Druck auf A4 mit einem Blatt je Formular, Trefferflächen ab 44 px und Kontraste durchgehend WCAG AA.' },
     ],
     settings: {
       defaultRetention: '30d',

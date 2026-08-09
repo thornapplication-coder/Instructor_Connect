@@ -549,7 +549,7 @@ export const FORM_TYPES: FormType[] = [
   },
   {
     id: '310',
-    title: 'Deferred Item List',
+    title: 'Deferred Item',
     competencySet: null,
     fields: [
       f('traineeName', 'Pilot / Student Name', 'text', { required: true }),
@@ -559,27 +559,12 @@ export const FORM_TYPES: FormType[] = [
     ],
     freeTextSections: ['Deferred items', 'Planned completion'],
   },
-  {
-    // Fußnote *** der Grading Sheets verweist auf dieses Formular: die
-    // Feststellung „Ready for skill test" braucht einen eigenen Nachweis.
-    id: '311',
-    title: 'Ready for Skill Test',
-    competencySet: null,
-    fields: [
-      f('traineeName', 'Pilot / Student Name', 'text', { required: true }),
-      f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
-      f('date', 'Date', 'date', { required: true }),
-      f('event', 'Training completed', 'text', { required: true }),
-      f('location', 'Location', 'select', { options: LOCATIONS, required: true }),
-    ],
-    freeTextSections: ['Remarks'],
-  },
 ]
 
 export const GRADING_DEFAULTS: GradingSettings = {
   defaultRecipients: ['training.records@aviationacademy.at'],
   escalationRecipients: ['admin@aviationacademy.at', 'head.of.training@aviationacademy.at'],
-  // Form 310 (Deferred Item List) geht IMMER zusätzlich an den Training Admin
+  // Form 310 (Deferred Item) geht IMMER zusätzlich an den Training Admin
   deferredRecipients: ['training.admin@aviationacademy.at'],
   competencySets: [PILOT_SET, INSTRUCTOR_SET],
   formTypes: FORM_TYPES,

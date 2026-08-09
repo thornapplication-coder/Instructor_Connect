@@ -463,7 +463,7 @@ export function GradingAdmin() {
   }, [statsRecords, records, setOfRecord, g.competencySets, sessionCount])
 
   // Auswahllisten aus den vorhandenen Formularen ableiten
-  // Folgeformulare (306/310/311) führen ihren Piloten in den Kopfdaten —
+  // Folgeformulare (306/310) führen ihren Piloten in den Kopfdaten —
   // ohne traineesOf fielen sie aus Filter und Suche heraus.
   const traineeOptions = [...new Set(records.flatMap((r) => traineesOf(r, records).map(traineeLabel)))].filter((n) => n !== '—').sort()
   // Wie bei den Mustern: alle, die Formulare führen dürfen, plus die aus
@@ -542,7 +542,7 @@ export function GradingAdmin() {
           })
           return
         }
-        // Folgeformulare (306/310/311) führen keine Bewertung, gehören aber in
+        // Folgeformulare (306/310) führen keine Bewertung, gehören aber in
         // die Ablage — sie belegen die Nachschulung.
         traineesOf(r, records).forEach((tr) => {
           csv += row([

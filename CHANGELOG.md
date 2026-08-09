@@ -37,7 +37,7 @@ Formulare und Aktenlage:
 
 - Ein Formular 306 je nicht bestandenem Piloten statt eines je Durchgang
 - Unterschriebene Formulare frieren den Kompetenz-Wortlaut ein
-- 306, 310 und das neue Formular 311 nennen den Piloten
+- 306 und 310 nennen den Piloten
 - Ein Folgeformular erfüllt die Pflicht erst mit der Unterschrift
 - 307A mit Unterschrift je Teilnehmer, 307B mit Erklärung des Instruktors
 - 308G nach dem Wortlaut der Originaltabelle, ohne Verweis auf die
