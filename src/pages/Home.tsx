@@ -58,7 +58,7 @@ export function Home() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="mx-auto flex w-full max-w-3xl items-center justify-between px-5 pt-6">
+      <header className="safe-top-6 mx-auto flex w-full max-w-3xl items-center justify-between px-5">
         <div className="flex items-center gap-3">
           <Avatar name={currentUser!.name} size={40} />
           <div>

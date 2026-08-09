@@ -48,7 +48,7 @@ export function Login() {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 py-10">
-      <div className="absolute right-4 top-4 flex items-center gap-1.5">
+      <div className="absolute right-4 flex items-center gap-1.5" style={{ top: 'calc(1rem + env(safe-area-inset-top, 0px))' }}>
         <ThemeToggle />
         <LanguageToggle />
       </div>

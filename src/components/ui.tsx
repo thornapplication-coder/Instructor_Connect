@@ -52,7 +52,7 @@ export function ThemeToggle() {
 export function TopBar({ title, back, right, home = true, wide = false }: { title: ReactNode; back?: string; right?: ReactNode; home?: boolean; wide?: boolean }) {
   const { t } = useTranslation()
   return (
-    <header className="sticky top-0 z-20 border-b border-line/10 bg-bg/85 backdrop-blur">
+    <header className="safe-top sticky top-0 z-20 border-b border-line/10 bg-bg/85 backdrop-blur">
       <div className={`mx-auto flex h-14 items-center gap-2 px-3 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>
         {back !== undefined && (
           <button

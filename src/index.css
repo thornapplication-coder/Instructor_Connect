@@ -89,6 +89,27 @@ input[type='date'] {
   color-scheme: dark;
 }
 
+/*
+ * Sichere Bereiche (iPhone mit Dynamic Island / Notch, Home-Indikator).
+ * viewport-fit=cover lässt die App unter die Systemleisten laufen — diese
+ * Klassen halten Kopf- und Fußzeilen darunter frei.
+ */
+@layer utilities {
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .safe-top-6 {
+    padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
+  }
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  /* sitzt direkt über der Sandbox-Leiste (h-11) inkl. Home-Indikator */
+  .above-sandbox {
+    bottom: calc(2.75rem + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* dezente Scrollbars */
 * {
   scrollbar-width: thin;

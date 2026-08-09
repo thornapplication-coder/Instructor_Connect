@@ -63,8 +63,10 @@ export function UpdateBanner() {
   }, [])
 
   if (!waiting) return null
+  // Unten statt oben: am iPhone verdeckt die Dynamic Island sonst den
+  // Aktualisieren-Knopf. Sitzt über der Sandbox-Leiste.
   return (
-    <div className="fixed inset-x-0 top-0 z-50 flex items-center justify-center gap-3 bg-accent px-4 py-3 text-[14px] font-semibold text-bg shadow-soft">
+    <div className="above-sandbox fixed inset-x-0 z-50 mx-3 flex items-center justify-center gap-3 rounded-2xl bg-accent px-4 py-3 text-[14px] font-semibold text-bg shadow-soft">
       <RefreshCw size={16} className="shrink-0" />
       <span>{t('common.updateAvailable')}</span>
       <button
