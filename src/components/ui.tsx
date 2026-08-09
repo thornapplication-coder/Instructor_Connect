@@ -232,6 +232,13 @@ export function Badge({ children, tone = 'accent' }: { children: ReactNode; tone
  * eingetragen wurde — vorher verwarf er ein halb ausgefülltes Formular
  * kommentarlos.
  */
+/** Bedienbare Elemente eines Dialogs in Tab-Reihenfolge. */
+function focusableIn(panel: HTMLElement | null): HTMLElement[] {
+  return [...(panel?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? [])].filter(
+    (e) => !e.hasAttribute('disabled') && e.offsetParent !== null,
+  )
+}
+
 export function Modal({
   title,
   onClose,
@@ -253,25 +260,53 @@ export function Modal({
     onClose()
   }, [confirmDiscard, onClose])
 
-  useEffect(() => {
-    openerRef.current = document.activeElement
-    const panel = panelRef.current
-    // Erstes bedienbares Element bekommt den Fokus, sonst der Dialog selbst
-    const focusable = () =>
-      [...(panel?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? [])].filter(
-        (e) => !e.hasAttribute('disabled') && e.offsetParent !== null,
-      )
-    focusable()[0]?.focus() ?? panel?.focus()
+  // Die Aufrufer übergeben onClose als Inline-Funktion, close ändert sich
+  // daher bei jedem Rendern. Über die Referenz bleibt der Tasten-Effekt
+  // trotzdem stabil — sonst würde er sich bei jedem Tastendruck neu
+  // aufhängen und dabei den Fokus mitreißen.
+  const closeRef = useRef(close)
+  closeRef.current = close
 
+  // Fokus genau einmal setzen: beim Öffnen in den Dialog, beim Schließen
+  // zurück auf das auslösende Element. Hing das früher an close, sprang der
+  // Fokus bei jedem getippten Zeichen zwischen Feld und Dialog hin und her —
+  // die Seite ruckelte und es kam nur der erste Buchstabe an.
+  useEffect(() => {
+    const panel = panelRef.current
+    openerRef.current = document.activeElement
+    // Das erste Eingabefeld ist der sinnvolle Startpunkt; erst wenn der
+    // Dialog keines hat, zählt das erste bedienbare Element. Der
+    // Schließen-Knopf steht im Quelltext vorne, ist als Startpunkt aber
+    // nutzlos.
+    const items = focusableIn(panel)
+    const field = items.find((e) => /^(INPUT|SELECT|TEXTAREA)$/.test(e.tagName))
+    const target = field ?? items[0]
+    if (target) target.focus()
+    else panel?.focus()
+    return () => {
+      ;(openerRef.current as HTMLElement | null)?.focus?.()
+    }
+  }, [])
+
+  // Solange der Dialog offen ist, darf die Seite dahinter nicht mitscrollen.
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [])
+
+  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        close()
+        closeRef.current()
         return
       }
       if (e.key !== 'Tab') return
       // Fokusfalle: Tab läuft im Kreis, statt hinter den Dialog zu wandern
-      const items = focusable()
+      const items = focusableIn(panelRef.current)
       if (items.length === 0) return
       const first = items[0]
       const last = items[items.length - 1]
@@ -284,11 +319,8 @@ export function Modal({
       }
     }
     document.addEventListener('keydown', onKey)
-    return () => {
-      document.removeEventListener('keydown', onKey)
-      ;(openerRef.current as HTMLElement | null)?.focus?.()
-    }
-  }, [close])
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
 
   return (
     <div
