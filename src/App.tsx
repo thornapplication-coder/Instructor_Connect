@@ -7,7 +7,7 @@ import { ChatRoom } from './pages/ChatRoom'
 import { DevicePreview } from './pages/DevicePreview'
 import { Feedback } from './pages/Feedback'
 import { Grading } from './pages/Grading'
-import { GradingForm } from './pages/GradingForm'
+import { decodeChain, GradingForm } from './pages/GradingForm'
 import { GradingView } from './pages/GradingView'
 import { Home } from './pages/Home'
 import { LessonPlans } from './pages/LessonPlans'
@@ -41,8 +41,9 @@ function Screen() {
     const params = new URLSearchParams(route.split('?')[1] ?? '')
     const type = params.get('type') as Parameters<typeof GradingForm>[0]['presetType']
     const parent = params.get('parent') ?? undefined
-    const next = (params.get('next') ?? '').split(',').filter(Boolean) as NonNullable<Parameters<typeof GradingForm>[0]['nextTypes']>
-    page = <GradingForm key={route} presetType={type ?? undefined} parentId={parent} nextTypes={next} />
+    // Kette offener Folgeformulare: je Glied Typ UND Ausgangsformular
+    const next = decodeChain(params.get('next') ?? '')
+    page = <GradingForm key={route} presetType={type ?? undefined} parentId={parent} next={next} />
   } else if (route.startsWith('/grading/')) {
     // ?print=1 öffnet die Ansicht und startet direkt den PDF-/Druckdialog
     const [id, query] = route.slice('/grading/'.length).split('?')

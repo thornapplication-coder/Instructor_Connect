@@ -352,6 +352,8 @@ export const FORM_TYPES: FormType[] = [
     title: 'Additional Training',
     competencySet: null,
     fields: [
+      // Ohne Namen ist ein Nachschulungsnachweis keinem Piloten zuzuordnen.
+      f('traineeName', 'Pilot / Student Name', 'text', { required: true }),
       f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
       f('location', 'Location', 'select', { options: LOCATIONS, required: true }),
       f('event', 'Subject / Event', 'text', { required: true }),
@@ -546,11 +548,27 @@ export const FORM_TYPES: FormType[] = [
     title: 'Deferred Item List',
     competencySet: null,
     fields: [
+      f('traineeName', 'Pilot / Student Name', 'text', { required: true }),
       f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
       f('date', 'Date', 'date', { required: true }),
       f('dueDate', 'Due Date', 'date'),
     ],
     freeTextSections: ['Deferred items', 'Planned completion'],
+  },
+  {
+    // Fußnote *** der Grading Sheets verweist auf dieses Formular: die
+    // Feststellung „Ready for skill test" braucht einen eigenen Nachweis.
+    id: '311',
+    title: 'Ready for Skill Test',
+    competencySet: null,
+    fields: [
+      f('traineeName', 'Pilot / Student Name', 'text', { required: true }),
+      f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
+      f('date', 'Date', 'date', { required: true }),
+      f('event', 'Training completed', 'text', { required: true }),
+      f('location', 'Location', 'select', { options: LOCATIONS, required: true }),
+    ],
+    freeTextSections: ['Remarks'],
   },
 ]
 

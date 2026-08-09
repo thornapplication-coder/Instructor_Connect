@@ -3,6 +3,11 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      screens: {
+        // Flaches Fenster (Handy im Querformat, ~390px hoch): der Kopfbereich
+        // muss schrumpfen, sonst liegt keine einzige Kachel über der Falz.
+        short: { raw: '(max-height: 520px)' },
+      },
       colors: {
         // Alle Farbwerte kommen aus src/index.css (zentrale Theme-Datei).
         bg: 'rgb(var(--c-bg) / <alpha-value>)',

@@ -150,7 +150,10 @@
     "name": "Name",
     "phone": "Phone number",
     "email": "Email address",
-    "allDepartments": "All departments"
+    "allDepartments": "All departments",
+    "deleteConfirm": "Delete “{{name}}” from the directory? This cannot be undone.",
+    "editContact": "Edit contact",
+    "deleteContact": "Delete contact"
   },
   "feedback": {
     "title": "Feedback",
@@ -242,7 +245,8 @@
     "allCategories": "All categories",
     "backToOverview": "Back to overview",
     "sortByName": "Sort: Name",
-    "sortByRole": "Sort: Role"
+    "sortByRole": "Sort: Role",
+    "allGroups": "All groups"
   },
   "imprint": {
     "title": "Legal notice & terms of use",
@@ -436,7 +440,10 @@
         "month": "Last month",
         "year": "Last year"
       }
-    }
+    },
+    "followUp306PerPilot": "One Form 306 per pilot graded “Not Competent” — {{count}} will be opened one after another, each with that pilot’s own deficiencies and signature.",
+    "readyForSkillTest": "Ready for skill test — create Form 311",
+    "readyForSkillTestHint": "The result is “Competent / Continue to next session ***”. Footnote *** requires the skill-test readiness to be signed on Form 311."
   },
   "lessons": {
     "newPlan": "Upload lesson plan",
@@ -446,6 +453,7 @@
     "file": "PDF file",
     "allTypes": "All types",
     "empty": "No lesson plans available for your assigned aircraft types.",
-    "noAircraft": "No aircraft type has been assigned to you yet. An admin can change this in user management — afterwards you will see the matching lesson plans."
+    "noAircraft": "No aircraft type has been assigned to you yet. An admin can change this in user management — afterwards you will see the matching lesson plans.",
+    "deleteConfirm": "Delete the lesson plan “{{title}}”? This cannot be undone."
   }
 }

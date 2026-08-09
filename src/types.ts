@@ -268,6 +268,14 @@ export interface CompetencyGrade {
   comment: string
 }
 
+/** Eingefrorener Kompetenz-Wortlaut eines Formulars. Ein unterschriebenes
+ *  Dokument muss über die gesamte Aufbewahrungsfrist unverändert
+ *  reproduzierbar sein — auch wenn der Katalog später umgebaut wird. */
+export interface RecordedCompetency {
+  code: string
+  title: string
+}
+
 export type OverallResult = 'competent' | 'not_competent'
 export type SessionStatus = 'completed' | 'not_completed'
 
@@ -298,6 +306,9 @@ export interface GradingRecord {
   /** Kopfdaten laut Formularkonfiguration */
   header: Record<string, string>
   trainees: TraineeGrading[]
+  /** Kompetenz-Wortlaut zum Zeitpunkt der Erstellung. Fehlt er (Altbestand),
+   *  fällt die Anzeige auf den aktuellen Katalog zurück. */
+  competencies?: RecordedCompetency[]
   sessionStatus: SessionStatus | null
   freeText: Record<string, string>
   /** Signaturen als Data-URL (Canvas) */

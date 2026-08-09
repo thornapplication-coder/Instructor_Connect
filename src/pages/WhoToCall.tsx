@@ -131,13 +131,27 @@ export function WhoToCall() {
                       <p className="truncate text-[15px] font-semibold">{c.name}</p>
                       <p className="truncate text-[13px] text-dim">{c.position}</p>
                     </div>
+                    {/* Beide Aktionen mit 44px Trefferfläche und Abstand —
+                        Löschen fragt nach, es gibt kein Rückgängig. */}
                     {mayEdit && (
-                      <div className="flex gap-1">
-                        <button onClick={() => setEditing(c)} className="rounded-full p-2 text-dim hover:bg-line/5 hover:text-accent">
-                          <Pencil size={15} />
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setEditing(c)}
+                          aria-label={t('contacts.editContact')}
+                          title={t('contacts.editContact')}
+                          className="flex h-11 w-11 items-center justify-center rounded-full text-dim hover:bg-line/5 hover:text-accent"
+                        >
+                          <Pencil size={17} />
                         </button>
-                        <button onClick={() => deleteContact(c.id)} className="rounded-full p-2 text-dim hover:bg-line/5 hover:text-danger">
-                          <Trash2 size={15} />
+                        <button
+                          onClick={() => {
+                            if (window.confirm(t('contacts.deleteConfirm', { name: c.name }))) deleteContact(c.id)
+                          }}
+                          aria-label={t('contacts.deleteContact')}
+                          title={t('contacts.deleteContact')}
+                          className="flex h-11 w-11 items-center justify-center rounded-full text-dim hover:bg-line/5 hover:text-danger"
+                        >
+                          <Trash2 size={17} />
                         </button>
                       </div>
                     )}

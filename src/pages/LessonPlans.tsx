@@ -168,7 +168,9 @@ export function LessonPlans() {
                         </a>
                         {mayEdit && (
                           <button
-                            onClick={() => deleteLessonPlan(p.id)}
+                            onClick={() => {
+                              if (window.confirm(t('lessons.deleteConfirm', { title: p.title }))) deleteLessonPlan(p.id)
+                            }}
                             className="flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-[13px] text-danger hover:bg-danger/10"
                           >
                             <Trash2 size={14} /> {t('common.delete')}

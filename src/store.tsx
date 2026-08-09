@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createSeedState } from './sandbox/seed'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import type { InfoEntry } from './types'
@@ -63,6 +63,9 @@ export interface Store {
   updateSettings: (patch: Partial<AppState['settings']>) => void
   /** Formulare, die der aktuelle Nutzer sehen darf (eigene; Admins alle) */
   visibleGradingRecords: GradingRecord[]
+  /** Einzelnes Formular per ID — nur wenn der aktuelle Nutzer es sehen darf.
+   *  Die Listenfilter allein schützen nicht: IDs stehen in der URL. */
+  gradingRecordById: (id: string) => GradingRecord | undefined
   saveGradingRecord: (record: GradingRecord) => void
   /** entfernt ein Formular nur aus der Instruktor-Ansicht — Admin behält es */
   hideGradingRecord: (id: string) => void
@@ -86,6 +89,43 @@ const StoreCtx = createContext<Store | null>(null)
 
 const USER_KEY = 'aaa-user'
 const SESSION_EXP_KEY = 'aaa-session-exp'
+const STATE_KEY = 'aaa-state'
+/** Bei jeder Änderung an der Form von AppState hochzählen — ein alter
+ *  gespeicherter Stand wird dann verworfen statt halb geladen. */
+const STATE_VERSION = 1
+
+/** Gespeicherten Anwendungszustand lesen. Ein unlesbarer oder veralteter
+ *  Stand wird verworfen, die App startet dann auf den Seed-Daten. */
+function loadPersistedState(): AppState | null {
+  try {
+    const raw = localStorage.getItem(STATE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { v?: number; state?: AppState }
+    if (parsed.v !== STATE_VERSION || !parsed.state?.users?.length) {
+      localStorage.removeItem(STATE_KEY)
+      return null
+    }
+    return parsed.state
+  } catch {
+    return null
+  }
+}
+
+function persistState(payload: string) {
+  try {
+    localStorage.setItem(STATE_KEY, payload)
+  } catch {
+    /* Speicher voll oder gesperrt: der Stand gilt dann nur für diese Sitzung */
+  }
+}
+
+function clearPersistedState() {
+  try {
+    localStorage.removeItem(STATE_KEY)
+  } catch {
+    /* ohne localStorage gibt es nichts zu verwerfen */
+  }
+}
 
 /** Sitzungen gelten bis Mitternacht (lokal) — außer man meldet sich ab. */
 function endOfDay(): number {
@@ -97,12 +137,15 @@ function endOfDay(): number {
 /** Angemeldet bleiben bis Mitternacht: gespeicherte Anmeldung wiederherstellen,
  *  solange der Nutzer existiert, aktiv ist und die Sitzung nicht abgelaufen ist. */
 function initialState(): AppState {
-  const seed = createSeedState()
+  // Ein unterschriebenes Formular darf ein Neuladen (auch das automatische
+  // nach einem App-Update) überstehen — der gesamte Zustand wird deshalb
+  // gespeichert und beim Start wiederhergestellt.
+  const base = loadPersistedState() ?? createSeedState()
   try {
     const savedId = localStorage.getItem(USER_KEY)
     const exp = Number(localStorage.getItem(SESSION_EXP_KEY) ?? 0)
-    if (savedId && exp > Date.now() && seed.users.some((u) => u.id === savedId && u.active)) {
-      return { ...seed, currentUserId: savedId }
+    if (savedId && exp > Date.now() && base.users.some((u) => u.id === savedId && u.active)) {
+      return { ...base, currentUserId: savedId }
     }
     if (savedId) {
       localStorage.removeItem(USER_KEY)
@@ -111,7 +154,8 @@ function initialState(): AppState {
   } catch {
     /* ohne localStorage startet die App abgemeldet */
   }
-  return seed
+  // Ohne gültige Sitzung wird der Inhalt behalten, aber abgemeldet gestartet.
+  return { ...base, currentUserId: null }
 }
 
 function persistUser(id: string | null) {
@@ -138,6 +182,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const iv = setInterval(() => setState((s) => ({ ...s })), 5000)
     return () => clearInterval(iv)
   }, [])
+
+  // Zustand sichern. Der 5-Sekunden-Takt oben erzeugt bei gleichem Inhalt eine
+  // neue Referenz — deshalb wird nur geschrieben, wenn sich der serialisierte
+  // Stand tatsächlich geändert hat.
+  const lastPersisted = useRef<string>('')
+  useEffect(() => {
+    const tm = setTimeout(() => {
+      const json = JSON.stringify({ v: STATE_VERSION, state })
+      if (json === lastPersisted.current) return
+      lastPersisted.current = json
+      persistState(json)
+    }, 400)
+    return () => clearTimeout(tm)
+  }, [state])
 
   const now = useCallback(() => Date.now() + state.timeOffsetMs, [state.timeOffsetMs])
 
@@ -344,7 +402,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         patch(() => ({ currentUserId: userId }))
       },
       advanceTime: (ms) => patch((s) => ({ timeOffsetMs: s.timeOffsetMs + ms })),
-      resetSandbox: () => setState(() => ({ ...createSeedState(), currentUserId: state.currentUserId })),
+      resetSandbox: () => {
+        clearPersistedState()
+        setState(() => ({ ...createSeedState(), currentUserId: state.currentUserId }))
+      },
 
       sendMessage: (groupId, text, attachment) =>
         patch((s) => {
@@ -451,7 +512,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }),
       updateUser: (id, p) =>
-        patch((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, ...p } : u)) })),
+        patch((s) => {
+          // Die Rolle vergibt ausschließlich der Superadmin. Sonst könnte sich
+          // ein group_admin über eine offen gebliebene Ansicht selbst befördern.
+          const actor = s.users.find((u) => u.id === s.currentUserId)
+          const safe = actor?.role === 'superadmin' ? p : { ...p, role: undefined }
+          return { users: s.users.map((u) => (u.id === id ? { ...u, ...safe, role: safe.role ?? u.role } : u)) }
+        }),
       deleteUser: (id) =>
         patch((s) => ({
           users: s.users.filter((u) => u.id !== id),
@@ -495,6 +562,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       updateSettings: (p) => patch((s) => ({ settings: { ...s.settings, ...p } })),
 
       visibleGradingRecords,
+      // Objektbezogene Berechtigung: eigenes Formular oder Vollzugriff.
+      // Ohne diese Prüfung liest (und unterschreibt) jeder Nutzer jedes
+      // Formular, indem er die ID in die Adresszeile tippt.
+      gradingRecordById: (id) => {
+        if (!currentUser) return undefined
+        const rec = state.gradingRecords.find((r) => r.id === id)
+        if (!rec) return undefined
+        if (userHasPerm(state.settings, currentUser, 'grading_view_all')) return rec
+        return rec.instructorId === currentUser.id ? rec : undefined
+      },
       saveGradingRecord: (record) =>
         patch((s) => ({
           gradingRecords: s.gradingRecords.some((r) => r.id === record.id)
@@ -509,8 +586,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               : r,
           ),
         })),
+      // Ausbildungsnachweise sind aufbewahrungspflichtig: endgültiges Löschen
+      // bleibt dem Superadmin vorbehalten — der Training Admin ist nur-lesend.
       deleteGradingRecord: (id) =>
-        patch((s) => ({ gradingRecords: s.gradingRecords.filter((r) => r.id !== id && r.parentId !== id) })),
+        patch((s) => {
+          const actor = s.users.find((u) => u.id === s.currentUserId)
+          if (actor?.role !== 'superadmin') return null
+          return { gradingRecords: s.gradingRecords.filter((r) => r.id !== id && r.parentId !== id) }
+        }),
       retryGradingMail: (id) =>
         patch((s) => ({
           gradingRecords: s.gradingRecords.map((r) =>

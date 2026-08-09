@@ -150,7 +150,10 @@
     "name": "Name",
     "phone": "Telefonnummer",
     "email": "E-Mail-Adresse",
-    "allDepartments": "Alle Abteilungen"
+    "allDepartments": "Alle Abteilungen",
+    "deleteConfirm": "„{{name}}“ aus dem Verzeichnis löschen? Das lässt sich nicht rückgängig machen.",
+    "editContact": "Kontakt bearbeiten",
+    "deleteContact": "Kontakt löschen"
   },
   "feedback": {
     "title": "Feedback",
@@ -242,7 +245,8 @@
     "allCategories": "Alle Kategorien",
     "backToOverview": "Zur Übersicht",
     "sortByName": "Sortierung: Name",
-    "sortByRole": "Sortierung: Funktion"
+    "sortByRole": "Sortierung: Funktion",
+    "allGroups": "Alle Gruppen"
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",
@@ -436,7 +440,10 @@
         "month": "Letzter Monat",
         "year": "Letztes Jahr"
       }
-    }
+    },
+    "followUp306PerPilot": "Ein Formular 306 je mit „Not Competent“ bewertetem Piloten — {{count}} werden nacheinander geöffnet, jeweils mit den Defiziten und der Unterschrift dieses Piloten.",
+    "readyForSkillTest": "Ready for skill test — Formular 311 anlegen",
+    "readyForSkillTestHint": "Das Ergebnis lautet „Competent / Continue to next session ***“. Fußnote *** verlangt, dass die Skill-Test-Reife auf Formular 311 unterschrieben wird."
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",
@@ -446,6 +453,7 @@
     "file": "PDF-Datei",
     "allTypes": "Alle Muster",
     "empty": "Keine Lesson Plans für die zugewiesenen Muster vorhanden.",
-    "noAircraft": "Dir ist noch kein Aircraft Type zugewiesen. Der Admin kann das im Benutzer-Management ändern — danach siehst du die passenden Lesson Plans."
+    "noAircraft": "Dir ist noch kein Aircraft Type zugewiesen. Der Admin kann das im Benutzer-Management ändern — danach siehst du die passenden Lesson Plans.",
+    "deleteConfirm": "Lesson Plan „{{title}}“ löschen? Das lässt sich nicht rückgängig machen."
   }
 }

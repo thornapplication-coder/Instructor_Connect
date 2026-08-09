@@ -339,7 +339,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
 
 export function GradingAdmin() {
   const { t } = useTranslation()
-  const { state, currentUser, retryGradingMail, updateGrading } = useStore()
+  const { state, currentUser, retryGradingMail, updateGrading, deleteGradingRecord } = useStore()
   // null = Kachel-Übersicht wie am Dashboard (Wunsch: leichter auffindbar)
   const [section, setSection] = useState<Section | null>(null)
   const [query, setQuery] = useState('')
@@ -416,7 +416,9 @@ export function GradingAdmin() {
   }, [records])
 
   // Auswahllisten aus den vorhandenen Formularen ableiten
-  const traineeOptions = [...new Set(records.flatMap((r) => r.trainees.map(traineeLabel)))].filter((n) => n !== '—').sort()
+  // Folgeformulare (306/310/311) führen ihren Piloten in den Kopfdaten —
+  // ohne traineesOf fielen sie aus Filter und Suche heraus.
+  const traineeOptions = [...new Set(records.flatMap((r) => traineesOf(r, records).map(traineeLabel)))].filter((n) => n !== '—').sort()
   const instructorOptions = [...new Set(records.map((r) => r.instructorId))]
     .map((id) => ({ id, name: userName(id) }))
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -428,11 +430,11 @@ export function GradingAdmin() {
     if (days && Date.now() + state.timeOffsetMs - r.createdAt > days * 24 * 3600_000) return false
     if (filterType && r.formTypeId !== filterType) return false
     if (trafficFilter && trafficLight(r, records) !== trafficFilter) return false
-    if (filterTrainee && !r.trainees.some((tr) => traineeLabel(tr) === filterTrainee)) return false
+    if (filterTrainee && !traineesOf(r, records).some((tr) => traineeLabel(tr) === filterTrainee)) return false
     if (filterInstructor && r.instructorId !== filterInstructor) return false
     if (filterAircraft && r.header.aircraftType !== filterAircraft) return false
     if (!query) return true
-    const hay = [r.formTypeId, userName(r.instructorId), ...r.trainees.map(traineeLabel), ...Object.values(r.header)].join(' ').toLowerCase()
+    const hay = [r.formTypeId, userName(r.instructorId), ...traineesOf(r, records).map(traineeLabel), ...Object.values(r.header)].join(' ').toLowerCase()
     return hay.includes(query.toLowerCase())
   })
 
@@ -664,6 +666,21 @@ export function GradingAdmin() {
                 </p>
               </div>
               {r.trainees.some((tr) => tr.overall === 'not_competent') && <Badge tone="warm">{t('grading.notCompetent')}</Badge>}
+              {/* Endgültiges Löschen nur für den Superadmin — der Training
+                  Admin sieht dieselbe Ablage bewusst ohne Mülleimer. */}
+              {currentUser!.role === 'superadmin' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (window.confirm(t('grading.ta.deleteConfirm'))) deleteGradingRecord(r.id)
+                  }}
+                  aria-label={t('common.delete')}
+                  title={t('common.delete')}
+                  className="shrink-0 rounded-lg p-1.5 text-dim transition hover:bg-danger/10 hover:text-danger"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
               <ChevronRight size={16} className="shrink-0 text-dim" />
             </Card>
           ))}

@@ -62,15 +62,40 @@ function prefillFromParent(
   return { [section]: `${lines.join('\n')}${source}` }
 }
 
-export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: { recordId?: string; presetType?: FormTypeId; parentId?: string; nextTypes?: FormTypeId[] }) {
+/** Ein noch offenes Glied der Folgeformular-Kette: Formulartyp plus das
+ *  Ausgangsformular, an dem es hängt. Bei mehreren Piloten je Durchgang ist
+ *  der Elternteil je Glied ein anderer — deshalb reicht eine reine Typliste
+ *  nicht aus. */
+export interface FollowUpStep {
+  type: FormTypeId
+  parentId: string
+}
+
+/** Kette für die Adresszeile: „306:gr-1,306:gr-2,310:gr-1" */
+export const encodeChain = (steps: FollowUpStep[]) => steps.map((x) => `${x.type}:${x.parentId}`).join(',')
+
+export function decodeChain(raw: string): FollowUpStep[] {
+  return raw
+    .split(',')
+    .filter(Boolean)
+    .map((part) => {
+      const idx = part.indexOf(':')
+      return idx < 0 ? null : { type: part.slice(0, idx), parentId: part.slice(idx + 1) }
+    })
+    .filter((x): x is FollowUpStep => x !== null && x.parentId.length > 0)
+}
+
+export function GradingForm({ recordId, presetType, parentId, next = [] }: { recordId?: string; presetType?: FormTypeId; parentId?: string; next?: FollowUpStep[] }) {
   // Formulare sind immer vollständig englisch, unabhängig von der App-Sprache.
   const { i18n } = useTranslation()
   const t = useMemo(() => i18n.getFixedT('en'), [i18n])
-  const { state, currentUser, saveGradingRecord, can } = useStore()
+  const { state, currentUser, saveGradingRecord, can, gradingRecordById } = useStore()
   const grading = state.settings.grading
 
-  const existing = recordId ? state.gradingRecords.find((r) => r.id === recordId) : undefined
-  const parent = parentId ? state.gradingRecords.find((r) => r.id === parentId) : undefined
+  // Beide IDs stammen aus der Adresszeile — deshalb über die
+  // berechtigungsprüfende Auflösung, nicht roh aus dem Zustand.
+  const existing = recordId ? gradingRecordById(recordId) : undefined
+  const parent = parentId ? gradingRecordById(parentId) : undefined
 
   const [formTypeId, setFormTypeId] = useState<FormTypeId | null>(existing?.formTypeId ?? presetType ?? null)
   const formType = grading.formTypes.find((f) => f.id === formTypeId) ?? null
@@ -80,7 +105,17 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
   const codes = competencies.map((c) => c.code)
 
   const [header, setHeader] = useState<Record<string, string>>(
-    existing?.header ?? (parent ? { aircraftType: parent.header.aircraftType, date: parent.header.date, trainingDevice: parent.header.trainingDevice ?? '' } : {}),
+    existing?.header ??
+      (parent
+        ? {
+            aircraftType: parent.header.aircraftType,
+            date: parent.header.date,
+            trainingDevice: parent.header.trainingDevice ?? '',
+            // Folgeformulare gehören genau einem Piloten — Name aus dem
+            // Ausgangsformular übernehmen, bleibt änderbar.
+            traineeName: parent.trainees[0]?.traineeName ?? parent.header.traineeName ?? '',
+          }
+        : {}),
   )
   const [trainees, setTrainees] = useState<TraineeGrading[]>(existing?.trainees ?? [])
   const [freeText, setFreeText] = useState<Record<string, string>>(existing?.freeText ?? prefillFromParent(parent, presetType, grading.formTypes))
@@ -157,6 +192,9 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
 
   const needsFollowUp =
     trainees.some((tr) => tr.overall === 'not_competent' || autoNotCompetent(tr)) || sessionStatus === 'not_completed'
+
+  /** Anzahl der Piloten, für die je ein eigenes 306 fällig wird */
+  const notCompetentCount = trainees.filter((tr) => tr.overall === 'not_competent' || autoNotCompetent(tr)).length
 
   /** Pflicht-Folgeformulare: Not Competent ⇒ 306, Session nicht abgeschlossen ⇒ 310 */
   const requiredFollowUps: FormTypeId[] = [
@@ -254,6 +292,9 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
         instructorId: currentUser!.id,
         header,
         trainees: [fixed],
+        // Wortlaut einfrieren — spätere Katalogpflege darf dieses Dokument
+        // nicht mehr verändern.
+        competencies: competencies.map((c) => ({ code: c.code, title: c.title })),
         sessionStatus,
         freeText,
         attendance: undefined,
@@ -300,9 +341,10 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
     submittingRef.current = true
     setSubmitting(true)
     const recs = saveAll()
-    // Teil einer Folgeformular-Kette (306 und 310 gewählt): nächstes öffnen.
-    if (parentId && nextTypes.length > 0) {
-      navigate(`/grading/new?type=${nextTypes[0]}&parent=${parentId}&next=${nextTypes.slice(1).join(',')}`)
+    // Teil einer Folgeformular-Kette: nächstes Glied öffnen — mit SEINEM
+    // Ausgangsformular, nicht mit dem des gerade abgeschlossenen.
+    if (parentId && next.length > 0) {
+      navigate(`/grading/new?type=${next[0].type}&parent=${next[0].parentId}&next=${encodeChain(next.slice(1))}`)
       return
     }
     // Komplett unterschrieben UND erfolgreich versendet → zurück zum Grading
@@ -319,10 +361,18 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
     setSubmitting(true)
     const recs = saveAll()
     setShowFollowUp(false)
-    // Folgeformulare hängen am (ersten) Not-Competent-Formular
-    const parentRec = recs.find((r) => r.trainees.some((tr) => tr.overall === 'not_competent')) ?? recs[0]
-    if (followUps.length > 0) {
-      navigate(`/grading/new?type=${followUps[0]}&parent=${parentRec.id}&next=${followUps.slice(1).join(',')}`)
+    // Je nicht bestandenem Piloten ein eigenes 306 — es dokumentiert dessen
+    // Defizite und trägt dessen Unterschrift. Das 310 betrifft dagegen den
+    // ganzen Durchgang und wird einmal am ersten Formular angehängt.
+    const chain: FollowUpStep[] = []
+    if (followUps.includes('306')) {
+      recs
+        .filter((r) => r.trainees.some((tr) => tr.overall === 'not_competent'))
+        .forEach((r) => chain.push({ type: '306', parentId: r.id }))
+    }
+    followUps.filter((id) => id !== '306').forEach((id) => chain.push({ type: id, parentId: recs[0].id }))
+    if (chain.length > 0) {
+      navigate(`/grading/new?type=${chain[0].type}&parent=${chain[0].parentId}&next=${encodeChain(chain.slice(1))}`)
     } else {
       const allOk = recs.every((r) => r.status === 'signed' && r.mailStatus === 'sent')
       navigate(allOk || recs.length > 1 ? '/grading' : `/grading/${recs[0].id}`)
@@ -933,6 +983,12 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
               )
             })}
           </div>
+          {/* Bei mehreren Piloten im Durchgang entsteht je Pilot ein 306 */}
+          {notCompetentCount > 1 && followUps.includes('306') && (
+            <p className="mt-3 rounded-xl border border-warm/25 bg-warm/5 p-3 text-[12.5px] leading-relaxed">
+              {t('grading.followUp306PerPilot', { count: notCompetentCount })}
+            </p>
+          )}
           <p className="mt-3 text-[12px] leading-relaxed text-dim/80">{t('grading.followUpMailNote')}</p>
           <div className="mt-5 flex justify-end">
             <Button onClick={finish} disabled={followUps.length === 0 || submitting}>

@@ -24,6 +24,22 @@ const SIG =
  */
 export function createSeedState(): AppState {
   const now = Date.now()
+  const seed = seedState(now)
+  // Die Seed-Formulare wurden gegen den ausgelieferten Katalog geschrieben —
+  // ihr Wortlaut wird beim Aufbau eingefroren, damit spätere Katalogpflege
+  // die bereits unterschriebenen Dokumente nicht rückwirkend umschreibt.
+  return {
+    ...seed,
+    gradingRecords: seed.gradingRecords.map((r) => {
+      if (r.competencies || r.trainees.length === 0) return r
+      const setKey = GRADING_DEFAULTS.formTypes.find((f) => f.id === r.formTypeId)?.competencySet
+      const set = setKey ? GRADING_DEFAULTS.competencySets.find((c) => c.key === setKey) : undefined
+      return set ? { ...r, competencies: set.competencies.map((c) => ({ code: c.code, title: c.title })) } : r
+    }),
+  }
+}
+
+function seedState(now: number): AppState {
   return {
     users: [
       { id: 'u-patrick', name: 'Patrick Thorn', email: 'patrick.thorn@aviationacademy.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
@@ -276,7 +292,7 @@ export function createSeedState(): AppState {
         id: 'gr3',
         formTypeId: '306',
         instructorId: 'u-michael',
-        header: { aircraftType: 'C560 XLS+', location: 'AAA Neusiedl', event: 'FFS 4 — Additional Training', date: iso(now - 4 * d) },
+        header: { traineeName: 'Sophie Berger', aircraftType: 'C560 XLS+', location: 'AAA Neusiedl', event: 'FFS 4 — Additional Training', date: iso(now - 4 * d) },
         trainees: [],
         sessionStatus: null,
         freeText: {

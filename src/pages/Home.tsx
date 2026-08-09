@@ -98,25 +98,28 @@ export function Home() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 md:max-w-4xl xl:max-w-none xl:px-10">
-        {/* Bildmarke und Titel mittig über den Kacheln */}
-        <div className="mb-8 flex flex-col items-center gap-4">
-          <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-raised shadow-tile md:h-24 md:w-24">
-            <Plane size={44} className="text-accent md:hidden" />
-            <Plane size={52} className="hidden text-accent md:block" />
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 short:py-3 md:max-w-4xl xl:max-w-none xl:px-10">
+        {/* Bildmarke und Titel mittig über den Kacheln. Im flachen Fenster
+            (Handy quer) rückt der Schriftzug neben die Bildmarke, damit die
+            Kacheln ohne Scrollen erreichbar bleiben. */}
+        <div className="mb-8 flex flex-col items-center gap-4 short:mb-3 short:flex-row short:justify-center short:gap-3">
+          <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-raised shadow-tile short:h-11 short:w-11 short:rounded-2xl md:h-24 md:w-24">
+            {/* Größe per CSS statt per size-Prop — so greifen die Varianten
+                (flaches Fenster / ab Tablet) ohne mehrfaches Rendern. */}
+            <Plane className="h-11 w-11 text-accent short:h-6 short:w-6 md:h-[52px] md:w-[52px]" />
           </span>
-          <h1 className="text-center text-4xl font-bold tracking-tight md:text-5xl">
+          <h1 className="text-center text-4xl font-bold tracking-tight short:text-2xl md:text-5xl">
             Instructor <span className="text-accent">Connect</span>
           </h1>
         </div>
 
         {/* 2 Spalten am Handy, 3 ab Tablet — große, gut greifbare Kacheln */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-6 short:grid-cols-3 short:gap-2.5">
           {tiles.map(({ to, label, icon: Icon }) => (
             <button
               key={to}
               onClick={() => navigate(to)}
-              className="group relative flex aspect-square flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
+              className="group relative flex aspect-square flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised short:aspect-auto short:h-[72px] short:flex-row short:justify-start short:gap-2.5 short:rounded-2xl short:px-3"
             >
               {to === '/grading' && gradingTraffic ? (
                 <span
@@ -128,12 +131,12 @@ export function Home() {
               )}
               {/* Kachelgröße bleibt — Symbol und Beschriftung wachsen ab Tablet
                   deutlich mit, damit sie am iPad und Desktop gut lesbar sind. */}
-              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg sm:h-20 sm:w-20 lg:h-24 lg:w-24">
-                <Icon size={28} className="sm:hidden" />
-                <Icon size={40} className="hidden sm:block lg:hidden" />
-                <Icon size={48} className="hidden lg:block" />
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg sm:h-20 sm:w-20 lg:h-24 lg:w-24 short:h-10 short:w-10 short:rounded-xl">
+                <Icon size={28} className="sm:hidden short:block" />
+                <Icon size={40} className="hidden sm:block lg:hidden short:hidden" />
+                <Icon size={48} className="hidden lg:block short:hidden" />
               </span>
-              <span className="px-2 text-center text-[14px] font-semibold leading-tight sm:text-[17px] lg:text-[19px]">{label}</span>
+              <span className="px-2 text-center text-[14px] font-semibold leading-tight sm:text-[17px] lg:text-[19px] short:px-0 short:text-left short:text-[13px]">{label}</span>
             </button>
           ))}
         </div>
@@ -152,7 +155,7 @@ export function Home() {
         {/* Antippen öffnet das Share-Sheet (iOS: „Zum Home-Bildschirm") */}
         <button
           onClick={openInstall}
-          className="mx-auto mt-6 flex max-w-xs items-center gap-2 text-center text-[11px] leading-snug text-dim/70 underline-offset-2 transition hover:text-ink hover:underline md:mt-8"
+          className="mx-auto mt-6 flex max-w-xs items-center gap-2 text-center text-[11px] leading-snug text-dim/70 underline-offset-2 transition hover:text-ink hover:underline short:hidden md:mt-8"
         >
           <Share size={13} className="shrink-0" /> {t('home.installHint')}
         </button>
@@ -168,7 +171,7 @@ export function Home() {
         )}
       </main>
 
-      <footer className="space-y-2 pb-4 text-center">
+      <footer className="space-y-2 pb-4 text-center short:space-y-1 short:pb-2">
         <div className="flex items-center justify-center gap-4 text-[12.5px]">
           <button onClick={() => navigate('/imprint')} className="text-dim underline-offset-2 hover:text-ink hover:underline">
             {t('common.imprint')}
@@ -177,7 +180,7 @@ export function Home() {
             <LogOut size={12} /> {t('common.logout')}
           </button>
         </div>
-        <p className="text-[11px] text-dim/50">Instructor Connect v{APP_VERSION}</p>
+        <p className="text-[11px] text-dim/50 short:hidden">Instructor Connect v{APP_VERSION}</p>
       </footer>
     </div>
   )

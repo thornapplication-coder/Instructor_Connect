@@ -32,16 +32,26 @@ export function formatDateTime(ts: number): string {
  * Pflicht-Folgeformulare, die zu diesem Formular noch fehlen:
  * Not Competent ⇒ 306 (Additional Training) ist verpflichtend,
  * Session not completed ⇒ 310 (Deferred Item List) ist verpflichtend.
+ *
+ * Die beiden Formulare haben bewusst unterschiedliche Reichweite:
+ * das 306 dokumentiert die Defizite EINES Piloten und muss deshalb an
+ * genau diesem Formular hängen; das 310 betrifft den Durchgang als
+ * Ganzes und gilt für alle Geschwister-Formulare des Batches.
  */
 export function missingFollowUps(r: GradingRecord, all: GradingRecord[]): string[] {
   if (r.parentId) return []
-  // Ein Durchgang mit mehreren Studenten ergibt mehrere Formulare; ein dort
-  // ausgefülltes 306/310 hängt an genau einem davon, gilt aber für alle.
   const family = new Set([r.id, ...(r.batchId ? all.filter((x) => x.batchId === r.batchId).map((x) => x.id) : [])])
-  const children = all.filter((c) => c.parentId && family.has(c.parentId))
   const out: string[] = []
-  if (r.trainees.some((tr) => tr.overall === 'not_competent') && !children.some((c) => c.formTypeId === '306')) out.push('306')
-  if (r.sessionStatus === 'not_completed' && !children.some((c) => c.formTypeId === '310')) out.push('310')
+  if (
+    r.trainees.some((tr) => tr.overall === 'not_competent') &&
+    !all.some((c) => c.parentId === r.id && c.formTypeId === '306')
+  )
+    out.push('306')
+  if (
+    r.sessionStatus === 'not_completed' &&
+    !all.some((c) => c.parentId && family.has(c.parentId) && c.formTypeId === '310')
+  )
+    out.push('310')
   return out
 }
 
@@ -58,6 +68,10 @@ export type TrafficColor = 'green' | 'yellow' | 'red'
  *  Ausgangsformular, damit in der Liste nicht „kein Trainee“ steht. */
 export function traineesOf(r: GradingRecord, all: GradingRecord[]) {
   if (r.trainees.length > 0) return r.trainees
+  // 306/310/311 tragen den Piloten in den Kopfdaten — auch eigenständig
+  // erstellt (ohne Ausgangsformular) muss der Name greifbar sein.
+  const own = r.header.traineeName?.trim()
+  if (own) return [{ traineeId: '', traineeName: own, position: '', grades: [], positiveComment: '', developmentComment: '', summaryComment: '', overall: null }]
   const parent = r.parentId ? all.find((x) => x.id === r.parentId) : undefined
   return parent?.trainees ?? []
 }
@@ -88,7 +102,7 @@ export function TrafficDot({ color, className = '' }: { color: TrafficColor; cla
 function TrainingAdminGrading() {
   const { i18n } = useTranslation()
   const t = i18n.getFixedT('en')
-  const { state, now, deleteGradingRecord } = useStore()
+  const { state, now } = useStore()
   const [tab, setTab] = useState<'completed' | 'open'>('completed')
   const [period, setPeriod] = useState('all')
   const [fTrainee, setFTrainee] = useState('')
@@ -113,7 +127,9 @@ function TrainingAdminGrading() {
   ]
   const periodDays = PERIODS.find((x) => x.key === period)?.days ?? null
 
-  const traineeOptions = [...new Set(all.flatMap((r) => r.trainees.map(traineeLabel)))].filter((n) => n !== '—').sort()
+  // Folgeformulare tragen ihren Piloten in den Kopfdaten — über traineesOf
+  // erscheinen sie im Filter, statt unsichtbar zu bleiben.
+  const traineeOptions = [...new Set(all.flatMap((r) => traineesOf(r, all).map(traineeLabel)))].filter((n) => n !== '—').sort()
   const instructorOptions = [...new Set(all.map((r) => r.instructorId))]
     .map((id) => ({ id, name: userName(id) }))
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -122,7 +138,7 @@ function TrainingAdminGrading() {
   const list = all.filter((r) => {
     if (tab === 'completed' ? !isCompleted(r) : isCompleted(r)) return false
     if (periodDays && now() - r.createdAt > periodDays * 24 * 3600_000) return false
-    if (fTrainee && !r.trainees.some((tr) => traineeLabel(tr) === fTrainee)) return false
+    if (fTrainee && !traineesOf(r, all).some((tr) => traineeLabel(tr) === fTrainee)) return false
     if (fAircraft && r.header.aircraftType !== fAircraft) return false
     if (fInstructor && r.instructorId !== fInstructor) return false
     return true
@@ -214,17 +230,9 @@ function TrainingAdminGrading() {
                   <FileDown size={16} />
                 </button>
               )}
-              {/* endgültig löschen — inkl. angehängter Folgeformulare */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (window.confirm(t('grading.ta.deleteConfirm'))) deleteGradingRecord(r.id)
-                }}
-                title={t('common.delete')}
-                className="rounded-lg p-1.5 text-dim transition hover:bg-danger/10 hover:text-danger"
-              >
-                <Trash2 size={16} />
-              </button>
+              {/* Kein Löschen: die Ablage des Training Admins ist nur-lesend.
+                  Ausbuchen eines Ausbildungsnachweises bleibt dem Superadmin
+                  im Admin-Panel vorbehalten (ORA.GEN.220 Aufbewahrung). */}
             </div>
           ))}
         </div>

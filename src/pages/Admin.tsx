@@ -1,5 +1,5 @@
 import { AlertTriangle, ArrowLeft, ChevronDown, ClipboardList, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Users, UsersRound, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
 import { useStore } from '../store'
@@ -771,6 +771,18 @@ export function Admin() {
   // null = Kachel-Übersicht; erst ein Klick öffnet den Bereich
   const [tab, setTab] = useState<Tab | null>(null)
 
+  // Wechselt die Identität (Sandbox-Leiste) oder die Rolle, darf ein bereits
+  // geöffneter Bereich nicht stehen bleiben — sonst bedient die neue Identität
+  // weiter eine Ansicht, die ihr gar nicht zusteht.
+  const identity = `${currentUser?.id ?? ''}:${currentUser?.role ?? ''}`
+  const lastIdentity = useRef(identity)
+  useEffect(() => {
+    if (lastIdentity.current !== identity) {
+      lastIdentity.current = identity
+      setTab(null)
+    }
+  }, [identity])
+
   // Am Tablet/Handy ist das Panel zu unübersichtlich — Hinweis statt Inhalt.
   if (!isDesktop) {
     return (
@@ -805,11 +817,15 @@ export function Admin() {
     ? ['users', 'permissions', 'grading', 'groups', 'feedback', 'settings', 'imprint', 'changelog']
     : ['groups', 'feedback']
 
+  // Maßgeblich ist die Freigabeliste, nicht der gemerkte Zustand: ein Bereich,
+  // den die aktuelle Rolle nicht öffnen darf, wird gar nicht erst gerendert.
+  const openTab = tab && tabs.includes(tab) ? tab : null
+
   return (
     <>
-      <TopBar title={tab ? `${t('admin.title')} · ${t(`admin.${tab}`)}` : t('admin.title')} back="/" />
+      <TopBar title={openTab ? `${t('admin.title')} · ${t(`admin.${openTab}`)}` : t('admin.title')} back="/" />
       <Page>
-        {tab === null ? (
+        {openTab === null ? (
           <>
             {/* Kachel-Übersicht wie am Dashboard — leichter zu finden und zu ändern */}
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -839,14 +855,14 @@ export function Admin() {
             >
               <ArrowLeft size={15} /> {t('admin.backToOverview')}
             </button>
-            {tab === 'users' && <UsersTab />}
-            {tab === 'permissions' && <PermissionsTab />}
-            {tab === 'grading' && <GradingAdmin />}
-            {tab === 'groups' && <GroupsTab />}
-            {tab === 'feedback' && <FeedbackTab />}
-            {tab === 'settings' && <SettingsTab />}
-            {tab === 'imprint' && <ImprintTab />}
-            {tab === 'changelog' && <ChangelogTab />}
+            {openTab === 'users' && <UsersTab />}
+            {openTab === 'permissions' && <PermissionsTab />}
+            {openTab === 'grading' && <GradingAdmin />}
+            {openTab === 'groups' && <GroupsTab />}
+            {openTab === 'feedback' && <FeedbackTab />}
+            {openTab === 'settings' && <SettingsTab />}
+            {openTab === 'imprint' && <ImprintTab />}
+            {openTab === 'changelog' && <ChangelogTab />}
           </>
         )}
       </Page>

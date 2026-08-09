@@ -16,8 +16,10 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
   // Formulare sind immer vollständig englisch, unabhängig von der App-Sprache
   const { i18n } = useTranslation()
   const t = i18n.getFixedT('en')
-  const { state, currentUser, saveGradingRecord, retryGradingMail } = useStore()
-  const record = state.gradingRecords.find((r) => r.id === recordId)
+  const { state, currentUser, saveGradingRecord, retryGradingMail, gradingRecordById } = useStore()
+  // Berechtigungsprüfung am Objekt: fremde Formulare sind über die URL weder
+  // les- noch unterschreibbar. Nicht gefunden = nicht berechtigt.
+  const record = gradingRecordById(recordId)
   const [lateSignature, setLateSignature] = useState<string | null>(null)
 
   // Redirect als Effekt, nicht als Seiteneffekt in der Render-Phase.
@@ -57,14 +59,27 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
   // Das Instruktoren-Blatt (308G) führt laut Original keine Kürzel —
   // dort steht ausschließlich die ausgeschriebene Kompetenz.
   const hideCodes = formType?.competencySet === 'instructor'
-  const competencies = formType?.competencySet
-    ? grading.competencySets.find((c) => c.key === formType.competencySet)?.competencies ?? []
-    : []
+  // Maßgeblich ist der im Formular eingefrorene Wortlaut. Nur Altbestand ohne
+  // Momentaufnahme fällt auf den aktuellen Katalog zurück.
+  const competencies: { code: string; title: string }[] = record.competencies?.length
+    ? record.competencies
+    : formType?.competencySet
+      ? grading.competencySets.find((c) => c.key === formType.competencySet)?.competencies ?? []
+      : []
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
   const traineeLabel = (tr: { traineeName?: string; traineeId: string }) => tr.traineeName || userName(tr.traineeId)
 
   const isAdmin = currentUser!.role !== 'member'
   const linked = state.gradingRecords.filter((r) => r.parentId === record.id)
+  // Formular 311 anbieten, solange das Blatt bestanden ist, es noch kein 311
+  // gibt und der führende Instruktor es selbst anlegt.
+  const canCreate311 =
+    record.instructorId === currentUser!.id &&
+    record.trainees.length > 0 &&
+    record.trainees.every((tr) => tr.overall === 'competent') &&
+    record.sessionStatus === 'completed' &&
+    !linked.some((r) => r.formTypeId === '311') &&
+    state.settings.grading.formTypes.some((f) => f.id === '311')
   const missing = missingFollowUps(record, state.gradingRecords)
   const parentRec = record.parentId ? state.gradingRecords.find((r) => r.id === record.parentId) : undefined
 
@@ -302,6 +317,18 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           </Card>
         )}
 
+        {/* „Competent / Continue to next session ***" — Fußnote *** verweist auf
+            Formular 311. Ohne diesen Weg bliebe die Skill-Test-Reife auf dem
+            Papier stehen, ohne je einen eigenen Nachweis zu bekommen. */}
+        {canCreate311 && (
+          <Card className="space-y-2.5 p-4 print:hidden">
+            <p className="text-[12.5px] leading-relaxed text-dim">{t('grading.readyForSkillTestHint')}</p>
+            <Button variant="ghost" className="w-full" onClick={() => navigate(`/grading/new?type=311&parent=${record.id}`)}>
+              {t('grading.readyForSkillTest')}
+            </Button>
+          </Card>
+        )}
+
         {/* Anhängende Formulare */}
         {linked.length > 0 && (
           <Card className="p-4">
@@ -340,7 +367,10 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
 
           {/* Offene Unterschrift nachholen: nur das fehlende Feld ist offen,
               danach wird das Formular wie üblich gesperrt und versendet. */}
-          {record.status === 'awaiting_signature' && !record.signatureTrainee && (
+          {/* Nachtragen darf nur der Instruktor, der das Formular geführt hat —
+              er legt das Gerät dem Piloten vor. Vollzugriff (Ablage/Admin)
+              berechtigt zum Lesen, nicht zum Unterschreiben. */}
+          {record.status === 'awaiting_signature' && !record.signatureTrainee && record.instructorId === currentUser!.id && (
             <div className="mt-4 space-y-3 rounded-xl border border-warm/25 bg-warm/5 p-3.5 print:hidden">
               <SignaturePad
                 value={lateSignature}
