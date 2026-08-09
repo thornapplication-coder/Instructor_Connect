@@ -405,7 +405,8 @@
     "printHintBody": "Um dieses Formular als PDF zu sichern, unten antippen und im Dialog „Als PDF sichern“ oder einen Drucker wählen.",
     "printNow": "Drucken / als PDF sichern",
     "printShareFallback": "Falls sich kein Dialog öffnet: das Teilen-Menü des Browsers öffnen und dort „Drucken“ wählen.",
-    "trainingAdminNote": "Training-Admin-Zugriff: Du kannst alle ausgefüllten und offenen Formulare ansehen und herunterladen. Anlegen oder Entfernen ist nicht möglich."
+    "trainingAdminNote": "Training-Admin-Zugriff: Du kannst alle ausgefüllten und offenen Formulare ansehen und herunterladen. Anlegen oder Entfernen ist nicht möglich.",
+    "errEitherOr": "Bitte entweder „{{a}}“ oder „{{b}}“ auswählen."
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

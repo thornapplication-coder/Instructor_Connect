@@ -405,7 +405,8 @@
     "printHintBody": "To save this form as a PDF, tap the button below and choose “Save as PDF” or a printer in the dialog.",
     "printNow": "Print / save as PDF",
     "printShareFallback": "If no dialog opens: use the browser Share menu and choose “Print” there.",
-    "trainingAdminNote": "Training Admin access: you can view and download all completed and open forms. Creating or removing forms is not possible."
+    "trainingAdminNote": "Training Admin access: you can view and download all completed and open forms. Creating or removing forms is not possible.",
+    "errEitherOr": "Please choose either “{{a}}” or “{{b}}”."
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

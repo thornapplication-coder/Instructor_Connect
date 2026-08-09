@@ -223,7 +223,7 @@ export function createSeedState(): AppState {
         id: 'gr1',
         formTypeId: '308F',
         instructorId: 'u-christian',
-        header: { aircraftType: 'Challenger 350', trainingDevice: 'FFS', event: 'OPC Recurrent', ataChapters: 'ATA 22 Autoflight, ATA 27 Flight Controls, ATA 70-80 Power Plant', date: iso(now - 9 * d), flightTimePF: '01:30', flightTimePM: '01:30', instructorQual: 'TRI', instructorSeat: 'Right' },
+        header: { aircraftType: 'Challenger 350', trainingDevice: 'FFS', event: 'OPC Recurrent', ataChapters: 'ATA22 Autoflight, ATA27 Flight Controls, ATA71 Powerplant', date: iso(now - 9 * d), flightTimePF: '01:30', flightTimePM: '01:30', instructorQual: 'TRI', instructorSeat: 'Right' },
         trainees: [
           {
             traineeId: '', traineeName: 'Lukas Steiner', position: 'CDR', seat: 'Left',
@@ -315,7 +315,7 @@ export function createSeedState(): AppState {
         id: 'gr5',
         formTypeId: '308F',
         instructorId: 'u-christian',
-        header: { aircraftType: 'Challenger 350', trainingDevice: 'FFS', event: 'OPC Recurrent', ataChapters: 'ATA 22 Autoflight, ATA 34 Navigation', date: iso(now - 30 * d), flightTimePF: '01:30', flightTimePM: '01:30', instructorQual: 'TRI', instructorSeat: 'Right' },
+        header: { aircraftType: 'Challenger 350', trainingDevice: 'FFS', event: 'OPC Recurrent', recurrentCycle: 'AAA Year 2', date: iso(now - 30 * d), flightTimePF: '01:30', flightTimePM: '01:30', instructorQual: 'TRI', instructorSeat: 'Right' },
         trainees: [
           {
             traineeId: '', traineeName: 'Lukas Steiner', position: 'CDR', seat: 'Left',

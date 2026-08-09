@@ -135,6 +135,13 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
     for (const f of preFields) {
       if (f.required && !header[f.key]?.trim()) return t('grading.errRequired', { field: f.label })
     }
+    // Entweder-oder-Paare: eines von beiden ist Pflicht
+    for (const f of headerFields) {
+      const partner = f.exclusiveWith ? headerFields.find((x) => x.key === f.exclusiveWith) : undefined
+      if (!partner) continue
+      if (!header[f.key]?.trim() && !header[partner.key]?.trim())
+        return t('grading.errEitherOr', { a: f.label, b: partner.label })
+    }
     if (competencies.length > 0) {
       if (trainees.length === 0 || trainees.some((tr) => !tr.traineeName?.trim())) return t('grading.errNoTrainee')
     }
@@ -287,6 +294,18 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
     }
   }
 
+  /**
+   * Kopfdatenfeld setzen. Bei Entweder-oder-Paaren (z. B. Recurrent-Zyklus
+   * ODER ATA-Kapitel auf 308F) wird die Gegenseite geleert, sobald hier
+   * etwas ausgewählt ist.
+   */
+  const setField = (f: FormField, value: string) =>
+    setHeader((h) => {
+      const next = { ...h, [f.key]: value }
+      if (f.exclusiveWith && value.trim()) next[f.exclusiveWith] = ''
+      return next
+    })
+
   /** Kopf- und Session-Datenfelder — in Schritt 1 (pre) und Schritt 2 (post) genutzt */
   const renderField = (f: FormField) => (
     <div key={f.key} className={f.wide ? 'sm:col-span-2' : ''}>
@@ -294,7 +313,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
         {f.type === 'select' ? (
           <select
             value={header[f.key] ?? ''}
-            onChange={(e) => setHeader({ ...header, [f.key]: e.target.value })}
+            onChange={(e) => setField(f, e.target.value)}
             className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
           >
             <option value="">…</option>
@@ -308,7 +327,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
           // Zeiten immer im Format hh:mm, wählbar in 30-Minuten-Schritten
           <select
             value={header[f.key] ?? ''}
-            onChange={(e) => setHeader({ ...header, [f.key]: e.target.value })}
+            onChange={(e) => setField(f, e.target.value)}
             className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
           >
             <option value="">hh:mm …</option>
@@ -321,7 +340,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
         ) : f.type === 'textarea' ? (
           <textarea
             value={header[f.key] ?? ''}
-            onChange={(e) => setHeader({ ...header, [f.key]: e.target.value })}
+            onChange={(e) => setField(f, e.target.value)}
             className={`${inputCls} min-h-20`}
           />
         ) : f.type === 'radiogroup' ? (
@@ -332,7 +351,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
               return (
                 <button
                   key={o}
-                  onClick={() => setHeader({ ...header, [f.key]: on ? '' : o })}
+                  onClick={() => setField(f, on ? '' : o)}
                   className={`rounded-lg border px-3 py-2 text-[13px] transition ${
                     on ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/15 text-dim'
                   }`}
@@ -351,12 +370,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
               return (
                 <button
                   key={o}
-                  onClick={() =>
-                    setHeader({
-                      ...header,
-                      [f.key]: (on ? sel.filter((x) => x !== o) : [...sel, o]).sort().join(', '),
-                    })
-                  }
+                  onClick={() => setField(f, (on ? sel.filter((x) => x !== o) : [...sel, o]).sort().join(', '))}
                   className={`rounded-lg border px-2.5 py-1.5 text-[12.5px] transition ${
                     on ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/15 text-dim'
                   }`}
@@ -370,7 +384,7 @@ export function GradingForm({ recordId, presetType, parentId, nextTypes = [] }: 
           <input
             type={f.type === 'date' ? 'date' : f.type === 'number' ? 'number' : 'text'}
             value={header[f.key] ?? ''}
-            onChange={(e) => setHeader({ ...header, [f.key]: e.target.value })}
+            onChange={(e) => setField(f, e.target.value)}
             className={inputCls}
           />
         )}

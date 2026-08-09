@@ -222,6 +222,10 @@ export interface FormField {
   wide?: boolean
   /** wird erst NACH dem Grading erfasst (z. B. Flight Time, Landings) */
   postGrading?: boolean
+  /** Entweder-oder-Feldpaar: füllt man dieses Feld, wird das andere geleert;
+   *  genau eines der beiden muss ausgefüllt sein (z. B. Recurrent-Zyklus
+   *  ODER ATA-Kapitel auf Formular 308F). */
+  exclusiveWith?: string
 }
 
 /** Teilnehmerzeile der Anwesenheitslisten 307A/307B */

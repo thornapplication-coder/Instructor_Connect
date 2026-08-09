@@ -128,18 +128,39 @@ export const DURATION_OPTIONS = Array.from({ length: 29 }, (_, i) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`
 })
 
-/** ATA-Kapitel für das Recurrent Training (Mehrfachauswahl) */
+/** ATA-Kapitel des Recurrent-Formulars (Mehrfachauswahl, Reihenfolge wie im Original).
+ *  Bewusst ohne Kommas in den Bezeichnungen — die Auswahl wird mit ", " gespeichert. */
 export const ATA_CHAPTERS = [
-  'ATA 21 Air Conditioning', 'ATA 22 Autoflight', 'ATA 23 Communications',
-  'ATA 24 Electrical Power', 'ATA 26 Fire Protection', 'ATA 27 Flight Controls',
-  'ATA 28 Fuel', 'ATA 29 Hydraulic Power', 'ATA 30 Ice & Rain Protection',
-  'ATA 31 Indicating / Recording', 'ATA 32 Landing Gear', 'ATA 33 Lights',
-  'ATA 34 Navigation', 'ATA 35 Oxygen', 'ATA 36 Pneumatic', 'ATA 49 APU',
-  'ATA 52 Doors', 'ATA 70-80 Power Plant',
+  'ATA21 Air Conditioning / Environmental / Pressurization',
+  'ATA22 Autoflight',
+  'ATA23 Communication',
+  'ATA24 Electrical Power',
+  'ATA26 Fire Protection',
+  'ATA27 Flight Controls',
+  'ATA28 Fuel',
+  'ATA29 Hydraulics',
+  'ATA30 Ice & Rain Protection',
+  'ATA31 Indication & Recording',
+  'ATA32 Landing Gear',
+  'ATA34 Navigation',
+  'ATA35 Oxygen',
+  'ATA36 Pneumatics',
+  'ATA38 Water & Waste',
+  'ATA49 APU',
+  'ATA52 Doors',
+  'ATA71 Powerplant',
 ]
+
+/** Recurrent-Zyklus nach AAA-Syllabus — Alternative zur ATA-Auswahl */
+export const RECURRENT_YEARS = ['AAA Year 1', 'AAA Year 2', 'AAA Year 3']
 const DEVICES = ['OTD / Mock-Up', 'FTD / FNPT', 'FFS']
 
-const f = (key: string, label: string, type: FormField['type'] = 'text', opts?: { options?: string[]; required?: boolean; wide?: boolean; postGrading?: boolean }): FormField => ({
+const f = (
+  key: string,
+  label: string,
+  type: FormField['type'] = 'text',
+  opts?: { options?: string[]; required?: boolean; wide?: boolean; postGrading?: boolean; exclusiveWith?: string },
+): FormField => ({
   key,
   label,
   type,
@@ -147,6 +168,7 @@ const f = (key: string, label: string, type: FormField['type'] = 'text', opts?: 
   required: opts?.required ?? false,
   wide: opts?.wide,
   postGrading: opts?.postGrading,
+  exclusiveWith: opts?.exclusiveWith,
 })
 
 /* Kopffelder gemäß Original-Formularen (OM Appendix 5, Rev. 0.2) —
@@ -265,8 +287,19 @@ export const FORM_TYPES: FormType[] = [
       f('date', 'Date', 'date', { required: true }),
       f('event', 'Event', 'text', { required: true }),
       f('trainingDevice', 'Training Device', 'radiogroup', { options: DEVICES, required: true }),
-      f('recurrentCycle', 'Recurrent Cycle', 'select', { options: ['Year 1', 'Year 2', 'Year 3'] }),
-      f('ataChapters', 'ATA Chapters trained', 'checkgroup', { options: ATA_CHAPTERS, required: true, wide: true }),
+      // Entweder der Zyklus nach AAA-Syllabus ODER die ATA-Kapitel — eines von
+      // beiden ist Pflicht, die Auswahl schließt sich gegenseitig aus.
+      f('recurrentCycle', 'Recurrent Cycle — according Aviation Academy Austria Syllabus', 'radiogroup', {
+        options: RECURRENT_YEARS,
+        wide: true,
+        exclusiveWith: 'ataChapters',
+      }),
+      f('ataChapters', 'Recurrent Training — Recurrent by ATA', 'checkgroup', {
+        options: ATA_CHAPTERS,
+        wide: true,
+        exclusiveWith: 'recurrentCycle',
+      }),
+      f('ataAdditional', 'Additional', 'text', { wide: true }),
       f('flightTimePF', 'Flight Time PF', 'duration', { required: true, postGrading: true }),
       f('flightTimePM', 'Flight Time PM', 'duration', { required: true, postGrading: true }),
       f('other', 'Other', 'text', { wide: true }),
