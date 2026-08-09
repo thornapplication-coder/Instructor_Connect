@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, SlidersHorizontal, Trash2, TrendingDown, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, Scale, SlidersHorizontal, Trash2, TrendingDown, X } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls, selectCls } from '../../components/ui'
@@ -8,8 +8,9 @@ import { useStore } from '../../store'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType, GradingRecord } from '../../types'
 import { formatDate, formatDateTime, missingFollowUps, TrafficDot, traineesOf, trafficLight, type TrafficColor } from '../Grading'
+import { StandardisationReport } from './StandardisationReport'
 
-type Section = 'dashboard' | 'records' | 'config' | 'stats'
+type Section = 'dashboard' | 'records' | 'config' | 'stats' | 'standardisation'
 
 /** Durchschnitt der numerischen Noten (NO zählt nicht mit) */
 function avgOf(values: (number | 'NO' | null)[]): number | null {
@@ -593,6 +594,7 @@ export function GradingAdmin() {
     { key: 'dashboard', icon: Gauge, badge: openSignatures.length + failedMails.length + openFollowUps.length },
     { key: 'records', icon: FolderOpen },
     { key: 'stats', icon: BarChart3 },
+    { key: 'standardisation', icon: Scale },
     { key: 'config', icon: SlidersHorizontal },
   ]
 
@@ -830,6 +832,16 @@ export function GradingAdmin() {
 
       {/* Auswertung im Querformat drucken: die Flottenmatrix wird mit jeder
           Kompetenz breiter und passt hochkant nicht mehr auf ein Blatt. */}
+      {section === 'standardisation' && (
+        <StandardisationReport
+          records={records}
+          setOfRecord={setOfRecord}
+          fleet={statsFleet}
+          onFleetChange={setStatsFleet}
+          fleetOptions={aircraftOptions}
+        />
+      )}
+
       {section === 'stats' && (
         <div className="print-landscape space-y-4">
           {/* Vergleich einzelner Flotten: Auswahl gilt für Trendflags und Kalibrierung */}

@@ -399,7 +399,8 @@
       "fleetFilter": "Fleet",
       "noTrendFlags": "No trend flags — no competency below the threshold.",
       "sessionCount_one": "{{count}} session",
-      "sessionCount_other": "{{count}} sessions"
+      "sessionCount_other": "{{count}} sessions",
+      "standardisation": "Standardisation"
     },
     "attendance": "Record of Attendance",
     "studentName": "Student name",
@@ -476,7 +477,37 @@
     "draftRestored": "A draft of this form was restored. Signatures always have to be drawn again.",
     "draftDiscard": "Discard draft",
     "missingForm": "Missing Form {{id}}",
-    "unsignedForm": "Form {{id}} not signed"
+    "unsignedForm": "Form {{id}} not signed",
+    "std": {
+      "title": "Standardisation Report",
+      "set": "Competency set",
+      "instructor": "Instructor",
+      "sessionsCol": "Sessions",
+      "gradesCol": "Grades",
+      "meanCol": "Mean",
+      "deltaCol": "Deviation",
+      "lowCol": "Grade 1–2",
+      "highCol": "Grade 4–5",
+      "ncCol": "Not competent",
+      "assessmentCol": "Assessment",
+      "fleetMean": "Fleet mean",
+      "exportCsv": "Report (CSV)",
+      "hint": "Grading behaviour of each instructor compared with the fleet mean — the basis for standardisation meetings under ORA.ATO.110.",
+      "footnote": "Deviation is the instructor's mean grade minus the fleet mean of the same competency set. Pilot and instructor competencies are never compared with one another. A deviation from {{watch}} grade points is marked for discussion, from {{review}} for review. Marking requires at least {{grades}} grades across at least {{sessions}} sessions; below that a deviation is not meaningful.",
+      "period": {
+        "label": "Period",
+        "all": "All records",
+        "12m": "Last 12 months",
+        "6m": "Last 6 months",
+        "3m": "Last 3 months"
+      },
+      "flag": {
+        "none": "Within range",
+        "watch": "Discuss",
+        "review": "Review required",
+        "insufficient": "Too few records"
+      }
+    }
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

@@ -399,7 +399,8 @@
       "fleetFilter": "Flotte",
       "noTrendFlags": "Keine Trendflags — keine Kompetenz unter dem Schwellwert.",
       "sessionCount_one": "{{count}} session",
-      "sessionCount_other": "{{count}} sessions"
+      "sessionCount_other": "{{count}} sessions",
+      "standardisation": "Standardisierung"
     },
     "attendance": "Teilnehmerliste",
     "studentName": "Name des Teilnehmers",
@@ -476,7 +477,37 @@
     "draftRestored": "Ein Entwurf dieses Formulars wurde wiederhergestellt. Unterschriften müssen immer neu geleistet werden.",
     "draftDiscard": "Entwurf verwerfen",
     "missingForm": "Missing Form {{id}}",
-    "unsignedForm": "Form {{id}} not signed"
+    "unsignedForm": "Form {{id}} not signed",
+    "std": {
+      "title": "Standardisation Report",
+      "set": "Kompetenzsatz",
+      "instructor": "Instruktor",
+      "sessionsCol": "Durchgänge",
+      "gradesCol": "Noten",
+      "meanCol": "Mittel",
+      "deltaCol": "Abweichung",
+      "lowCol": "Note 1–2",
+      "highCol": "Note 4–5",
+      "ncCol": "Not competent",
+      "assessmentCol": "Bewertung",
+      "fleetMean": "Flottenmittel",
+      "exportCsv": "Bericht (CSV)",
+      "hint": "Bewertungsverhalten je Instruktor im Vergleich zum Flottenmittel — die Grundlage für Standardisierungsbesprechungen nach ORA.ATO.110.",
+      "footnote": "Die Abweichung ist das Notenmittel des Instruktors minus das Flottenmittel desselben Kompetenzsatzes. Piloten- und Instruktorenkompetenzen werden nie miteinander verrechnet. Ab {{watch}} Notenpunkten ist die Abweichung zu besprechen, ab {{review}} zu prüfen. Gekennzeichnet wird erst ab {{grades}} Noten aus mindestens {{sessions}} Durchgängen; darunter ist eine Abweichung nicht aussagekräftig.",
+      "period": {
+        "label": "Zeitraum",
+        "all": "Alle Aufzeichnungen",
+        "12m": "Letzte 12 Monate",
+        "6m": "Letzte 6 Monate",
+        "3m": "Letzte 3 Monate"
+      },
+      "flag": {
+        "none": "Im Rahmen",
+        "watch": "Besprechen",
+        "review": "Prüfen",
+        "insufficient": "Zu wenige Daten"
+      }
+    }
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",
