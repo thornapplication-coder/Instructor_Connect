@@ -241,6 +241,85 @@ function seedState(now: number): AppState {
       { id: 'lp4', title: 'C560 XLS+ — Lesson Plan LVO / CAT II', description: 'Schulung für Allwetterflugbetrieb im Simulator.', aircraftType: 'C560 XLS+', fileName: 'xls-lvo.pdf', uploadedBy: 'u-christian', createdAt: now - 6 * d },
     ],
     gradingRecords: [
+      /* Drei frühere Sessions von Sophie Berger — sie machen den Verlauf je
+         Pilot überhaupt erst ablesbar: PRO und WLM bleiben über den ganzen
+         Kurs schwach (wiederkehrende Schwäche), FPM verbessert sich sichtbar.
+         Ein einzelnes Blatt zeigt so etwas nie. */
+      {
+        id: 'gr-hist1',
+        formTypeId: '308A',
+        instructorId: 'u-christian',
+        header: { aircraftType: 'C560 XLS+', trainingDevice: 'FFS', event: 'FFS 1', date: iso(now - 40 * d), flightTimePF: '02:00', flightTimePM: '02:00', instructorQual: 'TRI', instructorSeat: 'Right' },
+        trainees: [
+          {
+            traineeId: '', traineeName: 'Sophie Berger', position: 'FO', seat: 'Right',
+            grades: [
+              { code: 'KNO', grade: 3, comment: '' }, { code: 'PRO', grade: 2, comment: 'Flow sequence not yet automatic.' },
+              { code: 'COM', grade: 3, comment: '' }, { code: 'FPA', grade: 3, comment: '' },
+              { code: 'FPM', grade: 2, comment: 'Manual handling still coarse.' }, { code: 'LTW', grade: 3, comment: '' },
+              { code: 'PSD', grade: 3, comment: '' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 2, comment: 'Falls behind when tasks accumulate.' },
+            ],
+            positiveComment: 'Good preparation, asks precise questions.',
+            developmentComment: 'Practise flows until they run without prompting.',
+            summaryComment: 'Continue to next session.',
+            overall: 'competent',
+          },
+        ],
+        sessionStatus: 'completed', freeText: {},
+        signatureInstructor: SIG, signatureTrainee: SIG,
+        status: 'signed', mailStatus: 'sent',
+        createdAt: now - 40 * d, signedAt: now - 40 * d + 2 * h,
+      },
+      {
+        id: 'gr-hist2',
+        formTypeId: '308A',
+        instructorId: 'u-michael',
+        header: { aircraftType: 'C560 XLS+', trainingDevice: 'FFS', event: 'FFS 2', date: iso(now - 26 * d), flightTimePF: '02:00', flightTimePM: '02:00', instructorQual: 'TKI', instructorSeat: 'Right' },
+        trainees: [
+          {
+            traineeId: '', traineeName: 'Sophie Berger', position: 'FO', seat: 'Right',
+            grades: [
+              { code: 'KNO', grade: 3, comment: '' }, { code: 'PRO', grade: 2, comment: 'Checklist timing still late.' },
+              { code: 'COM', grade: 3, comment: '' }, { code: 'FPA', grade: 3, comment: '' },
+              { code: 'FPM', grade: 3, comment: 'Noticeably steadier than last session.' }, { code: 'LTW', grade: 3, comment: '' },
+              { code: 'PSD', grade: 3, comment: '' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 2, comment: 'Prioritisation still slips under load.' },
+            ],
+            positiveComment: 'Manual flying clearly improved.',
+            developmentComment: 'Keep working on checklist discipline and workload management.',
+            summaryComment: 'Continue to next session.',
+            overall: 'competent',
+          },
+        ],
+        sessionStatus: 'completed', freeText: {},
+        signatureInstructor: SIG, signatureTrainee: SIG,
+        status: 'signed', mailStatus: 'sent',
+        createdAt: now - 26 * d, signedAt: now - 26 * d + 2 * h,
+      },
+      {
+        id: 'gr-hist3',
+        formTypeId: '308A',
+        instructorId: 'u-michael',
+        header: { aircraftType: 'C560 XLS+', trainingDevice: 'FFS', event: 'FFS 3', date: iso(now - 13 * d), flightTimePF: '02:00', flightTimePM: '02:00', instructorQual: 'TKI', instructorSeat: 'Right' },
+        trainees: [
+          {
+            traineeId: '', traineeName: 'Sophie Berger', position: 'FO', seat: 'Right',
+            grades: [
+              { code: 'KNO', grade: 4, comment: '' }, { code: 'PRO', grade: 2, comment: 'Checklists again initiated late.' },
+              { code: 'COM', grade: 3, comment: '' }, { code: 'FPA', grade: 4, comment: '' },
+              { code: 'FPM', grade: 4, comment: 'Manual handling now stable.' }, { code: 'LTW', grade: 3, comment: '' },
+              { code: 'PSD', grade: 3, comment: '' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 2, comment: 'Workload management remains the limiting factor.' },
+            ],
+            positiveComment: 'Handling and automation clearly on standard.',
+            developmentComment: 'Checklist discipline and workload management remain open.',
+            summaryComment: 'Continue to next session.',
+            overall: 'competent',
+          },
+        ],
+        sessionStatus: 'completed', freeText: {},
+        signatureInstructor: SIG, signatureTrainee: SIG,
+        status: 'signed', mailStatus: 'sent',
+        createdAt: now - 13 * d, signedAt: now - 13 * d + 2 * h,
+      },
       {
         id: 'gr1',
         formTypeId: '308F',

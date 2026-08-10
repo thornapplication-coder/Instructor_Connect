@@ -6,6 +6,7 @@ import { navigate } from '../router'
 import { gradingListComparator } from '../gradingRules'
 import { trainingDate } from '../gradingStats'
 import { useStore } from '../store'
+import { TraineeHistory } from './admin/TraineeHistory'
 import { followUpStarted, isComplete, missingFollowUps, traineesOf, trafficLight, type TrafficColor } from '../gradingRules'
 import type { GradingRecord } from '../types'
 
@@ -82,7 +83,7 @@ function TrainingAdminGrading() {
   const { i18n } = useTranslation()
   const t = i18n.getFixedT('en')
   const { state, now } = useStore()
-  const [tab, setTab] = useState<'completed' | 'open'>('completed')
+  const [tab, setTab] = useState<'completed' | 'open' | 'trainees'>('completed')
   const [period, setPeriod] = useState('all')
   const [fTrainee, setFTrainee] = useState('')
   const [fAircraft, setFAircraft] = useState('')
@@ -149,9 +150,11 @@ function TrainingAdminGrading() {
       <Page wide className="space-y-3">
         <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.trainingAdminNote')}</p>
 
-        {/* Reiter: Abgeschlossen / Zu bearbeiten */}
+        {/* Reiter: Abgeschlossen / Zu bearbeiten / Verlauf je Pilot.
+            Der Verlauf traegt keinen Zaehler — er zaehlt Piloten, nicht
+            Formulare, und stuende sonst irrefuehrend neben den beiden. */}
         <div className="flex gap-2">
-          {(['completed', 'open'] as const).map((tb) => (
+          {(['completed', 'open', 'trainees'] as const).map((tb) => (
             <button
               key={tb}
               onClick={() => setTab(tb)}
@@ -159,11 +162,20 @@ function TrainingAdminGrading() {
                 tab === tb ? 'border-accent bg-accent/15 text-accent' : 'border-line/15 text-dim'
               }`}
             >
-              {t(`grading.ta.${tb}`)} ({all.filter((r) => (tb === 'completed' ? isCompleted(r) : !isCompleted(r))).length})
+              {tb === 'trainees'
+                ? t('grading.admin.trainees')
+                : `${t(`grading.ta.${tb}`)} (${all.filter((r) => (tb === 'completed' ? isCompleted(r) : !isCompleted(r))).length})`}
             </button>
           ))}
         </div>
 
+        {/* Die Ablage bleibt durchgehend englisch — deshalb feste Sprache. */}
+        {tab === 'trainees' && <TraineeHistory records={state.gradingRecords} lng="en" />}
+
+        {/* Filter und Formularliste gehoeren zu den beiden Formular-Reitern;
+            der Verlauf bringt seine eigene Suche mit. */}
+        {tab !== 'trainees' && (
+        <>
         {/* Filter: Zeitraum, Student, Aircraft Type, Instruktor */}
         <div className="flex flex-wrap gap-2">
           <select value={period} onChange={(e) => setPeriod(e.target.value)} className={selCls}>
@@ -250,6 +262,8 @@ function TrainingAdminGrading() {
             </div>
           ))}
         </div>
+        </>
+        )}
       </Page>
     </>
   )
@@ -271,6 +285,10 @@ export function Grading() {
   const isMember = currentUser!.role === 'member'
   // Filter über die Ampel-Legende (antippen zum Filtern)
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
+  // Verlauf je Pilot: nur mit vollem Archivzugriff sinnvoll — die
+  // Instruktorenliste reicht wegen der Wochenfrist nicht über einen Kurs.
+  const maySeeHistory = can('grading_view_all')
+  const [showHistory, setShowHistory] = useState(false)
   const list = visibleGradingRecords.filter((r) => !trafficFilter || trafficLight(r, state.gradingRecords) === trafficFilter)
   const filterAnsage = (
     <p role="status" className="sr-only">
@@ -304,6 +322,29 @@ export function Grading() {
         {/* Training Admin: reiner Lese-/Download-Zugriff auf alle Formulare */}
         {isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.trainingAdminNote')}</p>}
 
+        {/* Umschalter Formulare / Verlauf je Pilot — nur mit vollem
+            Archivzugriff, sonst zeigte der Verlauf bloß Lücken. */}
+        {maySeeHistory && (
+          <div className="flex gap-2">
+            {[false, true].map((v) => (
+              <button
+                key={String(v)}
+                onClick={() => setShowHistory(v)}
+                aria-pressed={showHistory === v}
+                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
+                  showHistory === v ? 'border-accent bg-accent/15 text-accent' : 'border-line/15 text-dim'
+                }`}
+              >
+                {v ? t('grading.admin.trainees') : t('grading.admin.records')}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {maySeeHistory && showHistory && <TraineeHistory records={state.gradingRecords} />}
+
+        {!showHistory && (
+        <>
         {/* Ampel-Legende — antippen filtert die Liste. Mobil sauber
             untereinander, ab Tablet als symmetrisches 2×2-Raster. */}
         <div className="flex flex-col gap-0.5 rounded-xl border border-line/10 bg-surface/60 p-1.5 text-[12px] text-dim sm:grid sm:grid-cols-2 sm:gap-1">
@@ -439,6 +480,8 @@ export function Grading() {
             </Card>
           )
         })}
+        </>
+        )}
       </Page>
     </>
   )
