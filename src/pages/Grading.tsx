@@ -142,6 +142,8 @@ function TrainingAdminGrading() {
   const selCls = 'rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]'
   return (
     <>
+      {/* Filterergebnis für Sprachausgaben — die Liste ändert sich sonst lautlos */}
+      <p role="status" className="sr-only">{t('grading.admin.resultCount', { shown: list.length, total: all.length })}</p>
       <TopBar title="Grading Tool" back="/" />
       <Page wide className="space-y-3">
         <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.trainingAdminNote')}</p>
@@ -269,12 +271,18 @@ export function Grading() {
   // Filter über die Ampel-Legende (antippen zum Filtern)
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
   const list = visibleGradingRecords.filter((r) => !trafficFilter || trafficLight(r, state.gradingRecords) === trafficFilter)
+  const filterAnsage = (
+    <p role="status" className="sr-only">
+      {t('grading.admin.resultCount', { shown: list.length, total: visibleGradingRecords.length })}
+    </p>
+  )
 
   // Training Admin: eigene Ablage-Ansicht mit zwei Reitern und Filtern
   if (isTrainingAdmin) return <TrainingAdminGrading />
 
   return (
     <>
+      {filterAnsage}
       {/* Modulname bleibt in beiden Sprachen Englisch */}
       <TopBar
         title="Grading Tool"

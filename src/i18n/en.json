@@ -102,7 +102,8 @@
     "pollValidHint": "Date and time are in UTC. After this time the poll closes automatically.",
     "attachmentOnly": "Attachment",
     "unknownAuthor": "Unknown",
-    "deleteMessageConfirm": "Delete this message for everyone? This cannot be undone."
+    "deleteMessageConfirm": "Delete this message for everyone? This cannot be undone.",
+    "newMessageFrom": "New message from {{name}}"
   },
   "chatInfo": {
     "title": "Chat info",
@@ -423,7 +424,8 @@
       "exportListHint": "Exports exactly the {{count}} rows the current filters show.",
       "onlyHidden": "Hidden from lists",
       "hiddenBadge": "Hidden by {{count}}",
-      "restore": "Restore to all lists"
+      "restore": "Restore to all lists",
+      "resultCount": "{{shown}} of {{total}} forms match the filters"
     },
     "attendance": "Record of Attendance",
     "studentName": "Student name",

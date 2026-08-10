@@ -844,6 +844,8 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
             ))}
             <span className="text-[12px] text-dim">{t('grading.admin.exportListHint', { count: filtered.length })}</span>
           </div>
+          {/* Filterergebnis ansagen — sichtbar ändert sich nur die Liste */}
+          <p role="status" className="sr-only">{t('grading.admin.resultCount', { shown: filtered.length, total: records.length })}</p>
           {filtered.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('grading.empty')}</p>}
           {filtered.map((r) => (
             <Card key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="flex items-center gap-3 p-4">

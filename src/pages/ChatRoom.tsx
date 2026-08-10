@@ -150,7 +150,8 @@ function PollCard({ poll }: { poll: Poll }) {
         })}
       </div>
       <div className="mt-3 flex items-center justify-between text-[11.5px] text-dim">
-        <span>
+        {/* role=status: eine abgegebene oder geänderte Stimme wird angesagt */}
+        <span role="status">
           {t('chat.votes', { count: totalVotes })} · {t('chat.changeHint')}
         </span>
         {mayClose && (
@@ -288,6 +289,21 @@ export function ChatRoom({ groupId }: { groupId: string }) {
     bottomRef.current?.scrollIntoView({ block: 'end' })
   }, [timeline.length])
 
+  // Neue fremde Nachricht ansagen: Der 5-Sekunden-Takt des Stores bringt
+  // sie lautlos in die Liste — wer die Seite hört statt sieht, bekam davon
+  // nichts mit. Nur fremde Nachrichten: die eigene hat man selbst getippt.
+  const [ansage, setAnsage] = useState('')
+  const bekannt = useRef<number | null>(null)
+  useEffect(() => {
+    const fremde = timeline.filter((x) => x.msg && x.msg.authorId !== state.currentUserId).length
+    if (bekannt.current !== null && fremde > bekannt.current) {
+      const letzte = [...timeline].reverse().find((x) => x.msg && x.msg.authorId !== state.currentUserId)
+      const wer = state.users.find((u) => u.id === letzte?.msg?.authorId)?.name ?? ''
+      setAnsage(t('chat.newMessageFrom', { name: wer }))
+    }
+    bekannt.current = fremde
+  }, [timeline, state.currentUserId, state.users, t])
+
   // Wer den Chat offen hat, hat die Inhalte gesehen — der grüne Punkt
   // erlischt. markChatSeen ist idempotent, daher sind volle Dependencies
   // (inkl. Nutzerwechsel über den Sandbox-Rollenwechsler) unproblematisch.
@@ -316,6 +332,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
+      <p role="status" className="sr-only">{ansage}</p>
       <TopBar
         title={
           <button onClick={() => navigate(`/chat/${groupId}/info`)} className="flex min-w-0 items-center gap-2 hover:text-accent">

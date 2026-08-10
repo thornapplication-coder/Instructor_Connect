@@ -102,7 +102,8 @@
     "pollValidHint": "Datum und Uhrzeit gelten in UTC. Danach schließt die Umfrage automatisch.",
     "attachmentOnly": "Anhang",
     "unknownAuthor": "Unbekannt",
-    "deleteMessageConfirm": "Diese Nachricht für alle löschen? Das lässt sich nicht rückgängig machen."
+    "deleteMessageConfirm": "Diese Nachricht für alle löschen? Das lässt sich nicht rückgängig machen.",
+    "newMessageFrom": "Neue Nachricht von {{name}}"
   },
   "chatInfo": {
     "title": "Chat-Info",
@@ -423,7 +424,8 @@
       "exportListHint": "Exportiert genau die {{count}} Zeilen, die die aktuellen Filter zeigen.",
       "onlyHidden": "Aus Listen ausgeblendet",
       "hiddenBadge": "Ausgeblendet von {{count}}",
-      "restore": "In alle Listen zurückholen"
+      "restore": "In alle Listen zurückholen",
+      "resultCount": "{{shown}} von {{total}} Formularen entsprechen den Filtern"
     },
     "attendance": "Teilnehmerliste",
     "studentName": "Name des Teilnehmers",

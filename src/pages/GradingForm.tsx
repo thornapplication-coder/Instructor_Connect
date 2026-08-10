@@ -565,6 +565,10 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             id={`field-${f.key}`}
             value={header[f.key] ?? ''}
             onChange={(e) => setField(f, e.target.value)}
+            // Beanstandung hängt AM Feld, nicht nur als Text weit darunter —
+            // eine Sprachausgabe liest sie dann beim Fokussieren mit vor.
+            aria-invalid={!!error && errorKeyRef.current === f.key}
+            aria-describedby={!!error && errorKeyRef.current === f.key ? 'form-error' : undefined}
             className={selectCls}
           >
             <option value="">…</option>
@@ -645,6 +649,8 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         ) : (
           <input
             id={`field-${f.key}`}
+            aria-invalid={!!error && errorKeyRef.current === f.key}
+            aria-describedby={!!error && errorKeyRef.current === f.key ? 'form-error' : undefined}
             type={f.type === 'date' ? 'date' : f.type === 'number' ? 'number' : 'text'}
             value={header[f.key] ?? ''}
             onChange={(e) => setField(f, e.target.value)}
@@ -873,7 +879,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
               {competencies.length > 0 ? t('grading.toGrading') : t('grading.continue')} <ArrowRight size={16} />
             </Button>
             {error && (
-              <p role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-[13px] text-danger">
+              <p id="form-error" role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-[13px] text-danger">
                 {error}
               </p>
             )}
@@ -985,7 +991,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                         </button>
                       ))}
                     </div>
-                    {auto && <p className="mt-2 text-[12.5px] leading-relaxed text-danger">{t('grading.autoNotCompetent')}</p>}
+                    {auto && <p role="status" className="mt-2 text-[12.5px] leading-relaxed text-danger">{t('grading.autoNotCompetent')}</p>}
                   </Field>
                 </Card>
                 )
