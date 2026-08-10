@@ -31,7 +31,13 @@ function serviceWorker(): Plugin {
       // public/ wird vollständig eingelesen, damit neue Dateien (Icons u. Ä.)
       // nicht vergessen werden.
       const extras = listPublicFiles()
-      const files = [...new Set(['./', './index.html', ...[...built, ...extras].map((f) => './' + f)])]
+      // Sortiert, damit zwei Builds derselben Quellen byte-gleiche sw.js
+      // ergeben. Ohne die Sortierung wechselte allein die Reihenfolge der
+      // Schrift-Assets bei jedem Lauf; der Browser vergleicht den Worker
+      // byteweise, hielt ihn deshalb für neu und lud die Seite neu — ohne
+      // dass sich etwas geändert hätte, denn der Cache-Name (unten, über
+      // die sortierte Liste gebildet) blieb gleich.
+      const files = [...new Set(['./', './index.html', ...[...built, ...extras].sort().map((f) => './' + f)])]
 
       // Cache-Name über den INHALT aller ausgelieferten Dateien: eine
       // Version, die nur index.html oder ein Icon ändert, ergibt damit

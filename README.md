@@ -144,6 +144,24 @@ beiden Themes mindestens WCAG AA; Ampel- und Statusfarben kommen aus der
 Theme-Datei und wechseln samt Schriftfarbe mit dem Modus. Dialoge schließen
 mit Escape, halten den Tastaturfokus und geben ihn beim Schließen zurück.
 
+## Veröffentlichung
+
+Auf die Live-Seite gelangt ausschließlich `main`. Bis August 2026 stand
+zusätzlich ein Arbeitszweig im Auslöser — der lag zeitweise 22 Commits vor
+`main`, sodass „live" und „freigegeben" nichts miteinander zu tun hatten.
+Eine Vorschau aus einem Zweig läuft über `workflow_dispatch` von Hand.
+
+Ein zweiter Workflow prüft jeden Pull Request: `npm ci`, Typprüfung und
+Build (`tsc -b` ist Teil von `npm run build`, ein Typfehler bricht den Lauf
+also ab). Er hat bewusst **keine** Pages-Rechte — ein Pull Request aus einem
+fremden Fork darf nie veröffentlichen.
+
+Der Auslieferungsstand ist reproduzierbar: Zwei Builds derselben Quellen
+ergeben byte-gleiche Dateien, geprüft über alle 66. Das ist keine Kosmetik —
+weicht auch nur `sw.js` ab, hält der Browser den Service Worker für neu und
+lädt den Instruktoren die Seite grundlos neu, ohne dass sich etwas geändert
+hat. Der Prüf-Workflow baut deshalb zweimal und vergleicht.
+
 ## Entwicklung
 
 ```bash
