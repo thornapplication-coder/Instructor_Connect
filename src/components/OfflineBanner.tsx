@@ -26,10 +26,15 @@ export function OfflineBanner() {
   const queued = state.gradingRecords.filter((r) => r.mailStatus === 'queued').length
 
   useEffect(() => {
+    // navigator.onLine===false ist verlässlich; true ist nur eine Behauptung
+    // (WLAN ohne Internet, Anmeldeseite). Sobald etwas im Korb liegt, zählt
+    // deshalb der Ausgang der echten Erreichbarkeitsprobe in flushOutbox.
     const sync = () => {
-      const up = navigator.onLine !== false
-      setOnline(up)
-      if (up) flushOutbox()
+      if (navigator.onLine === false) {
+        setOnline(false)
+        return
+      }
+      void flushOutbox().then(setOnline)
     }
     window.addEventListener('online', sync)
     window.addEventListener('offline', sync)

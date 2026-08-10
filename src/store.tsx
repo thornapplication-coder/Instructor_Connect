@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { isComplete, isFollowUpType } from './gradingRules'
+import { networkReachable } from './net'
 import { createSeedState } from './sandbox/seed'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import { clearPersistedState, persistState, readPreloadedState } from './persist'
@@ -79,7 +80,8 @@ export interface Store {
   deleteGradingRecord: (id: string) => void
   retryGradingMail: (id: string) => void
   /** Ausgangskorb leeren: alle ohne Netz erfassten Formulare versenden */
-  flushOutbox: () => void
+  /** Ausgangskorb senden; liefert, ob der Origin tatsächlich erreichbar war */
+  flushOutbox: () => Promise<boolean>
   updateGrading: (patch: Partial<GradingSettings>) => void
   /** Lesson Plans, die der aktuelle Nutzer sehen darf */
   visibleLessonPlans: LessonPlan[]
@@ -168,6 +170,9 @@ function persistUser(id: string | null) {
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(initialState)
+  // Für asynchrone Aktionen (Erreichbarkeitsprobe): immer der aktuelle Stand
+  const stateRef = useRef(state)
+  stateRef.current = state
 
   // Automatische Aktualisierung alle 5 Sekunden: neue Nachrichten erscheinen
   // ohne manuelles Neuladen, abgelaufene werden ausgeblendet. In der
@@ -790,18 +795,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
       // Erneut senden: ohne Netz landet der Versuch im Ausgangskorb, statt
       // einen Erfolg zu behaupten, den es nicht gab.
-      retryGradingMail: (id) =>
+      // Erneut senden: erst in den Ausgangskorb, dann entscheidet die echte
+      // Erreichbarkeitsprobe — nicht navigator.onLine — über „sent".
+      retryGradingMail: (id) => {
         patch((s) => ({
           gradingRecords: s.gradingRecords.map((r) =>
-            r.id === id
-              ? { ...r, mailStatus: navigator.onLine === false ? ('queued' as const) : ('sent' as const), mailError: undefined }
-              : r,
+            r.id === id ? { ...r, mailStatus: 'queued' as const, mailError: undefined } : r,
           ),
-        })),
+        }))
+        void networkReachable().then((ok) => {
+          if (!ok) return
+          patch((s) => ({
+            gradingRecords: s.gradingRecords.map((r) =>
+              r.id === id && r.mailStatus === 'queued' ? { ...r, mailStatus: 'sent' as const } : r,
+            ),
+          }))
+        })
+      },
       // Ohne Netz unterschriebene Formulare gehen raus, sobald wieder
       // Empfang da ist. In der Sandbox gelingt der Versand; mit echtem
       // Backend hängt hier der tatsächliche Sendeauftrag.
-      flushOutbox: () =>
+      //
+      // Maßgeblich ist eine ECHTE Erreichbarkeitsprobe (net.ts), nicht
+      // navigator.onLine: das meldet „online" auch im WLAN ohne Internet —
+      // dort behauptete der Korb den Versand, ohne je gesendet zu haben.
+      // Rückgabe: war der Origin erreichbar? (Für die Anzeige im Banner.)
+      flushOutbox: async () => {
+        const queued = () => stateRef.current.gradingRecords.some((r) => r.mailStatus === 'queued')
+        if (!queued()) return navigator.onLine !== false
+        const reachable = await networkReachable()
+        if (!reachable) return false
         patch((s) =>
           s.gradingRecords.some((r) => r.mailStatus === 'queued')
             ? {
@@ -810,7 +833,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
                 ),
               }
             : null,
-        ),
+        )
+        return true
+      },
       updateGrading: (p) =>
         patch((s) => {
           const next = { ...p }
