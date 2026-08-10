@@ -198,7 +198,7 @@
   "admin": {
     "title": "Admin Panel",
     "users": "Benutzer",
-    "groups": "Gruppen",
+    "groups": "Chats",
     "settings": "Einstellungen",
     "changelog": "Changelog",
     "addUser": "Benutzer anlegen",
