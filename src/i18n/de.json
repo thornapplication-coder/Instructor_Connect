@@ -420,7 +420,10 @@
       "sessionCount_other": "{{count}} sessions",
       "standardisation": "Standardisierung",
       "statsScopeNote": "Grundlage: nur unterschriebene Formulare, Folgeformulare ausgenommen, Zeitraum über den Schulungstag. Der Standardisierungsbericht nutzt denselben Ausschnitt.",
-      "exportListHint": "Exportiert genau die {{count}} Zeilen, die die aktuellen Filter zeigen."
+      "exportListHint": "Exportiert genau die {{count}} Zeilen, die die aktuellen Filter zeigen.",
+      "onlyHidden": "Aus Listen ausgeblendet",
+      "hiddenBadge": "Ausgeblendet von {{count}}",
+      "restore": "In alle Listen zurückholen"
     },
     "attendance": "Teilnehmerliste",
     "studentName": "Name des Teilnehmers",

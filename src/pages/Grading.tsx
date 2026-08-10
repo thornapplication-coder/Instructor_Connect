@@ -397,8 +397,11 @@ export function Grading() {
                   )}
                   {/* Aus der eigenen Listenansicht entfernen — gilt nur für den
                       aktuellen Nutzer, im Admin-Panel bleibt alles erhalten.
-                      Training Admin ist nur-lesend und hat keinen Mülleimer. */}
-                  {!isTrainingAdmin && (
+                      Training Admin ist nur-lesend und hat keinen Mülleimer.
+                      Unfertiges lässt sich nicht ausblenden: eine offene
+                      Pflicht darf nicht aus der Sicht verschwinden, die sie
+                      anmahnen soll (der Store weigert sich zusätzlich). */}
+                  {!isTrainingAdmin && trafficLight(r, state.gradingRecords) === 'green' && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation()

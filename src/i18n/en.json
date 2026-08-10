@@ -420,7 +420,10 @@
       "sessionCount_other": "{{count}} sessions",
       "standardisation": "Standardisation",
       "statsScopeNote": "Basis: only signed forms, follow-up forms excluded, period based on the training date. The standardisation report uses the same scope.",
-      "exportListHint": "Exports exactly the {{count}} rows the current filters show."
+      "exportListHint": "Exports exactly the {{count}} rows the current filters show.",
+      "onlyHidden": "Hidden from lists",
+      "hiddenBadge": "Hidden by {{count}}",
+      "restore": "Restore to all lists"
     },
     "attendance": "Record of Attendance",
     "studentName": "Student name",

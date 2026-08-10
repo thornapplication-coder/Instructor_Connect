@@ -73,6 +73,8 @@ export interface Store {
   saveGradingRecord: (record: GradingRecord) => void
   /** entfernt ein Formular nur aus der Instruktor-Ansicht — Admin behält es */
   hideGradingRecord: (id: string) => void
+  /** Für alle wieder einblenden — nur mit grading_view_all */
+  unhideGradingRecord: (id: string) => void
   /** löscht ein Formular endgültig (Training Admin / Superadmin) */
   deleteGradingRecord: (id: string) => void
   retryGradingMail: (id: string) => void
@@ -736,13 +738,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }),
       hideGradingRecord: (id) =>
-        patch((s) => ({
-          gradingRecords: s.gradingRecords.map((r) =>
-            r.id === id && !r.hiddenFor?.includes(s.currentUserId!)
-              ? { ...r, hiddenFor: [...(r.hiddenFor ?? []), s.currentUserId!] }
-              : r,
-          ),
-        })),
+        patch((s) => {
+          // Nur Erledigtes darf aus dem Blick: Was noch auf Unterschrift,
+          // Folgeformular oder Versand wartet, ist eine offene Pflicht — die
+          // ließ sich vorher per Mülleimer aus der Sicht des Verantwortlichen
+          // entfernen, obwohl genau diese Sicht sie anmahnen soll.
+          const rec = s.gradingRecords.find((r) => r.id === id)
+          if (!rec || !isComplete(rec, s.gradingRecords)) return null
+          return {
+            gradingRecords: s.gradingRecords.map((r) =>
+              r.id === id && !r.hiddenFor?.includes(s.currentUserId!)
+                ? { ...r, hiddenFor: [...(r.hiddenFor ?? []), s.currentUserId!] }
+                : r,
+            ),
+          }
+        }),
+      // Ausblenden ist nicht mehr endgültig: Wer die ganze Ablage sieht,
+      // kann ein Blatt für ALLE wieder sichtbar machen.
+      unhideGradingRecord: (id) =>
+        patch((s) => {
+          const actor = s.users.find((u) => u.id === s.currentUserId)
+          if (!actor || !userHasPerm(s.settings, actor, 'grading_view_all')) return null
+          return {
+            gradingRecords: s.gradingRecords.map((r) => (r.id === id ? { ...r, hiddenFor: undefined } : r)),
+          }
+        }),
       // Ausbildungsnachweise sind aufbewahrungspflichtig: endgültiges Löschen
       // bleibt dem Superadmin vorbehalten — der Training Admin ist nur-lesend.
       deleteGradingRecord: (id) =>

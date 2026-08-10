@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, Scale, SlidersHorizontal, Trash2, TrendingDown, X } from 'lucide-react'
+import { Eye, EyeOff, AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, Scale, SlidersHorizontal, Trash2, TrendingDown, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls, selectCls } from '../../components/ui'
@@ -348,7 +348,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
  *  leer zeigt die Kachelübersicht der Ablage. */
 export function GradingAdmin({ section: sectionSeg = '' }: { section?: string }) {
   const { t } = useTranslation()
-  const { state, currentUser, retryGradingMail, updateGrading, deleteGradingRecord } = useStore()
+  const { state, currentUser, retryGradingMail, updateGrading, deleteGradingRecord, unhideGradingRecord } = useStore()
   const section = SECTIONS.includes(sectionSeg as Section) ? (sectionSeg as Section) : null
   // Unbekannter Unterbereich: Adresse ehrlich auf die Übersicht der Ablage
   // zurücksetzen, statt sie stehen zu lassen.
@@ -358,6 +358,8 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
   const [query, setQuery] = useState('')
   const [filterType, setFilterType] = useState('')
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
+  /** Nur Blätter zeigen, die mindestens ein Nutzer ausgeblendet hat */
+  const [onlyHidden, setOnlyHidden] = useState(false)
   // Filter nach Trainee (Standard-Sicht), Instruktor und Aircraft Type
   const [filterTrainee, setFilterTrainee] = useState('')
   const [filterInstructor, setFilterInstructor] = useState('')
@@ -509,6 +511,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
   const filtered = records.filter((r) => {
     const days = PERIOD_DAYS[filterPeriod]
     if (days && Date.now() + state.timeOffsetMs - r.createdAt > days * 24 * 3600_000) return false
+    if (onlyHidden && !r.hiddenFor?.length) return false
     if (filterType && r.formTypeId !== filterType) return false
     if (trafficFilter && trafficLight(r, records) !== trafficFilter) return false
     if (filterTrainee && !traineesOf(r, records).some((tr) => traineeLabel(tr) === filterTrainee)) return false
@@ -814,6 +817,17 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 <TrafficDot color={c} /> {t(`grading.traffic.${c}`)}
               </button>
             ))}
+            {/* Ausblenden ist je Nutzer — hier sieht der Admin, was irgendwo
+                aus einer Liste entfernt wurde, und kann es zurückholen. */}
+            <button
+              onClick={() => setOnlyHidden(!onlyHidden)}
+              aria-pressed={onlyHidden}
+              className={`min-h-11 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition ${
+                onlyHidden ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'
+              }`}
+            >
+              <EyeOff size={12} /> {t('grading.admin.onlyHidden')}
+            </button>
           </div>
           {/* Export genau dieser Ansicht: was die Filter zeigen, steht in der
               Datei — die aktiven Filter wandern in den Dateikopf. */}
@@ -845,6 +859,22 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 </p>
               </div>
               {r.trainees.some((tr) => tr.overall === 'not_competent') && <Badge tone="warm">{t('grading.notCompetent')}</Badge>}
+              {!!r.hiddenFor?.length && (
+                <>
+                  <Badge tone="warm">{t('grading.admin.hiddenBadge', { count: r.hiddenFor.length })}</Badge>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      unhideGradingRecord(r.id)
+                    }}
+                    title={t('grading.admin.restore')}
+                    aria-label={t('grading.admin.restore')}
+                    className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-ok/10 hover:text-ok"
+                  >
+                    <Eye size={16} />
+                  </button>
+                </>
+              )}
               {/* Endgültiges Löschen nur für den Superadmin — der Training
                   Admin sieht dieselbe Ablage bewusst ohne Mülleimer. */}
               {currentUser!.role === 'superadmin' && (
