@@ -1157,8 +1157,15 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         <Modal title={t('grading.followUpTitle')} onClose={() => setShowFollowUp(false)}>
           <p className="mb-4 text-[13.5px] leading-relaxed text-dim">{t('grading.followUpBodyMandatory')}</p>
           <div className="space-y-2">
-            {(['306', '310'] as FormTypeId[]).map((id) => {
-              const ft = grading.formTypes.find((f) => f.id === id)!
+            {/* Über den Katalog iterieren, nicht über eine feste Liste: Fehlt
+                ein Typ (der Superadmin darf ihn löschen, solange kein
+                Datensatz ihn benutzt — im Auslieferungszustand trifft das auf
+                310 zu), stürzte der Dialog hier ab und die Session ließ sich
+                überhaupt nicht mehr abschließen. */}
+            {grading.formTypes
+              .filter((f) => f.id === '306' || f.id === '310')
+              .map((ft) => {
+              const id = ft.id
               const required = requiredFollowUps.includes(id)
               const on = followUps.includes(id)
               return (

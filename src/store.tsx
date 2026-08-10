@@ -740,7 +740,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         patch((s) => {
           const actor = s.users.find((u) => u.id === s.currentUserId)
           if (actor?.role !== 'superadmin') return null
-          return { gradingRecords: s.gradingRecords.filter((r) => r.id !== id && r.parentId !== id) }
+          const target = s.gradingRecords.find((r) => r.id === id)
+          if (!target) return null
+          // Geschwister desselben Durchgangs (gleiche batchId). Das 310 gilt
+          // für den GANZEN Durchgang, hängt aber technisch an einem einzelnen
+          // Blatt. Wurde dieses gelöscht, verschwand der Nachweis der übrigen
+          // gleich mit — sie fielen von grün zurück auf „Missing Form 310".
+          const siblings = target.batchId
+            ? s.gradingRecords.filter((r) => r.id !== id && r.batchId === target.batchId && !r.parentId)
+            : []
+          const heir = siblings[0]
+          return {
+            gradingRecords: s.gradingRecords
+              .filter((r) => r.id !== id)
+              // Kinder umhängen, solange ein Geschwister den Durchgang
+              // weiterführt; sonst fallen sie mit dem letzten Blatt weg.
+              .map((r) => (r.parentId === id && heir ? { ...r, parentId: heir.id } : r))
+              .filter((r) => r.parentId !== id),
+          }
         }),
       // Erneut senden: ohne Netz landet der Versuch im Ausgangskorb, statt
       // einen Erfolg zu behaupten, den es nicht gab.
@@ -772,7 +789,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // sonst verliert ein unterschriebenes Dokument seine Struktur.
           if (next.formTypes) {
             const removed = s.settings.grading.formTypes.filter((f) => !next.formTypes!.some((n) => n.id === f.id))
-            const stillUsed = removed.filter((f) => s.gradingRecords.some((r) => r.formTypeId === f.id))
+            // 306 und 310 sind Pflicht-Folgeformulare: Die Regeln verlangen sie
+            // bei „Not Competent" bzw. „Session not completed". Ohne sie im
+            // Katalog ließe sich ein solcher Durchgang gar nicht abschließen —
+            // sie bleiben deshalb unabhängig davon, ob schon Datensätze
+            // existieren.
+            const stillUsed = removed.filter(
+              (f) => f.id === '306' || f.id === '310' || s.gradingRecords.some((r) => r.formTypeId === f.id),
+            )
             if (stillUsed.length > 0) next.formTypes = [...next.formTypes!, ...stillUsed]
           }
           return { settings: { ...s.settings, grading: { ...s.settings.grading, ...next } } }

@@ -518,7 +518,9 @@
         "review": "Prüfen",
         "insufficient": "Zu wenige Daten"
       }
-    }
+    },
+    "deputisedNote": "Unterschrift des Piloten in Vertretung des führenden Instruktors durch {{name}} eingeholt — dessen Konto war deaktiviert.",
+    "sigAlt": "Unterschrift vorhanden: {{label}}"
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

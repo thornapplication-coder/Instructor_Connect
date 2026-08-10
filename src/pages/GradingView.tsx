@@ -4,7 +4,7 @@ import { SignaturePad } from '../components/SignaturePad'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
-import { useStore } from '../store'
+import { useStore, userHasPerm } from '../store'
 import { formatDate, formatDateTime, gradeColor, missingFollowUps, TrafficDot, trafficLight } from './Grading'
 
 /**
@@ -53,6 +53,13 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
   }, [autoPrint, record, recordId, isIOS])
 
   if (!record) return null
+
+  // Der führende Instruktor selbst …
+  const mayCountersign = record.instructorId === currentUser!.id
+  // … oder eine Vertretung, wenn er deaktiviert ist und niemand sonst mehr
+  // an die offene Unterschrift käme.
+  const ownerActive = state.users.find((u) => u.id === record.instructorId)?.active !== false
+  const mayDeputise = !mayCountersign && !ownerActive && userHasPerm(state.settings, currentUser, 'grading_view_all')
 
   const grading = state.settings.grading
   const formType = grading.formTypes.find((f) => f.id === record.formTypeId)
@@ -389,6 +396,15 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         {/* Unterschriften */}
         <Card className="p-4">
           <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.signatures')}</p>
+          {/* Wurde die Unterschrift des Piloten in Vertretung eingeholt, gehört
+              das auf das Dokument — auch auf den Ausdruck. */}
+          {record.lateSignatureBy && (
+            <p className="mb-3 rounded-lg border border-warm/30 bg-warm/5 px-3 py-2 text-[12px] leading-relaxed">
+              {t('grading.deputisedNote', {
+                name: state.users.find((u) => u.id === record.lateSignatureBy)?.name ?? record.lateSignatureBy,
+              })}
+            </p>
+          )}
           <div className="grid gap-4 sm:grid-cols-2">
             {[
               [record.formTypeId === '308G' ? 'Signature Course Instructor (COI)' : t('grading.sigInstructor'), record.signatureInstructor],
@@ -399,7 +415,11 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               <div key={label as string}>
                 <p className="mb-1 text-[12.5px] text-dim">{label}</p>
                 {sig ? (
-                  <img src={sig as string} alt="" className="h-24 w-full rounded-lg border border-line/15 bg-white object-contain" />
+                  <img
+                    src={sig as string}
+                    alt={t('grading.sigAlt', { label })}
+                    className="h-24 w-full rounded-lg border border-line/15 bg-white object-contain"
+                  />
                 ) : (
                   <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-line/25 text-[12.5px] text-dim">
                     {t('grading.missingSignature')}
@@ -412,10 +432,14 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
 
           {/* Offene Unterschrift nachholen: nur das fehlende Feld ist offen,
               danach wird das Formular wie üblich gesperrt und versendet. */}
-          {/* Nachtragen darf nur der Instruktor, der das Formular geführt hat —
-              er legt das Gerät dem Piloten vor. Vollzugriff (Ablage/Admin)
-              berechtigt zum Lesen, nicht zum Unterschreiben. */}
-          {record.status === 'awaiting_signature' && !record.signatureTrainee && record.instructorId === currentUser!.id && (
+          {/* Nachtragen darf der Instruktor, der das Formular geführt hat — er
+              legt das Gerät dem Piloten vor. Vollzugriff (Ablage/Admin)
+              berechtigt sonst zum Lesen, nicht zum Unterschreiben.
+              Ausnahme: Ist der führende Instruktor deaktiviert, käme niemand
+              mehr an die offene Unterschrift, und der Nachweis bliebe für
+              immer unvollständig — dann darf ein Vollzugriffsberechtigter
+              vertreten. Wer es war, steht danach auf dem Dokument. */}
+          {record.status === 'awaiting_signature' && !record.signatureTrainee && (mayCountersign || mayDeputise) && (
             <div className="mt-4 space-y-3 rounded-xl border border-warm/25 bg-warm/5 p-3.5 print:hidden">
               <SignaturePad
                 value={lateSignature}
@@ -429,6 +453,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                   saveGradingRecord({
                     ...record,
                     signatureTrainee: lateSignature,
+                    ...(mayCountersign ? {} : { lateSignatureBy: currentUser!.id }),
                     status: 'signed',
                     // Ohne Netz in den Ausgangskorb statt „versendet"
                     mailStatus: navigator.onLine === false ? 'queued' : 'sent',

@@ -518,7 +518,9 @@
         "review": "Review required",
         "insufficient": "Too few records"
       }
-    }
+    },
+    "deputisedNote": "Trainee signature captured on behalf of the assigned instructor by {{name}} — the assigned instructor's account was deactivated.",
+    "sigAlt": "Signature present: {{label}}"
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

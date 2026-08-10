@@ -323,6 +323,11 @@ export interface GradingRecord {
   competencies?: RecordedCompetency[]
   sessionStatus: SessionStatus | null
   freeText: Record<string, string>
+  /** Wer die Unterschrift des Piloten nachgetragen hat, falls nicht der
+   *  führende Instruktor. Steht auf dem Dokument und im Ausdruck — eine
+   *  Vertretung ist zulässig, muss aber sichtbar sein. Optional, damit
+   *  bestehende Datensätze unverändert gültig bleiben. */
+  lateSignatureBy?: string
   /** Signaturen als Data-URL (Canvas) */
   signatureInstructor: string | null
   signatureTrainee: string | null
