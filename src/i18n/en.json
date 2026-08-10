@@ -15,7 +15,7 @@
     "theme": "Toggle light/dark",
     "imprint": "Legal notice",
     "version": "Version",
-    "updateAvailable": "A new version is available",
+    "updateAvailable": "New version available — updating automatically",
     "updateNow": "Update now",
     "refresh": "Reload app",
     "tooLarge": "“{{name}}” is {{size}} MB — the limit is {{max}} MB.",
