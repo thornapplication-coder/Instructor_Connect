@@ -46,7 +46,6 @@
     "welcome": "Welcome to",
     "subtitle": "The internal communication app for instructors.",
     "identifier": "Email address",
-    "placeholder": "firstname.lastname@aviationacademy.at",
     "button": "Sign in",
     "otpHint": "You will receive a 6-digit sign-in code by email.",
     "error": "No account found for this email address. Accounts are created by an admin or superadmin.",

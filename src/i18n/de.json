@@ -46,7 +46,6 @@
     "welcome": "Willkommen bei",
     "subtitle": "Die interne Kommunikations-App für Instruktoren.",
     "identifier": "E-Mail-Adresse",
-    "placeholder": "firstname.lastname@aviationacademy.at",
     "button": "Anmelden",
     "otpHint": "Du erhältst einen 6-stelligen Anmeldecode per E-Mail.",
     "error": "Kein Konto für diese E-Mail-Adresse gefunden. Konten werden vom Admin bzw. Superadmin angelegt.",
