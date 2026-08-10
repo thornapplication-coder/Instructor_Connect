@@ -20,8 +20,17 @@ import type { GradingRecord } from './types'
  * nicht unterschriebenes Folgeformular ist kein Nachweis und darf das
  * Ausgangsformular nicht stillschweigend abhaken.
  */
+/** 306 und 310 sind die einzigen Folgeformular-Typen. */
+export function isFollowUpType(formTypeId: string): boolean {
+  return formTypeId === '306' || formTypeId === '310'
+}
+
 export function missingFollowUps(r: GradingRecord, all: GradingRecord[]): string[] {
-  if (r.parentId) return []
+  // Maßgeblich ist der TYP, nicht das parentId-Feld: Über die Adresszeile
+  // ließ sich ein gewöhnliches Blatt mit erfundenem parentId anlegen und
+  // damit die Pflicht auf 306/310 aushebeln — „Not Competent" wurde grün,
+  // ohne dass je ein Folgeformular entstand.
+  if (isFollowUpType(r.formTypeId)) return []
   const family = new Set([r.id, ...(r.batchId ? all.filter((x) => x.batchId === r.batchId).map((x) => x.id) : [])])
   const signedChild = (formTypeId: string, parents: (id: string) => boolean) =>
     all.some((c) => c.parentId !== undefined && parents(c.parentId) && c.formTypeId === formTypeId && c.status === 'signed')

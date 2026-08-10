@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
 import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
+import { isFollowUpType } from '../gradingRules'
 import { navigate, scrollToTop } from '../router'
 
 /** Ohne Netz ist der Versand nicht gescheitert, sondern noch nicht erfolgt:
@@ -103,8 +104,12 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   const grading = state.settings.grading
 
   // Beide IDs stammen aus der Adresszeile — deshalb über die
-  // berechtigungsprüfende Auflösung, nicht roh aus dem Zustand.
+  // berechtigungsprüfende Auflösung, nicht roh aus dem Zustand. Ein
+  // parentId gehört ausschließlich an Folgeformulare (306/310); an jedem
+  // anderen Typ wird es verworfen, sonst umgeht die Adresszeile den
+  // Pflicht-Dialog beim Abschluss (der Store verwirft es zusätzlich).
   const existing = recordId ? gradingRecordById(recordId) : undefined
+  if (!isFollowUpType(existing?.formTypeId ?? presetType ?? '')) parentId = undefined
   const parent = parentId ? gradingRecordById(parentId) : undefined
 
   const [formTypeId, setFormTypeId] = useState<FormTypeId | null>(existing?.formTypeId ?? presetType ?? null)

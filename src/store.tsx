@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { isComplete } from './gradingRules'
+import { isComplete, isFollowUpType } from './gradingRules'
 import { createSeedState } from './sandbox/seed'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import { clearPersistedState, persistState, readPreloadedState } from './persist'
@@ -287,11 +287,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Unterschrift, ein Pflicht-Folgeformular oder den Versand wartet, bleibt
     // beim Instruktor stehen — sonst verliert er sein eigenes unfertiges
     // Dokument aus den Augen.
+    //
+    // Und sie läuft ab dem ERLEDIGEN, nicht ab dem Anlegen: Vorher galt
+    // createdAt — wer ein acht Tage altes Blatt fertig unterschrieb, sah es
+    // im selben Augenblick aus der Liste verschwinden, samt PDF-Knopf.
+    // Erledigt wird ein Blatt auch durch die Unterschrift eines
+    // Folgeformulars der Familie, deshalb zählt die jüngste Unterschrift
+    // der ganzen Familie.
     const weekMs = 7 * 24 * 3600_000
+    const doneAt = (r: GradingRecord): number => {
+      const family = new Set([r.id, ...(r.batchId ? state.gradingRecords.filter((x) => x.batchId === r.batchId).map((x) => x.id) : [])])
+      const kids = state.gradingRecords.filter((c) => c.parentId !== undefined && family.has(c.parentId))
+      return Math.max(r.signedAt ?? r.createdAt, ...kids.map((c) => c.signedAt ?? c.createdAt))
+    }
     return all.filter(
       (r) =>
         r.instructorId === currentUser.id &&
-        (now() - r.createdAt < weekMs || !isComplete(r, state.gradingRecords)),
+        (!isComplete(r, state.gradingRecords) || now() - doneAt(r) < weekMs),
     )
   }, [state.gradingRecords, state.settings, currentUser, now])
 
@@ -706,11 +718,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return rec.instructorId === currentUser.id ? rec : undefined
       },
       saveGradingRecord: (record) =>
-        patch((s) => ({
-          gradingRecords: s.gradingRecords.some((r) => r.id === record.id)
-            ? s.gradingRecords.map((r) => (r.id === record.id ? record : r))
-            : [...s.gradingRecords, record],
-        })),
+        patch((s) => {
+          // parentId kommt letztlich aus der Adresszeile. Nur 306/310 sind
+          // Folgeformulare, und nur ein vorhandenes Formular kann Elternteil
+          // sein — alles andere wird verworfen, sonst hebelt ein erfundenes
+          // parentId die Folgeformular-Pflicht aus und fällt zugleich aus
+          // jeder Statistik (die Auswertungen überspringen Folgeformulare).
+          const parentOk =
+            record.parentId !== undefined &&
+            isFollowUpType(record.formTypeId) &&
+            s.gradingRecords.some((r) => r.id === record.parentId)
+          const clean = parentOk || record.parentId === undefined ? record : { ...record, parentId: undefined }
+          return {
+            gradingRecords: s.gradingRecords.some((r) => r.id === clean.id)
+              ? s.gradingRecords.map((r) => (r.id === clean.id ? clean : r))
+              : [...s.gradingRecords, clean],
+          }
+        }),
       hideGradingRecord: (id) =>
         patch((s) => ({
           gradingRecords: s.gradingRecords.map((r) =>

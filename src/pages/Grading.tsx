@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
+import { trainingDate } from '../gradingStats'
 import { useStore } from '../store'
 import { followUpStarted, isComplete, missingFollowUps, traineesOf, trafficLight, type TrafficColor } from '../gradingRules'
 import type { GradingRecord } from '../types'
@@ -128,7 +129,10 @@ function TrainingAdminGrading() {
 
   const list = all.filter((r) => {
     if (tab === 'completed' ? !isCompleted(r) : isCompleted(r)) return false
-    if (periodDays && now() - r.createdAt > periodDays * 24 * 3600_000) return false
+    // Zeitraum über den Schulungstag, nicht den Erfassungszeitpunkt — die
+    // gleiche Regel wie in der Statistik (gradingStats.trainingDate): ein
+    // nachgetragenes Formular gehört in die Periode, in der geschult wurde.
+    if (periodDays && now() - trainingDate(r) > periodDays * 24 * 3600_000) return false
     if (fTrainee && !traineesOf(r, all).some((tr) => traineeLabel(tr) === fTrainee)) return false
     if (fAircraft && r.header.aircraftType !== fAircraft) return false
     if (fInstructor && r.instructorId !== fInstructor) return false
