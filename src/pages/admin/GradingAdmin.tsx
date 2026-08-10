@@ -530,23 +530,41 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
     return hay.includes(query.toLowerCase())
   })
 
+  /** Aktive Listenfilter für den Kopf der Exportdatei — die Datei muss
+   *  selbst sagen, welcher Ausschnitt sie ist. */
+  const activeFilters: [string, string][] = [
+    ['Rows', `${filtered.length} of ${records.length}`],
+    ...(filterPeriod !== 'all' ? ([['Period', t(`grading.ta.period.${filterPeriod}`)]] as [string, string][]) : []),
+    ...(filterType ? ([['Form type', filterType]] as [string, string][]) : []),
+    ...(trafficFilter ? ([['Traffic light', trafficFilter]] as [string, string][]) : []),
+    ...(filterTrainee ? ([['Trainee', filterTrainee]] as [string, string][]) : []),
+    ...(filterInstructor ? ([['Instructor', userName(filterInstructor)]] as [string, string][]) : []),
+    ...(filterAircraft ? ([['Aircraft', filterAircraft]] as [string, string][]) : []),
+    ...(query ? ([['Search', query]] as [string, string][]) : []),
+  ]
+
   /** Kurzbezeichnung des Ausgangsformulars eines Folgeformulars */
   const parentLabel = (r: GradingRecord) => {
     const parent = records.find((x) => x.id === r.parentId)
     return parent ? `${parent.formTypeId} · ${formatDate(parent.createdAt)}` : ''
   }
 
-  const exportCsv = (scope: 'records' | 'competencies' | 'people') => {
+  /**
+   * Was man sieht, bekommt man: Der Export nimmt genau die Datensätze der
+   * aufrufenden Ansicht entgegen und schreibt deren aktive Filter in den
+   * Dateikopf. Vorher exportierte der Knopf neben der gefilterten Liste
+   * stillschweigend den Gesamtbestand — gemessen: Liste auf einen
+   * Instruktor gefiltert, Datei mit dreien.
+   */
+  const exportCsv = (scope: 'records' | 'competencies' | 'people', source: { records: GradingRecord[]; filters: [string, string][] }) => {
     // csvRow escapet Trennzeichen und entschärft Formelzeichen (siehe csv.ts).
     const row = csvRow
     // Jeder Export trägt Zeitpunkt und exportierende Person im Kopf.
     let csv = row(['Instructor Connect — Grading Export'])
     csv += row(['Exported (date/time)', formatDateTime(Date.now() + state.timeOffsetMs), 'Exported by', currentUser!.name])
     csv += row([])
-    // Der Flotten-Filter der Statistik gilt für JEDEN Export — sonst zeigt die
-    // Oberfläche eine Flotte und die Datei alle.
-    const scopeRecords = statsFleet ? records.filter((r) => r.header.aircraftType === statsFleet) : records
-    csv += row(['Fleet', statsFleet || 'All fleets'])
+    const scopeRecords = source.records
+    source.filters.forEach(([k, v]) => (csv += row([k, v])))
     csv += row([])
     if (scope === 'records') {
       csv += row(['Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Status', 'FollowUpTo', 'Avg'])
@@ -797,6 +815,21 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               </button>
             ))}
           </div>
+          {/* Export genau dieser Ansicht: was die Filter zeigen, steht in der
+              Datei — die aktiven Filter wandern in den Dateikopf. */}
+          <div className="flex flex-wrap items-center gap-2">
+            {(['records', 'competencies'] as const).map((sc) => (
+              <Button
+                key={sc}
+                variant="ghost"
+                onClick={() => exportCsv(sc, { records: filtered, filters: activeFilters })}
+                className="flex items-center gap-1.5 text-[12.5px]"
+              >
+                <Download size={13} /> {t(`grading.admin.export_${sc}`)}
+              </Button>
+            ))}
+            <span className="text-[12px] text-dim">{t('grading.admin.exportListHint', { count: filtered.length })}</span>
+          </div>
           {filtered.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('grading.empty')}</p>}
           {filtered.map((r) => (
             <Card key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="flex items-center gap-3 p-4">
@@ -1012,7 +1045,12 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
             <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.export')}</p>
             <div className="flex flex-wrap gap-2">
               {(['records', 'competencies', 'people'] as const).map((s) => (
-                <Button key={s} variant="ghost" onClick={() => exportCsv(s)} className="flex items-center gap-1.5 text-[13px]">
+                <Button
+                  key={s}
+                  variant="ghost"
+                  onClick={() => exportCsv(s, { records: statsFleet ? records.filter((r) => r.header.aircraftType === statsFleet) : records, filters: [['Fleet', statsFleet || 'All fleets']] })}
+                  className="flex items-center gap-1.5 text-[13px]"
+                >
                   <Download size={14} /> {t(`grading.admin.export_${s}`)}
                 </Button>
               ))}
