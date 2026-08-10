@@ -24,7 +24,9 @@
     "outboxQueued_one": "{{count}} Formular wartet auf den Versand",
     "outboxQueued_other": "{{count}} Formulare warten auf den Versand",
     "outboxSending_one": "Wieder online — {{count}} Formular wird versendet",
-    "outboxSending_other": "Wieder online — {{count}} Formulare werden versendet"
+    "outboxSending_other": "Wieder online — {{count}} Formulare werden versendet",
+    "storageError": "Speichern fehlgeschlagen — der Gerätespeicher ist voll. Änderungen gelten nur noch für diese Sitzung. Bitte Speicherplatz freigeben.",
+    "storageAlmostFull": "Der Gerätespeicher ist fast voll — bald sichern und Platz schaffen."
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -276,7 +278,13 @@
     "emailTaken": "Diese E-Mail-Adresse gehört bereits zu einem anderen Nutzer. Sie ist die einzige Anmeldekennung und muss eindeutig bleiben.",
     "groupNameTaken": "Eine Gruppe mit diesem Namen gibt es bereits.",
     "noAccess": "Du hast keinen Zugriff auf das Admin-Panel.",
-    "noUsersMatch": "Kein Nutzer passt zu den gewählten Filtern."
+    "noUsersMatch": "Kein Nutzer passt zu den gewählten Filtern.",
+    "storage": "Speicher",
+    "storageState": "Formular- und Chatdaten",
+    "storageUsed": "Belegt durch diese App",
+    "storageQuota": "von {{quota}} zugeteilt",
+    "storageHint": "Die Daten liegen auf diesem Gerät (IndexedDB). Der Balken zeigt, wie viel des vom Browser zugeteilten Platzes belegt ist; ab 85 % erscheint app-weit ein Warnstreifen.",
+    "storageUnknown": "Dieser Browser meldet keinen Speicherstand."
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",

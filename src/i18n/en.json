@@ -24,7 +24,9 @@
     "outboxQueued_one": "{{count}} form waiting to be sent",
     "outboxQueued_other": "{{count}} forms waiting to be sent",
     "outboxSending_one": "Back online — sending {{count}} form",
-    "outboxSending_other": "Back online — sending {{count}} forms"
+    "outboxSending_other": "Back online — sending {{count}} forms",
+    "storageError": "Saving failed — device storage is full. Changes now only live in this session. Free up space on the device.",
+    "storageAlmostFull": "Device storage is almost full — back up and free up space soon."
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -276,7 +278,13 @@
     "emailTaken": "This email address is already assigned to another user. It is the only sign-in identifier and has to stay unique.",
     "groupNameTaken": "A group with this name already exists.",
     "noAccess": "You do not have access to the Admin Panel.",
-    "noUsersMatch": "No user matches the current filters."
+    "noUsersMatch": "No user matches the current filters.",
+    "storage": "Storage",
+    "storageState": "Form and chat data",
+    "storageUsed": "Used by this app",
+    "storageQuota": "of {{quota}} allotted",
+    "storageHint": "Data is stored on this device (IndexedDB). The bar shows how much of the browser-allotted space is in use; a warning banner appears app-wide above 85 %.",
+    "storageUnknown": "This browser does not report storage usage."
   },
   "imprint": {
     "title": "Legal notice & terms of use",

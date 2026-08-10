@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { isComplete } from './gradingRules'
 import { createSeedState } from './sandbox/seed'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
+import { clearPersistedState, persistState, readPreloadedState } from './persist'
 import type { InfoEntry } from './types'
 
 const EMPTY_SEEN: SeenState = { chat: {}, info: 0, contacts: 0 }
@@ -96,41 +97,25 @@ const StoreCtx = createContext<Store | null>(null)
 
 const USER_KEY = 'aaa-user'
 const SESSION_EXP_KEY = 'aaa-session-exp'
-const STATE_KEY = 'aaa-state'
 /** Bei jeder Änderung an der Form von AppState hochzählen — ein alter
  *  gespeicherter Stand wird dann verworfen statt halb geladen. */
 const STATE_VERSION = 2
 
-/** Gespeicherten Anwendungszustand lesen. Ein unlesbarer oder veralteter
- *  Stand wird verworfen, die App startet dann auf den Seed-Daten. */
+/** Gespeicherten Anwendungszustand lesen (aus IndexedDB vorgeladen, siehe
+ *  persist.ts). Ein unlesbarer oder veralteter Stand wird verworfen, die
+ *  App startet dann auf den Seed-Daten. */
 function loadPersistedState(): AppState | null {
   try {
-    const raw = localStorage.getItem(STATE_KEY)
+    const raw = readPreloadedState()
     if (!raw) return null
     const parsed = JSON.parse(raw) as { v?: number; state?: AppState }
     if (parsed.v !== STATE_VERSION || !parsed.state?.users?.length) {
-      localStorage.removeItem(STATE_KEY)
+      clearPersistedState()
       return null
     }
     return parsed.state
   } catch {
     return null
-  }
-}
-
-function persistState(payload: string) {
-  try {
-    localStorage.setItem(STATE_KEY, payload)
-  } catch {
-    /* Speicher voll oder gesperrt: der Stand gilt dann nur für diese Sitzung */
-  }
-}
-
-function clearPersistedState() {
-  try {
-    localStorage.removeItem(STATE_KEY)
-  } catch {
-    /* ohne localStorage gibt es nichts zu verwerfen */
   }
 }
 

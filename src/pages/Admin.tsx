@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
+import { storageInfo, type StorageInfo } from '../persist'
 import { useStore } from '../store'
 import { GradingAdmin } from './admin/GradingAdmin'
 import { formatDateTime } from './Grading'
@@ -692,6 +693,63 @@ function FeedbackTab() {
   )
 }
 
+/** Bytes menschenlesbar — die Zahlen reichen von KB (Seed) bis GB (Quota). */
+function fmtBytes(n: number): string {
+  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)} GB`
+  if (n >= 1024 ** 2) return `${(n / 1024 ** 2).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(n / 1024))} KB`
+}
+
+/**
+ * Füllstand der Ablage. localStorage lief bei echtem Betrieb nach 40–80
+ * Formularen voll — stillschweigend. Nach dem Umzug auf IndexedDB ist die
+ * Grenze weit weg, aber sie existiert; hier sieht der Admin sie, bevor der
+ * Warnstreifen erscheint.
+ */
+function StorageCard() {
+  const { t } = useTranslation()
+  const [info, setInfo] = useState<StorageInfo | null | 'loading'>('loading')
+  useEffect(() => {
+    let stop = false
+    storageInfo().then((i) => {
+      if (!stop) setInfo(i)
+    })
+    return () => {
+      stop = true
+    }
+  }, [])
+  if (info === 'loading') return null
+  const share = info && info.quota > 0 ? info.usage / info.quota : null
+  return (
+    <Card className="space-y-3 p-4">
+      <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('admin.storage')}</p>
+      {info === null || share === null ? (
+        <p className="text-[13px] text-dim">{t('admin.storageUnknown')}</p>
+      ) : (
+        <>
+          <div className="flex items-baseline justify-between text-[13.5px]">
+            <span>
+              {t('admin.storageUsed')}: <strong>{fmtBytes(info.usage)}</strong>{' '}
+              <span className="text-dim">{t('admin.storageQuota', { quota: fmtBytes(info.quota) })}</span>
+            </span>
+            <span className={share > 0.85 ? 'font-semibold text-danger' : 'text-dim'}>{Math.round(share * 100)} %</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-raised" role="presentation">
+            <div
+              className={`h-full rounded-full ${share > 0.85 ? 'bg-danger' : share > 0.7 ? 'bg-wait' : 'bg-ok'}`}
+              style={{ width: `${Math.max(2, Math.min(100, share * 100))}%` }}
+            />
+          </div>
+          <p className="text-[12.5px] text-dim">
+            {t('admin.storageState')}: {fmtBytes(info.stateBytes)}
+          </p>
+        </>
+      )}
+      <p className="text-[12px] leading-relaxed text-dim">{t('admin.storageHint')}</p>
+    </Card>
+  )
+}
+
 function SettingsTab() {
   const { t } = useTranslation()
   const { state, updateSettings } = useStore()
@@ -746,6 +804,7 @@ function SettingsTab() {
       <Card className="p-4">
         <StringListEditor label={t('admin.domains')} values={s.allowedDomains} onChange={(v) => updateSettings({ allowedDomains: v })} />
       </Card>
+      <StorageCard />
       {/* Herkunftsangaben des Ausdrucks — ohne sie ist ein ausgedrucktes
           Formular keiner Organisation und keinem Formularstand zuzuordnen. */}
       <Card className="space-y-3 p-4">
