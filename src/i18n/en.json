@@ -533,7 +533,12 @@
     },
     "deputisedNote": "Trainee signature captured on behalf of the assigned instructor by {{name}} — the assigned instructor's account was deactivated.",
     "sigAlt": "Signature present: {{label}}",
-    "errNoAttendee": "Please add at least one attendee — an attendance record without attendees is not evidence."
+    "errNoAttendee": "Please add at least one attendee — an attendance record without attendees is not evidence.",
+    "typeInstead": "Type name instead",
+    "drawInstead": "Draw instead",
+    "typedNamePlaceholder": "Full name as signature",
+    "useTyped": "Sign",
+    "typedHint": "For use without a pointing device. The document will show the typed name marked as \"Typed signature\" with a timestamp."
   },
   "lessons": {
     "newPlan": "Upload lesson plan",
