@@ -154,11 +154,8 @@
     "ackedAt": "Bestätigt am {{date}}",
     "ackStatus": "Bestätigt: {{done}}/{{total}}",
     "ackMissing": "ausständig",
-    "groupsLabel": "Zielgruppen (Mehrfachauswahl)",
-    "groupsHint": "Keine Auswahl = für alle sichtbar. Mit Gruppen sehen nur deren Mitglieder den Eintrag — und nur sie müssen die Lese-Bestätigung leisten.",
-    "allGroups": "Alle Gruppen",
     "exportAck": "Kontrollliste exportieren (CSV)",
-    "scheduled": "Geplant — für die Zielgruppen noch nicht sichtbar",
+    "scheduled": "Geplant — für Nutzer noch nicht sichtbar",
     "sinceRelease": "ab Veröffentlichung"
   },
   "contacts": {

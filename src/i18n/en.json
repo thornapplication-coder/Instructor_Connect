@@ -154,11 +154,8 @@
     "ackedAt": "Confirmed on {{date}}",
     "ackStatus": "Confirmed: {{done}}/{{total}}",
     "ackMissing": "outstanding",
-    "groupsLabel": "Target groups (multi-select)",
-    "groupsHint": "No selection = visible to everyone. With groups selected, only their members see the entry — and only they must confirm reading.",
-    "allGroups": "All groups",
     "exportAck": "Export control list (CSV)",
-    "scheduled": "Scheduled — not yet visible to the target groups",
+    "scheduled": "Scheduled — not yet visible to users",
     "sinceRelease": "from release"
   },
   "contacts": {

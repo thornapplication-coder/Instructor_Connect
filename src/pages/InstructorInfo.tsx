@@ -1,7 +1,7 @@
 import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
+import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
 import { infoEntryAppliesTo, infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
 import { formatDate, formatDateTime } from './Grading'
@@ -22,7 +22,6 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
   const [validFrom, setValidFrom] = useState('')
   const [validUntil, setValidUntil] = useState('')
   const [requiresAck, setRequiresAck] = useState(false)
-  const [groupIds, setGroupIds] = useState<string[]>([])
   const [aircraftType, setAircraftType] = useState('')
   const groups = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
 
@@ -32,7 +31,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
     <Modal
       title={t('info.newEntry')}
       onClose={onClose}
-      confirmDiscard={title.trim() || body.trim() || category || groupIds.length > 0 ? t('common.discardConfirm') : undefined}
+      confirmDiscard={title.trim() || body.trim() || category ? t('common.discardConfirm') : undefined}
     >
       <div className="space-y-4">
         <Field label={t('info.typeLabel')} group>
@@ -96,12 +95,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
           </Field>
         </div>
         <p className="-mt-2 text-[11.5px] leading-relaxed text-dim">{t('info.ufnHint')}</p>
-        {/* Zielgruppen: steuern Sichtbarkeit und Bestätigungspflicht (Mehrfachauswahl) */}
-        <Field label={t('info.groupsLabel')}>
-          <ChipMultiSelect options={groups.map((gr) => ({ id: gr.id, label: gr.name }))} selected={groupIds} onChange={setGroupIds} />
-          <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim">{t('info.groupsHint')}</p>
-        </Field>
-        {/* Lese-Bestätigung: jeder Nutzer der Zielgruppen muss aktiv „gelesen“ bestätigen */}
+        {/* Lese-Bestätigung: jeder Nutzer des Moduls muss aktiv „gelesen“ bestätigen */}
         <label className="flex items-center gap-2 text-[13.5px]">
           <input type="checkbox" checked={requiresAck} onChange={(e) => setRequiresAck(e.target.checked)} className="h-6 w-6 shrink-0 accent-accent" />
           {t('info.requiresAck')}
@@ -133,7 +127,6 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
                 validFrom,
                 validUntil,
                 requiresAck,
-                groupIds,
               })
               onClose()
             }}
@@ -171,21 +164,18 @@ export function InstructorInfo() {
   /** Zielpersonen einer Lese-Bestätigung: aktive Mitglieder der Zielgruppen */
   // Bestätigen kann nur, wer die Instructor Info auch erreicht — ein Training
   // Admin ohne Zugang zählte sonst in jeder Quote als dauerhaft säumig.
-  const ackTargets = (entry: { groupIds?: string[] }) =>
+  const ackTargets = (entry: (typeof state.infoEntries)[number]) =>
     state.users
       .filter((u) => u.active && userMayModule(state.settings, u, 'info') && infoEntryAppliesTo(entry, u.id, state.groups))
       // Alphabetisch — die interne Reihenfolge war für eine Kontrollliste
       // nicht nachvollziehbar.
       .sort((a, b) => a.name.localeCompare(b.name))
 
-  const groupNames = (ids?: string[]) =>
-    ids?.length ? ids.map((id) => state.groups.find((g) => g.id === id)?.name ?? '—').join(', ') : t('info.allGroups')
-
   /** Kontrollliste der Lese-Bestätigungen als CSV exportieren (Admins) */
   const exportAckList = (entry: (typeof state.infoEntries)[number]) => {
     const acks = state.infoAcks[entry.id] ?? {}
     let csv = csvRow(['Instructor Connect — Read Confirmation Control List'])
-    csv += csvRow(['Entry', entry.title, 'Groups', groupNames(entry.groupIds)])
+    csv += csvRow(['Entry', entry.title])
     csv += csvRow(['Exported (date/time)', formatDateTime(now()), 'Exported by', currentUser!.name])
     csv += csvRow([])
     csv += csvRow(['Name', 'Status', 'Confirmed at'])
@@ -199,12 +189,7 @@ export function InstructorInfo() {
    * Muster eines Eintrags: eindeutig, wenn alle Zielgruppen demselben
    * Aircraft Type zugeordnet sind — sonst musterübergreifend ('').
    */
-  const aircraftOf = (e: { groupIds?: string[]; aircraftType?: string }): string => {
-    if (e.aircraftType) return e.aircraftType
-    if (!e.groupIds?.length) return ''
-    const types = [...new Set(e.groupIds.map((gid) => state.groups.find((g) => g.id === gid)?.aircraftType || ''))]
-    return types.length === 1 ? types[0] : ''
-  }
+  const aircraftOf = (e: { aircraftType?: string }): string => e.aircraftType ?? ''
 
   // Nach Muster unterteilt; innerhalb: markierte zuoberst, dann neueste zuerst
   const entries = visibleInfoEntries
@@ -336,7 +321,6 @@ export function InstructorInfo() {
                   {/* Bewusst ohne Erstellungsdatum und Autor in der Übersicht */}
                   <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11.5px] text-dim">
                     <span className="rounded bg-raised px-1.5 py-0.5 font-medium text-dim">{entry.category}</span>
-                    <span className="rounded border border-line/15 px-1.5 py-0.5 text-dim">{groupNames(entry.groupIds)}</span>
                   </p>
                   <p className={`mt-1 text-[11.5px] ${expired ? 'text-danger' : 'text-dim'}`}>
                     {t('info.validity')}: {validityLabel(entry)}

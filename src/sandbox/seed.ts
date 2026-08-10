@@ -127,7 +127,6 @@ function seedState(now: number): AppState {
         validFrom: iso(now - 2 * d),
         validUntil: '', // UFN
         requiresAck: true,
-        groupIds: [], // alle Gruppen
         authorId: 'u-patrick',
         createdAt: now - 2 * d,
       },
@@ -140,7 +139,6 @@ function seedState(now: number): AppState {
         category: 'Simulator Training',
         validFrom: iso(now - 5 * d),
         validUntil: iso(now + 60 * d),
-        groupIds: ['g-auto'],
         authorId: 'u-christian',
         createdAt: now - 5 * d,
       },
@@ -153,7 +151,6 @@ function seedState(now: number): AppState {
         category: 'HR',
         validFrom: iso(now - 20 * d),
         validUntil: '',
-        groupIds: [],
         authorId: 'u-patrick',
         createdAt: now - 20 * d,
       },
@@ -167,7 +164,6 @@ function seedState(now: number): AppState {
         validFrom: iso(now - 10 * d),
         validUntil: '',
         requiresAck: true,
-        groupIds: ['g-ground'],
         authorId: 'u-christian',
         createdAt: now - 10 * d,
       },
