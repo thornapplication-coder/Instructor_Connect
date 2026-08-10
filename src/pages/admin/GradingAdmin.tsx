@@ -9,6 +9,7 @@ import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType, GradingRecord } from '../../types'
 import { formatDate, formatDateTime, missingFollowUps, TrafficDot, traineesOf, trafficLight, type TrafficColor } from '../Grading'
 import { StandardisationReport } from './StandardisationReport'
+import { PERIODS, periodLabel, scopeRecords, statsBySet as computeStatsBySet, type PeriodKey } from '../../gradingStats'
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats' | 'standardisation'
 const SECTIONS: Section[] = ['dashboard', 'records', 'stats', 'standardisation', 'config']
@@ -361,6 +362,10 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
   const [filterPeriod, setFilterPeriod] = useState('all')
   // Statistik: leer = gesamte Flotte, sonst ein einzelner Aircraft Type
   const [statsFleet, setStatsFleet] = useState('')
+  // Zeitraum gilt für Kalibrierung UND Standardisierungsbericht. Vorher kannte
+  // nur der Bericht einen Zeitraum, die Kalibrierung rechnete über alles —
+  // dieselbe Frage bekam dadurch zwei verschiedene Antworten.
+  const [statsPeriod, setStatsPeriod] = useState<PeriodKey>('12m')
 
   const g = state.settings.grading
   // Neueste immer zuoberst — memoisiert, damit die Statistik-Aggregationen
@@ -382,11 +387,17 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
     [g.formTypes],
   )
 
-  /** Datenbasis der Statistik: alle Formulare oder eine einzelne Flotte */
+  /** Datenbasis der Statistik — dieselben Regeln wie im
+   *  Standardisierungsbericht (nur unterschriebene Formulare, keine
+   *  Folgeformulare, Zeitraum über den Schulungstag). Beide Ansichten
+   *  beantworten damit dieselbe Frage gleich. */
   const statsRecords = useMemo(
-    () => (statsFleet ? records.filter((r) => r.header.aircraftType === statsFleet) : records),
-    [records, statsFleet],
+    () => scopeRecords(records, { fleet: statsFleet, period: statsPeriod, now: Date.now() + state.timeOffsetMs }),
+    [records, statsFleet, statsPeriod, state.timeOffsetMs],
   )
+
+  /** Kalibrierung je Kompetenzsatz aus dem gemeinsamen Modul. */
+  const calibrationSets = useMemo(() => computeStatsBySet(statsRecords, setOfRecord), [statsRecords, setOfRecord])
 
   /** Ein Durchgang kann mehrere Formulare ergeben (ein Blatt je Pilot) —
    *  gezählt wird der Durchgang, Folgeformulare zählen nicht mit. */
@@ -434,15 +445,12 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
           .filter((x) => x.avg !== null && x.n >= 2 && x.avg < 3.2)
           .sort((a, b) => (a.avg ?? 0) - (b.avg ?? 0))
 
-        const overall = avgOf(rs.flatMap((r) => r.trainees.flatMap((tr) => tr.grades.map((x) => x.grade))))
-        const byInstr: Record<string, (number | 'NO' | null)[]> = {}
-        rs.forEach((r) => r.trainees.forEach((tr) => tr.grades.forEach((gr) => (byInstr[r.instructorId] ??= []).push(gr.grade))))
+        // Aus dem gemeinsamen Modul, damit Kachel und Bericht nicht
+        // auseinanderlaufen können.
+        const shared = calibrationSets.find((c) => c.key === key)
         const calibration = {
-          overall,
-          rows: Object.entries(byInstr)
-            .map(([id, vals]) => ({ id, avg: avgOf(vals), sessions: sessionCount(rs.filter((r) => r.instructorId === id)) }))
-            .filter((r) => r.avg !== null)
-            .sort((a, b) => (b.avg ?? 0) - (a.avg ?? 0)),
+          overall: shared?.overall ?? null,
+          rows: (shared?.rows ?? []).map((r) => ({ id: r.id, avg: r.mean, sessions: r.sessions })),
         }
 
         const fleets = [...new Set(allOfSet.map((r) => r.header.aircraftType).filter(Boolean))].sort()
@@ -468,7 +476,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
         }
       })
       .filter((x) => x.calibration.rows.length > 0 || x.fleetMatrix.fleets.length > 0)
-  }, [statsRecords, records, setOfRecord, g.competencySets, sessionCount])
+  }, [statsRecords, records, setOfRecord, g.competencySets, sessionCount, calibrationSets])
 
   // Auswahllisten aus den vorhandenen Formularen ableiten
   // Folgeformulare (306/310) führen ihren Piloten in den Kopfdaten —
@@ -846,6 +854,8 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
           fleet={statsFleet}
           onFleetChange={setStatsFleet}
           fleetOptions={aircraftOptions}
+          period={statsPeriod}
+          onPeriodChange={setStatsPeriod}
         />
       )}
 
@@ -862,10 +872,27 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 </option>
               ))}
             </select>
+            {/* Zeitraum gilt auch für den Standardisierungsbericht — beide
+                zeigen denselben Ausschnitt und nennen ihn. */}
+            <label className="text-[13px] font-medium text-dim">{t('grading.std.period.label')}</label>
+            <select
+              value={statsPeriod}
+              onChange={(e) => setStatsPeriod(e.target.value as PeriodKey)}
+              className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]"
+            >
+              {PERIODS.map((p2) => (
+                <option key={p2.key} value={p2.key}>
+                  {t(`grading.std.period.${p2.key}`)}
+                </option>
+              ))}
+            </select>
             <span className="text-[12.5px] text-dim">
               {t('grading.admin.sessionCount', { count: sessionCount(statsRecords) })}
             </span>
           </div>
+          {/* Die Datenbasis gehört sichtbar an die Zahlen: ohne sie war nicht
+              erkennbar, warum Kachel und Bericht verschiedene Werte zeigten. */}
+          <p className="text-[12px] leading-relaxed text-dim">{t('grading.admin.statsScopeNote')}</p>
 
           {statsBySet.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('grading.empty')}</p>}
 

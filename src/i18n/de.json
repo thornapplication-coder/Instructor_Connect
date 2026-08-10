@@ -410,7 +410,8 @@
       "noTrendFlags": "Keine Trendflags — keine Kompetenz unter dem Schwellwert.",
       "sessionCount_one": "{{count}} session",
       "sessionCount_other": "{{count}} sessions",
-      "standardisation": "Standardisierung"
+      "standardisation": "Standardisierung",
+      "statsScopeNote": "Grundlage: nur unterschriebene Formulare, Folgeformulare ausgenommen, Zeitraum über den Schulungstag. Der Standardisierungsbericht nutzt denselben Ausschnitt."
     },
     "attendance": "Teilnehmerliste",
     "studentName": "Name des Teilnehmers",

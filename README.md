@@ -119,6 +119,27 @@ Wie die Formulare ist der Bericht durchgehend englisch, mit ATO-Kopf und
 Export-Stempel; Zeitraum und Flotte sind wählbar, der CSV-Export trägt
 dieselben Zahlen.
 
+## Kennzahlen: eine Grundlage
+
+Kalibrierungs-Kachel und Standardisierungsbericht rechnen über dasselbe
+Modul (`src/gradingStats.ts`) und teilen sich Flotte und Zeitraum. Vorher
+rechneten sie getrennt und mit verschiedenen Regeln: Für denselben
+Instruktor und denselben Bestand standen +0,19 und +0,59 in zwei
+Dokumenten, ohne dass der Unterschied irgendwo genannt war.
+
+Die vier Regeln der gemeinsamen Datenbasis, jede mit Grund:
+
+- **Nur unterschriebene Formulare.** Ein Blatt, das noch auf eine
+  Unterschrift wartet, ist kein Nachweis und darf keine Kennzahl bewegen.
+- **Keine Folgeformulare.** 306 und 310 tragen keine Noten; sie zählen beim
+  Ausgangsformular mit, nicht ein zweites Mal für sich.
+- **Nur Blätter mit Piloten.** Anwesenheitslisten haben keine Bewertung.
+- **Zeitraum über den Schulungstag**, nicht über die Erfassungszeit. Ein
+  zwei Wochen später nachgetragenes Formular gehört in die Periode, in der
+  geschult wurde.
+
+Beide Ansichten nennen diesen Ausschnitt sichtbar über der Tabelle.
+
 ## Datensicherung
 
 Noch nicht aktiv — die Sandbox hält ihren Zustand im Browser. Sobald die
