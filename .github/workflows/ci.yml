@@ -34,10 +34,16 @@ jobs:
       # npm ci statt npm install: installiert exakt den Stand aus dem
       # package-lock.json. „npm run build" ist „tsc -b && vite build" — die
       # Typprüfung bricht den Lauf also mit ab.
-      - name: Typen prüfen und bauen
+      # Die Tests laufen VOR dem Build: Eine gebrochene Regel soll den Lauf
+      # beenden, bevor irgendetwas gebaut wird. Die Abdeckungsschwelle greift
+      # dabei auf alle Logik-Module — neue, ungetestete Logik faellt durch.
+      - name: Tests
         run: |
           npm ci
-          npm run build
+          npm test
+
+      - name: Typen prüfen und bauen
+        run: npm run build
 
       # Der Auslieferungsstand muss reproduzierbar sein: Zwei Builds derselben
       # Quellen ergeben byte-gleiche Dateien. Weicht etwas ab, erzeugt jede
