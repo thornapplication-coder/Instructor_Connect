@@ -105,6 +105,12 @@ export interface FeedbackEntry {
    *  = allgemeine Rückmeldung ohne Musterbezug (General). */
   aircraftType?: string
   createdAt: number
+  /** Als bearbeitet markiert von (User-ID) — leer = noch offen */
+  resolvedBy?: string
+  /** Zeitpunkt der Bearbeitung */
+  resolvedAt?: number
+  /** Optionale Notiz: was wurde gemacht */
+  resolutionNote?: string
 }
 
 export interface LessonPlan {
@@ -387,4 +393,4 @@ export const RETENTION_MS: Record<RetentionKey, number> = {
   never: Infinity,
 }
 
-export const APP_VERSION = '1.4.1'
+export const APP_VERSION = '1.4.2'

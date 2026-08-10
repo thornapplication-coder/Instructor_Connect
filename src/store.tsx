@@ -50,6 +50,9 @@ export interface Store {
   acknowledgeInfo: (id: string) => void
   submitFeedback: (entry: { category: string; recipient: string; urgent: boolean; message: string; attachment?: Attachment; aircraftType?: string }) => void
   deleteFeedback: (id: string) => void
+  /** Feedback als bearbeitet markieren (mit optionaler Notiz) bzw. wieder öffnen */
+  resolveFeedback: (id: string, note: string) => void
+  reopenFeedback: (id: string) => void
   saveContact: (contact: { id?: string; department: string; position: string; name: string; phone: string; email: string }) => void
   deleteContact: (id: string) => void
   /** Nutzer anlegen — die Zuweisung zu mindestens einer Gruppe ist Pflicht */
@@ -136,7 +139,7 @@ function initialState(): AppState {
   // Ein unterschriebenes Formular darf ein Neuladen (auch das automatische
   // nach einem App-Update) überstehen — der gesamte Zustand wird deshalb
   // gespeichert und beim Start wiederhergestellt.
-  const base = loadPersistedState() ?? createSeedState()
+  const base = migrateState(loadPersistedState() ?? createSeedState())
   try {
     const savedId = localStorage.getItem(USER_KEY)
     const exp = Number(localStorage.getItem(SESSION_EXP_KEY) ?? 0)
@@ -152,6 +155,47 @@ function initialState(): AppState {
   }
   // Ohne gültige Sitzung wird der Inhalt behalten, aber abgemeldet gestartet.
   return { ...base, currentUserId: null }
+}
+
+/**
+ * Sanfte Datenmigrationen auf bereits gespeicherten Zustand — OHNE
+ * STATE_VERSION-Bruch, der alle Daten verwerfen würde.
+ *
+ * Die ATO-Identität lag anfangs als Platzhalter im Zustand
+ * („Austrian Aviation Academy", „AT.ATO.007"). Da sie beim Anlegen in die
+ * gespeicherten Einstellungen wandert, überlebt der alte Wert eine reine
+ * Seed-Änderung und stand weiter im Export-Kopf. Hier wird er auf die
+ * echte Organisation umgestellt — aber nur, wenn er noch der Platzhalter
+ * (oder leer) ist; eine bewusst gesetzte eigene Angabe bleibt unangetastet.
+ */
+function migrateState(st: AppState): AppState {
+  const dh = st.settings?.documentHeader
+  if (!dh) return st
+  const OLD_NAMES = ['', 'Austrian Aviation Academy']
+  const OLD_NRS = ['', 'AT.ATO.007']
+  const atoName = OLD_NAMES.includes(dh.atoName) ? 'Aviation Academy Austria' : dh.atoName
+  const approvalNumber = OLD_NRS.includes(dh.approvalNumber) ? 'AT.ATO.106' : dh.approvalNumber
+  // Die UK-Nummer gab es im alten Schema nicht — fehlt sie, ergänzen.
+  const approvalNumberUK = dh.approvalNumberUK || 'GBR.ATO.0541'
+  // „General" als Kategorie in Feedback und Instructor Info sicherstellen —
+  // auch auf Bestandsgeräten, deren gespeicherte Listen sie noch nicht haben.
+  const withGeneral = (list: string[] | undefined) =>
+    list && !list.includes('General') ? ['General', ...list] : list
+  const feedbackCategories = withGeneral(st.settings.feedbackCategories)
+  const infoCategories = withGeneral(st.settings.infoCategories)
+
+  const headerChanged = atoName !== dh.atoName || approvalNumber !== dh.approvalNumber || approvalNumberUK !== dh.approvalNumberUK
+  const catsChanged = feedbackCategories !== st.settings.feedbackCategories || infoCategories !== st.settings.infoCategories
+  if (!headerChanged && !catsChanged) return st
+  return {
+    ...st,
+    settings: {
+      ...st.settings,
+      documentHeader: { ...dh, atoName, approvalNumber, approvalNumberUK },
+      feedbackCategories: feedbackCategories ?? st.settings.feedbackCategories,
+      infoCategories: infoCategories ?? st.settings.infoCategories,
+    },
+  }
 }
 
 function persistUser(id: string | null) {
@@ -577,6 +621,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           ],
         })),
       deleteFeedback: (id) => patch((s) => ({ feedbackEntries: s.feedbackEntries.filter((f) => f.id !== id) })),
+      // Bearbeitet: wer und wann werden festgehalten; die Rückmeldung bleibt
+      // erhalten und wandert in der Ansicht unter die offenen.
+      resolveFeedback: (id, note) =>
+        patch((s) => ({
+          feedbackEntries: s.feedbackEntries.map((f) =>
+            f.id === id
+              ? { ...f, resolvedBy: s.currentUserId!, resolvedAt: Date.now() + s.timeOffsetMs, resolutionNote: note.trim() || undefined }
+              : f,
+          ),
+        })),
+      reopenFeedback: (id) =>
+        patch((s) => ({
+          feedbackEntries: s.feedbackEntries.map((f) =>
+            f.id === id ? { ...f, resolvedBy: undefined, resolvedAt: undefined, resolutionNote: undefined } : f,
+          ),
+        })),
 
       saveContact: (contact) =>
         patch((s) => ({

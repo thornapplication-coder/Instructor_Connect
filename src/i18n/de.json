@@ -46,7 +46,6 @@
     "welcome": "Willkommen bei",
     "subtitle": "Die interne Kommunikations-App für Instruktoren.",
     "identifier": "E-Mail-Adresse",
-    "placeholder": "firstname.lastname@aviationacademy.at",
     "button": "Anmelden",
     "otpHint": "Du erhältst einen 6-stelligen Anmeldecode per E-Mail.",
     "error": "Kein Konto für diese E-Mail-Adresse gefunden. Konten werden vom Admin bzw. Superadmin angelegt.",
@@ -287,7 +286,14 @@
     "storageHint": "Die Daten liegen auf diesem Gerät (IndexedDB). Der Balken zeigt, wie viel des vom Browser zugeteilten Platzes belegt ist; ab 85 % erscheint app-weit ein Warnstreifen.",
     "storageUnknown": "Dieser Browser meldet keinen Speicherstand.",
     "approvalNumberUK": "Genehmigungsnummer (UK)",
-    "allScopes": "Alle Bezüge"
+    "allScopes": "Alle Bezüge",
+    "feedbackDone": "Erledigt",
+    "feedbackResolvedSection": "Abgeschlossen ({{count}})",
+    "feedbackResolvedBy": "Bearbeitet von {{name}} · {{date}}",
+    "feedbackAddNote": "Notiz hinzufügen",
+    "feedbackEditNote": "Notiz bearbeiten",
+    "feedbackNotePlaceholder": "Was wurde gemacht?",
+    "feedbackNoteLabel": "Follow-up-Notiz"
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",

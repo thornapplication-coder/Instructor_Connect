@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, ChevronDown, ClipboardList, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Users, UsersRound, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, ClipboardList, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Users, UsersRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
@@ -7,7 +7,7 @@ import { storageInfo, type StorageInfo } from '../persist'
 import { useStore } from '../store'
 import { GradingAdmin } from './admin/GradingAdmin'
 import { formatDateTime } from './Grading'
-import { APP_VERSION, PERM_KEYS, type ConfigurableRole, type RetentionKey, type Role } from '../types'
+import { APP_VERSION, type FeedbackEntry, PERM_KEYS, type ConfigurableRole, type RetentionKey, type Role } from '../types'
 
 const RETENTION_KEYS: RetentionKey[] = ['24h', '7d', '30d', '90d', 'never']
 type Tab = 'users' | 'permissions' | 'grading' | 'groups' | 'feedback' | 'settings' | 'imprint' | 'changelog'
@@ -599,10 +599,121 @@ function GroupsTab() {
   )
 }
 
+/** Eine Feedback-Karte mit Bearbeitet-Status (Tickbox), Bearbeiter, Zeit
+ *  und optionaler Follow-up-Notiz. Bearbeitete bleiben erhalten und werden
+ *  in der Liste unter die offenen sortiert. */
+function FeedbackCard({
+  f,
+  userName,
+  onDelete,
+  onResolve,
+  onReopen,
+}: {
+  f: FeedbackEntry
+  userName: (id: string) => string
+  onDelete: (id: string) => void
+  onResolve: (id: string, note: string) => void
+  onReopen: (id: string) => void
+}) {
+  const { t } = useTranslation()
+  const done = !!f.resolvedBy
+  const [note, setNote] = useState(f.resolutionNote ?? '')
+  const [editNote, setEditNote] = useState(false)
+
+  return (
+    <Card className={`p-4 ${done ? 'opacity-80' : ''}`}>
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-[14.5px] font-semibold">{userName(f.authorId)}</p>
+            <Badge tone="dim">{f.category}</Badge>
+            <Badge tone={f.aircraftType ? 'warm' : 'dim'}>{f.aircraftType || t('feedback.scopeGeneral')}</Badge>
+            {f.urgent && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[11px] font-semibold text-danger">
+                <AlertTriangle size={11} /> {t('feedback.urgent')}
+              </span>
+            )}
+            {done && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-ok/15 px-2.5 py-0.5 text-[11px] font-semibold text-ok">
+                <CheckCircle2 size={11} /> {t('admin.feedbackDone')}
+              </span>
+            )}
+          </div>
+          <p className="mt-0.5 text-[12px] text-dim">
+            {formatDateTime(f.createdAt)} · {t('feedback.recipient')}: {f.recipient}
+          </p>
+          <p className="mt-2 whitespace-pre-wrap text-[13.5px] leading-relaxed">{f.message}</p>
+          {f.attachment && (
+            <p className="mt-2 flex items-center gap-1.5 text-[12.5px] text-dim">
+              <Paperclip size={13} /> {f.attachment.name} · {f.attachment.sizeMB} MB
+            </p>
+          )}
+
+          {/* Bearbeitet-Block: Wer, wann, und was getan wurde */}
+          {done && (
+            <div className="mt-3 rounded-xl border border-ok/25 bg-ok/[0.06] p-3">
+              <p className="text-[12.5px] font-medium text-dim">
+                {t('admin.feedbackResolvedBy', { name: userName(f.resolvedBy!), date: formatDateTime(f.resolvedAt!) })}
+              </p>
+              {f.resolutionNote && !editNote && (
+                <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed">{f.resolutionNote}</p>
+              )}
+              {editNote ? (
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <input
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    placeholder={t('admin.feedbackNotePlaceholder')}
+                    aria-label={t('admin.feedbackNoteLabel')}
+                    className={inputCls}
+                  />
+                  <Button
+                    onClick={() => {
+                      onResolve(f.id, note)
+                      setEditNote(false)
+                    }}
+                    className="shrink-0"
+                  >
+                    {t('common.save')}
+                  </Button>
+                </div>
+              ) : (
+                <button onClick={() => setEditNote(true)} className="mt-1.5 text-[12px] font-medium text-accent hover:underline">
+                  {f.resolutionNote ? t('admin.feedbackEditNote') : t('admin.feedbackAddNote')}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          {/* Tickbox „Erledigt" — schaltet Bearbeitet-Status um */}
+          <label className="flex cursor-pointer items-center gap-1.5 text-[12.5px] font-medium text-dim">
+            <input
+              type="checkbox"
+              checked={done}
+              onChange={(e) => (e.target.checked ? onResolve(f.id, note) : onReopen(f.id))}
+              className="h-5 w-5 shrink-0 accent-ok"
+            />
+            {t('admin.feedbackDone')}
+          </label>
+          <button
+            onClick={() => window.confirm(t('admin.confirmDeleteFeedback')) && onDelete(f.id)}
+            aria-label={t('common.delete')}
+            className="flex h-11 w-11 items-center justify-center rounded-full text-dim hover:text-danger"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 /** Eingegangenes Feedback: bleibt gespeichert, kann hier bei Bedarf gelöscht werden */
 function FeedbackTab() {
   const { t } = useTranslation()
-  const { state, currentUser, deleteFeedback } = useStore()
+  const { state, currentUser, deleteFeedback, resolveFeedback, reopenFeedback } = useStore()
   // Filter: Kategorie, Empfänger, nur Dringendes
   const [fCat, setFCat] = useState('')
   const [fRec, setFRec] = useState('')
@@ -624,6 +735,11 @@ function FeedbackTab() {
     if (onlyUrgent && !f.urgent) return false
     return true
   })
+  // Offen zuerst (neueste oben), Bearbeitete darunter (zuletzt bearbeitete oben)
+  const open = entries.filter((f) => !f.resolvedBy)
+  const resolved = entries
+    .filter((f) => f.resolvedBy)
+    .sort((a, b) => (b.resolvedAt ?? 0) - (a.resolvedAt ?? 0))
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
   const cats = [...new Set(all.map((f) => f.category))].sort()
   const recs = [...new Set(all.map((f) => f.recipient))].sort()
@@ -670,38 +786,18 @@ function FeedbackTab() {
         </span>
       </div>
       {entries.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('admin.feedbackEmpty')}</p>}
-      {entries.map((f) => (
-        <Card key={f.id} className="p-4">
-          <div className="flex items-start gap-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-[14.5px] font-semibold">{userName(f.authorId)}</p>
-                <Badge tone="dim">{f.category}</Badge>
-                <Badge tone={f.aircraftType ? 'warm' : 'dim'}>{f.aircraftType || t('feedback.scopeGeneral')}</Badge>
-                {f.urgent && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[11px] font-semibold text-danger">
-                    <AlertTriangle size={11} /> {t('feedback.urgent')}
-                  </span>
-                )}
-              </div>
-              <p className="mt-0.5 text-[12px] text-dim">
-                {formatDateTime(f.createdAt)} · {t('feedback.recipient')}: {f.recipient}
-              </p>
-              <p className="mt-2 whitespace-pre-wrap text-[13.5px] leading-relaxed">{f.message}</p>
-              {f.attachment && (
-                <p className="mt-2 flex items-center gap-1.5 text-[12.5px] text-dim">
-                  <Paperclip size={13} /> {f.attachment.name} · {f.attachment.sizeMB} MB
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => window.confirm(t('admin.confirmDeleteFeedback')) && deleteFeedback(f.id)}
-              className="shrink-0 flex h-11 w-11 items-center justify-center rounded-full text-dim hover:text-danger"
-            >
-              <Trash2 size={16} />
-            </button>
-          </div>
-        </Card>
+      {/* Offene zuerst, dann — abgesetzt — die bereits bearbeiteten. */}
+      {open.map((f) => (
+        <FeedbackCard key={f.id} f={f} userName={userName} onDelete={deleteFeedback} onResolve={resolveFeedback} onReopen={reopenFeedback} />
+      ))}
+      {resolved.length > 0 && (
+        <div className="flex items-center gap-2 pt-3 text-[12px] font-semibold uppercase tracking-wide text-dim">
+          <CheckCircle2 size={14} className="text-ok" />
+          {t('admin.feedbackResolvedSection', { count: resolved.length })}
+        </div>
+      )}
+      {resolved.map((f) => (
+        <FeedbackCard key={f.id} f={f} userName={userName} onDelete={deleteFeedback} onResolve={resolveFeedback} onReopen={reopenFeedback} />
       ))}
     </div>
   )

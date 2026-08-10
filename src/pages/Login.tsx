@@ -81,7 +81,6 @@ export function Login() {
                 autoComplete="email"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder={t('login.placeholder')}
                 className={inputCls}
                 autoFocus
               />
