@@ -1,4 +1,4 @@
-import { Eye, EyeOff, AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, Scale, SlidersHorizontal, Trash2, TrendingDown, X } from 'lucide-react'
+import { Eye, EyeOff, AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, Scale, SlidersHorizontal, Trash2, TrendingDown, UserRound, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls, selectCls } from '../../components/ui'
@@ -9,11 +9,12 @@ import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType, GradingRecord } from '../../types'
 import { formatDate, formatDateTime, missingFollowUps, TrafficDot, traineesOf, trafficLight, type TrafficColor } from '../Grading'
 import { StandardisationReport } from './StandardisationReport'
+import { TraineeHistory } from './TraineeHistory'
 import { gradingListComparator } from '../../gradingRules'
 import { authorityOf, PERIODS, periodLabel, scopeRecords, statsBySet as computeStatsBySet, type PeriodKey } from '../../gradingStats'
 
-type Section = 'dashboard' | 'records' | 'config' | 'stats' | 'standardisation'
-const SECTIONS: Section[] = ['dashboard', 'records', 'stats', 'standardisation', 'config']
+type Section = 'dashboard' | 'records' | 'config' | 'stats' | 'standardisation' | 'trainees'
+const SECTIONS: Section[] = ['dashboard', 'records', 'trainees', 'stats', 'standardisation', 'config']
 
 /** Durchschnitt der numerischen Noten (NO zählt nicht mit) */
 function avgOf(values: (number | 'NO' | null)[]): number | null {
@@ -655,6 +656,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
   const SECTION_TILES: { key: Section; icon: typeof Gauge; badge?: number }[] = [
     { key: 'dashboard', icon: Gauge, badge: openSignatures.length + failedMails.length + openFollowUps.length },
     { key: 'records', icon: FolderOpen },
+    { key: 'trainees', icon: UserRound },
     { key: 'stats', icon: BarChart3 },
     { key: 'standardisation', icon: Scale },
     { key: 'config', icon: SlidersHorizontal },
@@ -940,6 +942,8 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
           </Card>
         </div>
       )}
+
+      {section === 'trainees' && <TraineeHistory records={records} />}
 
       {/* Auswertung im Querformat drucken: die Flottenmatrix wird mit jeder
           Kompetenz breiter und passt hochkant nicht mehr auf ein Blatt. */}
