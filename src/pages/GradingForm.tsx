@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
 import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
+import { contentFingerprint } from '../docHash'
 import { isFollowUpType } from '../gradingRules'
 import { navigate, scrollToTop } from '../router'
 
@@ -408,6 +409,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
           parentId: parentId ?? existing?.parentId,
           createdAt: existing?.createdAt ?? ts,
           signedAt: signed ? ts : undefined,
+          instructorSignedAt: sigInstructor ? ts : undefined,
         },
       ]
     }
@@ -443,14 +445,19 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         batchId,
         createdAt: existing?.createdAt ?? ts,
         signedAt: signed ? ts : undefined,
+        instructorSignedAt: sigInstructor ? ts : undefined,
       }
     })
   }
 
   const [submitting, setSubmitting] = useState(false)
 
-  const saveAll = (): GradingRecord[] => {
-    const recs = buildRecords()
+  const saveAll = async (): Promise<GradingRecord[]> => {
+    // Der Fingerabdruck entsteht im Moment des Unterschreibens — VOR dem
+    // Speichern, damit der abgelegte Datensatz ihn von Anfang an trägt.
+    const recs = await Promise.all(
+      buildRecords().map(async (r) => (r.status === 'signed' ? { ...r, contentHash: await contentFingerprint(r) } : r)),
+    )
     recs.forEach(saveGradingRecord)
     clearDraft()
     return recs
@@ -470,7 +477,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     return true
   }
 
-  const submit = () => {
+  const submit = async () => {
     const err = validate()
     if (err) {
       setError(err)
@@ -487,7 +494,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     if (submittingRef.current) return
     submittingRef.current = true
     setSubmitting(true)
-    const recs = saveAll()
+    const recs = await saveAll()
     // Teil einer Folgeformular-Kette: nächstes Glied öffnen — mit SEINEM
     // Ausgangsformular, nicht mit dem des gerade abgeschlossenen.
     if (parentId && next.length > 0) {
@@ -503,11 +510,11 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   }
 
   /** Speichern und die (Pflicht-)Folgeformulare als Kette öffnen */
-  const finish = () => {
+  const finish = async () => {
     if (submittingRef.current) return
     submittingRef.current = true
     setSubmitting(true)
-    const recs = saveAll()
+    const recs = await saveAll()
     setShowFollowUp(false)
     // Je nicht bestandenem Piloten ein eigenes 306 — es dokumentiert dessen
     // Defizite und trägt dessen Unterschrift. Das 310 betrifft dagegen den

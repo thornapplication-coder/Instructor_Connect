@@ -348,7 +348,17 @@ export interface GradingRecord {
   /** Verweis auf ein zugehöriges Formular (306/310 an ein Grading Sheet) */
   parentId?: string
   createdAt: number
+  /** Zeitpunkt, zu dem das Formular VOLLSTÄNDIG unterschrieben (gesperrt) wurde */
   signedAt?: number
+  /** Zeitpunkt der Instruktorunterschrift — bleibt bei einer
+   *  Nachtragsunterschrift des Piloten erhalten (Chronologie ist bei
+   *  306-Vorgängen prüfrelevant) */
+  instructorSignedAt?: number
+  /** Zeitpunkt einer nachgetragenen Piloten-/Gegenunterschrift */
+  countersignedAt?: number
+  /** SHA-256 über die prüfrelevanten Felder samt Unterschriftsbildern,
+   *  gebildet im Moment des Unterschreibens (siehe docHash.ts) */
+  contentHash?: string
 }
 
 export interface GradingSettings {

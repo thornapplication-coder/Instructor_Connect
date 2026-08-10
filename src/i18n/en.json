@@ -538,7 +538,12 @@
     "drawInstead": "Draw instead",
     "typedNamePlaceholder": "Full name as signature",
     "useTyped": "Sign",
-    "typedHint": "For use without a pointing device. The document will show the typed name marked as \"Typed signature\" with a timestamp."
+    "typedHint": "For use without a pointing device. The document will show the typed name marked as \"Typed signature\" with a timestamp.",
+    "instrSignedAt": "Instructor signed on {{date}}",
+    "counterSignedAt": "countersigned on {{date}}",
+    "fingerprint": "Document fingerprint {{hash}}",
+    "fingerprintOk": "matches the signed content",
+    "fingerprintBad": "DOES NOT match the signed content — this record was altered after signing"
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

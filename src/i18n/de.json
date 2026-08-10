@@ -538,7 +538,12 @@
     "drawInstead": "Doch zeichnen",
     "typedNamePlaceholder": "Voller Name als Unterschrift",
     "useTyped": "Unterschreiben",
-    "typedHint": "Für die Bedienung ohne Zeigegerät. Im Dokument erscheint der getippte Name mit dem Vermerk „Typed signature\" und Zeitstempel."
+    "typedHint": "Für die Bedienung ohne Zeigegerät. Im Dokument erscheint der getippte Name mit dem Vermerk „Typed signature\" und Zeitstempel.",
+    "instrSignedAt": "Instruktor unterschrieb am {{date}}",
+    "counterSignedAt": "gegengezeichnet am {{date}}",
+    "fingerprint": "Dokument-Fingerabdruck {{hash}}",
+    "fingerprintOk": "stimmt mit dem unterschriebenen Inhalt überein",
+    "fingerprintBad": "STIMMT NICHT mit dem unterschriebenen Inhalt überein — nach der Unterschrift verändert"
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

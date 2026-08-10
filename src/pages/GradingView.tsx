@@ -1,10 +1,12 @@
 import { AlertTriangle, CheckCircle2, Clock, Printer, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { contentFingerprint, shortFingerprint } from '../docHash'
 import { SignaturePad } from '../components/SignaturePad'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { useStore, userHasPerm } from '../store'
+import type { GradingRecord } from '../types'
 import { formatDate, formatDateTime, gradeColor, missingFollowUps, TrafficDot, trafficLight } from './Grading'
 
 /**
@@ -21,6 +23,22 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
   // les- noch unterschreibbar. Nicht gefunden = nicht berechtigt.
   const record = gradingRecordById(recordId)
   const [lateSignature, setLateSignature] = useState<string | null>(null)
+
+  // Fingerabdruck nachrechnen: stimmt der gespeicherte Abdruck nicht mehr
+  // mit dem Inhalt überein, wurde nach der Unterschrift verändert — das
+  // Dokument sagt es dann selbst (auch auf dem Ausdruck).
+  const [hashState, setHashState] = useState<'ok' | 'bad' | null>(null)
+  useEffect(() => {
+    setHashState(null)
+    if (!record?.contentHash) return
+    let stop = false
+    void contentFingerprint({ ...record, contentHash: undefined }).then((h) => {
+      if (!stop) setHashState(h === record.contentHash ? 'ok' : 'bad')
+    })
+    return () => {
+      stop = true
+    }
+  }, [record])
 
   // Redirect als Effekt, nicht als Seiteneffekt in der Render-Phase.
   useEffect(() => {
@@ -429,6 +447,19 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             ))}
           </div>
           {record.signedAt && <p className="mt-3 text-[12px] text-dim">{t('grading.signedAt', { date: formatDateTime(record.signedAt) })}</p>}
+          {record.instructorSignedAt && record.countersignedAt && (
+            <p className="text-[12px] text-dim">
+              {t('grading.instrSignedAt', { date: formatDateTime(record.instructorSignedAt) })} ·{' '}
+              {t('grading.counterSignedAt', { date: formatDateTime(record.countersignedAt) })}
+            </p>
+          )}
+          {record.contentHash && (
+            <p className={`mt-1 text-[11.5px] ${hashState === 'bad' ? 'font-semibold text-danger' : 'text-dim'}`}>
+              {t('grading.fingerprint', { hash: shortFingerprint(record.contentHash) })}
+              {hashState === 'ok' && ` — ${t('grading.fingerprintOk')}`}
+              {hashState === 'bad' && ` — ${t('grading.fingerprintBad')}`}
+            </p>
+          )}
 
           {/* Offene Unterschrift nachholen: nur das fehlende Feld ist offen,
               danach wird das Formular wie üblich gesperrt und versendet. */}
@@ -449,16 +480,23 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               <Button
                 disabled={!lateSignature}
                 className="w-full"
-                onClick={() => {
-                  saveGradingRecord({
+                onClick={async () => {
+                  const now = Date.now() + state.timeOffsetMs
+                  const next: GradingRecord = {
                     ...record,
                     signatureTrainee: lateSignature,
                     ...(mayCountersign ? {} : { lateSignatureBy: currentUser!.id }),
                     status: 'signed',
                     // Ohne Netz in den Ausgangskorb statt „versendet"
                     mailStatus: navigator.onLine === false ? 'queued' : 'sent',
-                    signedAt: Date.now() + state.timeOffsetMs,
-                  })
+                    // Chronologie bleibt erhalten: signedAt (Abschluss) wird
+                    // gesetzt, der Zeitpunkt der Instruktorunterschrift steht
+                    // in instructorSignedAt und wird hier NICHT angefasst —
+                    // bei 306-Vorgängen ist genau diese Abfolge prüfrelevant.
+                    signedAt: now,
+                    countersignedAt: now,
+                  }
+                  saveGradingRecord({ ...next, contentHash: await contentFingerprint(next) })
                   setLateSignature(null)
                   // Fehlt noch ein Pflicht-Folgeformular, bleibt der Nutzer auf
                   // dem Formular und sieht dort, was offen ist.
