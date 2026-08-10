@@ -200,6 +200,7 @@ function seedState(now: number): AppState {
       { id: 'c3', department: 'Administration', position: 'Office / Dispo Sim-Planung', name: 'James Bond', phone: '+43 1 5550 100', email: 'james.bond@aviationacademy.at' },
     ],
     changelog: [
+      { version: '1.4.2', date: '2026-08-10', changes: 'Feedback im Admin lässt sich als „Erledigt" abhaken — es bleibt erhalten, rutscht unter die offenen und zeigt, welcher Admin es wann bearbeitet hat, mit optionaler Notiz. Die Organisation heißt überall „Aviation Academy Austria" (AT.ATO.106); Bestandsgeräte werden beim Start automatisch von den alten Platzhaltern umgestellt.' },
       { version: '1.4.1', date: '2026-08-10', changes: 'Alle Grading-Admin-Ansichten (Formularliste, Statistik, Standardisierungsbericht) lassen sich jetzt nach Behörde filtern — AT.ATO.106 (Austro Control) oder GBR.ATO.0541 (UK CAA). Der Filter gilt auch für die Exporte und steht im Dateikopf.' },
       { version: '1.4.0', date: '2026-08-10', changes: 'Großes Audit umgesetzt: Zustand liegt jetzt in IndexedDB (kein stiller Datenverlust mehr), Unterschrift belegt Chronologie und Inhalt, Ausgangskorb prüft echte Erreichbarkeit, Update wirft keine Eingaben mehr weg und lädt automatisch. Barrierefreiheit: Karten per Tastatur, richtige Ansagen, getippte Unterschrift, 150-%-Zoom. PDF ohne Browserzeilen mit Dateiname Form_Name_Datum_Event; ATO-Kennung wählbar (AT.ATO.106 / GBR.ATO.0541); Aviation Academy Austria. Feedback mit Musterbezug, Instructor Info ohne Zielgruppen, Admin-Kachel „Chats".' },
       { version: '1.0.0', date: '2026-08-04', changes: 'Erstversion: Chat mit Gruppen und Umfragen, Instructor Info, Who to call, Feedback, Admin-Panel, Sandbox-Modus.' },
@@ -210,7 +211,7 @@ function seedState(now: number): AppState {
     settings: {
       defaultRetention: '30d',
       maxUploadMB: 25,
-      feedbackCategories: ['Instructor / Training', 'IT / Technik', 'Kursinhalt', 'Organisation / Ablauf', 'Safety', 'Sonstiges'],
+      feedbackCategories: ['General', 'Instructor / Training', 'IT / Technik', 'Kursinhalt', 'Organisation / Ablauf', 'Safety', 'Sonstiges'],
       feedbackCC: ['admin@aviationacademy.at'],
       feedbackRecipients: [
         'Training Admin (training.admin@aviationacademy.at)',
@@ -218,7 +219,7 @@ function seedState(now: number): AppState {
         'SIM Technik (daniel.duesentrieb@aviationacademy.at)',
         'HR (hr@aviationacademy.at)',
       ],
-      infoCategories: ['Ground Training', 'Simulator Training', 'HR', 'Operator Info', 'SIM Defects', 'AAA intern', 'Approved Manuals'],
+      infoCategories: ['General', 'Ground Training', 'Simulator Training', 'HR', 'Operator Info', 'SIM Defects', 'AAA intern', 'Approved Manuals'],
       documentHeader: {
         atoName: 'Aviation Academy Austria',
         approvalNumber: 'AT.ATO.106',

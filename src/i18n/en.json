@@ -287,7 +287,14 @@
     "storageHint": "Data is stored on this device (IndexedDB). The bar shows how much of the browser-allotted space is in use; a warning banner appears app-wide above 85 %.",
     "storageUnknown": "This browser does not report storage usage.",
     "approvalNumberUK": "Approval number (UK)",
-    "allScopes": "All references"
+    "allScopes": "All references",
+    "feedbackDone": "Done",
+    "feedbackResolvedSection": "Done ({{count}})",
+    "feedbackResolvedBy": "Processed by {{name}} · {{date}}",
+    "feedbackAddNote": "Add note",
+    "feedbackEditNote": "Edit note",
+    "feedbackNotePlaceholder": "What was done?",
+    "feedbackNoteLabel": "Follow-up note"
   },
   "imprint": {
     "title": "Legal notice & terms of use",
