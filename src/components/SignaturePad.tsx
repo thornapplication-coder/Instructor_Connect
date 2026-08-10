@@ -12,6 +12,20 @@ import { useTranslation } from 'react-i18next'
  * Zusätzlich: touch-action none, kein Text-Callout, Größe per
  * ResizeObserver — funktioniert auch, wenn das Feld erst später Layout hat.
  */
+/**
+ * Die Unterschrift wird IMMER auf weißem Grund angezeigt (GradingView) und auf
+ * weißes Papier gedruckt. Deshalb ist die Zeichenfläche selbst ein Blatt
+ * Papier: feste dunkle Tinte auf festem Weiß, unabhängig vom Hell-/Dunkelmodus.
+ *
+ * Vorher nahm die Fläche ihre Farbe aus der Umgebung. Im Dunkelmodus entstand
+ * damit eine nahezu weiße Unterschrift, die auf dem weißen Feld und auf Papier
+ * einen Kontrast von 1,13:1 hatte — also unsichtbar war. Beim Zeichnen sah sie
+ * richtig aus, der fertige Nachweis war leer.
+ */
+const INK = '#16253D'
+const PAPER = '#FFFFFF'
+const PAD_BORDER = '#94A3B8'
+
 export function SignaturePad({ value, onChange, label }: { value: string | null; onChange: (dataUrl: string | null) => void; label: string }) {
   // Teil der Grading-Formulare → immer englisch
   const { i18n } = useTranslation()
@@ -33,7 +47,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
       ctx.lineWidth = 2.4
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
-      ctx.strokeStyle = getComputedStyle(canvas).color
+      ctx.strokeStyle = INK
       return ctx
     }
 
@@ -71,7 +85,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
         /* ältere Browser ohne Pointer Capture zeichnen trotzdem */
       }
       const ctx = ensureSize() ?? canvas.getContext('2d')!
-      ctx.strokeStyle = getComputedStyle(canvas).color
+      ctx.strokeStyle = INK
       const { x, y } = pos(e)
       ctx.beginPath()
       ctx.moveTo(x, y)
@@ -145,10 +159,22 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
           </button>
         )}
       </div>
+      {/* Feste Farben statt Theme-Token: die Fläche zeigt beim Zeichnen genau
+          das, was später im Dokument und auf dem Ausdruck steht. */}
       <canvas
         ref={canvasRef}
-        style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' } as React.CSSProperties}
-        className="h-28 w-full rounded-xl border border-dashed border-line/25 bg-surface text-ink"
+        style={
+          {
+            touchAction: 'none',
+            WebkitUserSelect: 'none',
+            userSelect: 'none',
+            WebkitTouchCallout: 'none',
+            background: PAPER,
+            borderColor: PAD_BORDER,
+            color: INK,
+          } as React.CSSProperties
+        }
+        className="h-28 w-full rounded-xl border border-dashed"
       />
       {!value && <p className="mt-1 text-[11.5px] text-dim">{t('grading.signHint')}</p>}
     </div>
