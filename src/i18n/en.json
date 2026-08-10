@@ -26,7 +26,8 @@
     "outboxSending_one": "Back online — sending {{count}} form",
     "outboxSending_other": "Back online — sending {{count}} forms",
     "storageError": "Saving failed — device storage is full. Changes now only live in this session. Free up space on the device.",
-    "storageAlmostFull": "Device storage is almost full — back up and free up space soon."
+    "storageAlmostFull": "Device storage is almost full — back up and free up space soon.",
+    "new": "New"
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -102,7 +103,8 @@
     "attachmentOnly": "Attachment",
     "unknownAuthor": "Unknown",
     "deleteMessageConfirm": "Delete this message for everyone? This cannot be undone.",
-    "newMessageFrom": "New message from {{name}}"
+    "newMessageFrom": "New message from {{name}}",
+    "send": "Send"
   },
   "chatInfo": {
     "title": "Chat info",
@@ -353,7 +355,7 @@
     "openFollowUp": "Open form",
     "errFormType": "Please choose a form type.",
     "errRequired": "Required field missing: {{field}}",
-    "errNoTrainee": "Please enter a name for every student.",
+    "errNoTrainee": "Please enter a name for every trainee.",
     "errGrades": "Please grade all competencies.",
     "errOverall": "Please select the overall result.",
     "errSession": "Please select the session status.",
@@ -444,8 +446,8 @@
     "attendance307B": "With the signature, the instructor/examiner confirms the participation of all individuals listed to the full extent and within the specified timeframe of the respective event.",
     "footnote1": "* Tick if any competency is graded 1, or if two or more competencies are graded 2 or below; refer to Form 306 – Additional Training.",
     "footnote2": "** Tick if one or more required items are not completed; describe not completed items in the comment box and Form 310, Deferred Item.",
-    "participants": "Student / Instructor",
-    "student": "Student",
+    "participants": "Trainee / Instructor",
+    "student": "Trainee",
     "toGrading": "Continue to grading",
     "continue": "Continue",
     "backToHeader": "Back to header data",
@@ -468,7 +470,7 @@
       "all": "All"
     },
     "deferredMailNote": "Form 310 (Deferred Item) is always emailed to the Training Admin upon completion: {{recipients}}",
-    "multiStudentHint": "Multiple students in one pass are for convenience only: each student signs individually, and on completion a SEPARATE form is created for each student.",
+    "multiStudentHint": "Multiple trainees in one pass are for convenience only: each trainee signs individually, and on completion a SEPARATE form is created for each trainee.",
     "recipientsCard": "Recipients",
     "addRecipient": "Add additional recipient (email) …",
     "extraRecipientsHint": "Standard recipients are configured by the admin. Additional recipients apply to this form only.",

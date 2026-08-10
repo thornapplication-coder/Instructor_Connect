@@ -224,9 +224,10 @@ export function Avatar({ name, size = 36 }: { name: string; size?: number }) {
 
 /** Grüner „Neu“-Punkt; Position über className, Größe über size (px) steuern. */
 export function NewDot({ className = '', size = 12 }: { className?: string; size?: number }) {
+  const { t } = useTranslation()
   return (
     <span
-      aria-label="new"
+      aria-label={t('common.new')}
       style={{ width: size, height: size }}
       className={`pointer-events-none absolute z-10 rounded-full bg-ok ring-2 ring-bg ${className}`}
     />
