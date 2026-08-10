@@ -2,6 +2,7 @@ import { BarChart3, Ban, FileText, Image as ImageIcon, Info, Paperclip, Plus, Se
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Field, inputCls, Modal, NewDot, TopBar } from '../components/ui'
+import i18n from '../i18n'
 import { useUnsavedWork } from '../editGuard'
 import { navigate } from '../router'
 import { isGroupAdmin, mayAccessGroup, useStore } from '../store'
@@ -36,6 +37,7 @@ function MessageBubble({ msg, isOwn, authorName, bold, canDelete, onDelete, lng 
   onDelete: () => void
   lng: string
 }) {
+  const t = i18n.getFixedT(lng)
   return (
     <div className={`group flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
       <div
@@ -53,7 +55,7 @@ function MessageBubble({ msg, isOwn, authorName, bold, canDelete, onDelete, lng 
           <button
             onClick={onDelete}
             className="min-h-11 absolute -right-2 -top-2 hidden rounded-full bg-danger/90 p-1 text-bg group-hover:block"
-            aria-label="delete"
+            aria-label={t('common.delete')}
           >
             <Trash2 size={12} />
           </button>
@@ -446,7 +448,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
               onClick={send}
               disabled={!text.trim() && !pendingAttachment}
               className="min-h-11 rounded-full bg-accent p-2.5 text-bg transition hover:brightness-110 disabled:opacity-40"
-              aria-label="send"
+              aria-label={t('chat.send')}
             >
               <SendHorizonal size={20} />
             </button>
