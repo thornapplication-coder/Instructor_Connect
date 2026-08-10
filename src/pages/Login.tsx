@@ -1,7 +1,7 @@
 import { Lock, Plane } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Button, inputCls, ThemeToggle } from '../components/ui'
+import { Avatar, Button, Card, inputCls, ThemeToggle } from '../components/ui'
 import { useStore } from '../store'
 import { APP_VERSION } from '../types'
 
@@ -73,19 +73,22 @@ export function Login() {
             }}
             className="space-y-3"
           >
-            <label className="block">
-              <span className="mb-1.5 block text-[13px] font-medium text-dim">{t('login.identifier')}</span>
-              <input
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                className={inputCls}
-                autoFocus
-              />
-            </label>
-            {error === 'email' && <p className="text-[13px] text-danger">{t('login.error')}</p>}
+            {/* Feld in einer Card — hebt sich vom Seitenhintergrund ab, wie überall sonst in der App. */}
+            <Card className="p-4">
+              <label className="block">
+                <span className="mb-1.5 block text-[13px] font-medium text-dim">{t('login.identifier')}</span>
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  className={inputCls}
+                  autoFocus
+                />
+              </label>
+              {error === 'email' && <p className="mt-2 text-[13px] text-danger">{t('login.error')}</p>}
+            </Card>
             <Button type="submit" className="w-full py-3">
               {t('login.button')}
             </Button>
@@ -106,22 +109,25 @@ export function Login() {
                 {t('login.sandboxCode', { code: state.pendingLogin.code })}
               </p>
             )}
-            <label className="block">
-              <span className="mb-1.5 block text-[13px] font-medium text-dim">{t('login.codeLabel')}</span>
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="[0-9]*"
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                placeholder="••••••"
-                className={`${inputCls} text-center text-[20px] tracking-[0.4em]`}
-                autoFocus
-              />
-            </label>
-            {error === 'code' && <p className="text-[13px] text-danger">{t('login.codeError')}</p>}
+            {/* Feld in einer Card — hebt sich vom Seitenhintergrund ab, wie überall sonst in der App. */}
+            <Card className="p-4">
+              <label className="block">
+                <span className="mb-1.5 block text-[13px] font-medium text-dim">{t('login.codeLabel')}</span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={code}
+                  onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
+                  placeholder="••••••"
+                  className={`${inputCls} text-center text-[20px] tracking-[0.4em]`}
+                  autoFocus
+                />
+              </label>
+              {error === 'code' && <p className="mt-2 text-[13px] text-danger">{t('login.codeError')}</p>}
+            </Card>
             <Button type="submit" disabled={code.length !== 6} className="w-full py-3">
               {t('login.verify')}
             </Button>
