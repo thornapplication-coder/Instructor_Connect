@@ -84,10 +84,16 @@ export function Login() {
                   value={identifier}
                   onChange={(e) => setIdentifier(e.target.value)}
                   className={inputCls}
+                  aria-invalid={error === 'email' || undefined}
+                  aria-describedby={error === 'email' ? 'login-email-error' : undefined}
                   autoFocus
                 />
               </label>
-              {error === 'email' && <p className="mt-2 text-[13px] text-danger">{t('login.error')}</p>}
+              {error === 'email' && (
+                <p id="login-email-error" role="alert" className="mt-2 text-[13px] text-danger">
+                  {t('login.error')}
+                </p>
+              )}
             </Card>
             <Button type="submit" className="w-full py-3">
               {t('login.button')}
@@ -123,10 +129,16 @@ export function Login() {
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                   placeholder="••••••"
                   className={`${inputCls} text-center text-[20px] tracking-[0.4em]`}
+                  aria-invalid={error === 'code' || undefined}
+                  aria-describedby={error === 'code' ? 'login-code-error' : undefined}
                   autoFocus
                 />
               </label>
-              {error === 'code' && <p className="mt-2 text-[13px] text-danger">{t('login.codeError')}</p>}
+              {error === 'code' && (
+                <p id="login-code-error" role="alert" className="mt-2 text-[13px] text-danger">
+                  {t('login.codeError')}
+                </p>
+              )}
             </Card>
             <Button type="submit" disabled={code.length !== 6} className="w-full py-3">
               {t('login.verify')}
