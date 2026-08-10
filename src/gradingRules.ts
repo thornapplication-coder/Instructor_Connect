@@ -105,6 +105,28 @@ export function trafficLight(r: GradingRecord, all?: GradingRecord[]): TrafficCo
   return 'yellow'
 }
 
+/**
+ * Sortierung aller Grading-Listen: zuerst nach dem Schulungsdatum
+ * (absteigend, neueste oben); bei gleichem Datum nach dem Status —
+ * Sending failed (rot) vor Open (gelb) vor Completed (grün).
+ */
+export function gradingListComparator(all: GradingRecord[]) {
+  const rank: Record<TrafficColor, number> = { red: 0, yellow: 1, green: 2 }
+  const dateOf = (r: GradingRecord): number => {
+    const raw = r.header.date
+    if (raw) {
+      const t = new Date(`${raw}T00:00:00`).getTime()
+      if (!Number.isNaN(t)) return t
+    }
+    return r.createdAt
+  }
+  return (a: GradingRecord, b: GradingRecord): number => {
+    const dd = dateOf(b) - dateOf(a)
+    if (dd !== 0) return dd
+    return rank[trafficLight(a, all)] - rank[trafficLight(b, all)]
+  }
+}
+
 /** Ist der Vorgang komplett abgeschlossen? Unfertige Formulare dürfen dem
  *  Instruktor nicht durch die Aufbewahrungsfrist aus der Liste fallen. */
 export function isComplete(r: GradingRecord, all: GradingRecord[]): boolean {

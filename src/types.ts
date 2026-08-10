@@ -135,7 +135,8 @@ export interface Contact {
 
 export interface ChangelogEntry {
   version: string
-  date: string
+  /** Zeitpunkt der Version — als Zeitstempel, in der Anzeige mit Datum UND Uhrzeit */
+  at: number
   changes: string
 }
 
@@ -393,4 +394,4 @@ export const RETENTION_MS: Record<RetentionKey, number> = {
   never: Infinity,
 }
 
-export const APP_VERSION = '1.4.2'
+export const APP_VERSION = '1.0.0'

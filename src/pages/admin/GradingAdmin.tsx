@@ -9,6 +9,7 @@ import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType, GradingRecord } from '../../types'
 import { formatDate, formatDateTime, missingFollowUps, TrafficDot, traineesOf, trafficLight, type TrafficColor } from '../Grading'
 import { StandardisationReport } from './StandardisationReport'
+import { gradingListComparator } from '../../gradingRules'
 import { authorityOf, PERIODS, periodLabel, scopeRecords, statsBySet as computeStatsBySet, type PeriodKey } from '../../gradingStats'
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats' | 'standardisation'
@@ -382,7 +383,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
   const doc = state.settings.documentHeader ?? { atoName: '', approvalNumber: '', approvalNumberUK: '', formRevision: '' }
   // Neueste immer zuoberst — memoisiert, damit die Statistik-Aggregationen
   // nicht bei jedem Tastendruck im Suchfeld neu rechnen.
-  const records = useMemo(() => [...state.gradingRecords].sort((a, b) => b.createdAt - a.createdAt), [state.gradingRecords])
+  const records = useMemo(() => [...state.gradingRecords].sort(gradingListComparator(state.gradingRecords)), [state.gradingRecords])
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
   const traineeLabel = (tr: { traineeName?: string; traineeId: string }) => tr.traineeName || userName(tr.traineeId)
   // einheitlich DD.MM.YYYY

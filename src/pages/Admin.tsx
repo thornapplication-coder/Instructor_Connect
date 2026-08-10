@@ -999,10 +999,10 @@ function ChangelogTab() {
         <span className="text-lg font-bold text-accent">v{APP_VERSION}</span>
       </Card>
       {state.changelog.map((entry) => (
-        <Card key={entry.version} className="p-4">
+        <Card key={`${entry.version}-${entry.at}`} className="p-4">
           <div className="mb-1 flex items-center gap-2">
             <Badge>v{entry.version}</Badge>
-            <span className="text-[12px] text-dim">{entry.date}</span>
+            <span className="text-[12px] text-dim">{formatDateTime(entry.at)}</span>
           </div>
           <p className="text-[13.5px] leading-relaxed">{entry.changes}</p>
         </Card>

@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
+import { gradingListComparator } from '../gradingRules'
 import { trainingDate } from '../gradingStats'
 import { useStore } from '../store'
 import { followUpStarted, isComplete, missingFollowUps, traineesOf, trafficLight, type TrafficColor } from '../gradingRules'
@@ -92,7 +93,7 @@ function TrainingAdminGrading() {
     tr.traineeName || userName(tr.traineeId) || '—'
   const formTitle = (id: string) => state.settings.grading.formTypes.find((f) => f.id === id)?.title ?? id
 
-  const all = [...state.gradingRecords].sort((a, b) => b.createdAt - a.createdAt)
+  const all = [...state.gradingRecords].sort(gradingListComparator(state.gradingRecords))
   // abgeschlossen = unterschrieben, versendet und ohne offenes Pflicht-Folgeformular
   const isCompleted = (r: GradingRecord) => trafficLight(r, state.gradingRecords) === 'green'
 
