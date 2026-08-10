@@ -48,7 +48,7 @@ export interface Store {
   starredInfoIds: Set<string>
   /** Lese-Bestätigung des aktuellen Nutzers für einen Info-Eintrag */
   acknowledgeInfo: (id: string) => void
-  submitFeedback: (entry: { category: string; recipient: string; urgent: boolean; message: string; attachment?: Attachment }) => void
+  submitFeedback: (entry: { category: string; recipient: string; urgent: boolean; message: string; attachment?: Attachment; aircraftType?: string }) => void
   deleteFeedback: (id: string) => void
   saveContact: (contact: { id?: string; department: string; position: string; name: string; phone: string; email: string }) => void
   deleteContact: (id: string) => void

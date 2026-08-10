@@ -193,7 +193,10 @@
     "urgentOn": "als dringend markiert",
     "urgentOff": "antippen, wenn es dringend ist",
     "attachment": "Anhang (Foto oder PDF, optional)",
-    "attach": "Foto oder PDF anhängen"
+    "attach": "Foto oder PDF anhängen",
+    "scopeLabel": "Bezug",
+    "scopeGeneral": "Allgemein",
+    "scopeAircraft": "Aircraft-Type-Bezug"
   },
   "admin": {
     "title": "Admin Panel",
@@ -283,7 +286,8 @@
     "storageQuota": "von {{quota}} zugeteilt",
     "storageHint": "Die Daten liegen auf diesem Gerät (IndexedDB). Der Balken zeigt, wie viel des vom Browser zugeteilten Platzes belegt ist; ab 85 % erscheint app-weit ein Warnstreifen.",
     "storageUnknown": "Dieser Browser meldet keinen Speicherstand.",
-    "approvalNumberUK": "Genehmigungsnummer (UK)"
+    "approvalNumberUK": "Genehmigungsnummer (UK)",
+    "allScopes": "Alle Bezüge"
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",

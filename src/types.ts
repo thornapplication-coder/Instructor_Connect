@@ -101,6 +101,9 @@ export interface FeedbackEntry {
   urgent: boolean
   message: string
   attachment?: Attachment
+  /** Musterbezug: gesetzt = betrifft genau diesen Aircraft Type; leer/fehlt
+   *  = allgemeine Rückmeldung ohne Musterbezug (General). */
+  aircraftType?: string
   createdAt: number
 }
 

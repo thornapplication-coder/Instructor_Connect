@@ -13,6 +13,9 @@ export function Feedback() {
   const [category, setCategory] = useState('')
   const [recipient, setRecipient] = useState('')
   const [urgent, setUrgent] = useState(false)
+  // Musterbezug: 'general' (kein Bezug) oder 'aircraft' (dann Muster wählen)
+  const [scope, setScope] = useState<'general' | 'aircraft'>('general')
+  const [aircraftType, setAircraftType] = useState('')
   const [message, setMessage] = useState('')
   const [attachment, setAttachment] = useState<Attachment | undefined>(undefined)
   const [error, setError] = useState(false)
@@ -36,12 +39,20 @@ export function Feedback() {
   }
 
   const submit = () => {
-    if (!recipient || !category || !message.trim()) {
+    // Bei Musterbezug ist das Muster Pflicht — sonst wäre der Bezug leer.
+    if (!recipient || !category || !message.trim() || (scope === 'aircraft' && !aircraftType)) {
       setError(true)
       return
     }
     // Feedback bleibt im Admin-Panel gespeichert und dort löschbar.
-    submitFeedback({ category, recipient, urgent, message: message.trim(), attachment })
+    submitFeedback({
+      category,
+      recipient,
+      urgent,
+      message: message.trim(),
+      attachment,
+      aircraftType: scope === 'aircraft' ? aircraftType : undefined,
+    })
     setSent(true)
   }
 
@@ -122,6 +133,40 @@ export function Feedback() {
             ))}
           </select>
         </Field>
+
+        {/* Musterbezug: betrifft die Rückmeldung ein bestimmtes Muster oder
+            ist sie allgemein? Bei Musterbezug wird das Muster verlangt. */}
+        <Field label={t('feedback.scopeLabel') + ' *'} group>
+          <div className="flex gap-2">
+            {(['general', 'aircraft'] as const).map((sc) => (
+              <button
+                key={sc}
+                aria-pressed={scope === sc}
+                onClick={() => {
+                  setScope(sc)
+                  if (sc === 'general') setAircraftType('')
+                }}
+                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-[13.5px] transition ${
+                  scope === sc ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-line/15 text-dim'
+                }`}
+              >
+                {t(sc === 'general' ? 'feedback.scopeGeneral' : 'feedback.scopeAircraft')}
+              </button>
+            ))}
+          </div>
+        </Field>
+        {scope === 'aircraft' && (
+          <Field label={t('lessons.aircraftType') + ' *'}>
+            <select value={aircraftType} onChange={(e) => setAircraftType(e.target.value)} className={selectCls}>
+              <option value="">…</option>
+              {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
 
         {/* Urgent-Kennzeichnung */}
         <button

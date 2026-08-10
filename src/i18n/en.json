@@ -193,7 +193,10 @@
     "urgentOn": "marked as urgent",
     "urgentOff": "tap if this is urgent",
     "attachment": "Attachment (photo or PDF, optional)",
-    "attach": "Attach photo or PDF"
+    "attach": "Attach photo or PDF",
+    "scopeLabel": "Reference",
+    "scopeGeneral": "General",
+    "scopeAircraft": "Aircraft type related"
   },
   "admin": {
     "title": "Admin Panel",
@@ -283,7 +286,8 @@
     "storageQuota": "of {{quota}} allotted",
     "storageHint": "Data is stored on this device (IndexedDB). The bar shows how much of the browser-allotted space is in use; a warning banner appears app-wide above 85 %.",
     "storageUnknown": "This browser does not report storage usage.",
-    "approvalNumberUK": "Approval number (UK)"
+    "approvalNumberUK": "Approval number (UK)",
+    "allScopes": "All references"
   },
   "imprint": {
     "title": "Legal notice & terms of use",

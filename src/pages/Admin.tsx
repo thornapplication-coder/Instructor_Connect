@@ -606,6 +606,7 @@ function FeedbackTab() {
   // Filter: Kategorie, Empfänger, nur Dringendes
   const [fCat, setFCat] = useState('')
   const [fRec, setFRec] = useState('')
+  const [fScope, setFScope] = useState('')
   const [onlyUrgent, setOnlyUrgent] = useState(false)
   // Ein Gruppenadmin sieht nur Rückmeldungen aus seinen eigenen Gruppen —
   // vorher lag ihm auch das offen, was an HR gerichtet war.
@@ -618,12 +619,15 @@ function FeedbackTab() {
   const entries = all.filter((f) => {
     if (fCat && f.category !== fCat) return false
     if (fRec && f.recipient !== fRec) return false
+    if (fScope === 'general' && f.aircraftType) return false
+    if (fScope && fScope !== 'general' && f.aircraftType !== fScope) return false
     if (onlyUrgent && !f.urgent) return false
     return true
   })
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
   const cats = [...new Set(all.map((f) => f.category))].sort()
   const recs = [...new Set(all.map((f) => f.recipient))].sort()
+  const scopeTypes = [...new Set(all.map((f) => f.aircraftType).filter(Boolean) as string[])].sort()
 
   return (
     <div className="space-y-3">
@@ -641,6 +645,15 @@ function FeedbackTab() {
           {recs.map((r) => (
             <option key={r} value={r}>
               {r}
+            </option>
+          ))}
+        </select>
+        <select value={fScope} onChange={(e) => setFScope(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+          <option value="">{t('admin.allScopes')}</option>
+          <option value="general">{t('feedback.scopeGeneral')}</option>
+          {scopeTypes.map((a) => (
+            <option key={a} value={a}>
+              {a}
             </option>
           ))}
         </select>
@@ -664,6 +677,7 @@ function FeedbackTab() {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-[14.5px] font-semibold">{userName(f.authorId)}</p>
                 <Badge tone="dim">{f.category}</Badge>
+                <Badge tone={f.aircraftType ? 'warm' : 'dim'}>{f.aircraftType || t('feedback.scopeGeneral')}</Badge>
                 {f.urgent && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[11px] font-semibold text-danger">
                     <AlertTriangle size={11} /> {t('feedback.urgent')}
