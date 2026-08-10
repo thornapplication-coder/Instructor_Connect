@@ -180,7 +180,7 @@ export function InstructorInfo() {
     csv += csvRow([])
     csv += csvRow(['Name', 'Status', 'Confirmed at'])
     ackTargets(entry).forEach((u) => {
-      csv += csvRow([u.name, acks[u.id] ? 'confirmed' : 'OUTSTANDING', acks[u.id] ? formatDateTime(acks[u.id]) : ''])
+      csv += csvRow([u.name, acks[u.id] ? 'confirmed' : 'PENDING', acks[u.id] ? formatDateTime(acks[u.id]) : ''])
     })
     downloadCsv(`read-confirmations_${entry.title.replace(/[^\w-]+/g, '-').slice(0, 40)}.csv`, csv)
   }
@@ -240,7 +240,7 @@ export function InstructorInfo() {
           ) : undefined
         }
       />
-      <Page className="space-y-3">
+      <Page className="space-y-2.5">
         <div className="relative">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-dim" />
           <input
@@ -294,8 +294,8 @@ export function InstructorInfo() {
             {heading && (
               <p className="mb-1.5 mt-3 px-1 text-[12px] font-semibold uppercase tracking-wide text-dim first:mt-0">{heading}</p>
             )}
-            <Card className={`p-4 ${expired ? 'opacity-60' : ''}`}>
-              <div className="flex items-start gap-3">
+            <Card className={`p-3 ${expired ? 'opacity-60' : ''}`}>
+              <div className="flex items-start gap-2.5">
                 {/* NEW gut lesbar unter dem Icon — nicht neben dem Titel */}
                 <div className="flex shrink-0 flex-col items-center gap-1.5">
                   <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-raised text-accent">
@@ -347,7 +347,7 @@ export function InstructorInfo() {
                       targets.some((u) => u.id === currentUser!.id) && !isScheduled(entry) && !infoIsExpired(entry, now())
                     const done = targets.filter((u) => acks[u.id]).length
                     return (
-                      <div className="mt-2.5 space-y-1.5">
+                      <div className="mt-2 space-y-1.5">
                         {myAck ? (
                           <p className="flex items-center gap-1.5 text-[12.5px] font-medium text-ok">
                             <CheckCircle2 size={14} /> {t('info.ackedAt', { date: formatDateTime(myAck) })}
@@ -399,7 +399,7 @@ export function InstructorInfo() {
                     )
                   })()}
 
-                  <div className="mt-2.5 flex flex-wrap gap-2">
+                  <div className="mt-2 flex flex-wrap gap-1.5">
                     {entry.type === 'pdf' ? (
                       <>
                         <a

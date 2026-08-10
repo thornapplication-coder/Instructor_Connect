@@ -152,7 +152,7 @@
     "ackButton": "Confirm as read",
     "ackedAt": "Confirmed on {{date}}",
     "ackStatus": "Confirmed: {{done}}/{{total}}",
-    "ackMissing": "outstanding",
+    "ackMissing": "pending",
     "exportAck": "Export control list (CSV)",
     "scheduled": "Scheduled — not yet visible to users",
     "sinceRelease": "from release"

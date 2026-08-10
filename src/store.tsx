@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { isComplete, isFollowUpType } from './gradingRules'
+import { gradingListComparator, isComplete, isFollowUpType } from './gradingRules'
 import { networkReachable } from './net'
 import { createSeedState } from './sandbox/seed'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
@@ -184,11 +184,26 @@ function migrateState(st: AppState): AppState {
   const feedbackCategories = withGeneral(st.settings.feedbackCategories)
   const infoCategories = withGeneral(st.settings.infoCategories)
 
+  // Demo-Platzhalter „Max Mustermann" heißt jetzt „Steven Fermie" — Nutzer
+  // (u-max) und Verzeichniskontakt (c2), nur solange der alte Name steht.
+  const users = st.users?.map((u) => (u.id === 'u-max' && u.name === 'Max Mustermann' ? { ...u, name: 'Steven Fermie' } : u))
+  const contacts = st.contacts?.map((c) => (c.id === 'c2' && c.name === 'Max Mustermann' ? { ...c, name: 'Steven Fermie' } : c))
+
+  // Changelog zurückgesetzt: nur noch der 1.0.0-Erststand (mit Datum+Uhrzeit).
+  // Alte, angesammelte Einträge fallen damit weg.
+  const clNeedsReset = !(st.changelog?.length === 1 && st.changelog[0].version === '1.0.0')
+  const changelog = clNeedsReset ? [{ version: '1.0.0', at: Date.now(), changes: 'Erststand.' }] : st.changelog
+
   const headerChanged = atoName !== dh.atoName || approvalNumber !== dh.approvalNumber || approvalNumberUK !== dh.approvalNumberUK
   const catsChanged = feedbackCategories !== st.settings.feedbackCategories || infoCategories !== st.settings.infoCategories
-  if (!headerChanged && !catsChanged) return st
+  const usersChanged = users !== st.users && users?.some((u, i) => u !== st.users[i])
+  const contactsChanged = contacts !== st.contacts && contacts?.some((c, i) => c !== st.contacts[i])
+  if (!headerChanged && !catsChanged && !usersChanged && !contactsChanged && !clNeedsReset) return st
   return {
     ...st,
+    users: usersChanged ? users! : st.users,
+    contacts: contactsChanged ? contacts! : st.contacts,
+    changelog,
     settings: {
       ...st.settings,
       documentHeader: { ...dh, atoName, approvalNumber, approvalNumberUK },
@@ -331,7 +346,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const visibleGradingRecords = useMemo(() => {
     if (!currentUser) return []
     const all = [...state.gradingRecords]
-      .sort((a, b) => b.createdAt - a.createdAt)
+      .sort(gradingListComparator(state.gradingRecords))
       .filter((r) => !r.hiddenFor?.includes(currentUser.id))
     if (userHasPerm(state.settings, currentUser, 'grading_view_all')) return all
     // Die Wochenfrist gilt nur für erledigte Vorgänge. Was noch auf eine

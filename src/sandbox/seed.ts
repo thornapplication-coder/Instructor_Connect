@@ -45,7 +45,7 @@ function seedState(now: number): AppState {
       { id: 'u-patrick', name: 'Patrick Thorn', email: 'patrick.thorn@aviationacademy.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
       { id: 'u-christian', name: 'Christian Terler', email: 'christian.terler@aviationacademy.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30'], active: true },
       { id: 'u-michael', name: 'Michael Holy', email: 'michael.holy@aviationacademy.at', phone: '+43 664 1000003', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['C560 XLS+'], active: true },
-      { id: 'u-max', name: 'Max Mustermann', email: 'training.admin@aviationacademy.at', phone: '+43 1 5550 300', role: 'training_admin', canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: [], active: true },
+      { id: 'u-max', name: 'Steven Fermie', email: 'training.admin@aviationacademy.at', phone: '+43 1 5550 300', role: 'training_admin', canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: [], active: true },
     ],
     groups: [
       {
@@ -196,18 +196,10 @@ function seedState(now: number): AppState {
     starredInfo: { 'u-michael': ['i2'] },
     contacts: [
       { id: 'c1', department: 'Simulator-Technik', position: 'FSTD-Technik', name: 'Daniel Düsentrieb', phone: '+43 1 5550 200', email: 'daniel.duesentrieb@aviationacademy.at' },
-      { id: 'c2', department: 'Training', position: 'Training Admin', name: 'Max Mustermann', phone: '+43 1 5550 300', email: 'training.admin@aviationacademy.at' },
+      { id: 'c2', department: 'Training', position: 'Training Admin', name: 'Steven Fermie', phone: '+43 1 5550 300', email: 'training.admin@aviationacademy.at' },
       { id: 'c3', department: 'Administration', position: 'Office / Dispo Sim-Planung', name: 'James Bond', phone: '+43 1 5550 100', email: 'james.bond@aviationacademy.at' },
     ],
-    changelog: [
-      { version: '1.4.2', date: '2026-08-10', changes: 'Feedback im Admin lässt sich als „Erledigt" abhaken — es bleibt erhalten, rutscht unter die offenen und zeigt, welcher Admin es wann bearbeitet hat, mit optionaler Notiz. „General" als Kategorie in Feedback und Instructor Info. Die Organisation heißt überall „Aviation Academy Austria", die AT-ATO-Nummer ist AT.ATO.106 (nicht mehr AT.ATO.007); Bestandsgeräte werden beim Start automatisch umgestellt.' },
-      { version: '1.4.1', date: '2026-08-10', changes: 'Alle Grading-Admin-Ansichten (Formularliste, Statistik, Standardisierungsbericht) lassen sich jetzt nach Behörde filtern — AT.ATO.106 (Austro Control) oder GBR.ATO.0541 (UK CAA). Der Filter gilt auch für die Exporte und steht im Dateikopf.' },
-      { version: '1.4.0', date: '2026-08-10', changes: 'Großes Audit umgesetzt: Zustand liegt jetzt in IndexedDB (kein stiller Datenverlust mehr), Unterschrift belegt Chronologie und Inhalt, Ausgangskorb prüft echte Erreichbarkeit, Update wirft keine Eingaben mehr weg und lädt automatisch. Barrierefreiheit: Karten per Tastatur, richtige Ansagen, getippte Unterschrift, 150-%-Zoom. PDF ohne Browserzeilen mit Dateiname Form_Name_Datum_Event; ATO-Kennung wählbar (AT.ATO.106 / GBR.ATO.0541); Aviation Academy Austria. Feedback mit Musterbezug, Instructor Info ohne Zielgruppen, Admin-Kachel „Chats".' },
-      { version: '1.0.0', date: '2026-08-04', changes: 'Erstversion: Chat mit Gruppen und Umfragen, Instructor Info, Who to call, Feedback, Admin-Panel, Sandbox-Modus.' },
-      { version: '1.1.0', date: '2026-08-09', changes: 'Grading Tool und Lesson Plans, Lese-Bestätigungen mit Kontrollliste, Gruppen-Sichtbarkeit, Feedback-Empfänger und Urgent, Offline-Modus (PWA) mit Update-Banner, Druck-Layout.' },
-      { version: '1.3.0', date: '2026-08-09', changes: 'Offline-Betrieb: Die App startet ohne Netz, ohne Empfang unterschriebene Formulare gehen in den Ausgangskorb und werden versendet, sobald wieder Empfang da ist. Standardisierungsbericht je Instruktor gegen das Flottenmittel (ORA.ATO.110). Jede Seite beginnt oben. Dialoge halten den Fokus im Eingabefeld.' },
-      { version: '1.2.0', date: '2026-08-09', changes: 'Vollaudit behoben: ein Formular 306 je Pilot, unterschriebene Formulare gegen Katalogänderungen eingefroren, objektbezogene Berechtigungen, Konten werden deaktiviert statt gelöscht, Zustand übersteht das Neuladen, Druck auf A4 mit einem Blatt je Formular, Trefferflächen ab 44 px und Kontraste durchgehend WCAG AA.' },
-    ],
+    changelog: [{ version: '1.0.0', at: now, changes: 'Erststand.' }],
     settings: {
       defaultRetention: '30d',
       maxUploadMB: 25,

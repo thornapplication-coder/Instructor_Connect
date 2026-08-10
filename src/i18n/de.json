@@ -152,7 +152,7 @@
     "ackButton": "Zur Kenntnis genommen",
     "ackedAt": "Bestätigt am {{date}}",
     "ackStatus": "Bestätigt: {{done}}/{{total}}",
-    "ackMissing": "ausständig",
+    "ackMissing": "ausstehend",
     "exportAck": "Kontrollliste exportieren (CSV)",
     "scheduled": "Geplant — für Nutzer noch nicht sichtbar",
     "sinceRelease": "ab Veröffentlichung"

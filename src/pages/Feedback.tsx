@@ -101,9 +101,12 @@ export function Feedback() {
   return (
     <>
       <TopBar title={t('feedback.title')} back="/" />
-      <Page className="space-y-5">
+      <Page className="space-y-4">
         <p className="text-[14px] text-dim">{t('feedback.intro')}</p>
 
+        {/* Felder in einer Card — sie heben sich vom Seitenhintergrund ab,
+            wie überall sonst in der App. */}
+        <Card className="space-y-4 p-4">
         <Field label={t('feedback.recipient') + ' *'}>
           <select
             value={recipient}
@@ -220,6 +223,7 @@ export function Feedback() {
             </button>
           )}
         </Field>
+        </Card>
 
         {error && <p className="text-[13px] text-danger">{t('feedback.errorEmpty')}</p>}
 
