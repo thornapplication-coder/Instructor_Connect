@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Clock, Printer, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { contentFingerprint, shortFingerprint } from '../docHash'
+import { useUnsavedWork } from '../editGuard'
 import { SignaturePad } from '../components/SignaturePad'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Page, TopBar } from '../components/ui'
@@ -23,6 +24,9 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
   // les- noch unterschreibbar. Nicht gefunden = nicht berechtigt.
   const record = gradingRecordById(recordId)
   const [lateSignature, setLateSignature] = useState<string | null>(null)
+  // Eine geleistete, ungespeicherte Unterschrift darf kein automatisches
+  // Update mehr wegwerfen — der Pilot ist dann längst gegangen.
+  useUnsavedWork(lateSignature !== null)
 
   // Fingerabdruck nachrechnen: stimmt der gespeicherte Abdruck nicht mehr
   // mit dem Inhalt überein, wurde nach der Unterschrift verändert — das

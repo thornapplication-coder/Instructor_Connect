@@ -1,5 +1,6 @@
 import { RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { hasUnsavedWork } from '../editGuard'
 import { useTranslation } from 'react-i18next'
 
 /**
@@ -14,16 +15,16 @@ import { useTranslation } from 'react-i18next'
  * sowie immer, wenn die App den Fokus bekommt oder wieder sichtbar wird.
  */
 
-/** Formulare mit ungesicherter Eingabe — dort wird nie automatisch neu geladen. */
-function isEditing(): boolean {
-  const h = window.location.hash
-  return h.startsWith('#/grading/new') || h.includes('?print=1')
-}
+// „In Bearbeitung" entscheidet die zentrale Wache (editGuard.ts): sie kennt
+// neben den Formular-Routen auch offene Dialoge, die Nachtragsunterschrift,
+// Chat-Entwürfe und das Feedback-Formular.
 
 export function UpdateBanner() {
   const { t } = useTranslation()
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null)
   const clicked = useRef(false)
+  // wegen Bearbeitung zurückgestellte neue Version
+  const deferred = useRef<ServiceWorker | null>(null)
   // automatische Übernahme läuft — der Neustart darf dann erfolgen
   const tookOver = useRef(false)
 
@@ -36,8 +37,9 @@ export function UpdateBanner() {
      * ohne Zutun, im Formular nur als Banner-Angebot.
      */
     const apply = (sw: ServiceWorker) => {
-      if (isEditing()) {
+      if (hasUnsavedWork()) {
         setWaiting(sw)
+        deferred.current = sw
         return
       }
       tookOver.current = true
@@ -66,6 +68,12 @@ export function UpdateBanner() {
         // Aktive Update-Prüfung: Intervall + Fokus + Sichtbarkeit
         const check = () => reg.update().catch(() => {})
         const iv = setInterval(check, 60_000)
+        // Eine wegen laufender Bearbeitung zurückgestellte Version wird
+        // übernommen, sobald die Arbeit gesichert oder verworfen ist —
+        // vorher blieb der Banner der einzige Weg und die App sonst alt.
+        const nachzug = setInterval(() => {
+          if (deferred.current && !hasUnsavedWork()) apply(deferred.current)
+        }, 15_000)
         const onVisible = () => {
           if (document.visibilityState === 'visible') check()
         }
@@ -73,6 +81,7 @@ export function UpdateBanner() {
         document.addEventListener('visibilitychange', onVisible)
         cleanup = () => {
           clearInterval(iv)
+          clearInterval(nachzug)
           window.removeEventListener('focus', check)
           document.removeEventListener('visibilitychange', onVisible)
         }

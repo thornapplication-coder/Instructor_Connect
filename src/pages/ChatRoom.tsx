@@ -2,6 +2,7 @@ import { BarChart3, Ban, FileText, Image as ImageIcon, Info, Paperclip, Plus, Se
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Field, inputCls, Modal, NewDot, TopBar } from '../components/ui'
+import { useUnsavedWork } from '../editGuard'
 import { navigate } from '../router'
 import { isGroupAdmin, mayAccessGroup, useStore } from '../store'
 import type { Attachment, Message, Poll, PollType } from '../types'
@@ -268,6 +269,8 @@ export function ChatRoom({ groupId }: { groupId: string }) {
   const { state, currentUser, visibleMessages, visiblePolls, sendMessage, deleteMessage, myGroups, unreadGroups, markChatSeen } = store
   const [text, setText] = useState('')
   const [pendingAttachment, setPendingAttachment] = useState<Attachment | undefined>()
+  // Entwurf oder gewählter Anhang: kein automatisches Neuladen (editGuard)
+  useUnsavedWork(!!text.trim() || !!pendingAttachment)
   const [showPoll, setShowPoll] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 

@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, Info, Paperclip, X } from 'lucide-react'
 import { useRef, useState } from 'react'
+import { useUnsavedWork } from '../editGuard'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, Field, inputCls, Page, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
@@ -15,6 +16,8 @@ export function Feedback() {
   const [message, setMessage] = useState('')
   const [attachment, setAttachment] = useState<Attachment | undefined>(undefined)
   const [error, setError] = useState(false)
+  // Halb ausgefülltes Feedback übersteht das automatische Update (editGuard)
+  useUnsavedWork(!!message.trim() || !!attachment)
   const [sent, setSent] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
