@@ -141,11 +141,12 @@ export function Feedback() {
         </Field>
 
         {/* Foto oder PDF anhängen */}
-        <Field label={t('feedback.attachment')}>
+        <Field label={t('feedback.attachment')} group>
           <input
             ref={fileRef}
             type="file"
             accept="image/*,application/pdf"
+            aria-label={t('feedback.attach')}
             className="hidden"
             onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
           />
@@ -154,7 +155,11 @@ export function Feedback() {
               <Paperclip size={15} className="shrink-0 text-accent" />
               <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
               <span className="shrink-0 text-[12px] text-dim">{attachment.sizeMB} MB</span>
-              <button onClick={() => { setAttachment(undefined); if (fileRef.current) fileRef.current.value = '' }} className="shrink-0 text-dim hover:text-danger">
+              <button
+                onClick={() => { setAttachment(undefined); if (fileRef.current) fileRef.current.value = '' }}
+                aria-label={`${t('common.delete')}: ${attachment.name}`}
+                className="shrink-0 text-dim hover:text-danger"
+              >
                 <X size={15} />
               </button>
             </div>

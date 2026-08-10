@@ -1,5 +1,5 @@
 import { ArrowLeft, Home as HomeIcon, Moon, Sun, X } from 'lucide-react'
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { navigate } from '../router'
 
@@ -154,7 +154,31 @@ export const selectCls =
 export const inputCls =
   'w-full rounded-xl border border-line/10 bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+/**
+ * Beschriftetes Feld.
+ *
+ * Ein <label> gehört immer zu genau EINEM Bedienelement — dem ersten in ihm.
+ * Enthielt ein Feld eine Knopfgruppe, wurde deshalb der erste Knopf mit dem
+ * gesamten Inhalt der Beschriftung angesagt: „Competent" las sich als
+ * „Overall Result CompetentNot Competent", „Completed" als „Session status
+ * CompletedNot Completed". Wer die App hört statt sie zu sehen, bekam damit
+ * an der wichtigsten Stelle des Formulars die Gegenteil-Aussage vorgelesen.
+ *
+ * Für Gruppen daher `group` setzen: dann beschriftet die Überschrift die
+ * Gruppe als Ganzes, und jeder Knopf behält seinen eigenen Namen.
+ */
+export function Field({ label, children, group = false }: { label: string; children: ReactNode; group?: boolean }) {
+  const id = useId()
+  if (group) {
+    return (
+      <div className="block" role="group" aria-labelledby={id}>
+        <span id={id} className="mb-1.5 block text-[13px] font-medium text-dim">
+          {label}
+        </span>
+        {children}
+      </div>
+    )
+  }
   return (
     <label className="block">
       <span className="mb-1.5 block text-[13px] font-medium text-dim">{label}</span>

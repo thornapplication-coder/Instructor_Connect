@@ -35,11 +35,12 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
       confirmDiscard={title.trim() || body.trim() || category || groupIds.length > 0 ? t('common.discardConfirm') : undefined}
     >
       <div className="space-y-4">
-        <Field label={t('info.typeLabel')}>
+        <Field label={t('info.typeLabel')} group>
           <div className="flex gap-2">
             {(['text', 'pdf'] as const).map((tp) => (
               <button
                 key={tp}
+                aria-pressed={type === tp}
                 onClick={() => setType(tp)}
                 className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-sm transition ${
                   type === tp ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-line/10 text-dim'

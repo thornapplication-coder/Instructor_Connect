@@ -24,19 +24,23 @@ function StringList({ label, values, onChange }: { label: string; values: string
   const { t } = useTranslation()
   const [draft, setDraft] = useState('')
   return (
-    <Field label={label}>
+    <Field label={label} group>
       <div className="mb-2 flex flex-wrap gap-2">
         {values.map((v) => (
           <span key={v} className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5 text-[13px]">
             {v}
-            <button onClick={() => onChange(values.filter((x) => x !== v))} className="text-dim hover:text-danger">
+            <button
+              onClick={() => onChange(values.filter((x) => x !== v))}
+              aria-label={`${t('common.delete')}: ${v}`}
+              className="text-dim hover:text-danger"
+            >
               ×
             </button>
           </span>
         ))}
       </div>
       <div className="flex gap-2">
-        <input className={inputCls} value={draft} placeholder={t('admin.addValue')} onChange={(e) => setDraft(e.target.value)} />
+        <input className={inputCls} value={draft} aria-label={label} placeholder={t('admin.addValue')} onChange={(e) => setDraft(e.target.value)} />
         <Button
           variant="ghost"
           onClick={() => {

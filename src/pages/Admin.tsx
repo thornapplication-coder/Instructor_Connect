@@ -20,12 +20,18 @@ function StringListEditor({ label, values, onChange }: { label: string; values: 
     setDraft('')
   }
   return (
-    <Field label={label}>
+    // Gruppe statt <label>: die Beschriftung gehört zur Liste, nicht zum
+    // ersten Löschknopf darin.
+    <Field label={label} group>
       <div className="mb-2 flex flex-wrap gap-2">
         {values.map((v) => (
           <span key={v} className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5 text-[13px]">
             {v}
-            <button onClick={() => onChange(values.filter((x) => x !== v))} className="text-dim hover:text-danger">
+            <button
+              onClick={() => onChange(values.filter((x) => x !== v))}
+              aria-label={`${t('common.delete')}: ${v}`}
+              className="text-dim hover:text-danger"
+            >
               <X size={13} />
             </button>
           </span>
@@ -35,6 +41,7 @@ function StringListEditor({ label, values, onChange }: { label: string; values: 
         <input
           className={inputCls}
           value={draft}
+          aria-label={label}
           placeholder={t('admin.addValue')}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && add()}
@@ -487,13 +494,14 @@ function GroupsTab() {
                 ))}
               </select>
             </Field>
-            <Field label={t('admin.groupAdmins')}>
+            <Field label={t('admin.groupAdmins')} group>
               <div className="flex flex-wrap gap-1.5">
                 {activeUsers.map((u) => {
                   const isAdmin = g.adminIds.includes(u.id)
                   return (
                     <button
                       key={u.id}
+                      aria-pressed={isAdmin}
                       onClick={() =>
                         setGroupAdmins(g.id, isAdmin ? g.adminIds.filter((id) => id !== u.id) : [...g.adminIds, u.id])
                       }
@@ -508,13 +516,14 @@ function GroupsTab() {
               </div>
             </Field>
           </div>
-          <Field label={`${t('admin.membersManage')} (${g.memberIds.length})`}>
+          <Field label={`${t('admin.membersManage')} (${g.memberIds.length})`} group>
             <div className="flex flex-wrap gap-1.5">
               {activeUsers.map((u) => {
                 const isMember = g.memberIds.includes(u.id)
                 return (
                   <button
                     key={u.id}
+                    aria-pressed={isMember}
                     onClick={() =>
                       setGroupMembers(g.id, isMember ? g.memberIds.filter((id) => id !== u.id) : [...g.memberIds, u.id])
                     }
