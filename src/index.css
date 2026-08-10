@@ -197,11 +197,18 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
 }
 
 /* Admin-Panel: die Entscheidung Hinweis-oder-Inhalt fällt in CSS, damit der
-   Ausdruck (Seitenbreite < 1024px) den Inhalt zeigt und nicht den Hinweis. */
+   Ausdruck (Seitenbreite < 1024px) den Inhalt zeigt und nicht den Hinweis.
+
+   Der Hinweis gilt nur für Touch-Geräte (pointer: coarse): Die reine
+   Breitenabfrage sperrte auch Desktop-Nutzer aus, sobald sie zoomen —
+   CSS-Pixel schrumpfen mit dem Zoom, und ab 150 % auf einem üblichen
+   Laptop (1400 px → 933 CSS-Pixel) verschwand die gesamte Verwaltung.
+   Wer per Maus arbeitet, bekommt den Inhalt immer; eng wird er dann
+   höchstens, aber nie unerreichbar (WCAG 1.4.10 / 1.4.4). */
 .admin-narrow-note {
   display: none;
 }
-@media (max-width: 1023px) {
+@media (max-width: 1023px) and (pointer: coarse) {
   .admin-narrow-note {
     display: block;
   }
