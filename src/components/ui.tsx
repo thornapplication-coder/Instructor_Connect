@@ -102,10 +102,29 @@ export function Page({ children, className = '', wide = false }: { children: Rea
   return <main className={`mx-auto w-full flex-1 px-4 pb-24 pt-4 xl:max-w-none xl:px-8 ${wide ? 'max-w-5xl' : 'max-w-3xl'} ${className}`}>{children}</main>
 }
 
+/**
+ * Eine klickbare Karte ist ein Bedienelement — sie braucht Rolle, Fokus und
+ * Tastenbedienung. Vorher war sie ein nacktes <div onClick>: Die gemessene
+ * Tab-Reihenfolge auf der Chat-Seite lautete Zurück → Gruppe anlegen →
+ * Home → Sandbox-Leiste; keine einzige Gruppe war ohne Maus erreichbar.
+ */
 export function Card({ children, className = '', onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {
   return (
     <div
       onClick={onClick}
+      {...(onClick
+        ? {
+            role: 'button',
+            tabIndex: 0,
+            onKeyDown: (e: React.KeyboardEvent) => {
+              // Leertaste scrollt sonst die Seite — wie bei echten Knöpfen abfangen
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onClick()
+              }
+            },
+          }
+        : {})}
       className={`rounded-2xl border border-line/[0.06] bg-surface/90 shadow-soft ${onClick ? 'cursor-pointer transition hover:border-accent/30 hover:bg-raised/70' : ''} ${className}`}
     >
       {children}

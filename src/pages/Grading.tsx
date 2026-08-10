@@ -201,7 +201,19 @@ function TrainingAdminGrading() {
         {/* Einfache, kompakte Liste */}
         <div className="divide-y divide-line/[0.06] overflow-hidden rounded-xl border border-line/10 bg-surface/60">
           {list.map((r) => (
-            <div key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-line/5">
+            <div
+              key={r.id}
+              onClick={() => navigate(`/grading/${r.id}`)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  navigate(`/grading/${r.id}`)
+                }
+              }}
+              className="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-line/5"
+            >
               <TrafficDot color={trafficLight(r, state.gradingRecords)} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13.5px] font-semibold">
