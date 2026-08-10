@@ -37,11 +37,18 @@ jobs:
           cache: npm
           cache-dependency-path: package-lock.json
 
+      # Pruefung und Veroeffentlichung sind getrennte Workflows und laufen
+      # unabhaengig voneinander. Ohne diesen Schritt wuerde eine gebrochene
+      # Regel zwar den Merge blockieren, aber trotzdem live gehen.
+      - name: Tests
+        run: |
+          npm ci
+          npm test
+
       - name: Build (Sandbox-Modus)
         # Kein AC_BASE: der relative Basispfad aus vite.config.ts funktioniert
         # unter jedem Pages-Pfad, auch nach Repo-Umbenennungen.
         run: |
-          npm ci
           npm run build
           cp dist/index.html dist/404.html
 
