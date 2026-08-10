@@ -13,7 +13,7 @@ function LanguageToggle() {
         <button
           key={lng}
           onClick={() => i18n.changeLanguage(lng)}
-          className={`px-2.5 py-1 font-medium uppercase transition ${i18n.language === lng ? 'bg-accent text-bg' : 'text-dim hover:text-ink'}`}
+          className={`min-h-11 px-2.5 py-1 font-medium uppercase transition ${i18n.language === lng ? 'bg-accent text-bg' : 'text-dim hover:text-ink'}`}
         >
           {lng}
         </button>
@@ -150,7 +150,7 @@ export function Login() {
                 <button
                   key={u.id}
                   onClick={() => login(u.email)}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition hover:bg-line/5"
+                  className="min-h-11 flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition hover:bg-line/5"
                 >
                   <Avatar name={u.name} size={30} />
                   <span className="min-w-0">
@@ -162,7 +162,7 @@ export function Login() {
           </div>
         </div>
 
-        <div className="mt-8 space-y-1 text-center text-[11px] text-dim/80">
+        <div className="mt-8 space-y-1 text-center text-[11px] text-dim">
           <p>{t('login.noSignup')}</p>
           <p className="flex items-center justify-center gap-1">
             <Lock size={11} /> {t('login.encryption')}
@@ -172,7 +172,7 @@ export function Login() {
               {t('common.imprint')}
             </a>
           </p>
-          <p className="pt-1 text-dim/50">v{APP_VERSION}</p>
+          <p className="pt-1 text-dim">v{APP_VERSION}</p>
         </div>
       </div>
     </div>

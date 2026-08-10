@@ -1,0 +1,51 @@
+name: Prüfung (Typen und Build)
+
+# Prüfung und Freigabe waren bisher derselbe Job: Der einzige Workflow baute
+# und veröffentlichte zugleich. Ein Pull Request lief damit durch keinerlei
+# Prüfung — GitHub meldete „All checks have passed", weil es keine gab, und ob
+# der Build hält, zeigte sich erst nach dem Zusammenführen.
+#
+# Dieser Workflow prüft nur. Er hat bewusst KEINE Pages-Rechte: ein Pull
+# Request aus einem fremden Fork darf niemals auf die Live-Seite gelangen.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      # npm ci statt npm install: installiert exakt den Stand aus dem
+      # package-lock.json. „npm run build" ist „tsc -b && vite build" — die
+      # Typprüfung bricht den Lauf also mit ab.
+      - name: Typen prüfen und bauen
+        run: |
+          npm ci
+          npm run build
+
+      # Der Auslieferungsstand muss reproduzierbar sein: Zwei Builds derselben
+      # Quellen ergeben byte-gleiche Dateien. Weicht etwas ab, erzeugt jede
+      # Veröffentlichung einen scheinbar neuen Service Worker und lädt den
+      # Nutzern die Seite grundlos neu.
+      - name: Reproduzierbarkeit prüfen
+        run: |
+          find dist -type f | sort | xargs md5sum > /tmp/build1.txt
+          npm run build
+          find dist -type f | sort | xargs md5sum > /tmp/build2.txt
+          diff /tmp/build1.txt /tmp/build2.txt && echo "Build ist reproduzierbar"

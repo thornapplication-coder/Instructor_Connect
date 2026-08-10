@@ -20,12 +20,24 @@
   --c-surface: 250 251 253;/* #FAFBFD  Karten                  */
   --c-raised: 221 229 240; /* #DDE5F0  erhabene Flächen        */
   --c-ink: 22 37 61;       /* #16253D  Text                    */
-  --c-dim: 90 105 126;     /* #5A697E  Sekundärtext            */
+  --c-dim: 67 80 95;       /* #43505F  Sekundärtext (AA auf allen Flächen) */
   --c-accent: 37 99 190;   /* #2563BE  Akzent (kräftiges Blau) */
   --c-warm: 122 92 46;     /* #7A5C2E  warmer Kontrastton      */
-  --c-danger: 190 55 47;   /* #BE372F  destruktive Aktionen    */
+  --c-danger: 168 42 34;   /* #A82A22  destruktive Aktionen (AA auch auf getönter Fläche) */
   --c-line: 22 37 61;      /* dunkle Basis für Ränder          */
   --c-sand: 146 95 22;     /* Sandbox-Hinweistext              */
+  /* Ampel- und Statusfarben. Im Hellmodus deutlich dunkler als die früheren
+     400er-Töne: die Punkte lagen bei 1,5:1 und waren praktisch unsichtbar.
+     Alle Werte erreichen mindestens 3:1 auf Hintergrund, Karte und Fläche. */
+  --c-ok: 4 120 87;        /* #047857 */
+  --c-wait: 180 83 9;      /* #B45309 */
+  --c-bad: 185 28 28;      /* #B91C1C */
+  --c-focus: 37 99 190;    /* Tastaturfokus, >=3:1 gegen die Feldfläche */
+  /* Textfarbe AUF den Ampelflächen — im Hellmodus sind sie dunkel, im
+     Dunkelmodus hell, die Schrift muss also mitwechseln. */
+  --c-ok-ink: 255 255 255;
+  --c-wait-ink: 255 255 255;
+  --c-bad-ink: 255 255 255;
   --sh-soft: 0 6px 18px rgba(22, 37, 61, 0.10);
   --sh-tile: 0 10px 26px rgba(22, 37, 61, 0.14);
   --grad-a: rgb(var(--c-accent) / 0.07);
@@ -37,12 +49,19 @@
   --c-surface: 19 45 79;   /* #132D4F  Flächen/Karten          */
   --c-raised: 27 58 99;    /* #1B3A63  erhabene Flächen        */
   --c-ink: 236 242 250;    /* #ECF2FA  Text                    */
-  --c-dim: 154 167 184;    /* #9AA7B8  Sekundärtext            */
+  --c-dim: 175 186 200;    /* #AFBAC8  Sekundärtext (AA auf allen Flächen) */
   --c-accent: 111 168 255; /* #6FA8FF  Akzent (helles Blau)    */
   --c-warm: 240 233 220;   /* #F0E9DC  warmes Off-White        */
   --c-danger: 255 122 122; /* #FF7A7A  destruktive Aktionen    */
   --c-line: 255 255 255;   /* Basis für Trennlinien/Ränder     */
   --c-sand: 252 211 77;    /* Sandbox-Hinweistext              */
+  --c-ok: 52 211 153;      /* #34D399 */
+  --c-wait: 251 191 36;    /* #FBBF24 */
+  --c-bad: 248 113 113;    /* #F87171 */
+  --c-focus: 191 216 255;  /* heller Ring — der Akzent lag im Dunkelmodus bei 2,38:1 */
+  --c-ok-ink: 6 26 20;
+  --c-wait-ink: 32 22 2;
+  --c-bad-ink: 40 10 10;
   --sh-soft: 0 8px 24px rgba(3, 10, 22, 0.35);
   --sh-tile: 0 10px 30px rgba(3, 10, 22, 0.45);
   --grad-a: rgb(var(--c-raised) / 0.35);
@@ -110,6 +129,46 @@ input[type='date'] {
   }
 }
 
+/*
+ * Umbruch langer Zeichenketten. Im Projekt gab es dafür keine einzige Regel,
+ * und die Folgen reichten weit über Kosmetik hinaus:
+ *  - im Ausdruck überdruckten sich Spalten, ein langer Feldwert lag komplett
+ *    außerhalb des Blatts und fehlte damit auf dem Nachweis
+ *  - ein einzelnes langes Wort im Chat zog die Seite auf über 3000 px
+ *  - läuft die Seite waagerecht über, wird ein „fixed inset-0"-Dialog so
+ *    breit wie der Überlauf, und Schließen- und Speichern-Knopf liegen
+ *    außerhalb des Bildschirms
+ *
+ * `overflow-wrap: anywhere` bricht NUR, wenn es sonst überliefe — normaler
+ * Text bricht weiterhin an Leerzeichen. Bewusst nicht `word-break: break-all`,
+ * das würde auch dort trennen, wo Platz ist.
+ *
+ * Ausgenommen sind Elemente, deren Inhalt eine Einheit bildet und die ihren
+ * Überlauf selbst regeln (Auswahlfelder, Tabellen mit eigenem Scrollbereich).
+ */
+body,
+p,
+span,
+li,
+dt,
+dd,
+h1,
+h2,
+h3,
+th,
+td,
+label,
+button {
+  overflow-wrap: anywhere;
+}
+
+/* Eingaben behalten ihr eigenes Scrollverhalten */
+input,
+select,
+textarea {
+  overflow-wrap: normal;
+}
+
 /* dezente Scrollbars */
 * {
   scrollbar-width: thin;
@@ -121,6 +180,43 @@ input[type='date'] {
  * schmale Ränder, kompakter Maßstab, damit ein Formular auf eine
  * (maximal zwei) Seiten passt. Kopf-/Navigationsleisten werden ausgeblendet.
  */
+/* Bedienelemente sind mindestens 44px hoch (Apple HIG, WCAG 2.2). Eingabe-
+   und Auswahlfelder bekommen die Mindesthöhe zentral, damit sie nicht an
+   jeder Fundstelle einzeln gesetzt werden muss. */
+select,
+textarea,
+input:not([type='checkbox']):not([type='radio']):not([type='file']) {
+  min-height: 44px;
+}
+
+/* Tastaturfokus: eigener Ring mit mindestens 3:1 gegen die Feldfläche —
+   der Akzentton allein lag im Dunkelmodus bei 2,38:1. */
+:focus-visible {
+  outline: 2px solid rgb(var(--c-focus));
+  outline-offset: 2px;
+}
+
+/* Admin-Panel: die Entscheidung Hinweis-oder-Inhalt fällt in CSS, damit der
+   Ausdruck (Seitenbreite < 1024px) den Inhalt zeigt und nicht den Hinweis.
+
+   Der Hinweis gilt nur für Touch-Geräte (pointer: coarse): Die reine
+   Breitenabfrage sperrte auch Desktop-Nutzer aus, sobald sie zoomen —
+   CSS-Pixel schrumpfen mit dem Zoom, und ab 150 % auf einem üblichen
+   Laptop (1400 px → 933 CSS-Pixel) verschwand die gesamte Verwaltung.
+   Wer per Maus arbeitet, bekommt den Inhalt immer; eng wird er dann
+   höchstens, aber nie unerreichbar (WCAG 1.4.10 / 1.4.4). */
+.admin-narrow-note {
+  display: none;
+}
+@media (max-width: 1023px) and (pointer: coarse) {
+  .admin-narrow-note {
+    display: block;
+  }
+  .admin-panel {
+    display: none;
+  }
+}
+
 @media print {
   :root,
   :root[data-theme='dark'] {
@@ -134,14 +230,44 @@ input[type='date'] {
     --c-danger: 185 28 28;
     --c-line: 15 23 42;
     --c-sand: 146 95 22;
+    --c-ok: 4 120 87;
+    --c-wait: 180 83 9;
+    --c-bad: 185 28 28;
+    --c-focus: 37 99 190;
+    --c-ok-ink: 255 255 255;
+    --c-wait-ink: 255 255 255;
+    --c-bad-ink: 255 255 255;
     --sh-soft: none;
     --sh-tile: none;
     --grad-a: transparent;
     --grad-b: transparent;
   }
+
+  /* A4 ohne oberen/unteren Seitenrand: Der Browser zeichnet seine
+     Kopf- und Fußzeilen (Dokumenttitel, Adresse, Seitenzahl, Datum) in
+     GENAU diese Ränder — auf einem Ausbildungsnachweis haben sie nichts
+     verloren, und abschaltbar sind sie nur von Hand im Druckdialog.
+     Ohne Rand gibt es keinen Platz dafür, in keinem Browser.
+
+     Der Preis: keine Rand-Seitenzahlen mehr (Firefox/Safari setzten sie
+     dort) und auf Folgeseiten kein oberer Papierrand — der Inhalt bringt
+     seinen Abstand deshalb selbst mit (padding am main). Ohne die
+     Größenangabe druckt Chrome im US-Letter-Format. */
   @page {
-    margin: 8mm;
+    size: A4 portrait;
+    margin: 0 6mm;
   }
+
+  /* Breite Tabellen (Flottenmatrix, Formularlisten) im Querformat, damit
+     sie in der Breite auf ein Blatt passen. */
+  @page landscape {
+    size: A4 landscape;
+    margin: 0 6mm;
+  }
+  .print-landscape {
+    page: landscape;
+  }
+
   * {
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -155,11 +281,21 @@ input[type='date'] {
   .sticky {
     display: none !important;
   }
+  /* Im Druck zählt nicht die Fensterbreite: der Inhalt wird gedruckt. */
+  .admin-narrow-note {
+    display: none !important;
+  }
+  .admin-panel {
+    display: block !important;
+  }
   main {
     max-width: 100% !important;
-    padding: 0 !important;
-    /* kompakter Maßstab: ein Formular passt auf eine, lange auf zwei Seiten */
-    zoom: 0.62;
+    /* Ersatz für den entfallenen oberen/unteren Seitenrand (siehe @page) */
+    padding: 6mm 0 !important;
+    /* Am schlechtesten Fall kalibriert: ein Grading Sheet mit neun
+       kommentierten Kompetenzen und langen Zusammenfassungen passt damit
+       noch auf eine A4-Seite, ein übliches füllt sie zu rund 90 %. */
+    zoom: 0.75;
   }
   main > * {
     break-inside: avoid;
@@ -169,28 +305,74 @@ input[type='date'] {
   main canvas {
     display: none !important;
   }
-  /* Karten und Abstände deutlich verdichten */
+  /* Karten und Abstände verdichten — ohne die Gliederung aufzugeben */
   main .p-4 {
-    padding: 0.5rem 0.65rem !important;
+    padding: 0.45rem 0.6rem !important;
   }
   main .space-y-4 > * + * {
-    margin-top: 0.45rem !important;
+    margin-top: 0.4rem !important;
   }
   main .space-y-3 > * + * {
-    margin-top: 0.35rem !important;
+    margin-top: 0.3rem !important;
   }
   main .rounded-2xl,
   main .rounded-xl {
-    border-radius: 6px !important;
+    border-radius: 5px !important;
   }
-  /* Signaturbilder kompakt */
+  /* Signaturbilder kompakt, aber noch erkennbar */
   main img {
-    max-height: 60px;
-    height: 60px;
+    max-height: 54px;
+    height: 54px;
   }
+
+  /* Querformat-Seiten nutzen die volle Breite: die Auswertung wird sonst
+     an der Blattkante abgeschnitten. */
+  .print-landscape {
+    zoom: 1;
+  }
+  .print-landscape table {
+    width: 100% !important;
+    table-layout: fixed;
+    font-size: 9px;
+  }
+  .print-landscape .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  /* Tabellen über Seitengrenzen: Kopfzeile wiederholt sich, Zeilen werden
+     nicht mitten durchgeschnitten. */
+  thead {
+    display: table-header-group;
+  }
+  tfoot {
+    display: table-footer-group;
+  }
+  tr,
+  th,
+  td {
+    break-inside: avoid;
+  }
+  th {
+    background: #eef2f7 !important;
+  }
+  /* Überschriften bleiben bei ihrem Abschnitt */
+  h1,
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+
+  /* Formularfelder erscheinen auf Papier als Text, nicht als Bedienelement */
   input,
   select,
   textarea {
+    min-height: 0 !important;
     color-scheme: light;
+    appearance: none;
+    -webkit-appearance: none;
+    border: 0 !important;
+    background: none !important;
+    padding: 0 !important;
+    box-shadow: none !important;
   }
 }

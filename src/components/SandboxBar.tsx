@@ -16,8 +16,8 @@ export function SandboxBar() {
   const offsetDays = Math.round(state.timeOffsetMs / DAY)
 
   return (
-    <div className="safe-bottom sticky bottom-0 z-30 h-11 border-t border-amber-400/30 bg-[#2b2410]/95 text-amber-200 backdrop-blur">
-      <div className="mx-auto flex h-full max-w-3xl items-center gap-3 overflow-x-auto whitespace-nowrap px-3 text-[12px]">
+    <div className="safe-bottom sticky bottom-0 z-30 min-h-11 border-t border-amber-400/30 bg-[#2b2410]/95 text-amber-200 backdrop-blur">
+      <div className="mx-auto flex h-full max-w-3xl xl:max-w-none items-center gap-3 overflow-x-auto whitespace-nowrap px-3 text-[12px]">
         <span className="flex shrink-0 items-center gap-1.5 font-semibold uppercase tracking-wide" title={t('sandbox.banner')}>
           <FlaskConical size={14} /> Sandbox
         </span>
@@ -46,7 +46,7 @@ export function SandboxBar() {
             <button
               key={days}
               onClick={() => advanceTime(days * DAY)}
-              className="rounded-md border border-amber-400/30 px-1.5 py-0.5 hover:bg-amber-400/10"
+              className="min-h-11 rounded-md border border-amber-400/30 px-3 py-0.5 hover:bg-amber-400/10"
             >
               +{days}d
             </button>
@@ -56,7 +56,7 @@ export function SandboxBar() {
         <button
           onClick={resetSandbox}
           title={t('sandbox.reset')}
-          className="flex shrink-0 items-center gap-1 rounded-md border border-amber-400/30 px-1.5 py-0.5 hover:bg-amber-400/10"
+          className="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-md border border-amber-400/30 px-3 py-0.5 hover:bg-amber-400/10"
         >
           <RotateCcw size={12} />
           <span className="hidden sm:inline">{t('sandbox.reset')}</span>
@@ -66,7 +66,7 @@ export function SandboxBar() {
           <button
             onClick={() => navigate('/device')}
             title={t('sandbox.device')}
-            className="flex shrink-0 items-center gap-1 rounded-md border border-amber-400/30 px-1.5 py-0.5 hover:bg-amber-400/10"
+            className="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-md border border-amber-400/30 px-3 py-0.5 hover:bg-amber-400/10"
           >
             <Smartphone size={12} />
             <span className="hidden sm:inline">{t('sandbox.device')}</span>

@@ -15,9 +15,18 @@
     "theme": "Toggle light/dark",
     "imprint": "Legal notice",
     "version": "Version",
-    "updateAvailable": "A new version is available",
+    "updateAvailable": "New version available — updating automatically",
     "updateNow": "Update now",
-    "refresh": "Reload app"
+    "refresh": "Reload app",
+    "tooLarge": "“{{name}}” is {{size}} MB — the limit is {{max}} MB.",
+    "discardConfirm": "Discard your entries and close?",
+    "offline": "Offline — entries are saved on this device",
+    "outboxQueued_one": "{{count}} form waiting to be sent",
+    "outboxQueued_other": "{{count}} forms waiting to be sent",
+    "outboxSending_one": "Back online — sending {{count}} form",
+    "outboxSending_other": "Back online — sending {{count}} forms",
+    "storageError": "Saving failed — device storage is full. Changes now only live in this session. Free up space on the device.",
+    "storageAlmostFull": "Device storage is almost full — back up and free up space soon."
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -90,7 +99,11 @@
     "blockedNote": "You have been blocked from sending in chat by an admin. You can still read messages. Please contact your administrator.",
     "pollValidUntil": "Valid until",
     "pollValidUntilUtc": "Valid until (UTC)",
-    "pollValidHint": "Date and time are in UTC. After this time the poll closes automatically."
+    "pollValidHint": "Date and time are in UTC. After this time the poll closes automatically.",
+    "attachmentOnly": "Attachment",
+    "unknownAuthor": "Unknown",
+    "deleteMessageConfirm": "Delete this message for everyone? This cannot be undone.",
+    "newMessageFrom": "New message from {{name}}"
   },
   "chatInfo": {
     "title": "Chat info",
@@ -105,7 +118,13 @@
     "manage": "Manage group",
     "addMember": "Add member",
     "removeMember": "Remove",
-    "retentionOverride": "Retention period for this group"
+    "retentionOverride": "Retention period for this group",
+    "members_one": "{{count}} member",
+    "members_other": "{{count}} members",
+    "deleteGroup": "Delete group",
+    "deleteGroupHint": "Removes the group with all messages, polls and attachments. Cannot be undone.",
+    "deleteGroupConfirm": "Delete “{{name}}” with all {{count}} messages? This cannot be undone.",
+    "deleteBlocked": "Not possible: {{names}} would be left without any group. Add them to another group first."
   },
   "info": {
     "searchPlaceholder": "Search entries …",
@@ -135,11 +154,9 @@
     "ackedAt": "Confirmed on {{date}}",
     "ackStatus": "Confirmed: {{done}}/{{total}}",
     "ackMissing": "outstanding",
-    "groupsLabel": "Target groups (multi-select)",
-    "groupsHint": "No selection = visible to everyone. With groups selected, only their members see the entry — and only they must confirm reading.",
-    "allGroups": "All groups",
     "exportAck": "Export control list (CSV)",
-    "scheduled": "Scheduled — not yet visible to the target groups"
+    "scheduled": "Scheduled — not yet visible to users",
+    "sinceRelease": "from release"
   },
   "contacts": {
     "call": "Call",
@@ -150,7 +167,13 @@
     "name": "Name",
     "phone": "Phone number",
     "email": "Email address",
-    "allDepartments": "All departments"
+    "allDepartments": "All departments",
+    "deleteConfirm": "Delete “{{name}}” from the directory? This cannot be undone.",
+    "editContact": "Edit contact",
+    "deleteContact": "Delete contact",
+    "search": "Search name, position or department",
+    "empty": "The directory is empty. An admin can add contacts here.",
+    "noMatch": "No contact matches your search."
   },
   "feedback": {
     "title": "Feedback",
@@ -170,12 +193,15 @@
     "urgentOn": "marked as urgent",
     "urgentOff": "tap if this is urgent",
     "attachment": "Attachment (photo or PDF, optional)",
-    "attach": "Attach photo or PDF"
+    "attach": "Attach photo or PDF",
+    "scopeLabel": "Reference",
+    "scopeGeneral": "General",
+    "scopeAircraft": "Aircraft type related"
   },
   "admin": {
     "title": "Admin Panel",
     "users": "Users",
-    "groups": "Groups",
+    "groups": "Chats",
     "settings": "Settings",
     "changelog": "Changelog",
     "addUser": "Create user",
@@ -242,7 +268,26 @@
     "allCategories": "All categories",
     "backToOverview": "Back to overview",
     "sortByName": "Sort: Name",
-    "sortByRole": "Sort: Role"
+    "sortByRole": "Sort: Role",
+    "allGroups": "All groups",
+    "documentHeader": "Print header of the training forms",
+    "atoName": "Organisation (ATO)",
+    "approvalNumber": "Approval number",
+    "formRevision": "Form revision",
+    "documentHeaderHint": "Appears in the header and footer of every printed form and PDF.",
+    "deactivateHint": "Deactivated users keep their history and can no longer sign in. Records, messages and signatures stay attributable — that is why accounts are never deleted.",
+    "emailTaken": "This email address is already assigned to another user. It is the only sign-in identifier and has to stay unique.",
+    "groupNameTaken": "A group with this name already exists.",
+    "noAccess": "You do not have access to the Admin Panel.",
+    "noUsersMatch": "No user matches the current filters.",
+    "storage": "Storage",
+    "storageState": "Form and chat data",
+    "storageUsed": "Used by this app",
+    "storageQuota": "of {{quota}} allotted",
+    "storageHint": "Data is stored on this device (IndexedDB). The bar shows how much of the browser-allotted space is in use; a warning banner appears app-wide above 85 %.",
+    "storageUnknown": "This browser does not report storage usage.",
+    "approvalNumberUK": "Approval number (UK)",
+    "allScopes": "All references"
   },
   "imprint": {
     "title": "Legal notice & terms of use",
@@ -315,7 +360,8 @@
     "mail": {
       "pending": "Send pending",
       "sent": "Sent",
-      "failed": "Sending failed"
+      "failed": "Sending failed",
+      "queued": "Queued (offline)"
     },
     "admin": {
       "dashboard": "Overview",
@@ -348,7 +394,7 @@
       "export_competencies": "Competencies (CSV)",
       "export_people": "People (CSV)",
       "exportHint": "Unprocessed raw data for audits, separated by training, competencies and people.",
-      "deferredRecipients": "Form 310 recipients (Deferred Item List) — always notified",
+      "deferredRecipients": "Form 310 recipients (Deferred Item) — always notified",
       "addCompetency": "Add competency",
       "codeLabel": "Code",
       "titleLabel": "Title",
@@ -372,15 +418,23 @@
       "editOptionsHint": "Every dropdown and tick list of this form can be maintained here: rename an entry directly, remove it with ×, or add a new one. Changes apply to new forms immediately.",
       "aircraftCentral": "Maintained centrally under Settings → Aircraft types — identical on every form.",
       "fleetFilter": "Fleet",
-      "noTrendFlags": "No trend flags — no competency below the threshold."
+      "noTrendFlags": "No trend flags — no competency below the threshold.",
+      "sessionCount_one": "{{count}} session",
+      "sessionCount_other": "{{count}} sessions",
+      "standardisation": "Standardisation",
+      "statsScopeNote": "Basis: only signed forms, follow-up forms excluded, period based on the training date. The standardisation report uses the same scope.",
+      "exportListHint": "Exports exactly the {{count}} rows the current filters show.",
+      "onlyHidden": "Hidden from lists",
+      "hiddenBadge": "Hidden by {{count}}",
+      "restore": "Restore to all lists",
+      "resultCount": "{{shown}} of {{total}} forms match the filters"
     },
     "attendance": "Record of Attendance",
     "studentName": "Student name",
     "addAttendee": "Add attendee",
     "attendance307B": "With the signature, the instructor/examiner confirms the participation of all individuals listed to the full extent and within the specified timeframe of the respective event.",
-    "footnote1": "* Tick if two or more competencies are graded with 2 or below; refer to Form 306 – Additional Training.",
-    "footnote2": "** Tick if one or more required items are not completed; describe not completed items in the comment box and Form 310, Deferred Item List.",
-    "footnote3": "*** Ready for skill test to be signed on Form 311.",
+    "footnote1": "* Tick if any competency is graded 1, or if two or more competencies are graded 2 or below; refer to Form 306 – Additional Training.",
+    "footnote2": "** Tick if one or more required items are not completed; describe not completed items in the comment box and Form 310, Deferred Item.",
     "participants": "Student / Instructor",
     "student": "Student",
     "toGrading": "Continue to grading",
@@ -404,7 +458,7 @@
       "red": "sending failed — action required",
       "all": "All"
     },
-    "deferredMailNote": "Form 310 (Deferred Item List) is always emailed to the Training Admin upon completion: {{recipients}}",
+    "deferredMailNote": "Form 310 (Deferred Item) is always emailed to the Training Admin upon completion: {{recipients}}",
     "multiStudentHint": "Multiple students in one pass are for convenience only: each student signs individually, and on completion a SEPARATE form is created for each student.",
     "recipientsCard": "Recipients",
     "addRecipient": "Add additional recipient (email) …",
@@ -414,7 +468,6 @@
     "followUpBodyMandatory": "The result is “Not Competent” or the session was not completed. The forms marked as mandatory MUST be completed now — the originating grading sheet is attached to their email dispatch automatically.",
     "mandatory": "mandatory",
     "followUpMailNote": "Each follow-up form is emailed to the configured recipients together with the originating grading sheet.",
-    "stillRequired": "outstanding (mandatory)",
     "followUpWarn": "A mandatory follow-up form has not been completed for this grading sheet yet:",
     "fillNow": "Fill in {{form}} now",
     "mailAttachment": "The originating grading sheet ({{form}}) is automatically attached to the email dispatch of this form.",
@@ -436,7 +489,68 @@
         "month": "Last month",
         "year": "Last year"
       }
-    }
+    },
+    "followUp306PerPilot": "One Form 306 per pilot graded “Not Competent” — {{count}} will be opened one after another, each with that pilot’s own deficiencies and signature.",
+    "errAllNotObserved": "At least one competency of {{name}} must carry a grade — a sheet graded “NO” throughout is not a record of competence.",
+    "warnFutureDate": "The date is in the future. Complete the form anyway?",
+    "warnNoFlightTime": "A mandatory flight time is 00:00. Complete the form anyway?",
+    "attendanceSignature": "Signature",
+    "sigCandidate": "Signature Candidate Instructor (CAI)",
+    "errAttendanceSignature": "Every attendee on Form 307A signs in person — {{name}} has not signed yet.",
+    "instructorQual": "Instructor qualification",
+    "instructorSeat": "Instructor seat",
+    "openUnsignedFollowUp": "Complete {{form}} — signature outstanding",
+    "leaveConfirm": "Leave the form? Your entries are saved as a draft and offered again next time — signatures are not kept.",
+    "draftRestored": "A draft of this form was restored. Signatures always have to be drawn again.",
+    "draftDiscard": "Discard draft",
+    "missingForm": "Missing Form {{id}}",
+    "unsignedForm": "Form {{id}} not signed",
+    "std": {
+      "title": "Standardisation Report",
+      "set": "Competency set",
+      "instructor": "Instructor",
+      "sessionsCol": "Sessions",
+      "gradesCol": "Grades",
+      "meanCol": "Mean",
+      "deltaCol": "Deviation",
+      "lowCol": "Grade 1–2",
+      "highCol": "Grade 4–5",
+      "ncCol": "Not competent",
+      "assessmentCol": "Assessment",
+      "fleetMean": "Fleet mean",
+      "exportCsv": "Report (CSV)",
+      "hint": "Grading behaviour of each instructor compared with the fleet mean — the basis for standardisation meetings under ORA.ATO.110.",
+      "footnote": "Deviation is the instructor's mean grade minus the fleet mean of the same competency set. Pilot and instructor competencies are never compared with one another. A deviation from {{watch}} grade points is marked for discussion, from {{review}} for review. Marking requires at least {{grades}} grades across at least {{sessions}} sessions; below that a deviation is not meaningful.",
+      "period": {
+        "label": "Period",
+        "all": "All records",
+        "12m": "Last 12 months",
+        "6m": "Last 6 months",
+        "3m": "Last 3 months"
+      },
+      "flag": {
+        "none": "Within range",
+        "watch": "Discuss",
+        "review": "Review required",
+        "insufficient": "Too few records"
+      }
+    },
+    "deputisedNote": "Trainee signature captured on behalf of the assigned instructor by {{name}} — the assigned instructor's account was deactivated.",
+    "sigAlt": "Signature present: {{label}}",
+    "errNoAttendee": "Please add at least one attendee — an attendance record without attendees is not evidence.",
+    "typeInstead": "Type name instead",
+    "drawInstead": "Draw instead",
+    "typedNamePlaceholder": "Full name as signature",
+    "useTyped": "Sign",
+    "typedHint": "For use without a pointing device. The document will show the typed name marked as \"Typed signature\" with a timestamp.",
+    "instrSignedAt": "Instructor signed on {{date}}",
+    "counterSignedAt": "countersigned on {{date}}",
+    "fingerprint": "Document fingerprint {{hash}}",
+    "fingerprintOk": "matches the signed content",
+    "fingerprintBad": "DOES NOT match the signed content — this record was altered after signing",
+    "authority": "Approving authority *",
+    "authorityAT": "Austro Control (AT) — {{nr}}",
+    "authorityUK": "UK CAA — {{nr}}"
   },
   "lessons": {
     "newPlan": "Upload lesson plan",
@@ -446,6 +560,8 @@
     "file": "PDF file",
     "allTypes": "All types",
     "empty": "No lesson plans available for your assigned aircraft types.",
-    "noAircraft": "No aircraft type has been assigned to you yet. An admin can change this in user management — afterwards you will see the matching lesson plans."
+    "noAircraft": "No aircraft type has been assigned to you yet. An admin can change this in user management — afterwards you will see the matching lesson plans.",
+    "deleteConfirm": "Delete the lesson plan “{{title}}”? This cannot be undone.",
+    "noFile": "No file attached"
   }
 }

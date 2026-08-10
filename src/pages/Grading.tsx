@@ -3,17 +3,24 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Card, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
+import { trainingDate } from '../gradingStats'
 import { useStore } from '../store'
+import { followUpStarted, isComplete, missingFollowUps, traineesOf, trafficLight, type TrafficColor } from '../gradingRules'
 import type { GradingRecord } from '../types'
+
+// Weiterreichen, damit die Ansichten weiterhin aus einer Datei importieren
+export { followUpStarted, isComplete, missingFollowUps, traineesOf, trafficLight, type TrafficColor }
 
 /** Farbcodierung laut Spez. 5.3: 5/4 grün, 3 dunkelgrün, 2 orange, 1 rot, NO grau.
  *  Kräftige Vollfarben mit weißem/schwarzem Text — in Hell- UND Dunkelmodus lesbar. */
 export function gradeColor(g: number | 'NO' | null): string {
+  // Textfarbe je Fläche so gewählt, dass jede Note mindestens 4,5:1 erreicht:
+  // Weiß auf emerald-600 lag bei 3,77:1 und war zu blass.
   if (g === 'NO' || g === null) return 'bg-line/10 text-dim'
-  if (g >= 4) return 'bg-emerald-600 text-white'
+  if (g >= 4) return 'bg-emerald-700 text-white'
   if (g === 3) return 'bg-emerald-800 text-white'
   if (g === 2) return 'bg-amber-500 text-black'
-  return 'bg-red-600 text-white'
+  return 'bg-red-700 text-white'
 }
 
 /* Einheitliches Datumsformat DD.MM.YYYY für das gesamte Grading-Modul */
@@ -29,54 +36,39 @@ export function formatDateTime(ts: number): string {
 }
 
 /**
- * Pflicht-Folgeformulare, die zu diesem Formular noch fehlen:
- * Not Competent ⇒ 306 (Additional Training) ist verpflichtend,
- * Session not completed ⇒ 310 (Deferred Item List) ist verpflichtend.
+ * Ampelsymbole: Form UND Farbe unterscheiden die Zustände.
+ *
+ * Reine Farbcodierung reichte nicht — im Hellmodus waren das dunkle Orange
+ * und das dunkle Rot als kleine Punkte kaum auseinanderzuhalten, und für
+ * rot-grün-blinde Nutzer (rund 8 % der Männer) gar nicht. Kreis, Dreieck und
+ * Quadrat sind auch bei 12 px eindeutig, unabhängig von der Farbwahrnehmung.
+ *
+ * Die Füllungen sind bewusst kräftig; den geforderten Kontrast gegen den
+ * Hintergrund liefert die dunkle Kontur, nicht die Fläche.
  */
-export function missingFollowUps(r: GradingRecord, all: GradingRecord[]): string[] {
-  if (r.parentId) return []
-  // Ein Durchgang mit mehreren Studenten ergibt mehrere Formulare; ein dort
-  // ausgefülltes 306/310 hängt an genau einem davon, gilt aber für alle.
-  const family = new Set([r.id, ...(r.batchId ? all.filter((x) => x.batchId === r.batchId).map((x) => x.id) : [])])
-  const children = all.filter((c) => c.parentId && family.has(c.parentId))
-  const out: string[] = []
-  if (r.trainees.some((tr) => tr.overall === 'not_competent') && !children.some((c) => c.formTypeId === '306')) out.push('306')
-  if (r.sessionStatus === 'not_completed' && !children.some((c) => c.formTypeId === '310')) out.push('310')
-  return out
+const TRAFFIC_SHAPE: Record<TrafficColor, { fill: string; edge: string; path: JSX.Element; label: string }> = {
+  green: { fill: '#10B981', edge: '#065F46', path: <circle cx="8" cy="8" r="6.1" />, label: 'ok' },
+  yellow: { fill: '#F59E0B', edge: '#7C2D12', path: <path d="M8 1.5 L14.7 13.6 H1.3 Z" strokeLinejoin="round" />, label: 'open' },
+  red: { fill: '#DC2626', edge: '#7F1D1D', path: <rect x="2" y="2" width="12" height="12" rx="1.8" />, label: 'failed' },
 }
 
-/**
- * Ampelsystem für den Formularstatus:
- *  grün  = abgeschlossen, unterschrieben und versendet
- *  gelb  = noch offen (Unterschrift/Versand ausständig oder
- *          Pflicht-Folgeformular fehlt)
- *  rot   = Versand fehlgeschlagen — Handeln erforderlich
- */
-export type TrafficColor = 'green' | 'yellow' | 'red'
-
-/** Piloten eines Formulars — Folgeformulare (306/310) erben sie vom
- *  Ausgangsformular, damit in der Liste nicht „kein Trainee“ steht. */
-export function traineesOf(r: GradingRecord, all: GradingRecord[]) {
-  if (r.trainees.length > 0) return r.trainees
-  const parent = r.parentId ? all.find((x) => x.id === r.parentId) : undefined
-  return parent?.trainees ?? []
-}
-
-export function trafficLight(r: GradingRecord, all?: GradingRecord[]): TrafficColor {
-  if (r.mailStatus === 'failed') return 'red'
-  if (all && missingFollowUps(r, all).length > 0) return 'yellow'
-  if (r.status === 'signed' && r.mailStatus === 'sent') return 'green'
-  return 'yellow'
-}
-
-export const TRAFFIC_CLS: Record<TrafficColor, string> = {
-  green: 'bg-emerald-400',
-  yellow: 'bg-amber-400',
-  red: 'bg-red-500',
-}
-
-export function TrafficDot({ color, className = '' }: { color: TrafficColor; className?: string }) {
-  return <span className={`inline-block h-3 w-3 shrink-0 rounded-full ${TRAFFIC_CLS[color]} ${className}`} />
+export function TrafficDot({ color, className = '', size = 13 }: { color: TrafficColor; className?: string; size?: number }) {
+  const s = TRAFFIC_SHAPE[color]
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width={size}
+      height={size}
+      role="img"
+      aria-label={s.label}
+      className={`shrink-0 ${className}`}
+      fill={s.fill}
+      stroke={s.edge}
+      strokeWidth="1.5"
+    >
+      {s.path}
+    </svg>
+  )
 }
 
 /**
@@ -88,7 +80,7 @@ export function TrafficDot({ color, className = '' }: { color: TrafficColor; cla
 function TrainingAdminGrading() {
   const { i18n } = useTranslation()
   const t = i18n.getFixedT('en')
-  const { state, now, deleteGradingRecord } = useStore()
+  const { state, now } = useStore()
   const [tab, setTab] = useState<'completed' | 'open'>('completed')
   const [period, setPeriod] = useState('all')
   const [fTrainee, setFTrainee] = useState('')
@@ -113,16 +105,35 @@ function TrainingAdminGrading() {
   ]
   const periodDays = PERIODS.find((x) => x.key === period)?.days ?? null
 
-  const traineeOptions = [...new Set(all.flatMap((r) => r.trainees.map(traineeLabel)))].filter((n) => n !== '—').sort()
-  const instructorOptions = [...new Set(all.map((r) => r.instructorId))]
+  // Folgeformulare tragen ihren Piloten in den Kopfdaten — über traineesOf
+  // erscheinen sie im Filter, statt unsichtbar zu bleiben.
+  const traineeOptions = [...new Set(all.flatMap((r) => traineesOf(r, all).map(traineeLabel)))].filter((n) => n !== '—').sort()
+  // Wie bei den Mustern: alle, die Formulare führen dürfen, plus die aus
+  // Altdaten — nicht nur die, von denen bereits etwas vorliegt.
+  const instructorOptions = [
+    ...new Set([
+      ...state.users.filter((u) => u.active && u.canGrade).map((u) => u.id),
+      ...all.map((r) => r.instructorId),
+    ]),
+  ]
     .map((id) => ({ id, name: userName(id) }))
     .sort((a, b) => a.name.localeCompare(b.name))
-  const aircraftOptions = [...new Set(all.map((r) => r.header.aircraftType).filter(Boolean))].sort()
+  // Muster kommen aus der zentralen Liste in den Einstellungen, nicht aus den
+  // vorhandenen Formularen: eine Flotte ohne abgelegtes Formular ließ sich
+  // sonst gar nicht erst auswählen — dabei ist genau das eine Auskunft
+  // („für die ATR liegt nichts vor"). Muster aus Altdaten, die nicht mehr in
+  // den Einstellungen stehen, werden ergänzt, damit nichts unfilterbar wird.
+  const aircraftOptions = [
+    ...new Set([...state.settings.aircraftTypes, ...all.map((r) => r.header.aircraftType).filter(Boolean)]),
+  ].sort((a, b) => a.localeCompare(b))
 
   const list = all.filter((r) => {
     if (tab === 'completed' ? !isCompleted(r) : isCompleted(r)) return false
-    if (periodDays && now() - r.createdAt > periodDays * 24 * 3600_000) return false
-    if (fTrainee && !r.trainees.some((tr) => traineeLabel(tr) === fTrainee)) return false
+    // Zeitraum über den Schulungstag, nicht den Erfassungszeitpunkt — die
+    // gleiche Regel wie in der Statistik (gradingStats.trainingDate): ein
+    // nachgetragenes Formular gehört in die Periode, in der geschult wurde.
+    if (periodDays && now() - trainingDate(r) > periodDays * 24 * 3600_000) return false
+    if (fTrainee && !traineesOf(r, all).some((tr) => traineeLabel(tr) === fTrainee)) return false
     if (fAircraft && r.header.aircraftType !== fAircraft) return false
     if (fInstructor && r.instructorId !== fInstructor) return false
     return true
@@ -131,6 +142,8 @@ function TrainingAdminGrading() {
   const selCls = 'rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]'
   return (
     <>
+      {/* Filterergebnis für Sprachausgaben — die Liste ändert sich sonst lautlos */}
+      <p role="status" className="sr-only">{t('grading.admin.resultCount', { shown: list.length, total: all.length })}</p>
       <TopBar title="Grading Tool" back="/" />
       <Page wide className="space-y-3">
         <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.trainingAdminNote')}</p>
@@ -141,7 +154,7 @@ function TrainingAdminGrading() {
             <button
               key={tb}
               onClick={() => setTab(tb)}
-              className={`flex-1 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
+              className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
                 tab === tb ? 'border-accent bg-accent/15 text-accent' : 'border-line/15 text-dim'
               }`}
             >
@@ -190,15 +203,31 @@ function TrainingAdminGrading() {
         {/* Einfache, kompakte Liste */}
         <div className="divide-y divide-line/[0.06] overflow-hidden rounded-xl border border-line/10 bg-surface/60">
           {list.map((r) => (
-            <div key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-line/5">
+            <div
+              key={r.id}
+              onClick={() => navigate(`/grading/${r.id}`)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  navigate(`/grading/${r.id}`)
+                }
+              }}
+              className="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-line/5"
+            >
               <TrafficDot color={trafficLight(r, state.gradingRecords)} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[13.5px] font-semibold">
                   {r.formTypeId} · {formTitle(r.formTypeId)}
                 </p>
-                <p className="truncate text-[12px] text-dim">
-                  {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('grading.noTrainee')} ·{' '}
-                  {userName(r.instructorId)} · {r.header.aircraftType || '—'} · {formatDate(r.createdAt)}
+                <p className="flex flex-wrap items-baseline gap-x-1.5 text-[12px] text-dim">
+                  <span className="min-w-0 max-w-full truncate">
+                    {traineesOf(r, all).map(traineeLabel).join(', ') || t('grading.noTrainee')}
+                  </span>
+                  <span className="shrink-0">· {userName(r.instructorId)}</span>
+                  <span className="shrink-0">· {r.header.aircraftType || '—'}</span>
+                  <span className="shrink-0">· {formatDate(r.createdAt)}</span>
                 </p>
               </div>
               {/* PDF-Download/Druck (öffnet die Ein-Seiten-Druckansicht) */}
@@ -209,22 +238,14 @@ function TrainingAdminGrading() {
                     navigate(`/grading/${r.id}?print=1`)
                   }}
                   title={t('grading.downloadPdf')}
-                  className="rounded-lg p-1.5 text-dim transition hover:bg-accent/10 hover:text-accent"
+                  className="flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-accent/10 hover:text-accent"
                 >
                   <FileDown size={16} />
                 </button>
               )}
-              {/* endgültig löschen — inkl. angehängter Folgeformulare */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (window.confirm(t('grading.ta.deleteConfirm'))) deleteGradingRecord(r.id)
-                }}
-                title={t('common.delete')}
-                className="rounded-lg p-1.5 text-dim transition hover:bg-danger/10 hover:text-danger"
-              >
-                <Trash2 size={16} />
-              </button>
+              {/* Kein Löschen: die Ablage des Training Admins ist nur-lesend.
+                  Ausbuchen eines Ausbildungsnachweises bleibt dem Superadmin
+                  im Admin-Panel vorbehalten (ORA.GEN.220 Aufbewahrung). */}
             </div>
           ))}
         </div>
@@ -250,12 +271,18 @@ export function Grading() {
   // Filter über die Ampel-Legende (antippen zum Filtern)
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
   const list = visibleGradingRecords.filter((r) => !trafficFilter || trafficLight(r, state.gradingRecords) === trafficFilter)
+  const filterAnsage = (
+    <p role="status" className="sr-only">
+      {t('grading.admin.resultCount', { shown: list.length, total: visibleGradingRecords.length })}
+    </p>
+  )
 
   // Training Admin: eigene Ablage-Ansicht mit zwei Reitern und Filtern
   if (isTrainingAdmin) return <TrainingAdminGrading />
 
   return (
     <>
+      {filterAnsage}
       {/* Modulname bleibt in beiden Sprachen Englisch */}
       <TopBar
         title="Grading Tool"
@@ -264,7 +291,7 @@ export function Grading() {
           mayGrade ? (
             <button
               onClick={() => navigate('/grading/new')}
-              className="flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
+              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
             >
               <Plus size={15} /> {t('grading.newForm')}
             </button>
@@ -281,7 +308,7 @@ export function Grading() {
         <div className="flex flex-col gap-0.5 rounded-xl border border-line/10 bg-surface/60 p-1.5 text-[12px] text-dim sm:grid sm:grid-cols-2 sm:gap-1">
           <button
             onClick={() => setTrafficFilter('')}
-            className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition ${
+            className={`min-h-11 flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition ${
               trafficFilter === '' ? 'bg-accent/15 font-semibold text-accent' : 'hover:bg-line/5'
             }`}
           >
@@ -292,7 +319,7 @@ export function Grading() {
             <button
               key={c}
               onClick={() => setTrafficFilter(trafficFilter === c ? '' : c)}
-              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition ${
+              className={`min-h-11 flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition ${
                 trafficFilter === c ? 'bg-accent/15 font-semibold text-accent' : 'hover:bg-line/5'
               }`}
             >
@@ -303,7 +330,7 @@ export function Grading() {
         </div>
 
         {/* Aufbewahrung in der Instruktoren-Ansicht: 1 Woche */}
-        {isMember && <p className="px-1 text-[11.5px] leading-relaxed text-dim/80">{t('grading.retentionHint')}</p>}
+        {isMember && <p className="px-1 text-[11.5px] leading-relaxed text-dim">{t('grading.retentionHint')}</p>}
 
         {list.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('grading.empty')}</p>}
 
@@ -317,20 +344,27 @@ export function Grading() {
                 {/* Status-Icon spiegelt die Ampel: grün ✓, gelb ?, rot ✕ */}
                 <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised">
                   {light === 'green' ? (
-                    <CheckCircle2 size={22} className="text-emerald-500" />
+                    <CheckCircle2 size={22} className="text-ok" />
                   ) : light === 'red' ? (
-                    <XCircle size={22} className="text-red-500" />
+                    <XCircle size={22} className="text-bad" />
                   ) : (
-                    <HelpCircle size={22} className="text-amber-500" />
+                    <HelpCircle size={22} className="text-wait" />
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-[15px] font-semibold leading-snug">
                     {r.formTypeId} · {formTitle(r.formTypeId)}
                   </p>
-                  <p className="mt-0.5 truncate text-[13px] text-dim">
-                    {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('grading.noTrainee')} ·{' '}
-                    {r.header.aircraftType} · {formatDate(r.createdAt)}
+                  {/* Datum steht abgesetzt: es unterscheidet zwei Formulare
+                      desselben Piloten und wurde vom Abschneiden verschluckt. */}
+                  <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-[13px] text-dim">
+                    <span className="min-w-0 max-w-full truncate">
+                      {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('grading.noTrainee')}
+                    </span>
+                    {/* schrumpfbar: ein langer Mustername drängte sonst den
+                        Pilotennamen vollständig aus der Zeile */}
+                    <span className="min-w-0 max-w-[40%] shrink truncate">· {r.header.aircraftType}</span>
+                    <span className="shrink-0">· {formatDate(r.createdAt)}</span>
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {r.status === 'signed' ? (
@@ -352,8 +386,13 @@ export function Grading() {
                     )}
                     {/* Pflicht-Folgeformular noch nicht ausgefüllt */}
                     {missing.map((id) => (
-                      <span key={id} className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-2.5 py-0.5 text-[11px] font-semibold text-black">
-                        <AlertTriangle size={11} /> {id} {t('grading.stillRequired')}
+                      <span key={id} className="inline-flex items-center gap-1 rounded-full bg-wait px-2.5 py-0.5 text-[11px] font-semibold text-waitInk">
+                        <AlertTriangle size={11} />{' '}
+                        {/* Angelegt, aber unsigniert: dann fehlt nur noch die
+                            Unterschrift — das ist etwas anderes als „gar nicht da". */}
+                        {followUpStarted(r, state.gradingRecords, id)
+                          ? t('grading.unsignedForm', { id })
+                          : t('grading.missingForm', { id })}
                       </span>
                     ))}
                     {r.parentId && <Badge tone="dim">{t('grading.linked')}</Badge>}
@@ -371,22 +410,25 @@ export function Grading() {
                         navigate(`/grading/${r.id}?print=1`)
                       }}
                       title={t('grading.downloadPdf')}
-                      className="rounded-lg p-1.5 text-dim transition hover:bg-accent/10 hover:text-accent"
+                      className="flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-accent/10 hover:text-accent"
                     >
                       <FileDown size={16} />
                     </button>
                   )}
                   {/* Aus der eigenen Listenansicht entfernen — gilt nur für den
                       aktuellen Nutzer, im Admin-Panel bleibt alles erhalten.
-                      Training Admin ist nur-lesend und hat keinen Mülleimer. */}
-                  {!isTrainingAdmin && (
+                      Training Admin ist nur-lesend und hat keinen Mülleimer.
+                      Unfertiges lässt sich nicht ausblenden: eine offene
+                      Pflicht darf nicht aus der Sicht verschwinden, die sie
+                      anmahnen soll (der Store weigert sich zusätzlich). */}
+                  {!isTrainingAdmin && trafficLight(r, state.gradingRecords) === 'green' && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
                       if (window.confirm(t('grading.deleteOwnConfirm'))) hideGradingRecord(r.id)
                     }}
                     title={t('grading.deleteOwn')}
-                    className="rounded-lg p-1.5 text-dim transition hover:bg-danger/10 hover:text-danger"
+                    className="flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
                   >
                     <Trash2 size={16} />
                   </button>

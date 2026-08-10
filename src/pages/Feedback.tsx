@@ -1,7 +1,8 @@
 import { AlertTriangle, CheckCircle2, Info, Paperclip, X } from 'lucide-react'
 import { useRef, useState } from 'react'
+import { useUnsavedWork } from '../editGuard'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, Field, inputCls, Page, TopBar } from '../components/ui'
+import { Button, Card, Field, inputCls, Page, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { useStore } from '../store'
 import type { Attachment } from '../types'
@@ -12,9 +13,14 @@ export function Feedback() {
   const [category, setCategory] = useState('')
   const [recipient, setRecipient] = useState('')
   const [urgent, setUrgent] = useState(false)
+  // Musterbezug: 'general' (kein Bezug) oder 'aircraft' (dann Muster wählen)
+  const [scope, setScope] = useState<'general' | 'aircraft'>('general')
+  const [aircraftType, setAircraftType] = useState('')
   const [message, setMessage] = useState('')
   const [attachment, setAttachment] = useState<Attachment | undefined>(undefined)
   const [error, setError] = useState(false)
+  // Halb ausgefülltes Feedback übersteht das automatische Update (editGuard)
+  useUnsavedWork(!!message.trim() || !!attachment)
   const [sent, setSent] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -23,20 +29,30 @@ export function Feedback() {
 
   const pickFile = (file: File | null) => {
     if (!file) return
-    setAttachment({
-      name: file.name,
-      kind: file.type.startsWith('image/') ? 'image' : 'file',
-      sizeMB: Math.round((file.size / 1024 / 1024) * 10) / 10,
-    })
+    const sizeMB = Math.round((file.size / 1024 / 1024) * 10) / 10
+    // Das Limit aus den Einstellungen galt bisher nur als Beschriftung.
+    if (sizeMB > state.settings.maxUploadMB) {
+      window.alert(t('common.tooLarge', { name: file.name, size: sizeMB, max: state.settings.maxUploadMB }))
+      return
+    }
+    setAttachment({ name: file.name, kind: file.type.startsWith('image/') ? 'image' : 'file', sizeMB })
   }
 
   const submit = () => {
-    if (!recipient || !category || !message.trim()) {
+    // Bei Musterbezug ist das Muster Pflicht — sonst wäre der Bezug leer.
+    if (!recipient || !category || !message.trim() || (scope === 'aircraft' && !aircraftType)) {
       setError(true)
       return
     }
     // Feedback bleibt im Admin-Panel gespeichert und dort löschbar.
-    submitFeedback({ category, recipient, urgent, message: message.trim(), attachment })
+    submitFeedback({
+      category,
+      recipient,
+      urgent,
+      message: message.trim(),
+      attachment,
+      aircraftType: scope === 'aircraft' ? aircraftType : undefined,
+    })
     setSent(true)
   }
 
@@ -49,6 +65,10 @@ export function Feedback() {
           <h2 className="text-xl font-bold">{t('feedback.sentTitle')}</h2>
           <p className="mt-1.5 max-w-sm text-[14px] text-dim">{t('feedback.sentBody')}</p>
           <Card className="mt-6 w-full max-w-sm p-4 text-left text-[13px]">
+            {/* Die Kategorie fehlte in der Bestätigung, obwohl sie die
+                Zuordnung im Admin-Panel bestimmt. */}
+            <p className="mb-1 font-semibold text-dim">{t('feedback.category')}</p>
+            <p className="mb-3 truncate">{category}</p>
             <p className="mb-1 font-semibold text-dim">{t('feedback.recipients')}</p>
             <p className="truncate">{recipient}</p>
             {urgent && (
@@ -88,7 +108,7 @@ export function Feedback() {
           <select
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
-            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+            className={selectCls}
           >
             <option value="">…</option>
             {recipients.map((r) => (
@@ -103,7 +123,7 @@ export function Feedback() {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+            className={selectCls}
           >
             <option value="">…</option>
             {categories.map((c) => (
@@ -113,6 +133,40 @@ export function Feedback() {
             ))}
           </select>
         </Field>
+
+        {/* Musterbezug: betrifft die Rückmeldung ein bestimmtes Muster oder
+            ist sie allgemein? Bei Musterbezug wird das Muster verlangt. */}
+        <Field label={t('feedback.scopeLabel') + ' *'} group>
+          <div className="flex gap-2">
+            {(['general', 'aircraft'] as const).map((sc) => (
+              <button
+                key={sc}
+                aria-pressed={scope === sc}
+                onClick={() => {
+                  setScope(sc)
+                  if (sc === 'general') setAircraftType('')
+                }}
+                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-[13.5px] transition ${
+                  scope === sc ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-line/15 text-dim'
+                }`}
+              >
+                {t(sc === 'general' ? 'feedback.scopeGeneral' : 'feedback.scopeAircraft')}
+              </button>
+            ))}
+          </div>
+        </Field>
+        {scope === 'aircraft' && (
+          <Field label={t('lessons.aircraftType') + ' *'}>
+            <select value={aircraftType} onChange={(e) => setAircraftType(e.target.value)} className={selectCls}>
+              <option value="">…</option>
+              {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
 
         {/* Urgent-Kennzeichnung */}
         <button
@@ -135,11 +189,12 @@ export function Feedback() {
         </Field>
 
         {/* Foto oder PDF anhängen */}
-        <Field label={t('feedback.attachment')}>
+        <Field label={t('feedback.attachment')} group>
           <input
             ref={fileRef}
             type="file"
             accept="image/*,application/pdf"
+            aria-label={t('feedback.attach')}
             className="hidden"
             onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
           />
@@ -148,7 +203,11 @@ export function Feedback() {
               <Paperclip size={15} className="shrink-0 text-accent" />
               <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
               <span className="shrink-0 text-[12px] text-dim">{attachment.sizeMB} MB</span>
-              <button onClick={() => { setAttachment(undefined); if (fileRef.current) fileRef.current.value = '' }} className="shrink-0 text-dim hover:text-danger">
+              <button
+                onClick={() => { setAttachment(undefined); if (fileRef.current) fileRef.current.value = '' }}
+                aria-label={`${t('common.delete')}: ${attachment.name}`}
+                className="shrink-0 text-dim hover:text-danger"
+              >
                 <X size={15} />
               </button>
             </div>

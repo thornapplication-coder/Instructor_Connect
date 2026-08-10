@@ -1,13 +1,13 @@
 import { BookOpenCheck, LogOut, MessageSquareText, MessagesSquare, Phone, Plane, GraduationCap, RefreshCw, ShieldCheck, Share } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
 import { Avatar, Modal, NewDot, ThemeToggle } from '../components/ui'
 import { navigate } from '../router'
-import { useStore } from '../store'
+import { isAdminUser, useStore } from '../store'
 import { useIsDesktop } from '../useIsDesktop'
 import { APP_VERSION } from '../types'
-import { TRAFFIC_CLS, trafficLight, type TrafficColor } from './Grading'
+import { TrafficDot, trafficLight, type TrafficColor } from './Grading'
 
 /* Kachel-Beschriftungen bleiben laut Spez. §5 in beiden Sprachen Englisch. */
 const TILES = [
@@ -19,9 +19,14 @@ const TILES = [
   { to: '/contacts', label: 'Who to call', icon: Phone },
 ] as const
 
-export function Home() {
+export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
   const { t, i18n } = useTranslation()
-  const { state, currentUser, logout, unreadGroups, hasNewInfo, visibleGradingRecords } = useStore()
+  // Ein Tippfehler in der Adresse zeigte die Startseite, ließ aber den
+  // ungültigen Hash stehen — ein Neuladen landete dann wieder im Nichts.
+  useEffect(() => {
+    if (unknownRoute) navigate('/')
+  }, [unknownRoute])
+  const { state, currentUser, logout, unreadGroups, hasNewInfo, hasNewContacts, visibleGradingRecords, can, moduleAllowed } = useStore()
   const isDesktop = useIsDesktop()
   const [showInstall, setShowInstall] = useState(false)
   // Öffnet das iOS-Share-Sheet (dort: „Zum Home-Bildschirm") — sonst Anleitung
@@ -48,13 +53,24 @@ export function Home() {
     '/grading': false, // Grading trägt stattdessen den Ampel-Punkt
     '/lessons': false,
     '/chat': unreadGroups.size > 0,
-    '/feedback': false, // bewusst ohne Punkt
+    '/feedback': false, // bewusst ohne Punkt — Feedback ist eine Einbahnstraße
     '/info': hasNewInfo,
-    '/contacts': false, // bewusst ohne Punkt
+    // Änderungen am Verzeichnis wurden berechnet, aber nie angezeigt
+    '/contacts': hasNewContacts,
   }
 
-  // Training Admin: reiner Formular-Zugriff — nur die Grading-Kachel
-  const tiles = currentUser!.role === 'training_admin' ? TILES.filter((tl) => tl.to === '/grading') : TILES
+  // Die Kacheln folgen der Rechte-Matrix: was der Superadmin einer Rolle
+  // freischaltet, wird auch sichtbar. Vorher war die Startseite für den
+  // Training Admin fest verdrahtet und freigegebene Rechte unerreichbar.
+  const tiles = TILES.filter((tl) => {
+    if (tl.to === '/grading') return can('grading_create') || can('grading_view_all')
+    if (tl.to === '/lessons') return moduleAllowed('lessons')
+    if (tl.to === '/info') return moduleAllowed('info')
+    if (tl.to === '/chat') return moduleAllowed('chat')
+    if (tl.to === '/feedback') return moduleAllowed('feedback')
+    if (tl.to === '/contacts') return moduleAllowed('contacts')
+    return true
+  })
 
   return (
     <div className="flex flex-1 flex-col">
@@ -72,7 +88,7 @@ export function Home() {
             onClick={() => window.location.reload()}
             aria-label={t('common.refresh')}
             title={t('common.refresh')}
-            className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-ink"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-ink"
           >
             <RefreshCw size={17} />
           </button>
@@ -82,68 +98,62 @@ export function Home() {
               <button
                 key={lng}
                 onClick={() => i18n.changeLanguage(lng)}
-                className={`px-2 py-1 font-medium uppercase transition ${i18n.language === lng ? 'bg-accent text-bg' : 'text-dim hover:text-ink'}`}
+                className={`min-h-11 px-4 py-1 font-medium uppercase transition ${i18n.language === lng ? 'bg-accent text-bg' : 'text-dim hover:text-ink'}`}
               >
                 {lng}
               </button>
             ))}
           </div>
-          <button
-            onClick={logout}
-            aria-label={t('common.logout')}
-            className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-ink"
-          >
-            <LogOut size={18} />
-          </button>
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 md:max-w-4xl xl:max-w-none xl:px-10">
-        {/* Bildmarke und Titel mittig über den Kacheln */}
-        <div className="mb-8 flex flex-col items-center gap-4">
-          <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-raised shadow-tile md:h-24 md:w-24">
-            <Plane size={44} className="text-accent md:hidden" />
-            <Plane size={52} className="hidden text-accent md:block" />
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 short:py-3 md:max-w-4xl xl:max-w-none xl:px-10">
+        {/* Bildmarke und Titel mittig über den Kacheln. Im flachen Fenster
+            (Handy quer) rückt der Schriftzug neben die Bildmarke, damit die
+            Kacheln ohne Scrollen erreichbar bleiben. */}
+        <div className="mb-8 flex flex-col items-center gap-4 short:mb-3 short:flex-row short:justify-center short:gap-3">
+          <span className="flex h-20 w-20 items-center justify-center rounded-3xl bg-raised shadow-tile short:h-11 short:w-11 short:rounded-2xl md:h-24 md:w-24">
+            {/* Größe per CSS statt per size-Prop — so greifen die Varianten
+                (flaches Fenster / ab Tablet) ohne mehrfaches Rendern. */}
+            <Plane className="h-11 w-11 text-accent short:h-6 short:w-6 md:h-[52px] md:w-[52px]" />
           </span>
-          <h1 className="text-center text-4xl font-bold tracking-tight md:text-5xl">
+          <h1 className="text-center text-4xl font-bold tracking-tight short:text-2xl md:text-5xl">
             Instructor <span className="text-accent">Connect</span>
           </h1>
         </div>
 
         {/* 2 Spalten am Handy, 3 ab Tablet — große, gut greifbare Kacheln */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-6 short:grid-cols-3 short:gap-2.5">
           {tiles.map(({ to, label, icon: Icon }) => (
             <button
               key={to}
               onClick={() => navigate(to)}
-              className="group relative flex aspect-square flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
+              className="group relative flex aspect-square flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised short:aspect-auto short:h-[72px] short:flex-row short:justify-start short:gap-2.5 short:rounded-2xl short:px-3"
             >
               {to === '/grading' && gradingTraffic ? (
-                <span
-                  aria-label={`status ${gradingTraffic}`}
-                  className={`pointer-events-none absolute right-3.5 top-3.5 z-10 h-3 w-3 rounded-full ring-2 ring-bg ${TRAFFIC_CLS[gradingTraffic]}`}
-                />
+                // Dieselbe Form-Codierung wie in der Formularliste
+                <TrafficDot color={gradingTraffic} size={15} className="pointer-events-none absolute right-3 top-3 z-10" />
               ) : (
                 hasNews[to] && <NewDot className="right-3.5 top-3.5" />
               )}
               {/* Kachelgröße bleibt — Symbol und Beschriftung wachsen ab Tablet
                   deutlich mit, damit sie am iPad und Desktop gut lesbar sind. */}
-              <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg sm:h-20 sm:w-20 lg:h-24 lg:w-24">
-                <Icon size={28} className="sm:hidden" />
-                <Icon size={40} className="hidden sm:block lg:hidden" />
-                <Icon size={48} className="hidden lg:block" />
+              <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg sm:h-20 sm:w-20 lg:h-24 lg:w-24 short:h-10 short:w-10 short:rounded-xl">
+                <Icon size={28} className="sm:hidden short:block" />
+                <Icon size={40} className="hidden sm:block lg:hidden short:hidden" />
+                <Icon size={48} className="hidden lg:block short:hidden" />
               </span>
-              <span className="px-2 text-center text-[14px] font-semibold leading-tight sm:text-[17px] lg:text-[19px]">{label}</span>
+              <span className="px-2 text-center text-[14px] font-semibold leading-tight sm:text-[17px] lg:text-[19px] short:px-0 short:text-left short:text-[13px]">{label}</span>
             </button>
           ))}
         </div>
 
         {/* Admin Panel bewusst nur am Desktop: auf Tablet/Handy zu unübersichtlich.
             Admins bekommen ein kleines Panel (Gruppen + Feedback). */}
-        {(currentUser!.role === 'superadmin' || currentUser!.role === 'group_admin') && isDesktop && (
+        {isAdminUser(currentUser) && isDesktop && (
           <button
             onClick={() => navigate('/admin')}
-            className="mx-auto mt-8 flex items-center gap-2 rounded-full border border-line/10 px-4 py-2 text-[13px] text-dim transition hover:border-accent/40 hover:text-ink"
+            className="min-h-11 mx-auto mt-8 flex items-center gap-2 rounded-full border border-line/10 px-4 py-2 text-[13px] text-dim transition hover:border-accent/40 hover:text-ink"
           >
             <ShieldCheck size={15} className="text-accent" /> {t('home.admin')}
           </button>
@@ -152,7 +162,7 @@ export function Home() {
         {/* Antippen öffnet das Share-Sheet (iOS: „Zum Home-Bildschirm") */}
         <button
           onClick={openInstall}
-          className="mx-auto mt-6 flex max-w-xs items-center gap-2 text-center text-[11px] leading-snug text-dim/70 underline-offset-2 transition hover:text-ink hover:underline md:mt-8"
+          className="mx-auto mt-6 flex min-h-11 max-w-xs items-center gap-2 text-center text-[11px] leading-snug text-dim underline-offset-2 transition hover:text-ink hover:underline short:hidden md:mt-8"
         >
           <Share size={13} className="shrink-0" /> {t('home.installHint')}
         </button>
@@ -168,16 +178,16 @@ export function Home() {
         )}
       </main>
 
-      <footer className="space-y-2 pb-4 text-center">
+      <footer className="space-y-2 pb-4 text-center short:space-y-1 short:pb-2">
         <div className="flex items-center justify-center gap-4 text-[12.5px]">
-          <button onClick={() => navigate('/imprint')} className="text-dim underline-offset-2 hover:text-ink hover:underline">
+          <button onClick={() => navigate('/imprint')} className="inline-flex min-h-11 items-center text-dim underline-offset-2 hover:text-ink hover:underline">
             {t('common.imprint')}
           </button>
-          <button onClick={logout} className="flex items-center gap-1 text-dim underline-offset-2 hover:text-ink hover:underline">
+          <button onClick={logout} className="inline-flex min-h-11 items-center gap-1 text-dim underline-offset-2 hover:text-ink hover:underline">
             <LogOut size={12} /> {t('common.logout')}
           </button>
         </div>
-        <p className="text-[11px] text-dim/50">Instructor Connect v{APP_VERSION}</p>
+        <p className="text-[11px] text-dim short:hidden">Instructor Connect v{APP_VERSION}</p>
       </footer>
     </div>
   )

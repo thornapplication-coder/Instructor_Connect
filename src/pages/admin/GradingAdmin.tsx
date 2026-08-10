@@ -1,15 +1,18 @@
-import { AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, SlidersHorizontal, Trash2, TrendingDown, X } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Eye, EyeOff, AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, Scale, SlidersHorizontal, Trash2, TrendingDown, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, Field, inputCls } from '../../components/ui'
-import { csvRow, downloadCsv } from '../../csv'
+import { Badge, Button, Card, Field, inputCls, selectCls } from '../../components/ui'
+import { csvNum, csvRow, downloadCsv } from '../../csv'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
-import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType } from '../../types'
+import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType, GradingRecord } from '../../types'
 import { formatDate, formatDateTime, missingFollowUps, TrafficDot, traineesOf, trafficLight, type TrafficColor } from '../Grading'
+import { StandardisationReport } from './StandardisationReport'
+import { PERIODS, periodLabel, scopeRecords, statsBySet as computeStatsBySet, type PeriodKey } from '../../gradingStats'
 
-type Section = 'dashboard' | 'records' | 'config' | 'stats'
+type Section = 'dashboard' | 'records' | 'config' | 'stats' | 'standardisation'
+const SECTIONS: Section[] = ['dashboard', 'records', 'stats', 'standardisation', 'config']
 
 /** Durchschnitt der numerischen Noten (NO zählt nicht mit) */
 function avgOf(values: (number | 'NO' | null)[]): number | null {
@@ -21,19 +24,23 @@ function StringList({ label, values, onChange }: { label: string; values: string
   const { t } = useTranslation()
   const [draft, setDraft] = useState('')
   return (
-    <Field label={label}>
+    <Field label={label} group>
       <div className="mb-2 flex flex-wrap gap-2">
         {values.map((v) => (
           <span key={v} className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5 text-[13px]">
             {v}
-            <button onClick={() => onChange(values.filter((x) => x !== v))} className="text-dim hover:text-danger">
+            <button
+              onClick={() => onChange(values.filter((x) => x !== v))}
+              aria-label={`${t('common.delete')}: ${v}`}
+              className="text-dim hover:text-danger"
+            >
               ×
             </button>
           </span>
         ))}
       </div>
       <div className="flex gap-2">
-        <input className={inputCls} value={draft} placeholder={t('admin.addValue')} onChange={(e) => setDraft(e.target.value)} />
+        <input className={inputCls} value={draft} aria-label={label} placeholder={t('admin.addValue')} onChange={(e) => setDraft(e.target.value)} />
         <Button
           variant="ghost"
           onClick={() => {
@@ -119,13 +126,13 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
               {!hideCodes && <span className="w-12 shrink-0 font-mono text-[12.5px] font-semibold">{c.code}</span>}
               <span className="min-w-0 flex-1 truncate text-[13px]">{c.title}</span>
               <span className="shrink-0 text-[11.5px] text-dim">{c.behaviours.length} OB</span>
-              <button onClick={() => startEdit(c)} title={t('common.edit')} className="shrink-0 rounded-lg p-1.5 text-dim hover:text-accent">
+              <button onClick={() => startEdit(c)} title={t('common.edit')} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-accent">
                 <Pencil size={14} />
               </button>
               <button
                 onClick={() => window.confirm(t('grading.admin.deleteCompetencyConfirm')) && onChange(set.competencies.filter((x) => x.code !== c.code))}
                 title={t('common.delete')}
-                className="shrink-0 rounded-lg p-1.5 text-dim hover:text-danger"
+                className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-danger"
               >
                 <Trash2 size={14} />
               </button>
@@ -165,7 +172,7 @@ function FieldOptionsEditor({ field, onChange }: { field: FormField; onChange: (
       </p>
       {/* Die Musterliste gilt app-weit und wird in den Einstellungen gepflegt */}
       {field.key === 'aircraftType' ? (
-        <p className="text-[11.5px] leading-relaxed text-dim/80">{t('grading.admin.aircraftCentral')}</p>
+        <p className="text-[11.5px] leading-relaxed text-dim">{t('grading.admin.aircraftCentral')}</p>
       ) : (
         <>
           <div className="mb-2 flex flex-wrap gap-1.5">
@@ -182,7 +189,7 @@ function FieldOptionsEditor({ field, onChange }: { field: FormField; onChange: (
                 </button>
               </span>
             ))}
-            {options.length === 0 && <span className="text-[11.5px] text-dim/70">—</span>}
+            {options.length === 0 && <span className="text-[11.5px] text-dim">—</span>}
           </div>
           <div className="flex gap-2">
             <input
@@ -247,7 +254,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
             <span className="shrink-0 text-[11.5px] text-dim">
               {f.fields.filter((x) => x.required).length} {t('grading.admin.requiredFields')} · {f.fields.length} {t('grading.admin.fieldsTotal')}
             </span>
-            <button onClick={() => startEdit(f)} title={t('common.edit')} className="shrink-0 rounded-lg p-1.5 text-dim hover:text-accent">
+            <button onClick={() => startEdit(f)} title={t('common.edit')} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-accent">
               <Pencil size={14} />
             </button>
             <button
@@ -260,7 +267,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
             <button
               onClick={() => window.confirm(t('grading.admin.deleteFormTypeConfirm')) && onChange(formTypes.filter((x) => x.id !== f.id))}
               title={t('common.delete')}
-              className="shrink-0 rounded-lg p-1.5 text-dim hover:text-danger"
+              className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-danger"
             >
               <Trash2 size={14} />
             </button>
@@ -317,7 +324,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
               <select
                 value={draft.scheme}
                 onChange={(e) => setDraft({ ...draft, scheme: e.target.value as CompetencySetKey | 'none' })}
-                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+                className={selectCls}
               >
                 <option value="pilot">{t('grading.admin.schemePilot')}</option>
                 <option value="instructor">{t('grading.admin.schemeInstructor')}</option>
@@ -325,7 +332,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
               </select>
             </Field>
             {idTaken && <p className="text-[12.5px] text-danger">{t('grading.admin.formIdTaken')}</p>}
-            <p className="text-[11.5px] leading-relaxed text-dim/80">{t('grading.admin.newFormHint')}</p>
+            <p className="text-[11.5px] leading-relaxed text-dim">{t('grading.admin.newFormHint')}</p>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditId(null)}>{t('common.cancel')}</Button>
               <Button disabled={!draft.id.trim() || !draft.title.trim() || idTaken} onClick={save}>{t('common.save')}</Button>
@@ -337,14 +344,22 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
   )
 }
 
-export function GradingAdmin() {
+/** @param section Zweites Adresssegment (#/admin/grading/<section>) —
+ *  leer zeigt die Kachelübersicht der Ablage. */
+export function GradingAdmin({ section: sectionSeg = '' }: { section?: string }) {
   const { t } = useTranslation()
-  const { state, currentUser, retryGradingMail, updateGrading } = useStore()
-  // null = Kachel-Übersicht wie am Dashboard (Wunsch: leichter auffindbar)
-  const [section, setSection] = useState<Section | null>(null)
+  const { state, currentUser, retryGradingMail, updateGrading, deleteGradingRecord, unhideGradingRecord } = useStore()
+  const section = SECTIONS.includes(sectionSeg as Section) ? (sectionSeg as Section) : null
+  // Unbekannter Unterbereich: Adresse ehrlich auf die Übersicht der Ablage
+  // zurücksetzen, statt sie stehen zu lassen.
+  useEffect(() => {
+    if (sectionSeg && !section) navigate('/admin/grading', true)
+  }, [sectionSeg, section])
   const [query, setQuery] = useState('')
   const [filterType, setFilterType] = useState('')
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
+  /** Nur Blätter zeigen, die mindestens ein Nutzer ausgeblendet hat */
+  const [onlyHidden, setOnlyHidden] = useState(false)
   // Filter nach Trainee (Standard-Sicht), Instruktor und Aircraft Type
   const [filterTrainee, setFilterTrainee] = useState('')
   const [filterInstructor, setFilterInstructor] = useState('')
@@ -353,6 +368,10 @@ export function GradingAdmin() {
   const [filterPeriod, setFilterPeriod] = useState('all')
   // Statistik: leer = gesamte Flotte, sonst ein einzelner Aircraft Type
   const [statsFleet, setStatsFleet] = useState('')
+  // Zeitraum gilt für Kalibrierung UND Standardisierungsbericht. Vorher kannte
+  // nur der Bericht einen Zeitraum, die Kalibrierung rechnete über alles —
+  // dieselbe Frage bekam dadurch zwei verschiedene Antworten.
+  const [statsPeriod, setStatsPeriod] = useState<PeriodKey>('12m')
 
   const g = state.settings.grading
   // Neueste immer zuoberst — memoisiert, damit die Statistik-Aggregationen
@@ -368,107 +387,254 @@ export function GradingAdmin() {
   /** Formulare, zu denen ein Pflicht-Folgeformular (306/310) fehlt */
   const openFollowUps = records.filter((r) => missingFollowUps(r, records).length > 0)
 
-  /** Datenbasis der Statistik: alle Formulare oder eine einzelne Flotte */
-  const statsRecords = useMemo(
-    () => (statsFleet ? records.filter((r) => r.header.aircraftType === statsFleet) : records),
-    [records, statsFleet],
+  /** Kompetenzsatz eines Formulars — Piloten (308A–F/H) oder Instruktoren (308G) */
+  const setOfRecord = useCallback(
+    (r: GradingRecord): CompetencySetKey | null => g.formTypes.find((f) => f.id === r.formTypeId)?.competencySet ?? null,
+    [g.formTypes],
   )
 
-  /** Trendflag: Kompetenz flottenweit im Schnitt niedrig (Spez. 6.3) */
-  const trendFlags = useMemo(() => {
-    const byCode: Record<string, (number | 'NO' | null)[]> = {}
-    statsRecords.forEach((r) => r.trainees.forEach((tr) => tr.grades.forEach((gr) => (byCode[gr.code] ??= []).push(gr.grade))))
-    return Object.entries(byCode)
-      .map(([code, vals]) => ({ code, avg: avgOf(vals), n: vals.filter((v) => typeof v === 'number').length }))
-      .filter((x) => x.avg !== null && x.n >= 2 && x.avg < 3.2)
-      .sort((a, b) => (a.avg ?? 0) - (b.avg ?? 0))
-  }, [statsRecords])
+  /** Datenbasis der Statistik — dieselben Regeln wie im
+   *  Standardisierungsbericht (nur unterschriebene Formulare, keine
+   *  Folgeformulare, Zeitraum über den Schulungstag). Beide Ansichten
+   *  beantworten damit dieselbe Frage gleich. */
+  const statsRecords = useMemo(
+    () => scopeRecords(records, { fleet: statsFleet, period: statsPeriod, now: Date.now() + state.timeOffsetMs }),
+    [records, statsFleet, statsPeriod, state.timeOffsetMs],
+  )
 
-  /** Instruktor-Kalibrierung: Abweichung vom Gesamtdurchschnitt (Spez. 6.3) */
-  const calibration = useMemo(() => {
-    const overall = avgOf(statsRecords.flatMap((r) => r.trainees.flatMap((tr) => tr.grades.map((x) => x.grade))))
-    const byInstr: Record<string, (number | 'NO' | null)[]> = {}
-    statsRecords.forEach((r) => r.trainees.forEach((tr) => tr.grades.forEach((gr) => (byInstr[r.instructorId] ??= []).push(gr.grade))))
-    return {
-      overall,
-      rows: Object.entries(byInstr)
-        .map(([id, vals]) => ({ id, avg: avgOf(vals), sessions: statsRecords.filter((r) => r.instructorId === id).length }))
-        .filter((r) => r.avg !== null)
-        .sort((a, b) => (b.avg ?? 0) - (a.avg ?? 0)),
-    }
-  }, [statsRecords])
+  /** Kalibrierung je Kompetenzsatz aus dem gemeinsamen Modul. */
+  const calibrationSets = useMemo(() => computeStatsBySet(statsRecords, setOfRecord), [statsRecords, setOfRecord])
 
-  /** Flotten-Matrix: Kompetenz × Aircraft Type */
-  const fleetMatrix = useMemo(() => {
-    const fleets = [...new Set(records.map((r) => r.header.aircraftType).filter(Boolean))].sort()
-    const codes = [...new Set(records.flatMap((r) => r.trainees.flatMap((tr) => tr.grades.map((x) => x.code))))]
-    const cell: Record<string, Record<string, number | null>> = {}
-    fleets.forEach((f) => {
-      cell[f] = {}
-      codes.forEach((c) => {
-        const vals = records
-          .filter((r) => r.header.aircraftType === f)
-          .flatMap((r) => r.trainees.flatMap((tr) => tr.grades.filter((x) => x.code === c).map((x) => x.grade)))
-        cell[f][c] = avgOf(vals)
+  /** Ein Durchgang kann mehrere Formulare ergeben (ein Blatt je Pilot) —
+   *  gezählt wird der Durchgang, Folgeformulare zählen nicht mit. */
+  const sessionCount = useCallback(
+    (rs: GradingRecord[]) => new Set(rs.filter((r) => !r.parentId).map((r) => r.batchId ?? r.id)).size,
+    [],
+  )
+
+  /**
+   * Auswertung je Kompetenzsatz. Piloten- und Instruktorenbewertungen folgen
+   * unterschiedlichen Maßstäben und dürfen nie gegeneinander gerechnet werden:
+   * ein Instruktor, der viele 308G schreibt, wäre sonst gegen Piloten-
+   * Durchschnitte kalibriert.
+   */
+  const statsBySet = useMemo(() => {
+    const sets: CompetencySetKey[] = ['pilot', 'instructor']
+    return sets
+      .map((key) => {
+        const rs = statsRecords.filter((r) => setOfRecord(r) === key)
+        const allOfSet = records.filter((r) => setOfRecord(r) === key)
+        // Beschriftung aus dem eingefrorenen Wortlaut des Formulars, sonst aus
+        // dem Katalog. Das 308G führt keine Kürzel — dort wird ausgeschrieben.
+        const catalogue = g.competencySets.find((c) => c.key === key)
+        const labelOf = (code: string) => {
+          if (key !== 'instructor') return code
+          const fromRecord = allOfSet.flatMap((r) => r.competencies ?? []).find((c) => c.code === code)?.title
+          return fromRecord ?? catalogue?.competencies.find((c) => c.code === code)?.title ?? code
+        }
+
+        const byCode: Record<string, (number | 'NO' | null)[]> = {}
+        rs.forEach((r) => r.trainees.forEach((tr) => tr.grades.forEach((gr) => (byCode[gr.code] ??= []).push(gr.grade))))
+        const trendFlags = Object.entries(byCode)
+          .map(([code, vals]) => ({
+            code,
+            label: labelOf(code),
+            avg: avgOf(vals),
+            // n zählt bewertete Durchgänge, nicht einzelne Noten — sonst hebt
+            // ein einziger Durchgang eine flottenweite Auffälligkeit.
+            n: new Set(
+              rs
+                .filter((r) => r.trainees.some((tr) => tr.grades.some((x) => x.code === code && typeof x.grade === 'number')))
+                .map((r) => r.batchId ?? r.id),
+            ).size,
+          }))
+          .filter((x) => x.avg !== null && x.n >= 2 && x.avg < 3.2)
+          .sort((a, b) => (a.avg ?? 0) - (b.avg ?? 0))
+
+        // Aus dem gemeinsamen Modul, damit Kachel und Bericht nicht
+        // auseinanderlaufen können.
+        const shared = calibrationSets.find((c) => c.key === key)
+        const calibration = {
+          overall: shared?.overall ?? null,
+          rows: (shared?.rows ?? []).map((r) => ({ id: r.id, avg: r.mean, sessions: r.sessions })),
+        }
+
+        const fleets = [...new Set(allOfSet.map((r) => r.header.aircraftType).filter(Boolean))].sort()
+        const codes = [...new Set(allOfSet.flatMap((r) => r.trainees.flatMap((tr) => tr.grades.map((x) => x.code))))]
+        const cell: Record<string, Record<string, number | null>> = {}
+        fleets.forEach((f) => {
+          cell[f] = {}
+          codes.forEach((c) => {
+            const vals = allOfSet
+              .filter((r) => r.header.aircraftType === f)
+              .flatMap((r) => r.trainees.flatMap((tr) => tr.grades.filter((x) => x.code === c).map((x) => x.grade)))
+            cell[f][c] = avgOf(vals)
+          })
+        })
+
+        return {
+          key,
+          name: catalogue?.name ?? key,
+          sessions: sessionCount(rs),
+          trendFlags,
+          calibration,
+          fleetMatrix: { fleets, codes, cell, labelOf },
+        }
       })
-    })
-    return { fleets, codes, cell }
-  }, [records])
+      .filter((x) => x.calibration.rows.length > 0 || x.fleetMatrix.fleets.length > 0)
+  }, [statsRecords, records, setOfRecord, g.competencySets, sessionCount, calibrationSets])
 
   // Auswahllisten aus den vorhandenen Formularen ableiten
-  const traineeOptions = [...new Set(records.flatMap((r) => r.trainees.map(traineeLabel)))].filter((n) => n !== '—').sort()
-  const instructorOptions = [...new Set(records.map((r) => r.instructorId))]
+  // Folgeformulare (306/310) führen ihren Piloten in den Kopfdaten —
+  // ohne traineesOf fielen sie aus Filter und Suche heraus.
+  const traineeOptions = [...new Set(records.flatMap((r) => traineesOf(r, records).map(traineeLabel)))].filter((n) => n !== '—').sort()
+  // Wie bei den Mustern: alle, die Formulare führen dürfen, plus die aus
+  // Altdaten — nicht nur die, von denen bereits etwas vorliegt.
+  const instructorOptions = [
+    ...new Set([
+      ...state.users.filter((u) => u.active && u.canGrade).map((u) => u.id),
+      ...records.map((r) => r.instructorId),
+    ]),
+  ]
     .map((id) => ({ id, name: userName(id) }))
     .sort((a, b) => a.name.localeCompare(b.name))
-  const aircraftOptions = [...new Set(records.map((r) => r.header.aircraftType).filter(Boolean))].sort()
+  // Muster kommen aus der zentralen Liste in den Einstellungen, nicht aus den
+  // vorhandenen Formularen: eine Flotte ohne abgelegtes Formular ließ sich
+  // sonst gar nicht erst auswählen — dabei ist genau das eine Auskunft
+  // („für die ATR liegt nichts vor"). Muster aus Altdaten, die nicht mehr in
+  // den Einstellungen stehen, werden ergänzt, damit nichts unfilterbar wird.
+  const aircraftOptions = [
+    ...new Set([...state.settings.aircraftTypes, ...records.map((r) => r.header.aircraftType).filter(Boolean)]),
+  ].sort((a, b) => a.localeCompare(b))
 
   const PERIOD_DAYS: Record<string, number | null> = { all: null, day: 1, week: 7, month: 31, year: 365 }
   const filtered = records.filter((r) => {
     const days = PERIOD_DAYS[filterPeriod]
     if (days && Date.now() + state.timeOffsetMs - r.createdAt > days * 24 * 3600_000) return false
+    if (onlyHidden && !r.hiddenFor?.length) return false
     if (filterType && r.formTypeId !== filterType) return false
     if (trafficFilter && trafficLight(r, records) !== trafficFilter) return false
-    if (filterTrainee && !r.trainees.some((tr) => traineeLabel(tr) === filterTrainee)) return false
+    if (filterTrainee && !traineesOf(r, records).some((tr) => traineeLabel(tr) === filterTrainee)) return false
     if (filterInstructor && r.instructorId !== filterInstructor) return false
     if (filterAircraft && r.header.aircraftType !== filterAircraft) return false
     if (!query) return true
-    const hay = [r.formTypeId, userName(r.instructorId), ...r.trainees.map(traineeLabel), ...Object.values(r.header)].join(' ').toLowerCase()
+    // Auch die angezeigte Datumsform durchsuchbar machen — gesucht wurde
+    // bisher nur der Rohwert 2026-08-04, angezeigt wird 04.08.2026.
+    const hay = [
+      r.formTypeId,
+      userName(r.instructorId),
+      ...traineesOf(r, records).map(traineeLabel),
+      ...Object.values(r.header),
+      r.header.date ? formatDate(r.header.date) : '',
+      dateLabel(r.createdAt),
+    ]
+      .join(' ')
+      .toLowerCase()
     return hay.includes(query.toLowerCase())
   })
 
-  const exportCsv = (scope: 'records' | 'competencies' | 'people') => {
+  /** Aktive Listenfilter für den Kopf der Exportdatei — die Datei muss
+   *  selbst sagen, welcher Ausschnitt sie ist. */
+  const activeFilters: [string, string][] = [
+    ['Rows', `${filtered.length} of ${records.length}`],
+    ...(filterPeriod !== 'all' ? ([['Period', t(`grading.ta.period.${filterPeriod}`)]] as [string, string][]) : []),
+    ...(filterType ? ([['Form type', filterType]] as [string, string][]) : []),
+    ...(trafficFilter ? ([['Traffic light', trafficFilter]] as [string, string][]) : []),
+    ...(filterTrainee ? ([['Trainee', filterTrainee]] as [string, string][]) : []),
+    ...(filterInstructor ? ([['Instructor', userName(filterInstructor)]] as [string, string][]) : []),
+    ...(filterAircraft ? ([['Aircraft', filterAircraft]] as [string, string][]) : []),
+    ...(query ? ([['Search', query]] as [string, string][]) : []),
+  ]
+
+  /** Kurzbezeichnung des Ausgangsformulars eines Folgeformulars */
+  const parentLabel = (r: GradingRecord) => {
+    const parent = records.find((x) => x.id === r.parentId)
+    return parent ? `${parent.formTypeId} · ${formatDate(parent.createdAt)}` : ''
+  }
+
+  /**
+   * Was man sieht, bekommt man: Der Export nimmt genau die Datensätze der
+   * aufrufenden Ansicht entgegen und schreibt deren aktive Filter in den
+   * Dateikopf. Vorher exportierte der Knopf neben der gefilterten Liste
+   * stillschweigend den Gesamtbestand — gemessen: Liste auf einen
+   * Instruktor gefiltert, Datei mit dreien.
+   */
+  const exportCsv = (scope: 'records' | 'competencies' | 'people', source: { records: GradingRecord[]; filters: [string, string][] }) => {
     // csvRow escapet Trennzeichen und entschärft Formelzeichen (siehe csv.ts).
     const row = csvRow
     // Jeder Export trägt Zeitpunkt und exportierende Person im Kopf.
     let csv = row(['Instructor Connect — Grading Export'])
     csv += row(['Exported (date/time)', formatDateTime(Date.now() + state.timeOffsetMs), 'Exported by', currentUser!.name])
     csv += row([])
+    const scopeRecords = source.records
+    source.filters.forEach(([k, v]) => (csv += row([k, v])))
+    csv += row([])
     if (scope === 'records') {
-      csv += row(['Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Avg'])
-      records.forEach((r) =>
+      csv += row(['Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Status', 'FollowUpTo', 'Avg'])
+      scopeRecords.forEach((r) => {
+        if (r.trainees.length > 0) {
+          r.trainees.forEach((tr) => {
+            // Durchschnitt je Pilot, nicht des gesamten Formulars
+            const avg = avgOf(tr.grades.map((g2) => g2.grade))
+            csv += row([
+              r.formTypeId, userName(r.instructorId), traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice,
+              r.header.date, tr.overall, r.sessionStatus, r.status, r.parentId ? parentLabel(r) : '', csvNum(avg),
+            ])
+          })
+          return
+        }
+        // Folgeformulare (306/310) führen keine Bewertung, gehören aber in
+        // die Ablage — sie belegen die Nachschulung.
+        traineesOf(r, records).forEach((tr) => {
+          csv += row([
+            r.formTypeId, userName(r.instructorId), traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice ?? '',
+            r.header.date, '', '', r.status, r.parentId ? parentLabel(r) : '', '',
+          ])
+        })
+      })
+    } else if (scope === 'competencies') {
+      csv += row(['Form', 'Trainee', 'Competency', 'Title', 'Grade', 'Comment'])
+      scopeRecords.forEach((r) =>
         r.trainees.forEach((tr) => {
-          // Durchschnitt je Pilot, nicht des gesamten Formulars
-          const avg = avgOf(tr.grades.map((g) => g.grade))
-          csv += row([r.formTypeId, userName(r.instructorId), traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice, r.header.date, tr.overall, r.sessionStatus, avg?.toFixed(2)])
+          tr.grades.forEach((gr) => {
+            const title = r.competencies?.find((c) => c.code === gr.code)?.title ?? ''
+            csv += row([r.formTypeId, traineeLabel(tr), gr.code, title, gr.grade, gr.comment])
+          })
+          // Die zusammenfassende Bewertung ist Pflichtfeld auf dem Formular
+          // und genau der Teil, den ein Prüfer liest — sie fehlte bisher in
+          // jedem Export. Als eigene Zeilen je Pilot, damit die Spalten der
+          // Kompetenzzeilen unverändert bleiben.
+          const zusammenfassung: [string, string][] = [
+            ['Positive aspects', tr.positiveComment],
+            ['Areas for development', tr.developmentComment],
+            ['Summary', tr.summaryComment],
+          ]
+          zusammenfassung.forEach(([abschnitt, text]) => {
+            if (text?.trim()) csv += row([r.formTypeId, traineeLabel(tr), '', abschnitt, '', text])
+          })
+          if (tr.overall) csv += row([r.formTypeId, traineeLabel(tr), '', 'Overall result', '', tr.overall])
         }),
       )
-    } else if (scope === 'competencies') {
-      csv += row(['Form', 'Trainee', 'Competency', 'Grade', 'Comment'])
-      records.forEach((r) =>
-        r.trainees.forEach((tr) =>
-          tr.grades.forEach((gr) => {
-            csv += row([r.formTypeId, traineeLabel(tr), gr.code, gr.grade, gr.comment])
+      // Folgeformulare haben keine Kompetenzen, ihre Freitexte sind aber der
+      // eigentliche Nachweis — deshalb als eigene Zeilen mitgeben.
+      scopeRecords
+        .filter((r) => r.trainees.length === 0)
+        .forEach((r) =>
+          Object.entries(r.freeText).forEach(([section, text]) => {
+            traineesOf(r, records).forEach((tr) => {
+              csv += row([r.formTypeId, traineeLabel(tr), '', section, '', text])
+            })
           }),
-        ),
-      )
+        )
     } else {
-      // Die Kalibrierung folgt dem Flotten-Filter der Statistik — das muss
-      // im Export ersichtlich sein, sonst wirken die Zahlen flottenweit.
-      csv += row(['Fleet', statsFleet || 'All fleets'])
-      csv += row(['Person', 'Role', 'Sessions', 'AvgGrade'])
-      calibration.rows.forEach((r2) => {
-        csv += row([userName(r2.id), 'Instructor', r2.sessions, r2.avg?.toFixed(2)])
-      })
+      // Kalibrierung getrennt je Kompetenzsatz — Piloten- und
+      // Instruktorenbewertungen werden nie miteinander verglichen.
+      csv += row(['CompetencySet', 'Person', 'Role', 'Sessions', 'AvgGrade', 'DeviationFromSetAvg'])
+      statsBySet.forEach((st) =>
+        st.calibration.rows.forEach((r2) => {
+          csv += row([st.name, userName(r2.id), 'Instructor', r2.sessions, csvNum(r2.avg), csvNum((r2.avg ?? 0) - (st.calibration.overall ?? 0))])
+        }),
+      )
     }
     // Exportzeitpunkt auch im Dateinamen
     const d = new Date(Date.now() + state.timeOffsetMs)
@@ -481,6 +647,7 @@ export function GradingAdmin() {
     { key: 'dashboard', icon: Gauge, badge: openSignatures.length + failedMails.length + openFollowUps.length },
     { key: 'records', icon: FolderOpen },
     { key: 'stats', icon: BarChart3 },
+    { key: 'standardisation', icon: Scale },
     { key: 'config', icon: SlidersHorizontal },
   ]
 
@@ -491,7 +658,7 @@ export function GradingAdmin() {
           {SECTION_TILES.map(({ key, icon: Icon, badge }) => (
             <button
               key={key}
-              onClick={() => setSection(key)}
+              onClick={() => navigate(`/admin/grading/${key}`)}
               className="group relative flex aspect-square flex-col items-center justify-center gap-2.5 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
             >
               {!!badge && (
@@ -508,7 +675,7 @@ export function GradingAdmin() {
         </div>
       )}
       {section !== null && (
-        <button onClick={() => setSection(null)} className="flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink">
+        <button onClick={() => navigate('/admin/grading')} className="flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink">
           <ArrowLeft size={15} /> {t('admin.grading')}
         </button>
       )}
@@ -635,7 +802,7 @@ export function GradingAdmin() {
           <div className="flex flex-wrap items-center gap-1.5 text-[11.5px] text-dim">
             <button
               onClick={() => setTrafficFilter('')}
-              className={`rounded-full border px-2.5 py-1 transition ${trafficFilter === '' ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'}`}
+              className={`min-h-11 rounded-full border px-2.5 py-1 transition ${trafficFilter === '' ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'}`}
             >
               {t('grading.traffic.all')}
             </button>
@@ -643,14 +810,42 @@ export function GradingAdmin() {
               <button
                 key={c}
                 onClick={() => setTrafficFilter(trafficFilter === c ? '' : c)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition ${
+                className={`min-h-11 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition ${
                   trafficFilter === c ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'
                 }`}
               >
                 <TrafficDot color={c} /> {t(`grading.traffic.${c}`)}
               </button>
             ))}
+            {/* Ausblenden ist je Nutzer — hier sieht der Admin, was irgendwo
+                aus einer Liste entfernt wurde, und kann es zurückholen. */}
+            <button
+              onClick={() => setOnlyHidden(!onlyHidden)}
+              aria-pressed={onlyHidden}
+              className={`min-h-11 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition ${
+                onlyHidden ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'
+              }`}
+            >
+              <EyeOff size={12} /> {t('grading.admin.onlyHidden')}
+            </button>
           </div>
+          {/* Export genau dieser Ansicht: was die Filter zeigen, steht in der
+              Datei — die aktiven Filter wandern in den Dateikopf. */}
+          <div className="flex flex-wrap items-center gap-2">
+            {(['records', 'competencies'] as const).map((sc) => (
+              <Button
+                key={sc}
+                variant="ghost"
+                onClick={() => exportCsv(sc, { records: filtered, filters: activeFilters })}
+                className="flex items-center gap-1.5 text-[12.5px]"
+              >
+                <Download size={13} /> {t(`grading.admin.export_${sc}`)}
+              </Button>
+            ))}
+            <span className="text-[12px] text-dim">{t('grading.admin.exportListHint', { count: filtered.length })}</span>
+          </div>
+          {/* Filterergebnis ansagen — sichtbar ändert sich nur die Liste */}
+          <p role="status" className="sr-only">{t('grading.admin.resultCount', { shown: filtered.length, total: records.length })}</p>
           {filtered.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('grading.empty')}</p>}
           {filtered.map((r) => (
             <Card key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="flex items-center gap-3 p-4">
@@ -659,11 +854,44 @@ export function GradingAdmin() {
                 <p className="truncate text-[14px] font-semibold">
                   {r.formTypeId} · {traineesOf(r, records).map(traineeLabel).join(', ') || '—'}
                 </p>
-                <p className="truncate text-[12.5px] text-dim">
-                  {userName(r.instructorId)} · {r.header.aircraftType} · {dateLabel(r.createdAt)}
+                <p className="flex flex-wrap items-baseline gap-x-1.5 text-[12.5px] text-dim">
+                  <span className="min-w-0 max-w-full truncate">{userName(r.instructorId)}</span>
+                  <span className="shrink-0">· {r.header.aircraftType}</span>
+                  <span className="shrink-0">· {dateLabel(r.createdAt)}</span>
                 </p>
               </div>
               {r.trainees.some((tr) => tr.overall === 'not_competent') && <Badge tone="warm">{t('grading.notCompetent')}</Badge>}
+              {!!r.hiddenFor?.length && (
+                <>
+                  <Badge tone="warm">{t('grading.admin.hiddenBadge', { count: r.hiddenFor.length })}</Badge>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      unhideGradingRecord(r.id)
+                    }}
+                    title={t('grading.admin.restore')}
+                    aria-label={t('grading.admin.restore')}
+                    className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-ok/10 hover:text-ok"
+                  >
+                    <Eye size={16} />
+                  </button>
+                </>
+              )}
+              {/* Endgültiges Löschen nur für den Superadmin — der Training
+                  Admin sieht dieselbe Ablage bewusst ohne Mülleimer. */}
+              {currentUser!.role === 'superadmin' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (window.confirm(t('grading.ta.deleteConfirm'))) deleteGradingRecord(r.id)
+                  }}
+                  aria-label={t('common.delete')}
+                  title={t('common.delete')}
+                  className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
               <ChevronRight size={16} className="shrink-0 text-dim" />
             </Card>
           ))}
@@ -689,7 +917,7 @@ export function GradingAdmin() {
                 }
               />
             ))}
-            <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.competencyHint')}</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('grading.admin.competencyHint')}</p>
           </Card>
 
           <Card className="p-4">
@@ -699,8 +927,22 @@ export function GradingAdmin() {
         </div>
       )}
 
+      {/* Auswertung im Querformat drucken: die Flottenmatrix wird mit jeder
+          Kompetenz breiter und passt hochkant nicht mehr auf ein Blatt. */}
+      {section === 'standardisation' && (
+        <StandardisationReport
+          records={records}
+          setOfRecord={setOfRecord}
+          fleet={statsFleet}
+          onFleetChange={setStatsFleet}
+          fleetOptions={aircraftOptions}
+          period={statsPeriod}
+          onPeriodChange={setStatsPeriod}
+        />
+      )}
+
       {section === 'stats' && (
-        <div className="space-y-4">
+        <div className="print-landscape space-y-4">
           {/* Vergleich einzelner Flotten: Auswahl gilt für Trendflags und Kalibrierung */}
           <div className="flex flex-wrap items-center gap-2">
             <label className="text-[13px] font-medium text-dim">{t('grading.admin.fleetFilter')}</label>
@@ -712,93 +954,140 @@ export function GradingAdmin() {
                 </option>
               ))}
             </select>
+            {/* Zeitraum gilt auch für den Standardisierungsbericht — beide
+                zeigen denselben Ausschnitt und nennen ihn. */}
+            <label className="text-[13px] font-medium text-dim">{t('grading.std.period.label')}</label>
+            <select
+              value={statsPeriod}
+              onChange={(e) => setStatsPeriod(e.target.value as PeriodKey)}
+              className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]"
+            >
+              {PERIODS.map((p2) => (
+                <option key={p2.key} value={p2.key}>
+                  {t(`grading.std.period.${p2.key}`)}
+                </option>
+              ))}
+            </select>
             <span className="text-[12.5px] text-dim">
-              {statsRecords.length} {t('grading.admin.sessions')}
+              {t('grading.admin.sessionCount', { count: sessionCount(statsRecords) })}
             </span>
           </div>
+          {/* Die Datenbasis gehört sichtbar an die Zahlen: ohne sie war nicht
+              erkennbar, warum Kachel und Bericht verschiedene Werte zeigten. */}
+          <p className="text-[12px] leading-relaxed text-dim">{t('grading.admin.statsScopeNote')}</p>
 
-          <Card className="p-4">
-            <p className="mb-2 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-dim">
-              <TrendingDown size={15} /> {t('grading.admin.trendFlags')}
-            </p>
-            {trendFlags.length === 0 && <p className="text-[13px] text-dim">{t('grading.admin.noTrendFlags')}</p>}
-            {trendFlags.map((f) => (
-              <div key={f.code} className="flex items-center justify-between border-b border-line/[0.06] py-1.5 text-[13.5px] last:border-0">
-                <span className="font-medium">{f.code}</span>
-                <span className="text-dim">Ø {f.avg!.toFixed(2)} · n={f.n}</span>
-              </div>
-            ))}
-            <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.trendHint')}</p>
-          </Card>
+          {statsBySet.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('grading.empty')}</p>}
 
-          <Card className="p-4">
-            <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.calibration')}</p>
-            <p className="mb-2 text-[12.5px] text-dim">
-              {t('grading.admin.overallAvg')}: <span className="font-semibold text-ink">{calibration.overall?.toFixed(2) ?? '–'}</span>
-            </p>
-            {calibration.rows.map((row) => {
-              const diff = (row.avg ?? 0) - (calibration.overall ?? 0)
-              return (
-                <div key={row.id} className="flex items-center justify-between border-b border-line/[0.06] py-2 text-[13.5px] last:border-0">
-                  <span className="min-w-0 flex-1 truncate">{userName(row.id)}</span>
-                  <span className="mx-3 text-[12px] text-dim">
-                    {row.sessions} {t('grading.admin.sessions')}
-                  </span>
-                  <span className="w-14 text-right font-semibold">{row.avg?.toFixed(2)}</span>
-                  <span className={`w-16 text-right text-[12.5px] ${Math.abs(diff) >= 0.5 ? 'font-semibold text-warm' : 'text-dim'}`}>
-                    {diff >= 0 ? '+' : ''}
-                    {diff.toFixed(2)}
-                  </span>
+          {/* Je Kompetenzsatz eine eigene Auswertung — Piloten- und
+              Instruktorenbewertungen folgen verschiedenen Maßstäben und
+              werden nie miteinander verrechnet. */}
+          {statsBySet.map((st) => (
+            <div key={st.key} className="space-y-4">
+              <p className="border-b border-line/10 pb-1 text-[14px] font-semibold">
+                {st.name}{' '}
+                <span className="font-normal text-dim">· {t('grading.admin.sessionCount', { count: st.sessions })}</span>
+              </p>
+
+              <Card className="p-4">
+                <p className="mb-2 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-dim">
+                  <TrendingDown size={15} /> {t('grading.admin.trendFlags')}
+                </p>
+                {st.trendFlags.length === 0 && <p className="text-[13px] text-dim">{t('grading.admin.noTrendFlags')}</p>}
+                {st.trendFlags.map((f) => (
+                  <div key={f.code} className="flex items-center justify-between gap-3 border-b border-line/[0.06] py-1.5 text-[13.5px] last:border-0">
+                    <span className="min-w-0 flex-1 font-medium">{f.label}</span>
+                    <span className="shrink-0 text-dim">Ø {f.avg!.toFixed(2)} · n={f.n}</span>
+                  </div>
+                ))}
+                <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('grading.admin.trendHint')}</p>
+              </Card>
+
+              <Card className="p-4">
+                <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.calibration')}</p>
+                <p className="mb-2 text-[12.5px] text-dim">
+                  {t('grading.admin.overallAvg')}: <span className="font-semibold text-ink">{st.calibration.overall?.toFixed(2) ?? '–'}</span>
+                </p>
+                {st.calibration.rows.map((row) => {
+                  const diff = (row.avg ?? 0) - (st.calibration.overall ?? 0)
+                  return (
+                    <div key={row.id} className="flex items-center justify-between border-b border-line/[0.06] py-2 text-[13.5px] last:border-0">
+                      <span className="min-w-0 flex-1 truncate">{userName(row.id)}</span>
+                      <span className="mx-3 text-[12px] text-dim">{t('grading.admin.sessionCount', { count: row.sessions })}</span>
+                      <span className="w-14 text-right font-semibold">{row.avg?.toFixed(2)}</span>
+                      {/* Schwelle auf dem angezeigten Wert: -0,497 wurde als
+                          „-0.50" gedruckt, aber nicht hervorgehoben. */}
+                      <span
+                        className={`w-16 text-right text-[12.5px] ${Math.abs(Number(diff.toFixed(2))) >= 0.5 ? 'font-semibold text-warm' : 'text-dim'}`}
+                      >
+                        {diff >= 0 ? '+' : ''}
+                        {diff.toFixed(2)}
+                      </span>
+                    </div>
+                  )
+                })}
+                <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('grading.admin.calibrationHint')}</p>
+              </Card>
+
+              <Card className="p-4">
+                <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.fleetMatrix')}</p>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12.5px]">
+                    <thead>
+                      <tr className="text-dim">
+                        <th className="p-1.5 text-left font-medium">{t('grading.admin.fleet')}</th>
+                        {st.fleetMatrix.codes.map((c) => (
+                          <th key={c} className="p-1.5 align-bottom font-medium print:max-w-24 print:whitespace-normal print:text-[9px]">
+                            {st.fleetMatrix.labelOf(c)}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {st.fleetMatrix.fleets.map((f) => (
+                        <tr key={f}>
+                          <td className="p-1.5 font-medium">{f}</td>
+                          {st.fleetMatrix.codes.map((c) => {
+                            const v = st.fleetMatrix.cell[f][c]
+                            const tone =
+                              v === null
+                                ? 'text-dim'
+                                : v >= 4
+                                  ? 'bg-emerald-500/20'
+                                  : v >= 3
+                                    ? 'bg-emerald-700/20'
+                                    : v >= 2
+                                      ? 'bg-amber-500/20'
+                                      : 'bg-red-500/20'
+                            return (
+                              <td key={c} className="p-1">
+                                <span className={`block rounded px-1 py-1 text-center ${tone}`}>{v === null ? '–' : v.toFixed(1)}</span>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-              )
-            })}
-            <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.calibrationHint')}</p>
-          </Card>
-
-          <Card className="p-4">
-            <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.fleetMatrix')}</p>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[12.5px]">
-                <thead>
-                  <tr className="text-dim">
-                    <th className="p-1.5 text-left font-medium">{t('grading.admin.fleet')}</th>
-                    {fleetMatrix.codes.map((c) => (
-                      <th key={c} className="p-1.5 font-medium">
-                        {c}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {fleetMatrix.fleets.map((f) => (
-                    <tr key={f}>
-                      <td className="p-1.5 font-medium">{f}</td>
-                      {fleetMatrix.codes.map((c) => {
-                        const v = fleetMatrix.cell[f][c]
-                        const tone = v === null ? 'text-dim' : v >= 4 ? 'bg-emerald-500/20' : v >= 3 ? 'bg-emerald-700/20' : v >= 2 ? 'bg-amber-500/20' : 'bg-red-500/20'
-                        return (
-                          <td key={c} className="p-1">
-                            <span className={`block rounded px-1 py-1 text-center ${tone}`}>{v === null ? '–' : v.toFixed(1)}</span>
-                          </td>
-                        )
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              </Card>
             </div>
-          </Card>
+          ))}
 
           <Card className="p-4">
             <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.export')}</p>
             <div className="flex flex-wrap gap-2">
               {(['records', 'competencies', 'people'] as const).map((s) => (
-                <Button key={s} variant="ghost" onClick={() => exportCsv(s)} className="flex items-center gap-1.5 text-[13px]">
+                <Button
+                  key={s}
+                  variant="ghost"
+                  onClick={() => exportCsv(s, { records: statsFleet ? records.filter((r) => r.header.aircraftType === statsFleet) : records, filters: [['Fleet', statsFleet || 'All fleets']] })}
+                  className="flex items-center gap-1.5 text-[13px]"
+                >
                   <Download size={14} /> {t(`grading.admin.export_${s}`)}
                 </Button>
               ))}
             </div>
-            <p className="mt-2 text-[12px] leading-relaxed text-dim/80">{t('grading.admin.exportHint')}</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('grading.admin.exportHint')}</p>
           </Card>
         </div>
       )}

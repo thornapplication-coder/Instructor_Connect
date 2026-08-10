@@ -1,5 +1,5 @@
-import { Eraser } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { Eraser, Keyboard, PenLine } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 /**
@@ -12,6 +12,58 @@ import { useTranslation } from 'react-i18next'
  * Zusätzlich: touch-action none, kein Text-Callout, Größe per
  * ResizeObserver — funktioniert auch, wenn das Feld erst später Layout hat.
  */
+/**
+ * Die Unterschrift wird IMMER auf weißem Grund angezeigt (GradingView) und auf
+ * weißes Papier gedruckt. Deshalb ist die Zeichenfläche selbst ein Blatt
+ * Papier: feste dunkle Tinte auf festem Weiß, unabhängig vom Hell-/Dunkelmodus.
+ *
+ * Vorher nahm die Fläche ihre Farbe aus der Umgebung. Im Dunkelmodus entstand
+ * damit eine nahezu weiße Unterschrift, die auf dem weißen Feld und auf Papier
+ * einen Kontrast von 1,13:1 hatte — also unsichtbar war. Beim Zeichnen sah sie
+ * richtig aus, der fertige Nachweis war leer.
+ */
+const INK = '#16253D'
+const PAPER = '#FFFFFF'
+const PAD_BORDER = '#94A3B8'
+
+/**
+ * Getippte Unterschrift als Bild — die Alternative für alle, die nicht
+ * zeichnen können (nur Tastatur, motorische Einschränkung, defektes
+ * Touchpad). Der Vermerk „Typed signature" samt Zeitstempel wird in das
+ * Bild selbst gerendert: er steht damit unveränderlich in jeder Ansicht,
+ * jedem PDF und jedem Ausdruck, ohne dass das Datenmodell ihn kennen muss.
+ */
+function typedSignatureImage(name: string): string {
+  const w = 600
+  const h = 160
+  const ratio = 2
+  const canvas = document.createElement('canvas')
+  canvas.width = w * ratio
+  canvas.height = h * ratio
+  const ctx = canvas.getContext('2d')!
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0)
+  ctx.fillStyle = PAPER
+  ctx.fillRect(0, 0, w, h)
+  ctx.fillStyle = INK
+  ctx.textBaseline = 'middle'
+  // Schreibschrift, wo vorhanden; die generische Familie „cursive" ist der
+  // verlässliche Rückfall auf jedem System.
+  let size = 52
+  ctx.font = `italic ${size}px "Segoe Script", "Brush Script MT", "Snell Roundhand", cursive`
+  while (ctx.measureText(name).width > w - 40 && size > 18) {
+    size -= 2
+    ctx.font = `italic ${size}px "Segoe Script", "Brush Script MT", "Snell Roundhand", cursive`
+  }
+  ctx.fillText(name, 20, h / 2 - 14)
+  const d = new Date()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const stamp = `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())} UTC`
+  ctx.font = '13px system-ui, sans-serif'
+  ctx.fillStyle = '#475569'
+  ctx.fillText(`Typed signature (keyboard entry) · ${stamp}`, 20, h - 24)
+  return canvas.toDataURL('image/png')
+}
+
 export function SignaturePad({ value, onChange, label }: { value: string | null; onChange: (dataUrl: string | null) => void; label: string }) {
   // Teil der Grading-Formulare → immer englisch
   const { i18n } = useTranslation()
@@ -33,7 +85,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
       ctx.lineWidth = 2.4
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
-      ctx.strokeStyle = getComputedStyle(canvas).color
+      ctx.strokeStyle = INK
       return ctx
     }
 
@@ -71,7 +123,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
         /* ältere Browser ohne Pointer Capture zeichnen trotzdem */
       }
       const ctx = ensureSize() ?? canvas.getContext('2d')!
-      ctx.strokeStyle = getComputedStyle(canvas).color
+      ctx.strokeStyle = INK
       const { x, y } = pos(e)
       ctx.beginPath()
       ctx.moveTo(x, y)
@@ -135,22 +187,86 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
 
   const clear = () => onChange(null)
 
+  // Zeichnen ist der Normalfall; Tippen die gleichwertige Alternative ohne
+  // Zeigegerät. Der Wechsel verwirft eine bereits geleistete Unterschrift —
+  // sie wäre im anderen Modus nicht mehr die eigene Eingabe.
+  const [mode, setMode] = useState<'draw' | 'type'>('draw')
+  const [typedName, setTypedName] = useState('')
+  const switchMode = (m: 'draw' | 'type') => {
+    if (m === mode) return
+    setMode(m)
+    setTypedName('')
+    onChange(null)
+  }
+
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="text-[13px] font-medium text-dim">{label}</span>
-        {value && (
-          <button onClick={clear} className="flex items-center gap-1 text-[12px] text-dim hover:text-danger">
-            <Eraser size={12} /> {t('grading.clearSignature')}
+        <span className="flex items-center gap-2">
+          {value && (
+            <button onClick={clear} className="flex items-center gap-1 text-[12px] text-dim hover:text-danger">
+              <Eraser size={12} /> {t('grading.clearSignature')}
+            </button>
+          )}
+          <button
+            onClick={() => switchMode(mode === 'draw' ? 'type' : 'draw')}
+            aria-pressed={mode === 'type'}
+            className="flex min-h-11 items-center gap-1 text-[12px] text-dim underline-offset-2 hover:text-accent hover:underline"
+          >
+            {mode === 'draw' ? <Keyboard size={12} /> : <PenLine size={12} />}
+            {mode === 'draw' ? t('grading.typeInstead') : t('grading.drawInstead')}
           </button>
-        )}
+        </span>
       </div>
+      {mode === 'type' && (
+        <div>
+          {value ? (
+            /* Vorschau: exakt das Bild, das im Dokument stehen wird */
+            <img src={value} alt={label} style={{ background: PAPER, borderColor: PAD_BORDER }} className="h-28 w-full rounded-xl border border-dashed object-contain" />
+          ) : (
+            <div className="flex gap-2">
+              <input
+                value={typedName}
+                onChange={(e) => setTypedName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && typedName.trim() && onChange(typedSignatureImage(typedName.trim()))}
+                placeholder={t('grading.typedNamePlaceholder')}
+                aria-label={label}
+                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20"
+              />
+              <button
+                onClick={() => typedName.trim() && onChange(typedSignatureImage(typedName.trim()))}
+                disabled={!typedName.trim()}
+                className="min-h-11 shrink-0 rounded-xl border border-line/15 px-3 text-[13px] text-ink transition hover:bg-line/5 disabled:opacity-40"
+              >
+                {t('grading.useTyped')}
+              </button>
+            </div>
+          )}
+          {!value && <p className="mt-1 text-[11.5px] text-dim">{t('grading.typedHint')}</p>}
+        </div>
+      )}
+      {/* Feste Farben statt Theme-Token: die Fläche zeigt beim Zeichnen genau
+          das, was später im Dokument und auf dem Ausdruck steht. Im
+          Tipp-Modus bleibt der Canvas im Baum (die Zeichenlogik hängt an
+          ihm), wird aber ausgeblendet. */}
       <canvas
+        hidden={mode === 'type'}
         ref={canvasRef}
-        style={{ touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none', WebkitTouchCallout: 'none' } as React.CSSProperties}
-        className="h-28 w-full rounded-xl border border-dashed border-line/25 bg-surface text-ink"
+        style={
+          {
+            touchAction: 'none',
+            WebkitUserSelect: 'none',
+            userSelect: 'none',
+            WebkitTouchCallout: 'none',
+            background: PAPER,
+            borderColor: PAD_BORDER,
+            color: INK,
+          } as React.CSSProperties
+        }
+        className="h-28 w-full rounded-xl border border-dashed"
       />
-      {!value && <p className="mt-1 text-[11.5px] text-dim/70">{t('grading.signHint')}</p>}
+      {!value && mode === 'draw' && <p className="mt-1 text-[11.5px] text-dim">{t('grading.signHint')}</p>}
     </div>
   )
 }

@@ -101,6 +101,9 @@ export interface FeedbackEntry {
   urgent: boolean
   message: string
   attachment?: Attachment
+  /** Musterbezug: gesetzt = betrifft genau diesen Aircraft Type; leer/fehlt
+   *  = allgemeine Rückmeldung ohne Musterbezug (General). */
+  aircraftType?: string
   createdAt: number
 }
 
@@ -135,6 +138,10 @@ export type PermKey = 'grading_create' | 'grading_view_all' | 'info_manage' | 'l
 
 export const PERM_KEYS: PermKey[] = ['grading_create', 'grading_view_all', 'info_manage', 'lessons_manage', 'contacts_manage']
 
+/** Module der App — steuert Kacheln UND Routen, damit ein gesperrtes Modul
+ *  nicht über die Adresszeile erreichbar bleibt. */
+export type ModuleKey = 'grading' | 'lessons' | 'chat' | 'info' | 'feedback' | 'contacts'
+
 /** Rollen, deren Rechte der Superadmin konfiguriert (er selbst darf immer alles) */
 export type ConfigurableRole = 'group_admin' | 'training_admin'
 
@@ -148,6 +155,9 @@ export interface Settings {
   /** Kategorien der Instructor-Info-Einträge, im Admin Panel pflegbar */
   infoCategories: string[]
   allowedDomains: string[]
+  /** Kopf-/Fußzeile jedes ausgedruckten Formulars — ein Ausdruck ohne
+   *  Organisation und Formularstand ist keinem Nachweis zuzuordnen. */
+  documentHeader: { atoName: string; approvalNumber: string; approvalNumberUK?: string; formRevision: string }
   /** Impressumstext je Sprache, im Admin Panel bearbeitbar */
   imprint: { de: string; en: string }
   grading: GradingSettings
@@ -188,8 +198,10 @@ export interface AppState {
   starredInfo: Record<string, string[]>
   /** Lese-Bestätigungen: Eintrag-ID -> Nutzer-ID -> Zeitstempel */
   infoAcks: Record<string, Record<string, number>>
-  /** laufender Code-Login: an diese E-Mail wurde ein Code „gesendet“ */
-  pendingLogin: { email: string; code: string; expiresAt: number } | null
+  /** laufender Code-Login: an diese E-Mail wurde ein Code „gesendet“.
+   *  attempts begrenzt das Durchprobieren — nach fünf Fehlversuchen ist der
+   *  Code verbraucht und muss neu angefordert werden. */
+  pendingLogin: { email: string; code: string; expiresAt: number; attempts: number } | null
 }
 
 
@@ -268,6 +280,14 @@ export interface CompetencyGrade {
   comment: string
 }
 
+/** Eingefrorener Kompetenz-Wortlaut eines Formulars. Ein unterschriebenes
+ *  Dokument muss über die gesamte Aufbewahrungsfrist unverändert
+ *  reproduzierbar sein — auch wenn der Katalog später umgebaut wird. */
+export interface RecordedCompetency {
+  code: string
+  title: string
+}
+
 export type OverallResult = 'competent' | 'not_competent'
 export type SessionStatus = 'completed' | 'not_completed'
 
@@ -289,7 +309,10 @@ export interface TraineeGrading {
 }
 
 export type RecordStatus = 'draft' | 'awaiting_signature' | 'signed'
-export type MailStatus = 'pending' | 'sent' | 'failed'
+/** 'queued' = unterschrieben, aber ohne Netz erfasst. Der Versand liegt im
+ *  Ausgangskorb und läuft automatisch, sobald wieder Empfang da ist —
+ *  deshalb ist das kein Fehler, der den Instruktor zum Handeln zwingt. */
+export type MailStatus = 'pending' | 'queued' | 'sent' | 'failed'
 
 export interface GradingRecord {
   id: string
@@ -298,8 +321,16 @@ export interface GradingRecord {
   /** Kopfdaten laut Formularkonfiguration */
   header: Record<string, string>
   trainees: TraineeGrading[]
+  /** Kompetenz-Wortlaut zum Zeitpunkt der Erstellung. Fehlt er (Altbestand),
+   *  fällt die Anzeige auf den aktuellen Katalog zurück. */
+  competencies?: RecordedCompetency[]
   sessionStatus: SessionStatus | null
   freeText: Record<string, string>
+  /** Wer die Unterschrift des Piloten nachgetragen hat, falls nicht der
+   *  führende Instruktor. Steht auf dem Dokument und im Ausdruck — eine
+   *  Vertretung ist zulässig, muss aber sichtbar sein. Optional, damit
+   *  bestehende Datensätze unverändert gültig bleiben. */
+  lateSignatureBy?: string
   /** Signaturen als Data-URL (Canvas) */
   signatureInstructor: string | null
   signatureTrainee: string | null
@@ -320,7 +351,21 @@ export interface GradingRecord {
   /** Verweis auf ein zugehöriges Formular (306/310 an ein Grading Sheet) */
   parentId?: string
   createdAt: number
+  /** Zeitpunkt, zu dem das Formular VOLLSTÄNDIG unterschrieben (gesperrt) wurde */
   signedAt?: number
+  /** Zeitpunkt der Instruktorunterschrift — bleibt bei einer
+   *  Nachtragsunterschrift des Piloten erhalten (Chronologie ist bei
+   *  306-Vorgängen prüfrelevant) */
+  instructorSignedAt?: number
+  /** Zeitpunkt einer nachgetragenen Piloten-/Gegenunterschrift */
+  countersignedAt?: number
+  /** SHA-256 über die prüfrelevanten Felder samt Unterschriftsbildern,
+   *  gebildet im Moment des Unterschreibens (siehe docHash.ts) */
+  contentHash?: string
+  /** Zuständige Behörde des Trainings: AT (AT.ATO.106) oder UK
+   *  (GBR.ATO.0541) — bestimmt die Kennung im Dokumentkopf. Fehlt der
+   *  Wert (Altbestand), gilt AT. */
+  authority?: 'AT' | 'UK'
 }
 
 export interface GradingSettings {
@@ -342,4 +387,4 @@ export const RETENTION_MS: Record<RetentionKey, number> = {
   never: Infinity,
 }
 
-export const APP_VERSION = '1.1.0'
+export const APP_VERSION = '1.4.0'

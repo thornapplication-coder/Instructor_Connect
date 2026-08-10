@@ -3,6 +3,11 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      screens: {
+        // Flaches Fenster (Handy im Querformat, ~390px hoch): der Kopfbereich
+        // muss schrumpfen, sonst liegt keine einzige Kachel über der Falz.
+        short: { raw: '(max-height: 520px)' },
+      },
       colors: {
         // Alle Farbwerte kommen aus src/index.css (zentrale Theme-Datei).
         bg: 'rgb(var(--c-bg) / <alpha-value>)',
@@ -15,6 +20,16 @@ export default {
         danger: 'rgb(var(--c-danger) / <alpha-value>)',
         line: 'rgb(var(--c-line) / <alpha-value>)',
         sand: 'rgb(var(--c-sand) / <alpha-value>)',
+        // Ampel- und Fokusfarben je Theme — im Hellmodus deutlich dunkler,
+        // damit der Statuspunkt überhaupt sichtbar ist.
+        ok: 'rgb(var(--c-ok) / <alpha-value>)',
+        wait: 'rgb(var(--c-wait) / <alpha-value>)',
+        bad: 'rgb(var(--c-bad) / <alpha-value>)',
+        focus: 'rgb(var(--c-focus) / <alpha-value>)',
+        // Schrift auf den Ampelflächen — wechselt mit dem Theme mit
+        okInk: 'rgb(var(--c-ok-ink) / <alpha-value>)',
+        waitInk: 'rgb(var(--c-wait-ink) / <alpha-value>)',
+        badInk: 'rgb(var(--c-bad-ink) / <alpha-value>)',
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],

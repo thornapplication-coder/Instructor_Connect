@@ -31,7 +31,13 @@ function serviceWorker(): Plugin {
       // public/ wird vollständig eingelesen, damit neue Dateien (Icons u. Ä.)
       // nicht vergessen werden.
       const extras = listPublicFiles()
-      const files = [...new Set(['./', './index.html', ...[...built, ...extras].map((f) => './' + f)])]
+      // Sortiert, damit zwei Builds derselben Quellen byte-gleiche sw.js
+      // ergeben. Ohne die Sortierung wechselte allein die Reihenfolge der
+      // Schrift-Assets bei jedem Lauf; der Browser vergleicht den Worker
+      // byteweise, hielt ihn deshalb für neu und lud die Seite neu — ohne
+      // dass sich etwas geändert hätte, denn der Cache-Name (unten, über
+      // die sortierte Liste gebildet) blieb gleich.
+      const files = [...new Set(['./', './index.html', ...[...built, ...extras].sort().map((f) => './' + f)])]
 
       // Cache-Name über den INHALT aller ausgelieferten Dateien: eine
       // Version, die nur index.html oder ein Icon ändert, ergibt damit
@@ -82,18 +88,17 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url)
   if (url.origin !== location.origin) return
   if (e.request.mode === 'navigate') {
-    // Seitenaufrufe: Netz zuerst (frische Version), offline aus dem Cache
-    e.respondWith(
-      fetch(e.request)
-        .then((r) => {
-          if (cacheable(r)) {
-            const copy = r.clone()
-            caches.open(CACHE).then((c) => c.put(e.request, copy))
-          }
-          return r
-        })
-        .catch(() => caches.match(e.request).then((hit) => hit || caches.match('./'))),
-    )
+    // Seitenaufrufe: Netz zuerst (frische Version), offline aus dem Cache.
+    //
+    // Die frische index.html wird bewusst NICHT in den Cache geschrieben:
+    // Sie gehört zu einem neuen Deployment, dessen Bundles erst der neue
+    // Service Worker vorlädt. Landete sie im Precache und schlug danach
+    // der Bundle-Download fehl (Funkloch beim Betreten des Gebäudes),
+    // blieb ein vergifteter Cache zurück — eine index.html, deren Bundle
+    // dort nicht existiert, und die App startete offline nie wieder.
+    // Der Precache aus der Installation ist als PAAR konsistent; er ist
+    // der einzige richtige Offline-Rückfall.
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request).then((hit) => hit || caches.match('./'))))
     return
   }
   // Assets sind inhaltsgehasht: Cache zuerst, Netz als Fallback

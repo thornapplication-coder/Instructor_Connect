@@ -2,6 +2,7 @@ import { BarChart3, Ban, FileText, Image as ImageIcon, Info, Paperclip, Plus, Se
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Field, inputCls, Modal, NewDot, TopBar } from '../components/ui'
+import { useUnsavedWork } from '../editGuard'
 import { navigate } from '../router'
 import { isGroupAdmin, mayAccessGroup, useStore } from '../store'
 import type { Attachment, Message, Poll, PollType } from '../types'
@@ -51,7 +52,7 @@ function MessageBubble({ msg, isOwn, authorName, bold, canDelete, onDelete, lng 
         {canDelete && (
           <button
             onClick={onDelete}
-            className="absolute -right-2 -top-2 hidden rounded-full bg-danger/90 p-1 text-bg group-hover:block"
+            className="min-h-11 absolute -right-2 -top-2 hidden rounded-full bg-danger/90 p-1 text-bg group-hover:block"
             aria-label="delete"
           >
             <Trash2 size={12} />
@@ -76,6 +77,27 @@ function PollCard({ poll }: { poll: Poll }) {
   const author = state.users.find((u) => u.id === poll.authorId)
   const options = poll.type === 'yesno' ? [t('common.yes'), t('common.no')] : poll.options
   const totalVotes = Object.keys(poll.votes).length
+  /**
+   * Prozentanteile nach dem Größte-Reste-Verfahren: unabhängig gerundete
+   * Werte ergaben in Summe 99 % oder 101 %.
+   */
+  const pctOf = (() => {
+    const counts = options.map((_, i) => Object.values(poll.votes).filter((v) => v === i).length)
+    if (totalVotes === 0) return counts.map(() => 0)
+    const exact = counts.map((c) => (c / totalVotes) * 100)
+    const floors = exact.map(Math.floor)
+    let rest = 100 - floors.reduce((a, b) => a + b, 0)
+    const order = exact
+      .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+      .sort((a, b) => b.frac - a.frac)
+    const out = [...floors]
+    for (const { i } of order) {
+      if (rest <= 0) break
+      out[i] += 1
+      rest -= 1
+    }
+    return out
+  })()
   const myVote = poll.votes[currentUser!.id]
   // Abgelaufene Umfragen sind automatisch geschlossen
   const expired = !!poll.validUntil && poll.validUntil <= Date.now() + state.timeOffsetMs
@@ -109,7 +131,7 @@ function PollCard({ poll }: { poll: Poll }) {
               key={i}
               disabled={closed}
               onClick={() => vote(poll.id, i)}
-              className={`relative block w-full overflow-hidden rounded-xl border px-3 py-2 text-left transition ${
+              className={`min-h-11 relative block w-full overflow-hidden rounded-xl border px-3 py-2 text-left transition ${
                 chosen ? 'border-accent bg-accent/10' : 'border-line/10 hover:border-line/25'
               } ${closed ? 'cursor-default' : ''}`}
             >
@@ -128,7 +150,8 @@ function PollCard({ poll }: { poll: Poll }) {
         })}
       </div>
       <div className="mt-3 flex items-center justify-between text-[11.5px] text-dim">
-        <span>
+        {/* role=status: eine abgegebene oder geänderte Stimme wird angesagt */}
+        <span role="status">
           {t('chat.votes', { count: totalVotes })} · {t('chat.changeHint')}
         </span>
         {mayClose && (
@@ -164,18 +187,23 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
     question.trim() && validDate && (type === 'yesno' || options.filter((o) => o.trim()).length >= 2)
 
   return (
-    <Modal title={t('chat.poll')} onClose={onClose}>
+    <Modal
+      title={t('chat.poll')}
+      onClose={onClose}
+      confirmDiscard={question.trim() || options.some((o) => o.trim()) || validDate ? t('common.discardConfirm') : undefined}
+    >
       <div className="space-y-4">
         <Field label={t('chat.pollQuestion')}>
           <input className={inputCls} value={question} onChange={(e) => setQuestion(e.target.value)} autoFocus />
         </Field>
-        <Field label={t('chat.pollType')}>
+        <Field label={t('chat.pollType')} group>
           <div className="flex gap-2">
             {(['yesno', 'multi'] as const).map((tp) => (
               <button
                 key={tp}
+                aria-pressed={type === tp}
                 onClick={() => setType(tp)}
-                className={`flex-1 rounded-xl border px-3 py-2.5 text-sm transition ${
+                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-sm transition ${
                   type === tp ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-line/10 text-dim'
                 }`}
               >
@@ -215,7 +243,7 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
             <input type="date" className={inputCls} value={validDate} onChange={(e) => setValidDate(e.target.value)} />
             <input type="time" className={inputCls} value={validTime} onChange={(e) => setValidTime(e.target.value)} />
           </div>
-          <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('chat.pollValidHint')}</p>
+          <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim">{t('chat.pollValidHint')}</p>
         </Field>
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
@@ -242,6 +270,8 @@ export function ChatRoom({ groupId }: { groupId: string }) {
   const { state, currentUser, visibleMessages, visiblePolls, sendMessage, deleteMessage, myGroups, unreadGroups, markChatSeen } = store
   const [text, setText] = useState('')
   const [pendingAttachment, setPendingAttachment] = useState<Attachment | undefined>()
+  // Entwurf oder gewählter Anhang: kein automatisches Neuladen (editGuard)
+  useUnsavedWork(!!text.trim() || !!pendingAttachment)
   const [showPoll, setShowPoll] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -258,6 +288,21 @@ export function ChatRoom({ groupId }: { groupId: string }) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' })
   }, [timeline.length])
+
+  // Neue fremde Nachricht ansagen: Der 5-Sekunden-Takt des Stores bringt
+  // sie lautlos in die Liste — wer die Seite hört statt sieht, bekam davon
+  // nichts mit. Nur fremde Nachrichten: die eigene hat man selbst getippt.
+  const [ansage, setAnsage] = useState('')
+  const bekannt = useRef<number | null>(null)
+  useEffect(() => {
+    const fremde = timeline.filter((x) => x.msg && x.msg.authorId !== state.currentUserId).length
+    if (bekannt.current !== null && fremde > bekannt.current) {
+      const letzte = [...timeline].reverse().find((x) => x.msg && x.msg.authorId !== state.currentUserId)
+      const wer = state.users.find((u) => u.id === letzte?.msg?.authorId)?.name ?? ''
+      setAnsage(t('chat.newMessageFrom', { name: wer }))
+    }
+    bekannt.current = fremde
+  }, [timeline, state.currentUserId, state.users, t])
 
   // Wer den Chat offen hat, hat die Inhalte gesehen — der grüne Punkt
   // erlischt. markChatSeen ist idempotent, daher sind volle Dependencies
@@ -287,6 +332,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
 
   return (
     <div className="flex min-h-full flex-1 flex-col">
+      <p role="status" className="sr-only">{ansage}</p>
       <TopBar
         title={
           <button onClick={() => navigate(`/chat/${groupId}/info`)} className="flex min-w-0 items-center gap-2 hover:text-accent">
@@ -298,7 +344,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
           <button
             onClick={() => navigate(`/chat/${groupId}/info`)}
             aria-label={t('chat.info')}
-            className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-accent"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-accent"
           >
             <Info size={19} />
           </button>
@@ -312,7 +358,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
               <button
                 key={g.id}
                 onClick={() => navigate(`/chat/${g.id}`)}
-                className={`relative shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
+                className={`min-h-11 relative shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
                   g.id === groupId ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim hover:text-ink'
                 }`}
               >
@@ -334,8 +380,16 @@ export function ChatRoom({ groupId }: { groupId: string }) {
               isOwn={item.msg.authorId === currentUser!.id}
               authorName={state.users.find((u) => u.id === item.msg!.authorId)?.name ?? '—'}
               bold={isAdminAuthor(item.msg.authorId)}
-              canDelete={currentUser!.role === 'superadmin' || item.msg.authorId === currentUser!.id}
-              onDelete={() => deleteMessage(item.msg!.id)}
+              // Auch der Admin der Gruppe darf moderieren — bisher konnte er
+              // in seiner eigenen Gruppe nichts entfernen.
+              canDelete={
+                currentUser!.role === 'superadmin' ||
+                item.msg.authorId === currentUser!.id ||
+                (state.groups.find((g) => g.id === groupId)?.adminIds.includes(currentUser!.id) ?? false)
+              }
+              onDelete={() => {
+                if (window.confirm(t('chat.deleteMessageConfirm'))) deleteMessage(item.msg!.id)
+              }}
               lng={i18n.language}
             />
           ) : (
@@ -366,17 +420,18 @@ export function ChatRoom({ groupId }: { groupId: string }) {
           <div className="flex items-end gap-1.5">
             <button
               onClick={() =>
+                // Sandbox: ein Bild wird simuliert; das Limit gilt trotzdem
                 setPendingAttachment({ name: 'photo-' + Math.floor(Math.random() * 900 + 100) + '.jpg', kind: 'image', sizeMB: 3.2 })
               }
               title={t('chat.attach', { max: state.settings.maxUploadMB })}
-              className="rounded-full p-2.5 text-dim transition hover:bg-line/5 hover:text-accent"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-accent"
             >
               <Paperclip size={20} />
             </button>
             <button
               onClick={() => setShowPoll(true)}
               title={t('chat.poll')}
-              className="rounded-full p-2.5 text-dim transition hover:bg-line/5 hover:text-accent"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-accent"
             >
               <BarChart3 size={20} />
             </button>
@@ -390,7 +445,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
             <button
               onClick={send}
               disabled={!text.trim() && !pendingAttachment}
-              className="rounded-full bg-accent p-2.5 text-bg transition hover:brightness-110 disabled:opacity-40"
+              className="min-h-11 rounded-full bg-accent p-2.5 text-bg transition hover:brightness-110 disabled:opacity-40"
               aria-label="send"
             >
               <SendHorizonal size={20} />

@@ -24,6 +24,22 @@ const SIG =
  */
 export function createSeedState(): AppState {
   const now = Date.now()
+  const seed = seedState(now)
+  // Die Seed-Formulare wurden gegen den ausgelieferten Katalog geschrieben —
+  // ihr Wortlaut wird beim Aufbau eingefroren, damit spätere Katalogpflege
+  // die bereits unterschriebenen Dokumente nicht rückwirkend umschreibt.
+  return {
+    ...seed,
+    gradingRecords: seed.gradingRecords.map((r) => {
+      if (r.competencies || r.trainees.length === 0) return r
+      const setKey = GRADING_DEFAULTS.formTypes.find((f) => f.id === r.formTypeId)?.competencySet
+      const set = setKey ? GRADING_DEFAULTS.competencySets.find((c) => c.key === setKey) : undefined
+      return set ? { ...r, competencies: set.competencies.map((c) => ({ code: c.code, title: c.title })) } : r
+    }),
+  }
+}
+
+function seedState(now: number): AppState {
   return {
     users: [
       { id: 'u-patrick', name: 'Patrick Thorn', email: 'patrick.thorn@aviationacademy.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
@@ -82,6 +98,9 @@ export function createSeedState(): AppState {
         options: [],
         votes: { 'u-patrick': 0, 'u-michael': 0 },
         closed: false,
+        // Gültigkeit ist Pflicht, seit Umfragen ein Ablaufdatum tragen —
+        // die Seed-Umfragen führen sie deshalb ebenfalls.
+        validUntil: now + 3 * d,
         createdAt: now - 23 * h,
       },
       {
@@ -93,6 +112,7 @@ export function createSeedState(): AppState {
         options: ['Montag früh', 'Mittwoch Abend', 'Samstag'],
         votes: { 'u-christian': 1, 'u-michael': 1 },
         closed: false,
+        validUntil: now + 5 * d,
         createdAt: now - 4 * h,
       },
     ],
@@ -107,7 +127,6 @@ export function createSeedState(): AppState {
         validFrom: iso(now - 2 * d),
         validUntil: '', // UFN
         requiresAck: true,
-        groupIds: [], // alle Gruppen
         authorId: 'u-patrick',
         createdAt: now - 2 * d,
       },
@@ -120,7 +139,6 @@ export function createSeedState(): AppState {
         category: 'Simulator Training',
         validFrom: iso(now - 5 * d),
         validUntil: iso(now + 60 * d),
-        groupIds: ['g-auto'],
         authorId: 'u-christian',
         createdAt: now - 5 * d,
       },
@@ -133,7 +151,6 @@ export function createSeedState(): AppState {
         category: 'HR',
         validFrom: iso(now - 20 * d),
         validUntil: '',
-        groupIds: [],
         authorId: 'u-patrick',
         createdAt: now - 20 * d,
       },
@@ -147,7 +164,6 @@ export function createSeedState(): AppState {
         validFrom: iso(now - 10 * d),
         validUntil: '',
         requiresAck: true,
-        groupIds: ['g-ground'],
         authorId: 'u-christian',
         createdAt: now - 10 * d,
       },
@@ -184,8 +200,11 @@ export function createSeedState(): AppState {
       { id: 'c3', department: 'Administration', position: 'Office / Dispo Sim-Planung', name: 'James Bond', phone: '+43 1 5550 100', email: 'james.bond@aviationacademy.at' },
     ],
     changelog: [
+      { version: '1.4.0', date: '2026-08-10', changes: 'Großes Audit umgesetzt: Zustand liegt jetzt in IndexedDB (kein stiller Datenverlust mehr), Unterschrift belegt Chronologie und Inhalt, Ausgangskorb prüft echte Erreichbarkeit, Update wirft keine Eingaben mehr weg und lädt automatisch. Barrierefreiheit: Karten per Tastatur, richtige Ansagen, getippte Unterschrift, 150-%-Zoom. PDF ohne Browserzeilen mit Dateiname Form_Name_Datum_Event; ATO-Kennung wählbar (AT.ATO.106 / GBR.ATO.0541); Aviation Academy Austria. Feedback mit Musterbezug, Instructor Info ohne Zielgruppen, Admin-Kachel „Chats".' },
       { version: '1.0.0', date: '2026-08-04', changes: 'Erstversion: Chat mit Gruppen und Umfragen, Instructor Info, Who to call, Feedback, Admin-Panel, Sandbox-Modus.' },
       { version: '1.1.0', date: '2026-08-09', changes: 'Grading Tool und Lesson Plans, Lese-Bestätigungen mit Kontrollliste, Gruppen-Sichtbarkeit, Feedback-Empfänger und Urgent, Offline-Modus (PWA) mit Update-Banner, Druck-Layout.' },
+      { version: '1.3.0', date: '2026-08-09', changes: 'Offline-Betrieb: Die App startet ohne Netz, ohne Empfang unterschriebene Formulare gehen in den Ausgangskorb und werden versendet, sobald wieder Empfang da ist. Standardisierungsbericht je Instruktor gegen das Flottenmittel (ORA.ATO.110). Jede Seite beginnt oben. Dialoge halten den Fokus im Eingabefeld.' },
+      { version: '1.2.0', date: '2026-08-09', changes: 'Vollaudit behoben: ein Formular 306 je Pilot, unterschriebene Formulare gegen Katalogänderungen eingefroren, objektbezogene Berechtigungen, Konten werden deaktiviert statt gelöscht, Zustand übersteht das Neuladen, Druck auf A4 mit einem Blatt je Formular, Trefferflächen ab 44 px und Kontraste durchgehend WCAG AA.' },
     ],
     settings: {
       defaultRetention: '30d',
@@ -199,6 +218,12 @@ export function createSeedState(): AppState {
         'HR (hr@aviationacademy.at)',
       ],
       infoCategories: ['Ground Training', 'Simulator Training', 'HR', 'Operator Info', 'SIM Defects', 'AAA intern', 'Approved Manuals'],
+      documentHeader: {
+        atoName: 'Aviation Academy Austria',
+        approvalNumber: 'AT.ATO.106',
+        approvalNumberUK: 'GBR.ATO.0541',
+        formRevision: 'OM Appendix 5, Rev. 0.2',
+      },
       allowedDomains: ['aviationacademy.at'],
       imprint: { de: IMPRINT_DE, en: IMPRINT_EN },
       grading: GRADING_DEFAULTS,
@@ -259,7 +284,7 @@ export function createSeedState(): AppState {
               { code: 'KNO', grade: 3, comment: '' }, { code: 'PRO', grade: 2, comment: 'Checklists repeatedly initiated late.' },
               { code: 'COM', grade: 3, comment: '' }, { code: 'FPA', grade: 3, comment: '' },
               { code: 'FPM', grade: 2, comment: 'Engine-out handling not stabilised.' }, { code: 'LTW', grade: 3, comment: '' },
-              { code: 'PSD', grade: 2, comment: '' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 2, comment: 'Lost prioritisation under high workload.' },
+              { code: 'PSD', grade: 2, comment: 'Decision making slow once the failure was recognised.' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 2, comment: 'Lost prioritisation under high workload.' },
             ],
             positiveComment: 'Well prepared; actively raised open questions.',
             developmentComment: 'Repeat engine-out procedures and workload prioritisation.',
@@ -276,7 +301,7 @@ export function createSeedState(): AppState {
         id: 'gr3',
         formTypeId: '306',
         instructorId: 'u-michael',
-        header: { aircraftType: 'C560 XLS+', location: 'AAA Neusiedl', event: 'FFS 4 — Additional Training', date: iso(now - 4 * d) },
+        header: { traineeName: 'Sophie Berger', aircraftType: 'C560 XLS+', location: 'AAA Neusiedl', event: 'FFS 4 — Additional Training', date: iso(now - 4 * d) },
         trainees: [],
         sessionStatus: null,
         freeText: {
@@ -295,7 +320,7 @@ export function createSeedState(): AppState {
         header: { aircraftType: 'CL30', trainingDevice: 'FFS', event: 'TRI Standardisierung', date: iso(now - 2 * d), operation: 'MPO', program: 'PRG 1*', candidateQual: 'TRI Candidate', candidateSeat: 'RH Seat', coiSeat: 'IOS' },
         trainees: [
           {
-            traineeId: '', traineeName: 'Christian Terler', position: 'CDR', seat: 'Left',
+            traineeId: '', traineeName: 'Christian Terler', position: '', seat: '',
             grades: [
               { code: 'PRE', grade: 5, comment: '' }, { code: 'CLI', grade: 5, comment: 'Created a very positive learning atmosphere.' },
               { code: 'PRK', grade: 4, comment: '' }, { code: 'TEM', grade: 4, comment: '' },

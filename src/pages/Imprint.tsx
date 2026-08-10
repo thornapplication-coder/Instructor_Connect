@@ -79,7 +79,7 @@ export function Imprint() {
             </Card>
           ),
         )}
-        <p className="pt-2 text-center text-[12px] text-dim/80">{t('imprint.stand', { version: APP_VERSION })}</p>
+        <p className="pt-2 text-center text-[12px] text-dim">{t('imprint.stand', { version: APP_VERSION })}</p>
       </Page>
     </>
   )

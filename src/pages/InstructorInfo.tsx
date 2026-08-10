@@ -1,9 +1,9 @@
 import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
+import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
-import { infoEntryAppliesTo, infoIsPublished, useStore } from '../store'
+import { infoEntryAppliesTo, infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
 import { formatDate, formatDateTime } from './Grading'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
@@ -22,22 +22,26 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
   const [validFrom, setValidFrom] = useState('')
   const [validUntil, setValidUntil] = useState('')
   const [requiresAck, setRequiresAck] = useState(false)
-  const [groupIds, setGroupIds] = useState<string[]>([])
   const [aircraftType, setAircraftType] = useState('')
   const groups = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
 
   const valid = title.trim() && category && (type === 'pdf' || body.trim())
 
   return (
-    <Modal title={t('info.newEntry')} onClose={onClose}>
+    <Modal
+      title={t('info.newEntry')}
+      onClose={onClose}
+      confirmDiscard={title.trim() || body.trim() || category ? t('common.discardConfirm') : undefined}
+    >
       <div className="space-y-4">
-        <Field label={t('info.typeLabel')}>
+        <Field label={t('info.typeLabel')} group>
           <div className="flex gap-2">
             {(['text', 'pdf'] as const).map((tp) => (
               <button
                 key={tp}
+                aria-pressed={type === tp}
                 onClick={() => setType(tp)}
-                className={`flex-1 rounded-xl border px-3 py-2.5 text-sm transition ${
+                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-sm transition ${
                   type === tp ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-line/10 text-dim'
                 }`}
               >
@@ -53,7 +57,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+            className={selectCls}
           >
             <option value="">…</option>
             {[...state.settings.infoCategories].sort((a, b) => a.localeCompare(b)).map((c) => (
@@ -68,7 +72,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
           <select
             value={aircraftType}
             onChange={(e) => setAircraftType(e.target.value)}
-            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+            className={selectCls}
           >
             <option value="">{t('admin.groupNoAircraft')}</option>
             {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
@@ -90,15 +94,10 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
             <input type="date" className={inputCls} value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
           </Field>
         </div>
-        <p className="-mt-2 text-[11.5px] leading-relaxed text-dim/80">{t('info.ufnHint')}</p>
-        {/* Zielgruppen: steuern Sichtbarkeit und Bestätigungspflicht (Mehrfachauswahl) */}
-        <Field label={t('info.groupsLabel')}>
-          <ChipMultiSelect options={groups.map((gr) => ({ id: gr.id, label: gr.name }))} selected={groupIds} onChange={setGroupIds} />
-          <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('info.groupsHint')}</p>
-        </Field>
-        {/* Lese-Bestätigung: jeder Nutzer der Zielgruppen muss aktiv „gelesen“ bestätigen */}
+        <p className="-mt-2 text-[11.5px] leading-relaxed text-dim">{t('info.ufnHint')}</p>
+        {/* Lese-Bestätigung: jeder Nutzer des Moduls muss aktiv „gelesen“ bestätigen */}
         <label className="flex items-center gap-2 text-[13.5px]">
-          <input type="checkbox" checked={requiresAck} onChange={(e) => setRequiresAck(e.target.checked)} className="accent-accent" />
+          <input type="checkbox" checked={requiresAck} onChange={(e) => setRequiresAck(e.target.checked)} className="h-6 w-6 shrink-0 accent-accent" />
           {t('info.requiresAck')}
         </label>
         {type === 'text' ? (
@@ -128,7 +127,6 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
                 validFrom,
                 validUntil,
                 requiresAck,
-                groupIds,
               })
               onClose()
             }}
@@ -159,20 +157,25 @@ export function InstructorInfo() {
 
   // Löschen nur Admin/Superadmin
   const mayEdit = can('info_manage')
-  const categories = state.settings.infoCategories
+  // Alphabetisch wie das Auswahlfeld im Anlegen-Dialog — die Chips folgten
+  // bisher der internen Reihenfolge der Einstellungen.
+  const categories = [...state.settings.infoCategories].sort((a, b) => a.localeCompare(b))
 
   /** Zielpersonen einer Lese-Bestätigung: aktive Mitglieder der Zielgruppen */
-  const ackTargets = (entry: { groupIds?: string[] }) =>
-    state.users.filter((u) => u.active && infoEntryAppliesTo(entry, u.id, state.groups))
-
-  const groupNames = (ids?: string[]) =>
-    ids?.length ? ids.map((id) => state.groups.find((g) => g.id === id)?.name ?? '—').join(', ') : t('info.allGroups')
+  // Bestätigen kann nur, wer die Instructor Info auch erreicht — ein Training
+  // Admin ohne Zugang zählte sonst in jeder Quote als dauerhaft säumig.
+  const ackTargets = (entry: (typeof state.infoEntries)[number]) =>
+    state.users
+      .filter((u) => u.active && userMayModule(state.settings, u, 'info') && infoEntryAppliesTo(entry, u.id, state.groups))
+      // Alphabetisch — die interne Reihenfolge war für eine Kontrollliste
+      // nicht nachvollziehbar.
+      .sort((a, b) => a.name.localeCompare(b.name))
 
   /** Kontrollliste der Lese-Bestätigungen als CSV exportieren (Admins) */
   const exportAckList = (entry: (typeof state.infoEntries)[number]) => {
     const acks = state.infoAcks[entry.id] ?? {}
     let csv = csvRow(['Instructor Connect — Read Confirmation Control List'])
-    csv += csvRow(['Entry', entry.title, 'Groups', groupNames(entry.groupIds)])
+    csv += csvRow(['Entry', entry.title])
     csv += csvRow(['Exported (date/time)', formatDateTime(now()), 'Exported by', currentUser!.name])
     csv += csvRow([])
     csv += csvRow(['Name', 'Status', 'Confirmed at'])
@@ -186,16 +189,13 @@ export function InstructorInfo() {
    * Muster eines Eintrags: eindeutig, wenn alle Zielgruppen demselben
    * Aircraft Type zugeordnet sind — sonst musterübergreifend ('').
    */
-  const aircraftOf = (e: { groupIds?: string[]; aircraftType?: string }): string => {
-    if (e.aircraftType) return e.aircraftType
-    if (!e.groupIds?.length) return ''
-    const types = [...new Set(e.groupIds.map((gid) => state.groups.find((g) => g.id === gid)?.aircraftType || ''))]
-    return types.length === 1 ? types[0] : ''
-  }
+  const aircraftOf = (e: { aircraftType?: string }): string => e.aircraftType ?? ''
 
   // Nach Muster unterteilt; innerhalb: markierte zuoberst, dann neueste zuerst
   const entries = visibleInfoEntries
-    .filter((e) => (e.title + ' ' + e.description).toLowerCase().includes(query.toLowerCase()))
+    // Suche greift auch in den Text und die Kategorie — Titel und
+    // Beschreibung allein ließen den Inhalt unauffindbar.
+    .filter((e) => [e.title, e.description, e.body ?? '', e.category, e.fileName ?? ''].join(' ').toLowerCase().includes(query.toLowerCase()))
     .filter((e) => !categoryFilter || e.category === categoryFilter)
     .sort((a, b) => {
       const acDiff = (aircraftOf(a) || 'zzz').localeCompare(aircraftOf(b) || 'zzz')
@@ -206,14 +206,19 @@ export function InstructorInfo() {
   // Überschriften nur, wenn es wirklich mehrere Abschnitte gibt
   const sectionCount = new Set(entries.map((e) => aircraftOf(e))).size
 
+  /**
+   * Beschriftung der Gültigkeit. „Valid: 17.08.2026" war nicht von einem
+   * Beginn zu unterscheiden — deshalb wird die fehlende Seite benannt
+   * statt weggelassen.
+   */
   const validityLabel = (e: { validFrom?: string; validUntil?: string }) => {
     const from = e.validFrom ? formatDate(e.validFrom) : null
     const until = e.validUntil ? formatDate(e.validUntil) : 'UFN'
-    return from ? `${from} – ${until}` : until
+    if (from) return `${from} – ${until}`
+    return `${t('info.sinceRelease')} – ${until}`
   }
 
-  const isExpired = (e: { validUntil?: string }) =>
-    !!e.validUntil && new Date(`${e.validUntil}T23:59:59`).getTime() < now()
+  const isExpired = (e: { validUntil?: string }) => infoIsExpired(e, now())
 
   /** Noch nicht gültig — nur Verwalter sehen solche Einträge (Vorbereitung) */
   const isScheduled = (e: { validFrom?: string }) => !infoIsPublished(e, now())
@@ -228,7 +233,7 @@ export function InstructorInfo() {
           mayEdit ? (
             <button
               onClick={() => setShowNew(true)}
-              className="flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
+              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
             >
               <Plus size={15} /> {t('info.newEntry')}
             </button>
@@ -240,6 +245,7 @@ export function InstructorInfo() {
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-dim" />
           <input
             value={query}
+            aria-label={t('info.searchPlaceholder')}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t('info.searchPlaceholder')}
             className={`${inputCls} pl-10`}
@@ -250,7 +256,7 @@ export function InstructorInfo() {
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           <button
             onClick={() => setCategoryFilter('')}
-            className={`shrink-0 rounded-full border px-3 py-1.5 text-[12.5px] transition ${
+            className={`min-h-11 shrink-0 rounded-full border px-4 py-1.5 text-[12.5px] transition ${
               categoryFilter === '' ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
             }`}
           >
@@ -260,7 +266,7 @@ export function InstructorInfo() {
             <button
               key={c}
               onClick={() => setCategoryFilter(categoryFilter === c ? '' : c)}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-[12.5px] transition ${
+              className={`min-h-11 shrink-0 rounded-full border px-4 py-1.5 text-[12.5px] transition ${
                 categoryFilter === c ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
               }`}
             >
@@ -273,7 +279,9 @@ export function InstructorInfo() {
 
         {entries.map((entry, i) => {
           const open = openId === entry.id
-          const isNew = now() - entry.createdAt < NEW_MS
+          // „Neu" zählt ab Veröffentlichung, nicht ab Erstellung: ein
+          // vorbereiteter Eintrag ging sonst ohne Markierung online.
+          const isNew = now() - infoPublishedAt(entry) < NEW_MS
           const starred = starredInfoIds.has(entry.id)
           const expired = isExpired(entry)
           const scheduled = isScheduled(entry)
@@ -294,7 +302,7 @@ export function InstructorInfo() {
                     {entry.type === 'pdf' ? <FileText size={19} /> : <ScrollText size={19} />}
                   </span>
                   {isNew && (
-                    <span className="rounded-md bg-emerald-600 px-1.5 py-0.5 text-[10.5px] font-bold tracking-wider text-white">NEW</span>
+                    <span className="rounded-md bg-emerald-700 px-1.5 py-0.5 text-[10.5px] font-bold tracking-wider text-white">NEW</span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -304,25 +312,24 @@ export function InstructorInfo() {
                     <button
                       onClick={() => toggleStarInfo(entry.id)}
                       title={t('info.star')}
-                      className={`shrink-0 rounded-lg p-1 transition ${starred ? 'text-amber-300' : 'text-dim/60 hover:text-amber-300'}`}
+                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition ${starred ? 'text-wait' : 'text-dim hover:text-wait'}`}
                     >
                       <Star size={17} fill={starred ? 'currentColor' : 'none'} />
                     </button>
                   </div>
                   {entry.description && <p className="mt-0.5 text-[13px] text-dim">{entry.description}</p>}
                   {/* Bewusst ohne Erstellungsdatum und Autor in der Übersicht */}
-                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11.5px] text-dim/80">
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11.5px] text-dim">
                     <span className="rounded bg-raised px-1.5 py-0.5 font-medium text-dim">{entry.category}</span>
-                    <span className="rounded border border-line/15 px-1.5 py-0.5 text-dim">{groupNames(entry.groupIds)}</span>
                   </p>
-                  <p className={`mt-1 text-[11.5px] ${expired ? 'text-danger' : 'text-dim/80'}`}>
+                  <p className={`mt-1 text-[11.5px] ${expired ? 'text-danger' : 'text-dim'}`}>
                     {t('info.validity')}: {validityLabel(entry)}
                     {expired && ` · ${t('info.expired')}`}
                   </p>
                   {/* Für Verwalter sichtbar: der Eintrag gilt erst später und
                       ist für die Zielgruppen noch nicht sichtbar */}
                   {scheduled && (
-                    <p className="mt-1 inline-flex items-center rounded-full bg-amber-500 px-2 py-0.5 text-[11px] font-semibold text-black">
+                    <p className="mt-1 inline-flex items-center rounded-full bg-wait px-2 py-0.5 text-[11px] font-semibold text-waitInk">
                       {t('info.scheduled')}
                     </p>
                   )}
@@ -333,20 +340,23 @@ export function InstructorInfo() {
                     const acks = state.infoAcks[entry.id] ?? {}
                     const myAck = acks[currentUser!.id]
                     const targets = ackTargets(entry)
-                    // Vor dem Gültigkeitsbeginn wird nichts bestätigt
-                    const amTarget = targets.some((u) => u.id === currentUser!.id) && !isScheduled(entry)
+                    // Vor dem Gültigkeitsbeginn und nach dem Gültigkeitsende
+                    // wird nichts bestätigt — ein überholtes Dokument darf
+                    // nicht als „gelesen" in die Kontrollliste wandern.
+                    const amTarget =
+                      targets.some((u) => u.id === currentUser!.id) && !isScheduled(entry) && !infoIsExpired(entry, now())
                     const done = targets.filter((u) => acks[u.id]).length
                     return (
                       <div className="mt-2.5 space-y-1.5">
                         {myAck ? (
-                          <p className="flex items-center gap-1.5 text-[12.5px] font-medium text-emerald-500">
+                          <p className="flex items-center gap-1.5 text-[12.5px] font-medium text-ok">
                             <CheckCircle2 size={14} /> {t('info.ackedAt', { date: formatDateTime(myAck) })}
                           </p>
                         ) : (
                           amTarget && (
                             <button
                               onClick={() => acknowledgeInfo(entry.id)}
-                              className="flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[13px] font-semibold text-bg transition hover:brightness-110"
+                              className="min-h-11 flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[13px] font-semibold text-bg transition hover:brightness-110"
                             >
                               <CheckCircle2 size={15} /> {t('info.ackButton')}
                             </button>
@@ -357,14 +367,14 @@ export function InstructorInfo() {
                             <div className="flex flex-wrap items-center gap-3">
                               <button
                                 onClick={() => setAckOpenId(ackOpenId === entry.id ? null : entry.id)}
-                                className="flex items-center gap-1 text-[12px] text-dim hover:text-accent"
+                                className="flex min-h-11 items-center gap-1 text-[12px] text-dim hover:text-accent"
                               >
                                 {t('info.ackStatus', { done, total: targets.length })}
                                 <ChevronDown size={12} className={ackOpenId === entry.id ? 'rotate-180' : ''} />
                               </button>
                               <button
                                 onClick={() => exportAckList(entry)}
-                                className="flex items-center gap-1 text-[12px] text-dim hover:text-accent"
+                                className="flex min-h-11 items-center gap-1 text-[12px] text-dim hover:text-accent"
                               >
                                 <FileDown size={12} /> {t('info.exportAck')}
                               </button>
@@ -375,7 +385,7 @@ export function InstructorInfo() {
                                   <li key={u.id} className="flex items-center justify-between gap-2">
                                     <span>{u.name}</span>
                                     {acks[u.id] ? (
-                                      <span className="text-emerald-500">{formatDateTime(acks[u.id])}</span>
+                                      <span className="text-ok">{formatDateTime(acks[u.id])}</span>
                                     ) : (
                                       <span className="text-danger/80">{t('info.ackMissing')}</span>
                                     )}
@@ -396,14 +406,14 @@ export function InstructorInfo() {
                           href={SAMPLE_PDF}
                           target="_blank"
                           rel="noreferrer"
-                          className="flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
+                          className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
                         >
                           <Eye size={14} /> {t('info.view')}
                         </a>
                         <a
                           href={SAMPLE_PDF}
                           download={entry.fileName}
-                          className="flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
+                          className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
                         >
                           <Download size={14} /> {t('info.download')}
                         </a>
@@ -411,7 +421,7 @@ export function InstructorInfo() {
                     ) : (
                       <button
                         onClick={() => setOpenId(open ? null : entry.id)}
-                        className="flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
+                        className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
                       >
                         <Eye size={14} /> {open ? t('common.close') : t('info.view')}
                       </button>
@@ -419,7 +429,7 @@ export function InstructorInfo() {
                     {mayEdit && (
                       <button
                         onClick={() => window.confirm(t('info.confirmDelete')) && deleteInfoEntry(entry.id)}
-                        className="flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-[13px] text-danger hover:bg-danger/10"
+                        className="min-h-11 flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-[13px] text-danger hover:bg-danger/10"
                       >
                         <Trash2 size={14} /> {t('common.delete')}
                       </button>
@@ -435,7 +445,7 @@ export function InstructorInfo() {
           )
         })}
 
-        <p className="pt-2 text-center text-[11.5px] text-dim/70">{t('info.permanentNote')}</p>
+        <p className="pt-2 text-center text-[11.5px] text-dim">{t('info.permanentNote')}</p>
       </Page>
       {showNew && <NewEntryModal onClose={() => setShowNew(false)} />}
     </>

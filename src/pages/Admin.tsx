@@ -1,9 +1,10 @@
 import { AlertTriangle, ArrowLeft, ChevronDown, ClipboardList, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Users, UsersRound, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, TopBar } from '../components/ui'
+import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
+import { navigate } from '../router'
+import { storageInfo, type StorageInfo } from '../persist'
 import { useStore } from '../store'
-import { useIsDesktop } from '../useIsDesktop'
 import { GradingAdmin } from './admin/GradingAdmin'
 import { formatDateTime } from './Grading'
 import { APP_VERSION, PERM_KEYS, type ConfigurableRole, type RetentionKey, type Role } from '../types'
@@ -20,12 +21,18 @@ function StringListEditor({ label, values, onChange }: { label: string; values: 
     setDraft('')
   }
   return (
-    <Field label={label}>
+    // Gruppe statt <label>: die Beschriftung gehört zur Liste, nicht zum
+    // ersten Löschknopf darin.
+    <Field label={label} group>
       <div className="mb-2 flex flex-wrap gap-2">
         {values.map((v) => (
           <span key={v} className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5 text-[13px]">
             {v}
-            <button onClick={() => onChange(values.filter((x) => x !== v))} className="text-dim hover:text-danger">
+            <button
+              onClick={() => onChange(values.filter((x) => x !== v))}
+              aria-label={`${t('common.delete')}: ${v}`}
+              className="text-dim hover:text-danger"
+            >
               <X size={13} />
             </button>
           </span>
@@ -35,6 +42,7 @@ function StringListEditor({ label, values, onChange }: { label: string; values: 
         <input
           className={inputCls}
           value={draft}
+          aria-label={label}
           placeholder={t('admin.addValue')}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && add()}
@@ -49,7 +57,7 @@ function StringListEditor({ label, values, onChange }: { label: string; values: 
 
 function UsersTab() {
   const { t } = useTranslation()
-  const { state, updateUser, deleteUser, addUser, setGroupMembers } = useStore()
+  const { state, updateUser, addUser, setGroupMembers } = useStore()
   const [showNew, setShowNew] = useState(false)
   // Bei rund 130 Instruktoren ist die Liste kompakt und aufklappbar:
   // sichtbar bleiben Name, E-Mail und Rolle — Details erst auf Klick.
@@ -62,6 +70,8 @@ function UsersTab() {
   // Sortierung: alphabetisch nach Name oder nach Funktion (Superadmin zuerst)
   const [sortMode, setSortMode] = useState<'name' | 'role'>('name')
   const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'member' as Role, groupIds: [] as string[] })
+  const emailTaken =
+    !!form.email.trim() && state.users.some((u) => u.email.trim().toLowerCase() === form.email.trim().toLowerCase())
 
   const sortedGroups = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
   const ROLE_RANK: Record<Role, number> = { superadmin: 0, group_admin: 1, training_admin: 2, member: 3 }
@@ -118,7 +128,8 @@ function UsersTab() {
           {users.length}/{allUsers.length}
         </span>
       </div>
-      {users.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('info.empty')}</p>}
+      <p className="px-1 text-[12px] leading-relaxed text-dim">{t('admin.deactivateHint')}</p>
+      {users.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('admin.noUsersMatch')}</p>}
       {users.map((u, i) => (
         <div key={u.id}>
         {sortMode === 'role' && (i === 0 || users[i - 1].role !== u.role) && (
@@ -154,7 +165,7 @@ function UsersTab() {
                 type="checkbox"
                 checked={u.canEditDirectory}
                 onChange={(e) => updateUser(u.id, { canEditDirectory: e.target.checked })}
-                className="accent-accent"
+                className="h-6 w-6 shrink-0 accent-accent"
               />
               {t('admin.canEditDirectory')}
             </label>
@@ -165,7 +176,7 @@ function UsersTab() {
                 type="checkbox"
                 checked={u.canGrade}
                 onChange={(e) => updateUser(u.id, { canGrade: e.target.checked })}
-                className="accent-accent"
+                className="h-6 w-6 shrink-0 accent-accent"
               />
               {t('admin.canGrade')}
             </label>
@@ -174,7 +185,7 @@ function UsersTab() {
                 type="checkbox"
                 checked={u.isTrainee}
                 onChange={(e) => updateUser(u.id, { isTrainee: e.target.checked })}
-                className="accent-accent"
+                className="h-6 w-6 shrink-0 accent-accent"
               />
               {t('admin.isTrainee')}
             </label>
@@ -184,19 +195,19 @@ function UsersTab() {
                 type="checkbox"
                 checked={!!u.chatBlocked}
                 onChange={(e) => updateUser(u.id, { chatBlocked: e.target.checked })}
-                className="accent-[#e05252]"
+                className="h-6 w-6 shrink-0 accent-[#e05252]"
               />
               {t('admin.chatBlocked')}
             </label>
+            {/* Konten werden deaktiviert, nicht gelöscht — sonst stünde auf
+                unterschriebenen Formularen und in Chats ein Verweis ins
+                Leere, und die Historie verlöre ihren Urheber. */}
             <span className="ml-auto flex gap-2">
-              <button onClick={() => updateUser(u.id, { active: !u.active })} className="text-dim hover:text-ink">
-                {u.active ? t('admin.deactivate') : t('admin.activate')}
-              </button>
               <button
-                onClick={() => window.confirm(t('admin.confirmDeleteUser')) && deleteUser(u.id)}
-                className="text-danger/80 hover:text-danger"
+                onClick={() => updateUser(u.id, { active: !u.active })}
+                className="min-h-11 rounded-lg px-2 py-1 text-dim hover:bg-line/5 hover:text-ink"
               >
-                {t('common.delete')}
+                {u.active ? t('admin.deactivate') : t('admin.activate')}
               </button>
             </span>
           </div>
@@ -234,7 +245,7 @@ function UsersTab() {
                     onClick={() =>
                       updateUser(u.id, { aircraftTypes: on ? u.aircraftTypes.filter((x) => x !== a) : [...u.aircraftTypes, a] })
                     }
-                    className={`rounded-full border px-2.5 py-1 text-[12px] transition ${
+                    className={`min-h-11 rounded-full border px-2.5 py-1 text-[12px] transition ${
                       on ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/12 text-dim'
                     }`}
                   >
@@ -249,15 +260,32 @@ function UsersTab() {
         </div>
       ))}
       {showNew && (
-        <Modal title={t('admin.addUser')} onClose={() => setShowNew(false)}>
+        <Modal
+          title={t('admin.addUser')}
+          onClose={() => setShowNew(false)}
+          confirmDiscard={
+            form.name.trim() || form.email.trim() || form.phone.trim() || form.groupIds.length > 0 ? t('common.discardConfirm') : undefined
+          }
+        >
           <div className="space-y-3.5">
             <Field label={t('contacts.name')}>
               <input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
             </Field>
             {/* Die E-Mail ist die einzige Anmeldekennung — Pflichtfeld */}
             <Field label={t('contacts.email') + ' *'}>
-              <input type="email" className={inputCls} value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('admin.emailLoginHint')}</p>
+              <input
+                type="email"
+                className={`${inputCls} ${emailTaken ? 'border-danger/60' : ''}`}
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+              {/* Die Adresse muss eindeutig bleiben — sonst hätten zwei Konten
+                  denselben Login. Direkt am Feld, nicht erst beim Speichern. */}
+              {emailTaken ? (
+                <p className="mt-1.5 text-[11.5px] leading-relaxed text-danger">{t('admin.emailTaken')}</p>
+              ) : (
+                <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim">{t('admin.emailLoginHint')}</p>
+              )}
             </Field>
             <Field label={t('contacts.phone')}>
               <input type="tel" className={inputCls} value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
@@ -266,7 +294,7 @@ function UsersTab() {
               <select
                 value={form.role}
                 onChange={(e) => setForm({ ...form, role: e.target.value as Role })}
-                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+                className={selectCls}
               >
                 {(['member', 'training_admin', 'group_admin', 'superadmin'] as Role[]).map((r) => (
                   <option key={r} value={r}>
@@ -283,14 +311,16 @@ function UsersTab() {
                 selected={form.groupIds}
                 onChange={(groupIds) => setForm({ ...form, groupIds })}
               />
-              <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim/80">{t('admin.userGroupsHint')}</p>
+              <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim">{t('admin.userGroupsHint')}</p>
             </Field>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setShowNew(false)}>
                 {t('common.cancel')}
               </Button>
               <Button
-                disabled={!form.name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) || form.groupIds.length === 0}
+                disabled={
+                  !form.name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) || form.groupIds.length === 0 || emailTaken
+                }
                 onClick={() => {
                   addUser(form)
                   setShowNew(false)
@@ -360,19 +390,24 @@ function PermissionsTab() {
 
 function GroupsTab() {
   const { t } = useTranslation()
-  const { state, addGroup, renameGroup, deleteGroup, setGroupAdmins, setGroupMembers, setGroupRetention, setGroupAircraft } = useStore()
+  const { state, currentUser, addGroup, renameGroup, deleteGroup, groupDeleteBlockers, setGroupAdmins, setGroupMembers, setGroupRetention, setGroupAircraft } =
+    useStore()
   const [showNew, setShowNew] = useState(false)
   // aufgeklappte Gruppe (kompakte Liste bei vielen Gruppen)
   const [openId, setOpenId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [purpose, setPurpose] = useState('')
   const [newAircraft, setNewAircraft] = useState('')
+  // Doppelte Gruppennamen wären im Chat nicht auseinanderzuhalten
+  const nameTaken = !!name.trim() && state.groups.some((g) => g.name.trim().toLowerCase() === name.trim().toLowerCase())
 
   // Gruppen nach Muster sortiert: erst je Aircraft Type, dann die
   // musterübergreifenden — die Chat-Themen unterscheiden sich je Typ.
-  const groups = [...state.groups].sort(
-    (a, b) => (a.aircraftType || 'zzz').localeCompare(b.aircraftType || 'zzz') || a.name.localeCompare(b.name),
-  )
+  // Ein Gruppenadmin verwaltet nur die Gruppen, in denen er als Admin
+  // eingetragen ist — fremde Gruppen sind hier weder sicht- noch änderbar.
+  const groups = state.groups
+    .filter((g) => currentUser!.role === 'superadmin' || g.adminIds.includes(currentUser!.id))
+    .sort((a, b) => (a.aircraftType || 'zzz').localeCompare(b.aircraftType || 'zzz') || a.name.localeCompare(b.name))
   const activeUsers = state.users.filter((u) => u.active).sort((a, b) => a.name.localeCompare(b.name))
   const aircraftTypes = [...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b))
   // Zwischenüberschrift, sobald ein neues Muster beginnt
@@ -404,9 +439,20 @@ function GroupsTab() {
               <span className="shrink-0 text-[12px] text-dim">{t('chatInfo.members', { count: g.memberIds.length })}</span>
               <ChevronDown size={16} className={`shrink-0 text-dim transition ${openId === g.id ? 'rotate-180' : ''}`} />
             </button>
+            {/* Blockiert das Löschen, weil jemand ohne Gruppe zurückbliebe,
+                nennt der Knopf den Grund — vorher verpuffte der Klick. */}
             <button
-              onClick={() => window.confirm(t('admin.confirmDeleteGroup')) && deleteGroup(g.id)}
-              className="rounded-full p-2 text-dim hover:text-danger"
+              onClick={() => {
+                const blockers = groupDeleteBlockers(g.id)
+                if (blockers.length > 0) {
+                  window.alert(t('chatInfo.deleteBlocked', { names: blockers.map((u) => u.name).join(', ') }))
+                  return
+                }
+                if (window.confirm(t('admin.confirmDeleteGroup'))) deleteGroup(g.id)
+              }}
+              aria-label={t('chatInfo.deleteGroup')}
+              title={t('chatInfo.deleteGroup')}
+              className="flex h-11 w-11 items-center justify-center rounded-full text-dim hover:text-danger"
             >
               <Trash2 size={16} />
             </button>
@@ -449,17 +495,18 @@ function GroupsTab() {
                 ))}
               </select>
             </Field>
-            <Field label={t('admin.groupAdmins')}>
+            <Field label={t('admin.groupAdmins')} group>
               <div className="flex flex-wrap gap-1.5">
                 {activeUsers.map((u) => {
                   const isAdmin = g.adminIds.includes(u.id)
                   return (
                     <button
                       key={u.id}
+                      aria-pressed={isAdmin}
                       onClick={() =>
                         setGroupAdmins(g.id, isAdmin ? g.adminIds.filter((id) => id !== u.id) : [...g.adminIds, u.id])
                       }
-                      className={`rounded-full border px-2.5 py-1 text-[12px] transition ${
+                      className={`min-h-11 rounded-full border px-2.5 py-1 text-[12px] transition ${
                         isAdmin ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/12 text-dim'
                       }`}
                     >
@@ -470,17 +517,18 @@ function GroupsTab() {
               </div>
             </Field>
           </div>
-          <Field label={`${t('admin.membersManage')} (${g.memberIds.length})`}>
+          <Field label={`${t('admin.membersManage')} (${g.memberIds.length})`} group>
             <div className="flex flex-wrap gap-1.5">
               {activeUsers.map((u) => {
                 const isMember = g.memberIds.includes(u.id)
                 return (
                   <button
                     key={u.id}
+                    aria-pressed={isMember}
                     onClick={() =>
                       setGroupMembers(g.id, isMember ? g.memberIds.filter((id) => id !== u.id) : [...g.memberIds, u.id])
                     }
-                    className={`rounded-full border px-2.5 py-1 text-[12px] transition ${
+                    className={`min-h-11 rounded-full border px-2.5 py-1 text-[12px] transition ${
                       isMember ? 'border-warm/60 bg-warm/10 font-medium text-warm' : 'border-line/12 text-dim'
                     }`}
                   >
@@ -495,10 +543,20 @@ function GroupsTab() {
         </div>
       ))}
       {showNew && (
-        <Modal title={t('admin.addGroup')} onClose={() => setShowNew(false)}>
+        <Modal
+          title={t('admin.addGroup')}
+          onClose={() => setShowNew(false)}
+          confirmDiscard={name.trim() || purpose.trim() || newAircraft ? t('common.discardConfirm') : undefined}
+        >
           <div className="space-y-3.5">
             <Field label={t('admin.groupName')}>
-              <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+              <input
+                className={`${inputCls} ${nameTaken ? 'border-danger/60' : ''}`}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoFocus
+              />
+              {nameTaken && <p className="mt-1.5 text-[11.5px] leading-relaxed text-danger">{t('admin.groupNameTaken')}</p>}
             </Field>
             <Field label={t('admin.purpose')}>
               <input className={inputCls} value={purpose} onChange={(e) => setPurpose(e.target.value)} />
@@ -507,7 +565,7 @@ function GroupsTab() {
               <select
                 value={newAircraft}
                 onChange={(e) => setNewAircraft(e.target.value)}
-                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+                className={selectCls}
               >
                 <option value="">{t('admin.groupNoAircraft')}</option>
                 {aircraftTypes.map((a) => (
@@ -522,7 +580,7 @@ function GroupsTab() {
                 {t('common.cancel')}
               </Button>
               <Button
-                disabled={!name.trim()}
+                disabled={!name.trim() || nameTaken}
                 onClick={() => {
                   addGroup(name.trim(), purpose.trim(), newAircraft || undefined)
                   setShowNew(false)
@@ -544,21 +602,32 @@ function GroupsTab() {
 /** Eingegangenes Feedback: bleibt gespeichert, kann hier bei Bedarf gelöscht werden */
 function FeedbackTab() {
   const { t } = useTranslation()
-  const { state, deleteFeedback } = useStore()
+  const { state, currentUser, deleteFeedback } = useStore()
   // Filter: Kategorie, Empfänger, nur Dringendes
   const [fCat, setFCat] = useState('')
   const [fRec, setFRec] = useState('')
+  const [fScope, setFScope] = useState('')
   const [onlyUrgent, setOnlyUrgent] = useState(false)
-  const all = [...state.feedbackEntries].sort((a, b) => b.createdAt - a.createdAt)
+  // Ein Gruppenadmin sieht nur Rückmeldungen aus seinen eigenen Gruppen —
+  // vorher lag ihm auch das offen, was an HR gerichtet war.
+  const myMemberIds = new Set(
+    state.groups.filter((g) => g.adminIds.includes(currentUser!.id)).flatMap((g) => g.memberIds),
+  )
+  const all = [...state.feedbackEntries]
+    .filter((f) => currentUser!.role === 'superadmin' || myMemberIds.has(f.authorId))
+    .sort((a, b) => b.createdAt - a.createdAt)
   const entries = all.filter((f) => {
     if (fCat && f.category !== fCat) return false
     if (fRec && f.recipient !== fRec) return false
+    if (fScope === 'general' && f.aircraftType) return false
+    if (fScope && fScope !== 'general' && f.aircraftType !== fScope) return false
     if (onlyUrgent && !f.urgent) return false
     return true
   })
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
   const cats = [...new Set(all.map((f) => f.category))].sort()
   const recs = [...new Set(all.map((f) => f.recipient))].sort()
+  const scopeTypes = [...new Set(all.map((f) => f.aircraftType).filter(Boolean) as string[])].sort()
 
   return (
     <div className="space-y-3">
@@ -579,9 +648,18 @@ function FeedbackTab() {
             </option>
           ))}
         </select>
+        <select value={fScope} onChange={(e) => setFScope(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+          <option value="">{t('admin.allScopes')}</option>
+          <option value="general">{t('feedback.scopeGeneral')}</option>
+          {scopeTypes.map((a) => (
+            <option key={a} value={a}>
+              {a}
+            </option>
+          ))}
+        </select>
         <button
           onClick={() => setOnlyUrgent(!onlyUrgent)}
-          className={`rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition ${
+          className={`min-h-11 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition ${
             onlyUrgent ? 'border-danger bg-danger/15 text-danger' : 'border-line/15 text-dim'
           }`}
         >
@@ -599,6 +677,7 @@ function FeedbackTab() {
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-[14.5px] font-semibold">{userName(f.authorId)}</p>
                 <Badge tone="dim">{f.category}</Badge>
+                <Badge tone={f.aircraftType ? 'warm' : 'dim'}>{f.aircraftType || t('feedback.scopeGeneral')}</Badge>
                 {f.urgent && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[11px] font-semibold text-danger">
                     <AlertTriangle size={11} /> {t('feedback.urgent')}
@@ -617,7 +696,7 @@ function FeedbackTab() {
             </div>
             <button
               onClick={() => window.confirm(t('admin.confirmDeleteFeedback')) && deleteFeedback(f.id)}
-              className="shrink-0 rounded-full p-2 text-dim hover:text-danger"
+              className="shrink-0 flex h-11 w-11 items-center justify-center rounded-full text-dim hover:text-danger"
             >
               <Trash2 size={16} />
             </button>
@@ -625,6 +704,63 @@ function FeedbackTab() {
         </Card>
       ))}
     </div>
+  )
+}
+
+/** Bytes menschenlesbar — die Zahlen reichen von KB (Seed) bis GB (Quota). */
+function fmtBytes(n: number): string {
+  if (n >= 1024 ** 3) return `${(n / 1024 ** 3).toFixed(1)} GB`
+  if (n >= 1024 ** 2) return `${(n / 1024 ** 2).toFixed(1)} MB`
+  return `${Math.max(1, Math.round(n / 1024))} KB`
+}
+
+/**
+ * Füllstand der Ablage. localStorage lief bei echtem Betrieb nach 40–80
+ * Formularen voll — stillschweigend. Nach dem Umzug auf IndexedDB ist die
+ * Grenze weit weg, aber sie existiert; hier sieht der Admin sie, bevor der
+ * Warnstreifen erscheint.
+ */
+function StorageCard() {
+  const { t } = useTranslation()
+  const [info, setInfo] = useState<StorageInfo | null | 'loading'>('loading')
+  useEffect(() => {
+    let stop = false
+    storageInfo().then((i) => {
+      if (!stop) setInfo(i)
+    })
+    return () => {
+      stop = true
+    }
+  }, [])
+  if (info === 'loading') return null
+  const share = info && info.quota > 0 ? info.usage / info.quota : null
+  return (
+    <Card className="space-y-3 p-4">
+      <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('admin.storage')}</p>
+      {info === null || share === null ? (
+        <p className="text-[13px] text-dim">{t('admin.storageUnknown')}</p>
+      ) : (
+        <>
+          <div className="flex items-baseline justify-between text-[13.5px]">
+            <span>
+              {t('admin.storageUsed')}: <strong>{fmtBytes(info.usage)}</strong>{' '}
+              <span className="text-dim">{t('admin.storageQuota', { quota: fmtBytes(info.quota) })}</span>
+            </span>
+            <span className={share > 0.85 ? 'font-semibold text-danger' : 'text-dim'}>{Math.round(share * 100)} %</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-raised" role="presentation">
+            <div
+              className={`h-full rounded-full ${share > 0.85 ? 'bg-danger' : share > 0.7 ? 'bg-wait' : 'bg-ok'}`}
+              style={{ width: `${Math.max(2, Math.min(100, share * 100))}%` }}
+            />
+          </div>
+          <p className="text-[12.5px] text-dim">
+            {t('admin.storageState')}: {fmtBytes(info.stateBytes)}
+          </p>
+        </>
+      )}
+      <p className="text-[12px] leading-relaxed text-dim">{t('admin.storageHint')}</p>
+    </Card>
   )
 }
 
@@ -640,7 +776,7 @@ function SettingsTab() {
           <select
             value={s.defaultRetention}
             onChange={(e) => updateSettings({ defaultRetention: e.target.value as RetentionKey })}
-            className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px]"
+            className={selectCls}
           >
             {RETENTION_KEYS.map((k) => (
               <option key={k} value={k}>
@@ -681,6 +817,33 @@ function SettingsTab() {
       </Card>
       <Card className="p-4">
         <StringListEditor label={t('admin.domains')} values={s.allowedDomains} onChange={(v) => updateSettings({ allowedDomains: v })} />
+      </Card>
+      <StorageCard />
+      {/* Herkunftsangaben des Ausdrucks — ohne sie ist ein ausgedrucktes
+          Formular keiner Organisation und keinem Formularstand zuzuordnen. */}
+      <Card className="space-y-3 p-4">
+        <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('admin.documentHeader')}</p>
+        {(
+          [
+            ['atoName', t('admin.atoName')],
+            ['approvalNumber', t('admin.approvalNumber')],
+            ['approvalNumberUK', t('admin.approvalNumberUK')],
+            ['formRevision', t('admin.formRevision')],
+          ] as const
+        ).map(([key, label]) => (
+          <Field key={key} label={label}>
+            <input
+              className={inputCls}
+              value={s.documentHeader?.[key] ?? ''}
+              onChange={(e) =>
+                updateSettings({
+                  documentHeader: { ...{ atoName: '', approvalNumber: '', approvalNumberUK: '', formRevision: '' }, ...s.documentHeader, [key]: e.target.value },
+                })
+              }
+            />
+          </Field>
+        ))}
+        <p className="text-[12px] leading-relaxed text-dim">{t('admin.documentHeaderHint')}</p>
       </Card>
     </div>
   )
@@ -764,27 +927,50 @@ const TAB_ICONS: Record<Tab, typeof Users> = {
   changelog: History,
 }
 
-export function Admin() {
+/**
+ * Die Bereiche sind Adressen, keine Komponenten-Zustände: #/admin zeigt die
+ * Kachelübersicht, #/admin/users den Benutzer-Bereich. Vorher stand die
+ * Adresse immer auf #/admin — ein Bereich ließ sich niemandem schicken, die
+ * Zurück-Taste sprang aus dem Panel heraus statt eine Ebene hoch, und ein
+ * erneuter Aufruf von #/admin führte nicht zurück in die Übersicht.
+ *
+ * @param sub Pfad hinter „/admin/" — erstes Segment ist der Bereich, ein
+ *            zweites reicht die Grading-Ablage an ihre Unterbereiche weiter.
+ */
+export function Admin({ sub = '' }: { sub?: string }) {
   const { t } = useTranslation()
   const { currentUser } = useStore()
-  const isDesktop = useIsDesktop()
-  // null = Kachel-Übersicht; erst ein Klick öffnet den Bereich
-  const [tab, setTab] = useState<Tab | null>(null)
+  const [tabSeg, sectionSeg] = sub.split('/')
+  const tab = (TAB_ICONS as Record<string, unknown>)[tabSeg] ? (tabSeg as Tab) : null
 
-  // Am Tablet/Handy ist das Panel zu unübersichtlich — Hinweis statt Inhalt.
-  if (!isDesktop) {
-    return (
-      <>
-        <TopBar title={t('admin.title')} back="/" />
-        <Page>
-          <div className="flex flex-col items-center gap-3 pt-16 text-center">
-            <Monitor size={44} className="text-accent" />
-            <p className="max-w-xs text-[14px] leading-relaxed text-dim">{t('admin.desktopOnly')}</p>
-          </div>
-        </Page>
-      </>
-    )
-  }
+  // Wechselt die Identität (Sandbox-Leiste) oder die Rolle, darf ein bereits
+  // geöffneter Bereich nicht stehen bleiben — sonst bedient die neue Identität
+  // weiter eine Ansicht, die ihr gar nicht zusteht.
+  const identity = `${currentUser?.id ?? ''}:${currentUser?.role ?? ''}`
+  const lastIdentity = useRef(identity)
+  useEffect(() => {
+    if (lastIdentity.current !== identity) {
+      lastIdentity.current = identity
+      if (tab) navigate('/admin', true)
+    }
+  }, [identity, tab])
+
+  const isSuper = currentUser!.role === 'superadmin'
+  // Maßgeblich ist die Freigabeliste: ein Bereich, den die aktuelle Rolle
+  // nicht öffnen darf, wird gar nicht erst gerendert.
+  const tabs: Tab[] = isSuper
+    ? ['users', 'permissions', 'grading', 'groups', 'feedback', 'settings', 'imprint', 'changelog']
+    : ['groups', 'feedback']
+  const openTab = tab && tabs.includes(tab) ? tab : null
+
+  // Eine Adresse, die dieser Rolle nicht offensteht (oder es gar nicht gibt),
+  // darf nicht stehen bleiben, während die Übersicht gezeigt wird — sonst
+  // behauptet die Adresszeile einen Bereich, der nicht offen ist. Der Sprung
+  // ersetzt den Verlaufseintrag, damit die Zurück-Taste nicht dorthin
+  // zurückspringt.
+  useEffect(() => {
+    if (sub && !openTab) navigate('/admin', true)
+  }, [sub, openTab])
 
   // Serverseitig gilt RLS; hier zusätzlich die Client-Absicherung.
   // Admins bekommen ein kleines Panel (Gruppen + Feedback), alles
@@ -794,22 +980,28 @@ export function Admin() {
       <>
         <TopBar title={t('admin.title')} back="/" />
         <Page>
-          <p className="pt-10 text-center text-sm text-dim">—</p>
+          <p className="pt-10 text-center text-sm text-dim">{t('admin.noAccess')}</p>
         </Page>
       </>
     )
   }
 
-  const isSuper = currentUser!.role === 'superadmin'
-  const tabs: Tab[] = isSuper
-    ? ['users', 'permissions', 'grading', 'groups', 'feedback', 'settings', 'imprint', 'changelog']
-    : ['groups', 'feedback']
 
   return (
     <>
-      <TopBar title={tab ? `${t('admin.title')} · ${t(`admin.${tab}`)}` : t('admin.title')} back="/" />
-      <Page>
-        {tab === null ? (
+      <TopBar title={openTab ? `${t('admin.title')} · ${t(`admin.${openTab}`)}` : t('admin.title')} back="/" />
+      {/* Am Handy ist das Panel zu unübersichtlich — dort steht der Hinweis
+          statt des Inhalts. Die Entscheidung fällt in CSS, nicht in JS: beim
+          Drucken ist die Seite schmaler als 1024px, der Ausdruck bestand
+          sonst nur aus diesem Hinweis. */}
+      <div className="admin-narrow-note mx-auto w-full max-w-3xl px-4 pb-24 pt-4">
+        <div className="flex flex-col items-center gap-3 pt-16 text-center">
+          <Monitor size={44} className="text-accent" />
+          <p className="max-w-xs text-[14px] leading-relaxed text-dim">{t('admin.desktopOnly')}</p>
+        </div>
+      </div>
+      <Page className="admin-panel">
+        {openTab === null ? (
           <>
             {/* Kachel-Übersicht wie am Dashboard — leichter zu finden und zu ändern */}
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
@@ -818,7 +1010,7 @@ export function Admin() {
                 return (
                   <button
                     key={tb}
-                    onClick={() => setTab(tb)}
+                    onClick={() => navigate(`/admin/${tb}`)}
                     className="group flex aspect-square flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
                   >
                     <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg">
@@ -829,24 +1021,24 @@ export function Admin() {
                 )
               })}
             </div>
-            <p className="mt-5 text-center text-[12px] text-dim/80">{t('admin.autoSaveHint')}</p>
+            <p className="mt-5 text-center text-[12px] text-dim">{t('admin.autoSaveHint')}</p>
           </>
         ) : (
           <>
             <button
-              onClick={() => setTab(null)}
+              onClick={() => navigate('/admin')}
               className="mb-4 flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink"
             >
               <ArrowLeft size={15} /> {t('admin.backToOverview')}
             </button>
-            {tab === 'users' && <UsersTab />}
-            {tab === 'permissions' && <PermissionsTab />}
-            {tab === 'grading' && <GradingAdmin />}
-            {tab === 'groups' && <GroupsTab />}
-            {tab === 'feedback' && <FeedbackTab />}
-            {tab === 'settings' && <SettingsTab />}
-            {tab === 'imprint' && <ImprintTab />}
-            {tab === 'changelog' && <ChangelogTab />}
+            {openTab === 'users' && <UsersTab />}
+            {openTab === 'permissions' && <PermissionsTab />}
+            {openTab === 'grading' && <GradingAdmin section={sectionSeg} />}
+            {openTab === 'groups' && <GroupsTab />}
+            {openTab === 'feedback' && <FeedbackTab />}
+            {openTab === 'settings' && <SettingsTab />}
+            {openTab === 'imprint' && <ImprintTab />}
+            {openTab === 'changelog' && <ChangelogTab />}
           </>
         )}
       </Page>

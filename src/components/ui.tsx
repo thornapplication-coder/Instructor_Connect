@@ -1,5 +1,5 @@
-import { ArrowLeft, Home as HomeIcon, Moon, Sun } from 'lucide-react'
-import { useState, type ReactNode } from 'react'
+import { ArrowLeft, Home as HomeIcon, Moon, Sun, X } from 'lucide-react'
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { navigate } from '../router'
 
@@ -39,7 +39,7 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label={t('common.theme')}
       title={t('common.theme')}
-      className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-ink"
+      className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-ink"
     >
       {light ? <Moon size={18} /> : <Sun size={18} />}
     </button>
@@ -49,16 +49,34 @@ export function ThemeToggle() {
 /** home=false unterdrückt den Home-Button — genutzt in den Grading-Forms,
  *  damit man dort nicht versehentlich aus dem Formular springt.
  *  wide=true nutzt am Desktop die volle Breite (Grading-Formulare). */
-export function TopBar({ title, back, right, home = true, wide = false }: { title: ReactNode; back?: string; right?: ReactNode; home?: boolean; wide?: boolean }) {
+export function TopBar({
+  title,
+  back,
+  right,
+  home = true,
+  wide = false,
+  onBack,
+}: {
+  title: ReactNode
+  back?: string
+  right?: ReactNode
+  home?: boolean
+  wide?: boolean
+  /** Rückfrage vor dem Verlassen; false verhindert die Navigation */
+  onBack?: () => boolean
+}) {
   const { t } = useTranslation()
   return (
     <header className="safe-top sticky top-0 z-20 border-b border-line/10 bg-bg/85 backdrop-blur">
       <div className={`mx-auto flex h-14 items-center gap-2 px-3 xl:max-w-none xl:px-8 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>
         {back !== undefined && (
           <button
-            onClick={() => navigate(back)}
+            onClick={() => {
+              if (onBack && !onBack()) return
+              navigate(back)
+            }}
             aria-label={t('common.back')}
-            className="-ml-1 rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-ink"
+            className="-ml-1 flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-ink"
           >
             <ArrowLeft size={20} />
           </button>
@@ -70,7 +88,7 @@ export function TopBar({ title, back, right, home = true, wide = false }: { titl
             onClick={() => navigate('/')}
             aria-label="Home"
             title="Home"
-            className="rounded-full p-2 text-dim transition hover:bg-line/5 hover:text-accent"
+            className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-accent"
           >
             <HomeIcon size={19} />
           </button>
@@ -84,10 +102,29 @@ export function Page({ children, className = '', wide = false }: { children: Rea
   return <main className={`mx-auto w-full flex-1 px-4 pb-24 pt-4 xl:max-w-none xl:px-8 ${wide ? 'max-w-5xl' : 'max-w-3xl'} ${className}`}>{children}</main>
 }
 
+/**
+ * Eine klickbare Karte ist ein Bedienelement — sie braucht Rolle, Fokus und
+ * Tastenbedienung. Vorher war sie ein nacktes <div onClick>: Die gemessene
+ * Tab-Reihenfolge auf der Chat-Seite lautete Zurück → Gruppe anlegen →
+ * Home → Sandbox-Leiste; keine einzige Gruppe war ohne Maus erreichbar.
+ */
 export function Card({ children, className = '', onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {
   return (
     <div
       onClick={onClick}
+      {...(onClick
+        ? {
+            role: 'button',
+            tabIndex: 0,
+            onKeyDown: (e: React.KeyboardEvent) => {
+              // Leertaste scrollt sonst die Seite — wie bei echten Knöpfen abfangen
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onClick()
+              }
+            },
+          }
+        : {})}
       className={`rounded-2xl border border-line/[0.06] bg-surface/90 shadow-soft ${onClick ? 'cursor-pointer transition hover:border-accent/30 hover:bg-raised/70' : ''} ${className}`}
     >
       {children}
@@ -120,17 +157,47 @@ export function Button({
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`rounded-xl px-4 py-2.5 text-sm transition disabled:opacity-40 ${styles} ${className}`}
+      className={`min-h-11 rounded-xl px-4 py-2.5 text-sm transition disabled:opacity-40 ${styles} ${className}`}
     >
       {children}
     </button>
   )
 }
 
-export const inputCls =
-  'w-full rounded-xl border border-line/10 bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim/60 outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+/** Auswahlfelder tragen dieselbe Optik wie Eingabefelder — vorher stand die
+ *  Klassenliste an vierzehn Stellen wortgleich im Code und wich an zwei
+ *  Stellen davon ab. */
+export const selectCls =
+  'w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px] text-ink outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export const inputCls =
+  'w-full rounded-xl border border-line/10 bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+
+/**
+ * Beschriftetes Feld.
+ *
+ * Ein <label> gehört immer zu genau EINEM Bedienelement — dem ersten in ihm.
+ * Enthielt ein Feld eine Knopfgruppe, wurde deshalb der erste Knopf mit dem
+ * gesamten Inhalt der Beschriftung angesagt: „Competent" las sich als
+ * „Overall Result CompetentNot Competent", „Completed" als „Session status
+ * CompletedNot Completed". Wer die App hört statt sie zu sehen, bekam damit
+ * an der wichtigsten Stelle des Formulars die Gegenteil-Aussage vorgelesen.
+ *
+ * Für Gruppen daher `group` setzen: dann beschriftet die Überschrift die
+ * Gruppe als Ganzes, und jeder Knopf behält seinen eigenen Namen.
+ */
+export function Field({ label, children, group = false }: { label: string; children: ReactNode; group?: boolean }) {
+  const id = useId()
+  if (group) {
+    return (
+      <div className="block" role="group" aria-labelledby={id}>
+        <span id={id} className="mb-1.5 block text-[13px] font-medium text-dim">
+          {label}
+        </span>
+        {children}
+      </div>
+    )
+  }
   return (
     <label className="block">
       <span className="mb-1.5 block text-[13px] font-medium text-dim">{label}</span>
@@ -161,7 +228,7 @@ export function NewDot({ className = '', size = 12 }: { className?: string; size
     <span
       aria-label="new"
       style={{ width: size, height: size }}
-      className={`pointer-events-none absolute z-10 rounded-full bg-emerald-400 ring-2 ring-bg ${className}`}
+      className={`pointer-events-none absolute z-10 rounded-full bg-ok ring-2 ring-bg ${className}`}
     />
   )
 }
@@ -180,7 +247,7 @@ export function ChipMultiSelect({ options, selected, onChange }: {
           <button
             key={o.id}
             onClick={() => onChange(on ? selected.filter((x) => x !== o.id) : [...selected, o.id])}
-            className={`rounded-full border px-3 py-1.5 text-[12.5px] transition ${
+            className={`min-h-11 rounded-full border px-3 py-1.5 text-[12.5px] transition ${
               on ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
             }`}
           >
@@ -201,14 +268,129 @@ export function Badge({ children, tone = 'accent' }: { children: ReactNode; tone
   return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${tones}`}>{children}</span>
 }
 
-export function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+/**
+ * Dialog mit vollständiger Tastaturbedienung: Escape schließt, der Fokus
+ * bleibt im Dialog gefangen und kehrt beim Schließen an die auslösende
+ * Stelle zurück. Ein Klick auf den Hintergrund fragt nach, sobald etwas
+ * eingetragen wurde — vorher verwarf er ein halb ausgefülltes Formular
+ * kommentarlos.
+ */
+/** Bedienbare Elemente eines Dialogs in Tab-Reihenfolge. */
+function focusableIn(panel: HTMLElement | null): HTMLElement[] {
+  return [...(panel?.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])') ?? [])].filter(
+    (e) => !e.hasAttribute('disabled') && e.offsetParent !== null,
+  )
+}
+
+export function Modal({
+  title,
+  onClose,
+  children,
+  confirmDiscard,
+}: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+  /** Rückfrage vor dem Verwerfen (Text); ohne Angabe schließt der Dialog sofort */
+  confirmDiscard?: string
+}) {
+  const { t } = useTranslation()
+  const panelRef = useRef<HTMLDivElement>(null)
+  const openerRef = useRef<Element | null>(null)
+
+  const close = useCallback(() => {
+    if (confirmDiscard && !window.confirm(confirmDiscard)) return
+    onClose()
+  }, [confirmDiscard, onClose])
+
+  // Die Aufrufer übergeben onClose als Inline-Funktion, close ändert sich
+  // daher bei jedem Rendern. Über die Referenz bleibt der Tasten-Effekt
+  // trotzdem stabil — sonst würde er sich bei jedem Tastendruck neu
+  // aufhängen und dabei den Fokus mitreißen.
+  const closeRef = useRef(close)
+  closeRef.current = close
+
+  // Fokus genau einmal setzen: beim Öffnen in den Dialog, beim Schließen
+  // zurück auf das auslösende Element. Hing das früher an close, sprang der
+  // Fokus bei jedem getippten Zeichen zwischen Feld und Dialog hin und her —
+  // die Seite ruckelte und es kam nur der erste Buchstabe an.
+  useEffect(() => {
+    const panel = panelRef.current
+    openerRef.current = document.activeElement
+    // Das erste Eingabefeld ist der sinnvolle Startpunkt; erst wenn der
+    // Dialog keines hat, zählt das erste bedienbare Element. Der
+    // Schließen-Knopf steht im Quelltext vorne, ist als Startpunkt aber
+    // nutzlos.
+    const items = focusableIn(panel)
+    const field = items.find((e) => /^(INPUT|SELECT|TEXTAREA)$/.test(e.tagName))
+    const target = field ?? items[0]
+    if (target) target.focus()
+    else panel?.focus()
+    return () => {
+      ;(openerRef.current as HTMLElement | null)?.focus?.()
+    }
+  }, [])
+
+  // Solange der Dialog offen ist, darf die Seite dahinter nicht mitscrollen.
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        closeRef.current()
+        return
+      }
+      if (e.key !== 'Tab') return
+      // Fokusfalle: Tab läuft im Kreis, statt hinter den Dialog zu wandern
+      const items = focusableIn(panelRef.current)
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-6" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-6"
+      onClick={close}
+      role="presentation"
+    >
       <div
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        tabIndex={-1}
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-line/10 bg-surface p-5 shadow-tile sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-4 text-lg font-semibold">{title}</h2>
+        <div className="mb-4 flex items-start gap-3">
+          <h2 className="min-w-0 flex-1 text-lg font-semibold">{title}</h2>
+          <button
+            onClick={close}
+            aria-label={t('common.close')}
+            title={t('common.close')}
+            className="-mr-1 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-ink"
+          >
+            <X size={18} />
+          </button>
+        </div>
         {children}
       </div>
     </div>

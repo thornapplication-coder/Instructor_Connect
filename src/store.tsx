@@ -1,6 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { isComplete, isFollowUpType } from './gradingRules'
+import { networkReachable } from './net'
 import { createSeedState } from './sandbox/seed'
-import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
+import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
+import { clearPersistedState, persistState, readPreloadedState } from './persist'
 import type { InfoEntry } from './types'
 
 const EMPTY_SEEN: SeenState = { chat: {}, info: 0, contacts: 0 }
@@ -45,7 +48,7 @@ export interface Store {
   starredInfoIds: Set<string>
   /** Lese-Bestätigung des aktuellen Nutzers für einen Info-Eintrag */
   acknowledgeInfo: (id: string) => void
-  submitFeedback: (entry: { category: string; recipient: string; urgent: boolean; message: string; attachment?: Attachment }) => void
+  submitFeedback: (entry: { category: string; recipient: string; urgent: boolean; message: string; attachment?: Attachment; aircraftType?: string }) => void
   deleteFeedback: (id: string) => void
   saveContact: (contact: { id?: string; department: string; position: string; name: string; phone: string; email: string }) => void
   deleteContact: (id: string) => void
@@ -54,21 +57,31 @@ export interface Store {
   /** Info-Einträge, die der aktuelle Nutzer sehen darf (Gruppen-Sichtbarkeit) */
   visibleInfoEntries: AppState['infoEntries']
   updateUser: (id: string, patch: Partial<User>) => void
-  deleteUser: (id: string) => void
   addGroup: (name: string, purpose: string, aircraftType?: string) => void
   setGroupAircraft: (id: string, aircraftType: string) => void
   renameGroup: (id: string, name: string) => void
   deleteGroup: (id: string) => void
+  /** Mitglieder, die durch das Löschen ohne Gruppe zurückblieben — leer =
+   *  die Gruppe darf gelöscht werden. */
+  groupDeleteBlockers: (id: string) => User[]
   setGroupAdmins: (id: string, adminIds: string[]) => void
   updateSettings: (patch: Partial<AppState['settings']>) => void
   /** Formulare, die der aktuelle Nutzer sehen darf (eigene; Admins alle) */
   visibleGradingRecords: GradingRecord[]
+  /** Einzelnes Formular per ID — nur wenn der aktuelle Nutzer es sehen darf.
+   *  Die Listenfilter allein schützen nicht: IDs stehen in der URL. */
+  gradingRecordById: (id: string) => GradingRecord | undefined
   saveGradingRecord: (record: GradingRecord) => void
   /** entfernt ein Formular nur aus der Instruktor-Ansicht — Admin behält es */
   hideGradingRecord: (id: string) => void
+  /** Für alle wieder einblenden — nur mit grading_view_all */
+  unhideGradingRecord: (id: string) => void
   /** löscht ein Formular endgültig (Training Admin / Superadmin) */
   deleteGradingRecord: (id: string) => void
   retryGradingMail: (id: string) => void
+  /** Ausgangskorb leeren: alle ohne Netz erfassten Formulare versenden */
+  /** Ausgangskorb senden; liefert, ob der Origin tatsächlich erreichbar war */
+  flushOutbox: () => Promise<boolean>
   updateGrading: (patch: Partial<GradingSettings>) => void
   /** Lesson Plans, die der aktuelle Nutzer sehen darf */
   visibleLessonPlans: LessonPlan[]
@@ -76,6 +89,8 @@ export interface Store {
   deleteLessonPlan: (id: string) => void
   /** Rechte-Matrix: darf der aktuelle Nutzer diese Fähigkeit nutzen? */
   can: (key: PermKey) => boolean
+  /** Darf der aktuelle Nutzer dieses Modul betreten? (Kachel und Route) */
+  moduleAllowed: (module: ModuleKey) => boolean
   setPermission: (role: ConfigurableRole, key: PermKey, value: boolean) => void
   /** Code-Login: Code an die E-Mail „senden“ bzw. prüfen */
   requestLoginCode: (email: string) => boolean
@@ -86,6 +101,27 @@ const StoreCtx = createContext<Store | null>(null)
 
 const USER_KEY = 'aaa-user'
 const SESSION_EXP_KEY = 'aaa-session-exp'
+/** Bei jeder Änderung an der Form von AppState hochzählen — ein alter
+ *  gespeicherter Stand wird dann verworfen statt halb geladen. */
+const STATE_VERSION = 2
+
+/** Gespeicherten Anwendungszustand lesen (aus IndexedDB vorgeladen, siehe
+ *  persist.ts). Ein unlesbarer oder veralteter Stand wird verworfen, die
+ *  App startet dann auf den Seed-Daten. */
+function loadPersistedState(): AppState | null {
+  try {
+    const raw = readPreloadedState()
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { v?: number; state?: AppState }
+    if (parsed.v !== STATE_VERSION || !parsed.state?.users?.length) {
+      clearPersistedState()
+      return null
+    }
+    return parsed.state
+  } catch {
+    return null
+  }
+}
 
 /** Sitzungen gelten bis Mitternacht (lokal) — außer man meldet sich ab. */
 function endOfDay(): number {
@@ -97,12 +133,15 @@ function endOfDay(): number {
 /** Angemeldet bleiben bis Mitternacht: gespeicherte Anmeldung wiederherstellen,
  *  solange der Nutzer existiert, aktiv ist und die Sitzung nicht abgelaufen ist. */
 function initialState(): AppState {
-  const seed = createSeedState()
+  // Ein unterschriebenes Formular darf ein Neuladen (auch das automatische
+  // nach einem App-Update) überstehen — der gesamte Zustand wird deshalb
+  // gespeichert und beim Start wiederhergestellt.
+  const base = loadPersistedState() ?? createSeedState()
   try {
     const savedId = localStorage.getItem(USER_KEY)
     const exp = Number(localStorage.getItem(SESSION_EXP_KEY) ?? 0)
-    if (savedId && exp > Date.now() && seed.users.some((u) => u.id === savedId && u.active)) {
-      return { ...seed, currentUserId: savedId }
+    if (savedId && exp > Date.now() && base.users.some((u) => u.id === savedId && u.active)) {
+      return { ...base, currentUserId: savedId }
     }
     if (savedId) {
       localStorage.removeItem(USER_KEY)
@@ -111,7 +150,8 @@ function initialState(): AppState {
   } catch {
     /* ohne localStorage startet die App abgemeldet */
   }
-  return seed
+  // Ohne gültige Sitzung wird der Inhalt behalten, aber abgemeldet gestartet.
+  return { ...base, currentUserId: null }
 }
 
 function persistUser(id: string | null) {
@@ -130,6 +170,9 @@ function persistUser(id: string | null) {
 
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState>(initialState)
+  // Für asynchrone Aktionen (Erreichbarkeitsprobe): immer der aktuelle Stand
+  const stateRef = useRef(state)
+  stateRef.current = state
 
   // Automatische Aktualisierung alle 5 Sekunden: neue Nachrichten erscheinen
   // ohne manuelles Neuladen, abgelaufene werden ausgeblendet. In der
@@ -138,6 +181,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const iv = setInterval(() => setState((s) => ({ ...s })), 5000)
     return () => clearInterval(iv)
   }, [])
+
+  // Zustand sichern. Der 5-Sekunden-Takt oben erzeugt bei gleichem Inhalt eine
+  // neue Referenz — deshalb wird nur geschrieben, wenn sich der serialisierte
+  // Stand tatsächlich geändert hat.
+  const lastPersisted = useRef<string>('')
+  useEffect(() => {
+    const tm = setTimeout(() => {
+      const json = JSON.stringify({ v: STATE_VERSION, state })
+      if (json === lastPersisted.current) return
+      lastPersisted.current = json
+      persistState(json)
+    }, 400)
+    return () => clearTimeout(tm)
+  }, [state])
 
   const now = useCallback(() => Date.now() + state.timeOffsetMs, [state.timeOffsetMs])
 
@@ -217,7 +274,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [state.infoEntries, state.groups, state.settings, currentUser, now])
 
   const latestForeignInfo = visibleInfoEntries.reduce(
-    (max, e) => (e.authorId !== state.currentUserId ? Math.max(max, e.createdAt) : max),
+    (max, e) => (e.authorId !== state.currentUserId ? Math.max(max, infoPublishedAt(e)) : max),
     0,
   )
   const hasNewInfo = !!state.currentUserId && latestForeignInfo > seenOfCurrent.info
@@ -233,8 +290,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       .sort((a, b) => b.createdAt - a.createdAt)
       .filter((r) => !r.hiddenFor?.includes(currentUser.id))
     if (userHasPerm(state.settings, currentUser, 'grading_view_all')) return all
+    // Die Wochenfrist gilt nur für erledigte Vorgänge. Was noch auf eine
+    // Unterschrift, ein Pflicht-Folgeformular oder den Versand wartet, bleibt
+    // beim Instruktor stehen — sonst verliert er sein eigenes unfertiges
+    // Dokument aus den Augen.
+    //
+    // Und sie läuft ab dem ERLEDIGEN, nicht ab dem Anlegen: Vorher galt
+    // createdAt — wer ein acht Tage altes Blatt fertig unterschrieb, sah es
+    // im selben Augenblick aus der Liste verschwinden, samt PDF-Knopf.
+    // Erledigt wird ein Blatt auch durch die Unterschrift eines
+    // Folgeformulars der Familie, deshalb zählt die jüngste Unterschrift
+    // der ganzen Familie.
     const weekMs = 7 * 24 * 3600_000
-    return all.filter((r) => r.instructorId === currentUser.id && now() - r.createdAt < weekMs)
+    const doneAt = (r: GradingRecord): number => {
+      const family = new Set([r.id, ...(r.batchId ? state.gradingRecords.filter((x) => x.batchId === r.batchId).map((x) => x.id) : [])])
+      const kids = state.gradingRecords.filter((c) => c.parentId !== undefined && family.has(c.parentId))
+      return Math.max(r.signedAt ?? r.createdAt, ...kids.map((c) => c.signedAt ?? c.createdAt))
+    }
+    return all.filter(
+      (r) =>
+        r.instructorId === currentUser.id &&
+        (!isComplete(r, state.gradingRecords) || now() - doneAt(r) < weekMs),
+    )
   }, [state.gradingRecords, state.settings, currentUser, now])
 
   // Instruktoren sehen nur Lesson Plans ihrer zugewiesenen Muster;
@@ -257,6 +334,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       })
 
     const seenOf = (s: AppState) => (s.currentUserId && s.seen[s.currentUserId]) || EMPTY_SEEN
+
+    /** Der Handelnde im Moment der Änderung — Rechte werden an der Aktion
+     *  geprüft, nicht nur beim Rendern der Oberfläche. */
+    const actorOf = (s: AppState) => s.users.find((u) => u.id === s.currentUserId) ?? null
+    const isSuper = (s: AppState) => actorOf(s)?.role === 'superadmin'
+    /** Darf der Handelnde diese Gruppe verwalten? Superadmin überall,
+     *  Gruppenadmin nur dort, wo er als Admin eingetragen ist. */
+    const maySeeGroup = (s: AppState, groupId: string) => {
+      const actor = actorOf(s)
+      if (!actor) return false
+      if (actor.role === 'superadmin') return true
+      return s.groups.find((g) => g.id === groupId)?.adminIds.includes(actor.id) ?? false
+    }
+    /** E-Mail ist die einzige Anmeldekennung und muss eindeutig bleiben. */
+    const emailTaken = (s: AppState, email: string, exceptId?: string) =>
+      s.users.some((u) => u.id !== exceptId && u.email.trim().toLowerCase() === email.trim().toLowerCase())
+    /** Gruppen eines Nutzers — für die Pflicht „mindestens eine Gruppe" */
+    const groupsOf = (s: AppState, userId: string) => s.groups.filter((g) => g.memberIds.includes(userId))
 
     return {
       state,
@@ -302,6 +397,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // Anmeldung ausschließlich per E-Mail — die Adressen legt der
         // Admin/Superadmin im Admin Panel an
         const needle = identifier.trim().toLowerCase()
+        const domains = state.settings.allowedDomains
+        if (domains.length > 0 && !domains.some((d) => needle.endsWith(`@${d.toLowerCase()}`))) return false
         const user = state.users.find((u) => u.active && u.email.toLowerCase() === needle)
         if (!user) return false
         persistUser(user.id)
@@ -313,14 +410,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       requestLoginCode: (email) => {
         const needle = email.trim().toLowerCase()
         const user = state.users.find((u) => u.active && u.email.toLowerCase() === needle)
+        // Die erlaubten Domains aus den Einstellungen gelten hier tatsächlich —
+        // vorher war die Liste im Admin-Panel ohne jede Wirkung.
+        const domains = state.settings.allowedDomains
+        if (domains.length > 0 && !domains.some((d) => needle.endsWith(`@${d.toLowerCase()}`))) return false
         if (!user) return false
         const code = String(Math.floor(100000 + Math.random() * 900000))
-        patch(() => ({ pendingLogin: { email: user.email, code, expiresAt: endOfDay() } }))
+        patch(() => ({ pendingLogin: { email: user.email, code, expiresAt: endOfDay(), attempts: 0 } }))
         return true
       },
       verifyLoginCode: (code) => {
         const pending = state.pendingLogin
-        if (!pending || pending.expiresAt < Date.now() || pending.code !== code.trim()) return false
+        if (!pending || pending.expiresAt < Date.now()) return false
+        if (pending.code !== code.trim()) {
+          // Fehlversuche zählen; nach fünf ist der Code verbraucht, damit sich
+          // sechsstellige Codes nicht durchprobieren lassen.
+          patch((s) =>
+            s.pendingLogin
+              ? { pendingLogin: s.pendingLogin.attempts + 1 >= 5 ? null : { ...s.pendingLogin, attempts: s.pendingLogin.attempts + 1 } }
+              : null,
+          )
+          return false
+        }
         const user = state.users.find((u) => u.active && u.email === pending.email)
         if (!user) return false
         persistUser(user.id)
@@ -328,6 +439,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return true
       },
       can: (key) => userHasPerm(state.settings, currentUser, key),
+      moduleAllowed: (module) => userMayModule(state.settings, currentUser, module),
       setPermission: (role, key, value) =>
         patch((s) => ({
           settings: {
@@ -344,12 +456,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         patch(() => ({ currentUserId: userId }))
       },
       advanceTime: (ms) => patch((s) => ({ timeOffsetMs: s.timeOffsetMs + ms })),
-      resetSandbox: () => setState(() => ({ ...createSeedState(), currentUserId: state.currentUserId })),
+      resetSandbox: () => {
+        clearPersistedState()
+        setState(() => ({ ...createSeedState(), currentUserId: state.currentUserId }))
+      },
 
       sendMessage: (groupId, text, attachment) =>
         patch((s) => {
           // Chat-Sperre greift auch hier, nicht nur in der Oberfläche
           if (s.users.find((u) => u.id === s.currentUserId)?.chatBlocked) return null
+          // Nur Mitglieder der Gruppe dürfen darin schreiben.
+          if (!s.groups.find((g) => g.id === groupId)?.memberIds.includes(s.currentUserId ?? '')) return null
+          // Das Upload-Limit aus den Einstellungen gilt auch für Anhänge.
+          if (attachment && attachment.sizeMB > s.settings.maxUploadMB) return null
           return {
             messages: [
               ...s.messages,
@@ -357,11 +476,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ],
           }
         }),
-      deleteMessage: (id) => patch((s) => ({ messages: s.messages.filter((m) => m.id !== id) })),
+      deleteMessage: (id) =>
+        patch((s) => {
+          const msg = s.messages.find((m) => m.id === id)
+          const actor = actorOf(s)
+          if (!msg || !actor) return null
+          // Löschen darf der Autor, der Admin der Gruppe und der Superadmin —
+          // bisher konnte ein Gruppenadmin in seiner eigenen Gruppe nichts
+          // entfernen.
+          const isGroupAdmin = s.groups.find((g) => g.id === msg.groupId)?.adminIds.includes(actor.id) ?? false
+          if (msg.authorId !== actor.id && !isGroupAdmin && actor.role !== 'superadmin') return null
+          return { messages: s.messages.filter((m) => m.id !== id) }
+        }),
 
       createPoll: (groupId, question, type, options, validUntil) =>
         patch((s) => {
           if (s.users.find((u) => u.id === s.currentUserId)?.chatBlocked) return null
+          // Eine Umfrage, deren Gültigkeit schon abgelaufen ist, käme
+          // geschlossen zur Welt — niemand könnte je abstimmen.
+          if (validUntil !== undefined && validUntil <= Date.now() + s.timeOffsetMs) return null
           return {
             polls: [
               ...s.polls,
@@ -384,9 +517,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toggleMute: (groupId) =>
         patch((s) => ({ groups: s.groups.map((g) => (g.id === groupId ? { ...g, muted: !g.muted } : g)) })),
       setGroupRetention: (groupId, retention) =>
-        patch((s) => ({ groups: s.groups.map((g) => (g.id === groupId ? { ...g, retention } : g)) })),
+        patch((s) =>
+          maySeeGroup(s, groupId) ? { groups: s.groups.map((g) => (g.id === groupId ? { ...g, retention } : g)) } : null,
+        ),
       setGroupMembers: (groupId, memberIds) =>
-        patch((s) => ({ groups: s.groups.map((g) => (g.id === groupId ? { ...g, memberIds } : g)) })),
+        patch((s) => {
+          if (!maySeeGroup(s, groupId)) return null
+          const group = s.groups.find((g) => g.id === groupId)
+          if (!group) return null
+          // „Mindestens eine Gruppe" gilt auch hier: wer sonst nirgends
+          // Mitglied ist, kann nicht aus seiner letzten Gruppe fallen.
+          const dropped = group.memberIds.filter((m) => !memberIds.includes(m))
+          if (dropped.some((m) => groupsOf(s, m).length <= 1)) return null
+          return {
+            groups: s.groups.map((g) =>
+              g.id === groupId
+                ? // Wer die Gruppe verlässt, verliert auch seine Adminrechte
+                  // darin — sonst verwaltet ein Außenstehender weiter mit.
+                  { ...g, memberIds, adminIds: g.adminIds.filter((a) => memberIds.includes(a)) }
+                : g,
+            ),
+          }
+        }),
 
       addInfoEntry: (entry) =>
         patch((s) => ({
@@ -410,7 +562,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         patch((s) => {
           if (!s.currentUserId) return null
           const entry = s.infoEntries.find((e) => e.id === id)
-          if (!entry || !infoIsPublished(entry, Date.now() + s.timeOffsetMs)) return null
+          const ts = Date.now() + s.timeOffsetMs
+          if (!entry || !infoIsPublished(entry, ts) || infoIsExpired(entry, ts)) return null
           const forEntry = s.infoAcks[id] ?? {}
           if (forEntry[s.currentUserId]) return null // bereits bestätigt
           return { infoAcks: { ...s.infoAcks, [id]: { ...forEntry, [s.currentUserId]: Date.now() + s.timeOffsetMs } } }
@@ -443,6 +596,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // Invarianten auch im Store: ohne Gruppe und ohne E-Mail kein
           // neuer Nutzer — die E-Mail ist die einzige Anmeldekennung
           if (groupIds.length === 0 || !user.email.trim()) return null
+          // Doppelte Adresse hieße: zwei Konten, ein Login — der zweite
+          // Nutzer könnte die Identität des ersten übernehmen.
+          if (emailTaken(s, user.email)) return null
           const id = uid('u')
           return {
             users: [...s.users, { ...user, id, canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: [], active: true }],
@@ -451,19 +607,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }),
       updateUser: (id, p) =>
-        patch((s) => ({ users: s.users.map((u) => (u.id === id ? { ...u, ...p } : u)) })),
-      deleteUser: (id) =>
-        patch((s) => ({
-          users: s.users.filter((u) => u.id !== id),
-          groups: s.groups.map((g) => ({
-            ...g,
-            memberIds: g.memberIds.filter((m) => m !== id),
-            adminIds: g.adminIds.filter((m) => m !== id),
-          })),
-        })),
+        patch((s) => {
+          const target = s.users.find((u) => u.id === id)
+          if (!target) return null
+          // Die Rolle vergibt ausschließlich der Superadmin. Sonst könnte sich
+          // ein group_admin über eine offen gebliebene Ansicht selbst befördern.
+          const safe: Partial<User> = isSuper(s) ? { ...p } : { ...p, role: undefined }
+          // E-Mail bleibt eindeutig — sie ist die einzige Anmeldekennung.
+          if (safe.email !== undefined && (!safe.email.trim() || emailTaken(s, safe.email, id))) delete safe.email
+          // Die Organisation braucht immer mindestens einen Superadmin.
+          const lastSuper =
+            target.role === 'superadmin' && s.users.filter((u) => u.role === 'superadmin' && u.active).length <= 1
+          if (lastSuper && (safe.role !== undefined && safe.role !== 'superadmin')) delete safe.role
+          if (lastSuper && safe.active === false) delete safe.active
+          // Sich selbst stillzulegen sperrt einen aus der laufenden Sitzung aus.
+          if (id === s.currentUserId && safe.active === false) delete safe.active
+          const users = s.users.map((u) => (u.id === id ? { ...u, ...safe } : u))
+          // Wer deaktiviert wird, verliert seine Sitzung — in der Sandbox ist
+          // das die aktuell angemeldete Identität.
+          if (safe.active === false && s.currentUserId === id) {
+            persistUser(null)
+            return { users, currentUserId: null }
+          }
+          return { users }
+        }),
 
       addGroup: (name, purpose, aircraftType) =>
         patch((s) => {
+          // Leere oder doppelte Namen wären im Chat nicht unterscheidbar.
+          if (!name.trim() || s.groups.some((g) => g.name.trim().toLowerCase() === name.trim().toLowerCase())) return null
           // Wer die Gruppe anlegt (Admin/Superadmin), verwaltet sie auch
           // und ist sofort Mitglied.
           const creator = s.currentUserId ? [s.currentUserId] : []
@@ -475,11 +647,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }),
       setGroupAircraft: (id, aircraftType) =>
-        patch((s) => ({ groups: s.groups.map((g) => (g.id === id ? { ...g, aircraftType } : g)) })),
+        patch((s) => (maySeeGroup(s, id) ? { groups: s.groups.map((g) => (g.id === id ? { ...g, aircraftType } : g)) } : null)),
       renameGroup: (id, name) =>
-        patch((s) => ({ groups: s.groups.map((g) => (g.id === id ? { ...g, name } : g)) })),
+        patch((s) => {
+          if (!maySeeGroup(s, id) || !name.trim()) return null
+          // Doppelte Gruppennamen sind im Chat nicht auseinanderzuhalten.
+          if (s.groups.some((g) => g.id !== id && g.name.trim().toLowerCase() === name.trim().toLowerCase())) return null
+          return { groups: s.groups.map((g) => (g.id === id ? { ...g, name: name.trim() } : g)) }
+        }),
+      // Gleiche Regel wie in deleteGroup — die Oberfläche muss den Grund
+      // NENNEN können, statt den Klick wirkungslos verpuffen zu lassen.
+      groupDeleteBlockers: (id) => {
+        const group = state.groups.find((g) => g.id === id)
+        if (!group) return []
+        return group.memberIds
+          .filter((m) => groupsOf(state, m).length <= 1)
+          .map((m) => state.users.find((u) => u.id === m))
+          .filter((u): u is User => !!u)
+      },
       deleteGroup: (id) =>
-        patch((s) => ({
+        patch((s) => {
+          if (!maySeeGroup(s, id)) return null
+          // Niemand darf ohne Gruppe zurückbleiben — sonst verliert er
+          // Chat-Zugang und Instructor-Info-Sichtbarkeit.
+          const orphan = s.groups.find((g) => g.id === id)?.memberIds.some((m) => groupsOf(s, m).length <= 1)
+          if (orphan) return null
+          return {
           groups: s.groups.filter((g) => g.id !== id),
           messages: s.messages.filter((m) => m.groupId !== id),
           polls: s.polls.filter((p) => p.groupId !== id),
@@ -488,36 +681,180 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           infoEntries: s.infoEntries.map((e) =>
             e.groupIds?.includes(id) ? { ...e, groupIds: e.groupIds.filter((g) => g !== id) } : e,
           ),
-        })),
+          }
+        }),
       setGroupAdmins: (id, adminIds) =>
-        patch((s) => ({ groups: s.groups.map((g) => (g.id === id ? { ...g, adminIds } : g)) })),
+        patch((s) =>
+          maySeeGroup(s, id)
+            ? // Adminrechte nur für Mitglieder der Gruppe — wer nicht drin ist,
+              // kann sie auch nicht verwalten.
+              { groups: s.groups.map((g) => (g.id === id ? { ...g, adminIds: adminIds.filter((a) => g.memberIds.includes(a)) } : g)) }
+            : null,
+        ),
 
-      updateSettings: (p) => patch((s) => ({ settings: { ...s.settings, ...p } })),
+      updateSettings: (p) =>
+        patch((s) => {
+          const next = { ...p }
+          // Ein Muster, das noch an Gruppen, Nutzern, Lesson Plans oder
+          // Formularen hängt, darf nicht verschwinden — sonst zeigen diese
+          // Verweise ins Leere.
+          if (next.aircraftTypes) {
+            const removed = s.settings.aircraftTypes.filter((a) => !next.aircraftTypes!.includes(a))
+            const stillUsed = removed.filter(
+              (a) =>
+                s.groups.some((g) => g.aircraftType === a) ||
+                s.users.some((u) => u.aircraftTypes.includes(a)) ||
+                s.lessonPlans.some((l) => l.aircraftType === a) ||
+                s.gradingRecords.some((r) => r.header.aircraftType === a) ||
+                s.infoEntries.some((e) => e.aircraftType === a),
+            )
+            if (stillUsed.length > 0) next.aircraftTypes = [...next.aircraftTypes!, ...stillUsed]
+          }
+          return { settings: { ...s.settings, ...next } }
+        }),
 
       visibleGradingRecords,
+      // Objektbezogene Berechtigung: eigenes Formular oder Vollzugriff.
+      // Ohne diese Prüfung liest (und unterschreibt) jeder Nutzer jedes
+      // Formular, indem er die ID in die Adresszeile tippt.
+      gradingRecordById: (id) => {
+        if (!currentUser) return undefined
+        const rec = state.gradingRecords.find((r) => r.id === id)
+        if (!rec) return undefined
+        if (userHasPerm(state.settings, currentUser, 'grading_view_all')) return rec
+        return rec.instructorId === currentUser.id ? rec : undefined
+      },
       saveGradingRecord: (record) =>
-        patch((s) => ({
-          gradingRecords: s.gradingRecords.some((r) => r.id === record.id)
-            ? s.gradingRecords.map((r) => (r.id === record.id ? record : r))
-            : [...s.gradingRecords, record],
-        })),
+        patch((s) => {
+          // parentId kommt letztlich aus der Adresszeile. Nur 306/310 sind
+          // Folgeformulare, und nur ein vorhandenes Formular kann Elternteil
+          // sein — alles andere wird verworfen, sonst hebelt ein erfundenes
+          // parentId die Folgeformular-Pflicht aus und fällt zugleich aus
+          // jeder Statistik (die Auswertungen überspringen Folgeformulare).
+          const parentOk =
+            record.parentId !== undefined &&
+            isFollowUpType(record.formTypeId) &&
+            s.gradingRecords.some((r) => r.id === record.parentId)
+          const clean = parentOk || record.parentId === undefined ? record : { ...record, parentId: undefined }
+          return {
+            gradingRecords: s.gradingRecords.some((r) => r.id === clean.id)
+              ? s.gradingRecords.map((r) => (r.id === clean.id ? clean : r))
+              : [...s.gradingRecords, clean],
+          }
+        }),
       hideGradingRecord: (id) =>
-        patch((s) => ({
-          gradingRecords: s.gradingRecords.map((r) =>
-            r.id === id && !r.hiddenFor?.includes(s.currentUserId!)
-              ? { ...r, hiddenFor: [...(r.hiddenFor ?? []), s.currentUserId!] }
-              : r,
-          ),
-        })),
+        patch((s) => {
+          // Nur Erledigtes darf aus dem Blick: Was noch auf Unterschrift,
+          // Folgeformular oder Versand wartet, ist eine offene Pflicht — die
+          // ließ sich vorher per Mülleimer aus der Sicht des Verantwortlichen
+          // entfernen, obwohl genau diese Sicht sie anmahnen soll.
+          const rec = s.gradingRecords.find((r) => r.id === id)
+          if (!rec || !isComplete(rec, s.gradingRecords)) return null
+          return {
+            gradingRecords: s.gradingRecords.map((r) =>
+              r.id === id && !r.hiddenFor?.includes(s.currentUserId!)
+                ? { ...r, hiddenFor: [...(r.hiddenFor ?? []), s.currentUserId!] }
+                : r,
+            ),
+          }
+        }),
+      // Ausblenden ist nicht mehr endgültig: Wer die ganze Ablage sieht,
+      // kann ein Blatt für ALLE wieder sichtbar machen.
+      unhideGradingRecord: (id) =>
+        patch((s) => {
+          const actor = s.users.find((u) => u.id === s.currentUserId)
+          if (!actor || !userHasPerm(s.settings, actor, 'grading_view_all')) return null
+          return {
+            gradingRecords: s.gradingRecords.map((r) => (r.id === id ? { ...r, hiddenFor: undefined } : r)),
+          }
+        }),
+      // Ausbildungsnachweise sind aufbewahrungspflichtig: endgültiges Löschen
+      // bleibt dem Superadmin vorbehalten — der Training Admin ist nur-lesend.
       deleteGradingRecord: (id) =>
-        patch((s) => ({ gradingRecords: s.gradingRecords.filter((r) => r.id !== id && r.parentId !== id) })),
-      retryGradingMail: (id) =>
+        patch((s) => {
+          const actor = s.users.find((u) => u.id === s.currentUserId)
+          if (actor?.role !== 'superadmin') return null
+          const target = s.gradingRecords.find((r) => r.id === id)
+          if (!target) return null
+          // Geschwister desselben Durchgangs (gleiche batchId). Das 310 gilt
+          // für den GANZEN Durchgang, hängt aber technisch an einem einzelnen
+          // Blatt. Wurde dieses gelöscht, verschwand der Nachweis der übrigen
+          // gleich mit — sie fielen von grün zurück auf „Missing Form 310".
+          const siblings = target.batchId
+            ? s.gradingRecords.filter((r) => r.id !== id && r.batchId === target.batchId && !r.parentId)
+            : []
+          const heir = siblings[0]
+          return {
+            gradingRecords: s.gradingRecords
+              .filter((r) => r.id !== id)
+              // Kinder umhängen, solange ein Geschwister den Durchgang
+              // weiterführt; sonst fallen sie mit dem letzten Blatt weg.
+              .map((r) => (r.parentId === id && heir ? { ...r, parentId: heir.id } : r))
+              .filter((r) => r.parentId !== id),
+          }
+        }),
+      // Erneut senden: ohne Netz landet der Versuch im Ausgangskorb, statt
+      // einen Erfolg zu behaupten, den es nicht gab.
+      // Erneut senden: erst in den Ausgangskorb, dann entscheidet die echte
+      // Erreichbarkeitsprobe — nicht navigator.onLine — über „sent".
+      retryGradingMail: (id) => {
         patch((s) => ({
           gradingRecords: s.gradingRecords.map((r) =>
-            r.id === id ? { ...r, mailStatus: 'sent' as const, mailError: undefined } : r,
+            r.id === id ? { ...r, mailStatus: 'queued' as const, mailError: undefined } : r,
           ),
-        })),
-      updateGrading: (p) => patch((s) => ({ settings: { ...s.settings, grading: { ...s.settings.grading, ...p } } })),
+        }))
+        void networkReachable().then((ok) => {
+          if (!ok) return
+          patch((s) => ({
+            gradingRecords: s.gradingRecords.map((r) =>
+              r.id === id && r.mailStatus === 'queued' ? { ...r, mailStatus: 'sent' as const } : r,
+            ),
+          }))
+        })
+      },
+      // Ohne Netz unterschriebene Formulare gehen raus, sobald wieder
+      // Empfang da ist. In der Sandbox gelingt der Versand; mit echtem
+      // Backend hängt hier der tatsächliche Sendeauftrag.
+      //
+      // Maßgeblich ist eine ECHTE Erreichbarkeitsprobe (net.ts), nicht
+      // navigator.onLine: das meldet „online" auch im WLAN ohne Internet —
+      // dort behauptete der Korb den Versand, ohne je gesendet zu haben.
+      // Rückgabe: war der Origin erreichbar? (Für die Anzeige im Banner.)
+      flushOutbox: async () => {
+        const queued = () => stateRef.current.gradingRecords.some((r) => r.mailStatus === 'queued')
+        if (!queued()) return navigator.onLine !== false
+        const reachable = await networkReachable()
+        if (!reachable) return false
+        patch((s) =>
+          s.gradingRecords.some((r) => r.mailStatus === 'queued')
+            ? {
+                gradingRecords: s.gradingRecords.map((r) =>
+                  r.mailStatus === 'queued' ? { ...r, mailStatus: 'sent' as const, mailError: undefined } : r,
+                ),
+              }
+            : null,
+        )
+        return true
+      },
+      updateGrading: (p) =>
+        patch((s) => {
+          const next = { ...p }
+          // Ein Formulartyp, zu dem es Datensätze gibt, bleibt im Katalog —
+          // sonst verliert ein unterschriebenes Dokument seine Struktur.
+          if (next.formTypes) {
+            const removed = s.settings.grading.formTypes.filter((f) => !next.formTypes!.some((n) => n.id === f.id))
+            // 306 und 310 sind Pflicht-Folgeformulare: Die Regeln verlangen sie
+            // bei „Not Competent" bzw. „Session not completed". Ohne sie im
+            // Katalog ließe sich ein solcher Durchgang gar nicht abschließen —
+            // sie bleiben deshalb unabhängig davon, ob schon Datensätze
+            // existieren.
+            const stillUsed = removed.filter(
+              (f) => f.id === '306' || f.id === '310' || s.gradingRecords.some((r) => r.formTypeId === f.id),
+            )
+            if (stillUsed.length > 0) next.formTypes = [...next.formTypes!, ...stillUsed]
+          }
+          return { settings: { ...s.settings, grading: { ...s.settings.grading, ...next } } }
+        }),
 
       visibleLessonPlans,
       addLessonPlan: (plan) =>
@@ -548,6 +885,22 @@ export function isAdminUser(user: { role: Role } | null | undefined): boolean {
  * Flags am Nutzer gesteuert (canGrade, canEditDirectory); Admin und
  * Training Admin folgen der im Superadmin-Panel gepflegten Matrix.
  */
+/**
+ * Darf dieser Nutzer das Modul überhaupt betreten? Der Training Admin ist auf
+ * die Formularablage begrenzt; weitere Module öffnen sich nur, wenn die
+ * Rechte-Matrix sie ihm freischaltet. Alle anderen Rollen sehen alles —
+ * die Feinsteuerung passiert innerhalb der Module.
+ */
+export function userMayModule(settings: Settings, user: User | null | undefined, module: ModuleKey): boolean {
+  if (!user) return false
+  if (module === 'grading') return userHasPerm(settings, user, 'grading_create') || userHasPerm(settings, user, 'grading_view_all')
+  if (user.role !== 'training_admin') return true
+  if (module === 'info') return userHasPerm(settings, user, 'info_manage')
+  if (module === 'lessons') return userHasPerm(settings, user, 'lessons_manage')
+  if (module === 'contacts') return userHasPerm(settings, user, 'contacts_manage')
+  return false
+}
+
 export function userHasPerm(settings: Settings, user: User | null | undefined, key: PermKey): boolean {
   if (!user) return false
   if (user.role === 'superadmin') return true
@@ -570,6 +923,24 @@ export function infoIsPublished(entry: { validFrom?: string }, ts: number): bool
   if (!entry.validFrom) return true
   const from = new Date(`${entry.validFrom}T00:00:00`).getTime()
   return Number.isNaN(from) || from <= ts
+}
+
+/** Abgelaufen? Nach dem Gültigkeitsende ist der Eintrag nicht mehr
+ *  bestätigungspflichtig — eine Bestätigung auf ein überholtes Dokument
+ *  landete sonst als „gelesen" in der Kontrollliste. */
+export function infoIsExpired(entry: { validUntil?: string }, ts: number): boolean {
+  if (!entry.validUntil) return false
+  const until = new Date(`${entry.validUntil}T23:59:59`).getTime()
+  return !Number.isNaN(until) && until < ts
+}
+
+/** Ab wann der Eintrag für die Leser sichtbar wurde — maßgeblich für die
+ *  „Neu"-Markierung. Ein vorbereiteter Eintrag ging bisher ohne Markierung
+ *  online, weil ab seiner Erstellung gerechnet wurde. */
+export function infoPublishedAt(entry: { validFrom?: string; createdAt: number }): number {
+  if (!entry.validFrom) return entry.createdAt
+  const from = new Date(`${entry.validFrom}T00:00:00`).getTime()
+  return Number.isNaN(from) ? entry.createdAt : Math.max(entry.createdAt, from)
 }
 
 /** Gilt ein Info-Eintrag für diesen Nutzer? (leer = alle Gruppen) — eine

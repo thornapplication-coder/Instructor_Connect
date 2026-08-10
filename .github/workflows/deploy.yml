@@ -1,8 +1,13 @@
 name: Instructor Connect auf GitHub Pages veröffentlichen
 
+# Veröffentlicht ausschließlich main. Vorher stand hier zusätzlich ein
+# Arbeitszweig — der lag zeitweise 22 Commits vor main, sodass „live" und
+# „freigegeben" nichts miteinander zu tun hatten und die Seite beim Löschen
+# des Zweigs schlagartig zurückgefallen wäre. Vorschauen laufen über
+# workflow_dispatch von Hand.
 on:
   push:
-    branches: [main, claude/screenshots-repo-review-z4vts8]
+    branches: [main]
   workflow_dispatch:
 
 permissions:

@@ -1,71 +1,86 @@
 import { RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { hasUnsavedWork } from '../editGuard'
 
 /**
  * Registriert den Service Worker (Offline-Start) und hält die App aktuell.
  *
- * Neue Versionen werden AUTOMATISCH übernommen, sobald das gefahrlos ist:
- * Wer gerade nichts ausfüllt, bekommt sie sofort; wer in einem Formular
- * steckt, sieht den Banner und entscheidet selbst. Sonst könnte ein
- * Update, dessen Knopf man nicht erreicht, die App dauerhaft alt halten.
+ * Sobald eine neue Version bereitsteht, erscheint unten SICHTBAR ein
+ * Streifen „Neue Version verfügbar" — damit man sieht, dass sich etwas
+ * ändert, und an der Versionsnummer erkennt, womit man arbeitet. Die
+ * Übernahme läuft dann AUTOMATISCH: nach ein paar Sekunden lädt die App
+ * von selbst neu. Der Knopf „Jetzt aktualisieren" macht es sofort, ist
+ * aber nie nötig.
  *
- * Auf neue Versionen wird AKTIV geprüft: beim Start, dann jede Minute
- * sowie immer, wenn die App den Fokus bekommt oder wieder sichtbar wird.
+ * Wer gerade etwas ausfüllt, wird nicht unterbrochen: der Streifen bleibt
+ * stehen, die Übernahme wartet, bis die Arbeit gesichert oder verworfen
+ * ist (editGuard) — dann geschieht sie ebenfalls von selbst.
+ *
+ * Auf neue Versionen wird aktiv geprüft: beim Start, jede Minute und immer,
+ * wenn die App den Fokus bekommt oder wieder sichtbar wird.
  */
 
-/** Formulare mit ungesicherter Eingabe — dort wird nie automatisch neu geladen. */
-function isEditing(): boolean {
-  const h = window.location.hash
-  return h.startsWith('#/grading/new') || h.includes('?print=1')
-}
+// Kurze Anzeigezeit, bevor die App selbsttätig neu lädt — lang genug, um
+// den Streifen wahrzunehmen, kurz genug, um nicht im Weg zu stehen.
+const AUTO_APPLY_MS = 5000
 
 export function UpdateBanner() {
   const { t } = useTranslation()
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null)
-  const clicked = useRef(false)
-  // automatische Übernahme läuft — der Neustart darf dann erfolgen
+  // true, sobald die Übernahme angestoßen ist — dann darf neu geladen werden
   const tookOver = useRef(false)
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
     let cleanup: (() => void) | undefined
 
-    /**
-     * Wartende Version übernehmen: außerhalb von Formularen sofort und
-     * ohne Zutun, im Formular nur als Banner-Angebot.
-     */
-    const apply = (sw: ServiceWorker) => {
-      if (isEditing()) {
-        setWaiting(sw)
-        return
-      }
+    // Die wartende Version übernehmen (Neustart folgt über controllerchange).
+    const takeOver = (sw: ServiceWorker) => {
       tookOver.current = true
       sw.postMessage({ type: 'SKIP_WAITING' })
     }
 
+    // Neue Version gefunden: Streifen zeigen. Die eigentliche Übernahme
+    // besorgt der Nachzug-Timer unten — sobald keine Arbeit offen ist.
+    const announce = (sw: ServiceWorker) => setWaiting(sw)
+
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       // Neu laden, sobald die neue Version übernommen hat — außer bei der
       // Erstinstallation (dann gab es vorher keinen Controller).
-      if (clicked.current || tookOver.current) window.location.reload()
+      if (tookOver.current) window.location.reload()
     })
 
     navigator.serviceWorker
       .register(import.meta.env.BASE_URL + 'sw.js')
       .then((reg) => {
         // Neue Version wartet bereits (App war lange geöffnet)
-        if (reg.waiting) apply(reg.waiting)
+        if (reg.waiting) announce(reg.waiting)
         reg.addEventListener('updatefound', () => {
           const nw = reg.installing
           if (!nw) return
           nw.addEventListener('statechange', () => {
-            if (nw.state === 'installed' && navigator.serviceWorker.controller) apply(nw)
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) announce(nw)
           })
         })
 
         // Aktive Update-Prüfung: Intervall + Fokus + Sichtbarkeit
         const check = () => reg.update().catch(() => {})
         const iv = setInterval(check, 60_000)
+        // Automatische Übernahme: sobald eine Version wartet und nichts mehr
+        // in Bearbeitung ist, wird sie nach kurzer Sichtzeit selbst geladen.
+        // Läuft im 1-Sekunden-Takt, damit die Sichtzeit verlässlich greift.
+        let seenSince = 0
+        const auto = setInterval(() => {
+          if (!reg.waiting || tookOver.current) return
+          if (hasUnsavedWork()) {
+            seenSince = 0
+            return
+          }
+          const now = performance.now()
+          if (seenSince === 0) seenSince = now
+          else if (now - seenSince >= AUTO_APPLY_MS) takeOver(reg.waiting)
+        }, 1000)
         const onVisible = () => {
           if (document.visibilityState === 'visible') check()
         }
@@ -73,6 +88,7 @@ export function UpdateBanner() {
         document.addEventListener('visibilitychange', onVisible)
         cleanup = () => {
           clearInterval(iv)
+          clearInterval(auto)
           window.removeEventListener('focus', check)
           document.removeEventListener('visibilitychange', onVisible)
         }
@@ -93,10 +109,10 @@ export function UpdateBanner() {
       <span>{t('common.updateAvailable')}</span>
       <button
         onClick={() => {
-          clicked.current = true
+          tookOver.current = true
           waiting.postMessage({ type: 'SKIP_WAITING' })
         }}
-        className="rounded-full bg-bg/25 px-4 py-1.5 transition hover:bg-bg/35"
+        className="min-h-11 rounded-full bg-bg/25 px-4 py-1.5 transition hover:bg-bg/35"
       >
         {t('common.updateNow')}
       </button>
