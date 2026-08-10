@@ -243,31 +243,26 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
     --grad-b: transparent;
   }
 
-  /* A4 mit schmalem Rand — nutzbar bleiben 198 x 285 mm. Ohne die
+  /* A4 ohne oberen/unteren Seitenrand: Der Browser zeichnet seine
+     Kopf- und Fußzeilen (Dokumenttitel, Adresse, Seitenzahl, Datum) in
+     GENAU diese Ränder — auf einem Ausbildungsnachweis haben sie nichts
+     verloren, und abschaltbar sind sie nur von Hand im Druckdialog.
+     Ohne Rand gibt es keinen Platz dafür, in keinem Browser.
+
+     Der Preis: keine Rand-Seitenzahlen mehr (Firefox/Safari setzten sie
+     dort) und auf Folgeseiten kein oberer Papierrand — der Inhalt bringt
+     seinen Abstand deshalb selbst mit (padding am main). Ohne die
      Größenangabe druckt Chrome im US-Letter-Format. */
   @page {
     size: A4 portrait;
-    margin: 6mm;
-    /* Seitenzahl über die Rand-Boxen des Druckstandards. Firefox und Safari
-       setzen sie; Chrome/Edge ignorieren Rand-Boxen bis heute — dort liefert
-       die Seitenzahl die Kopf-/Fußzeile des Browser-Druckdialogs. */
-    @bottom-right {
-      content: 'Page ' counter(page) ' of ' counter(pages);
-      font-size: 9pt;
-      color: #475569;
-    }
+    margin: 0 6mm;
   }
 
   /* Breite Tabellen (Flottenmatrix, Formularlisten) im Querformat, damit
      sie in der Breite auf ein Blatt passen. */
   @page landscape {
     size: A4 landscape;
-    margin: 6mm;
-    @bottom-right {
-      content: 'Page ' counter(page) ' of ' counter(pages);
-      font-size: 9pt;
-      color: #475569;
-    }
+    margin: 0 6mm;
   }
   .print-landscape {
     page: landscape;
@@ -295,7 +290,8 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
   }
   main {
     max-width: 100% !important;
-    padding: 0 !important;
+    /* Ersatz für den entfallenen oberen/unteren Seitenrand (siehe @page) */
+    padding: 6mm 0 !important;
     /* Am schlechtesten Fall kalibriert: ein Grading Sheet mit neun
        kommentierten Kompetenzen und langen Zusammenfassungen passt damit
        noch auf eine A4-Seite, ein übliches füllt sie zu rund 90 %. */

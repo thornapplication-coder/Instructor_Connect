@@ -154,7 +154,7 @@ export interface Settings {
   allowedDomains: string[]
   /** Kopf-/Fußzeile jedes ausgedruckten Formulars — ein Ausdruck ohne
    *  Organisation und Formularstand ist keinem Nachweis zuzuordnen. */
-  documentHeader: { atoName: string; approvalNumber: string; formRevision: string }
+  documentHeader: { atoName: string; approvalNumber: string; approvalNumberUK?: string; formRevision: string }
   /** Impressumstext je Sprache, im Admin Panel bearbeitbar */
   imprint: { de: string; en: string }
   grading: GradingSettings
@@ -359,6 +359,10 @@ export interface GradingRecord {
   /** SHA-256 über die prüfrelevanten Felder samt Unterschriftsbildern,
    *  gebildet im Moment des Unterschreibens (siehe docHash.ts) */
   contentHash?: string
+  /** Zuständige Behörde des Trainings: AT (AT.ATO.106) oder UK
+   *  (GBR.ATO.0541) — bestimmt die Kennung im Dokumentkopf. Fehlt der
+   *  Wert (Altbestand), gilt AT. */
+  authority?: 'AT' | 'UK'
 }
 
 export interface GradingSettings {

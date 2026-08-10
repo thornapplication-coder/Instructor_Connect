@@ -136,6 +136,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   const [trainees, setTrainees] = useState<TraineeGrading[]>(existing?.trainees ?? [])
   const [freeText, setFreeText] = useState<Record<string, string>>(existing?.freeText ?? prefillFromParent(parent, presetType, grading.formTypes))
   const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(existing?.sessionStatus ?? null)
+  // Zuständige Behörde: bestimmt die ATO-Kennung im Dokumentkopf
+  // (AT.ATO.106 bzw. GBR.ATO.0541). Standard ist AT.
+  const [authority, setAuthority] = useState<'AT' | 'UK'>(existing?.authority ?? 'AT')
   // Unterschriften werden grundsätzlich NIE übernommen — auch beim Bearbeiten
   // eines bestehenden Formulars muss neu unterschrieben werden.
   const [attendance, setAttendance] = useState<AttendanceEntry[]>(
@@ -192,6 +195,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
       if (d.attendance) setAttendance(d.attendance)
       if (d.sessionStatus) setSessionStatus(d.sessionStatus)
       if (typeof d.step === 'number') setStep(d.step)
+      if (d.authority === 'AT' || d.authority === 'UK') setAuthority(d.authority)
       setDraftRestored(true)
     } catch {
       /* unlesbarer Entwurf wird ignoriert */
@@ -202,7 +206,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     if (!dirty || submittingRef.current) return
     const tm = setTimeout(() => {
       try {
-        localStorage.setItem(draftKey, JSON.stringify({ header, trainees, freeText, attendance, sessionStatus, step }))
+        localStorage.setItem(draftKey, JSON.stringify({ header, trainees, freeText, attendance, sessionStatus, step, authority }))
       } catch {
         /* Speicher voll: der Entwurf gilt dann nur für diese Sitzung */
       }
@@ -410,6 +414,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
           createdAt: existing?.createdAt ?? ts,
           signedAt: signed ? ts : undefined,
           instructorSignedAt: sigInstructor ? ts : undefined,
+          authority,
         },
       ]
     }
@@ -446,6 +451,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         createdAt: existing?.createdAt ?? ts,
         signedAt: signed ? ts : undefined,
         instructorSignedAt: sigInstructor ? ts : undefined,
+        authority,
       }
     })
   }
@@ -839,6 +845,14 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             <Card className="space-y-3 p-4">
               <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.headerData')}</p>
               <div className="grid gap-3 sm:grid-cols-2">{preFields.map(renderField)}</div>
+              {/* Kein Katalogfeld: die Behörde gehört zu JEDEM Formulartyp
+                  und bestimmt die ATO-Kennung im Dokumentkopf. */}
+              <Field label={t('grading.authority')}>
+                <select value={authority} onChange={(e) => setAuthority(e.target.value as 'AT' | 'UK')} className={selectCls}>
+                  <option value="AT">{t('grading.authorityAT', { nr: state.settings.documentHeader?.approvalNumber || 'AT.ATO.106' })}</option>
+                  <option value="UK">{t('grading.authorityUK', { nr: state.settings.documentHeader?.approvalNumberUK || 'GBR.ATO.0541' })}</option>
+                </select>
+              </Field>
             </Card>
 
             {/* 3. Freitextabschnitte (306/310) */}

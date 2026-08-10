@@ -813,6 +813,7 @@ function SettingsTab() {
           [
             ['atoName', t('admin.atoName')],
             ['approvalNumber', t('admin.approvalNumber')],
+            ['approvalNumberUK', t('admin.approvalNumberUK')],
             ['formRevision', t('admin.formRevision')],
           ] as const
         ).map(([key, label]) => (
@@ -822,7 +823,7 @@ function SettingsTab() {
               value={s.documentHeader?.[key] ?? ''}
               onChange={(e) =>
                 updateSettings({
-                  documentHeader: { ...{ atoName: '', approvalNumber: '', formRevision: '' }, ...s.documentHeader, [key]: e.target.value },
+                  documentHeader: { ...{ atoName: '', approvalNumber: '', approvalNumberUK: '', formRevision: '' }, ...s.documentHeader, [key]: e.target.value },
                 })
               }
             />

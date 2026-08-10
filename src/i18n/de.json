@@ -285,7 +285,8 @@
     "storageUsed": "Belegt durch diese App",
     "storageQuota": "von {{quota}} zugeteilt",
     "storageHint": "Die Daten liegen auf diesem Gerät (IndexedDB). Der Balken zeigt, wie viel des vom Browser zugeteilten Platzes belegt ist; ab 85 % erscheint app-weit ein Warnstreifen.",
-    "storageUnknown": "Dieser Browser meldet keinen Speicherstand."
+    "storageUnknown": "Dieser Browser meldet keinen Speicherstand.",
+    "approvalNumberUK": "Genehmigungsnummer (UK)"
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",
@@ -545,7 +546,10 @@
     "counterSignedAt": "gegengezeichnet am {{date}}",
     "fingerprint": "Dokument-Fingerabdruck {{hash}}",
     "fingerprintOk": "stimmt mit dem unterschriebenen Inhalt überein",
-    "fingerprintBad": "STIMMT NICHT mit dem unterschriebenen Inhalt überein — nach der Unterschrift verändert"
+    "fingerprintBad": "STIMMT NICHT mit dem unterschriebenen Inhalt überein — nach der Unterschrift verändert",
+    "authority": "Zuständige Behörde *",
+    "authorityAT": "Austro Control (AT) — {{nr}}",
+    "authorityUK": "UK CAA — {{nr}}"
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

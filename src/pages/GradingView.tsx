@@ -49,6 +49,29 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
     if (!record) navigate('/grading')
   }, [record])
 
+  // Der Browser benennt das gedruckte PDF nach dem Dokumenttitel. Solange
+  // dieses Formular offen ist, heißt das Dokument deshalb nach dem Schema
+  // Form_Titel_Instruktor_Datum_Event — z. B.
+  // "308A_Grading Sheet TR_Michael Holy_05.08.2026_FFS4".
+  useEffect(() => {
+    if (!record) return
+    const typ = state.settings.grading.formTypes.find((f) => f.id === record.formTypeId)
+    const teile = [
+      record.formTypeId,
+      typ?.title ?? '',
+      state.users.find((u) => u.id === record.instructorId)?.name ?? '',
+      record.header.date ? formatDate(record.header.date) : '',
+      (record.header.event ?? '').replace(/\s+/g, ''),
+    ]
+    document.title = teile
+      .filter(Boolean)
+      .join('_')
+      .replace(/[\/:*?"<>|]/g, '-')
+    return () => {
+      document.title = 'Instructor Connect'
+    }
+  }, [record, state.settings.grading.formTypes, state.users])
+
   // iOS/iPadOS erlaubt window.print() nur aus einer Nutzergeste heraus —
   // ein automatischer Aufruf nach Navigation verpufft dort wirkungslos.
   const isIOS =
@@ -100,7 +123,9 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
 
   // Kopf-/Fußzeile des Ausdrucks kommt aus den Einstellungen, damit der
   // Superadmin ATO-Kennung und Formularstand ohne Deployment pflegen kann.
-  const doc = state.settings.documentHeader ?? { atoName: '', approvalNumber: '', formRevision: '' }
+  const doc = state.settings.documentHeader ?? { atoName: '', approvalNumber: '', approvalNumberUK: '', formRevision: '' }
+  // Kennung nach der Behörde des Trainings; Altbestand ohne Angabe = AT
+  const approval = (record.authority === 'UK' ? doc.approvalNumberUK : doc.approvalNumber) || doc.approvalNumber
   // Das Instruktorenblatt 308G verweist nicht auf die Pilotenformulare.
   const pilotFootnotes = formType?.competencySet !== 'instructor'
   const isAdmin = currentUser!.role !== 'member'
@@ -126,7 +151,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             der ATO noch einem Formularstand zuordnen. */}
         <div className="hidden border-b-2 border-line/60 pb-2 print:block">
           <p className="text-[11px] font-semibold uppercase tracking-wide">
-            {[doc.atoName, doc.approvalNumber].filter(Boolean).join(' · ')}
+            {[doc.atoName, approval].filter(Boolean).join(' · ')}
           </p>
           <h1 className="text-2xl font-bold tracking-tight">
             {record.formTypeId} — {formType?.title ?? ''}

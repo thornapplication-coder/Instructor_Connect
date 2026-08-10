@@ -222,8 +222,9 @@ function seedState(now: number): AppState {
       ],
       infoCategories: ['Ground Training', 'Simulator Training', 'HR', 'Operator Info', 'SIM Defects', 'AAA intern', 'Approved Manuals'],
       documentHeader: {
-        atoName: 'Austrian Aviation Academy',
-        approvalNumber: 'AT.ATO.007',
+        atoName: 'Aviation Academy Austria',
+        approvalNumber: 'AT.ATO.106',
+        approvalNumberUK: 'GBR.ATO.0541',
         formRevision: 'OM Appendix 5, Rev. 0.2',
       },
       allowedDomains: ['aviationacademy.at'],

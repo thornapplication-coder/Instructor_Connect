@@ -285,7 +285,8 @@
     "storageUsed": "Used by this app",
     "storageQuota": "of {{quota}} allotted",
     "storageHint": "Data is stored on this device (IndexedDB). The bar shows how much of the browser-allotted space is in use; a warning banner appears app-wide above 85 %.",
-    "storageUnknown": "This browser does not report storage usage."
+    "storageUnknown": "This browser does not report storage usage.",
+    "approvalNumberUK": "Approval number (UK)"
   },
   "imprint": {
     "title": "Legal notice & terms of use",
@@ -545,7 +546,10 @@
     "counterSignedAt": "countersigned on {{date}}",
     "fingerprint": "Document fingerprint {{hash}}",
     "fingerprintOk": "matches the signed content",
-    "fingerprintBad": "DOES NOT match the signed content — this record was altered after signing"
+    "fingerprintBad": "DOES NOT match the signed content — this record was altered after signing",
+    "authority": "Approving authority *",
+    "authorityAT": "Austro Control (AT) — {{nr}}",
+    "authorityUK": "UK CAA — {{nr}}"
   },
   "lessons": {
     "newPlan": "Upload lesson plan",
