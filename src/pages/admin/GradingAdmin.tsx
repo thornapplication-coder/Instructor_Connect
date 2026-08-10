@@ -9,7 +9,7 @@ import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType, GradingRecord } from '../../types'
 import { formatDate, formatDateTime, missingFollowUps, TrafficDot, traineesOf, trafficLight, type TrafficColor } from '../Grading'
 import { StandardisationReport } from './StandardisationReport'
-import { PERIODS, periodLabel, scopeRecords, statsBySet as computeStatsBySet, type PeriodKey } from '../../gradingStats'
+import { authorityOf, PERIODS, periodLabel, scopeRecords, statsBySet as computeStatsBySet, type PeriodKey } from '../../gradingStats'
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats' | 'standardisation'
 const SECTIONS: Section[] = ['dashboard', 'records', 'stats', 'standardisation', 'config']
@@ -366,14 +366,20 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
   const [filterAircraft, setFilterAircraft] = useState('')
   // Zeitraum: beliebig / 24h / 7 Tage / Monat / Jahr
   const [filterPeriod, setFilterPeriod] = useState('all')
+  // Behörden-Filter der Formularliste (AT.ATO.106 / GBR.ATO.0541)
+  const [filterAuthority, setFilterAuthority] = useState<'' | 'AT' | 'UK'>('')
   // Statistik: leer = gesamte Flotte, sonst ein einzelner Aircraft Type
   const [statsFleet, setStatsFleet] = useState('')
   // Zeitraum gilt für Kalibrierung UND Standardisierungsbericht. Vorher kannte
   // nur der Bericht einen Zeitraum, die Kalibrierung rechnete über alles —
   // dieselbe Frage bekam dadurch zwei verschiedene Antworten.
   const [statsPeriod, setStatsPeriod] = useState<PeriodKey>('12m')
+  // Behörde für Statistik UND Standardisierungsbericht — beide zeigen
+  // denselben Ausschnitt (siehe statsRecords, StandardisationReport).
+  const [statsAuthority, setStatsAuthority] = useState<'' | 'AT' | 'UK'>('')
 
   const g = state.settings.grading
+  const doc = state.settings.documentHeader ?? { atoName: '', approvalNumber: '', approvalNumberUK: '', formRevision: '' }
   // Neueste immer zuoberst — memoisiert, damit die Statistik-Aggregationen
   // nicht bei jedem Tastendruck im Suchfeld neu rechnen.
   const records = useMemo(() => [...state.gradingRecords].sort((a, b) => b.createdAt - a.createdAt), [state.gradingRecords])
@@ -398,8 +404,8 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
    *  Folgeformulare, Zeitraum über den Schulungstag). Beide Ansichten
    *  beantworten damit dieselbe Frage gleich. */
   const statsRecords = useMemo(
-    () => scopeRecords(records, { fleet: statsFleet, period: statsPeriod, now: Date.now() + state.timeOffsetMs }),
-    [records, statsFleet, statsPeriod, state.timeOffsetMs],
+    () => scopeRecords(records, { fleet: statsFleet, authority: statsAuthority, period: statsPeriod, now: Date.now() + state.timeOffsetMs }),
+    [records, statsFleet, statsAuthority, statsPeriod, state.timeOffsetMs],
   )
 
   /** Kalibrierung je Kompetenzsatz aus dem gemeinsamen Modul. */
@@ -512,6 +518,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
     const days = PERIOD_DAYS[filterPeriod]
     if (days && Date.now() + state.timeOffsetMs - r.createdAt > days * 24 * 3600_000) return false
     if (onlyHidden && !r.hiddenFor?.length) return false
+    if (filterAuthority && authorityOf(r) !== filterAuthority) return false
     if (filterType && r.formTypeId !== filterType) return false
     if (trafficFilter && trafficLight(r, records) !== trafficFilter) return false
     if (filterTrainee && !traineesOf(r, records).some((tr) => traineeLabel(tr) === filterTrainee)) return false
@@ -543,6 +550,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
     ...(filterTrainee ? ([['Trainee', filterTrainee]] as [string, string][]) : []),
     ...(filterInstructor ? ([['Instructor', userName(filterInstructor)]] as [string, string][]) : []),
     ...(filterAircraft ? ([['Aircraft', filterAircraft]] as [string, string][]) : []),
+    ...(filterAuthority ? ([['Authority', filterAuthority === 'UK' ? (doc.approvalNumberUK || 'GBR.ATO.0541') : (doc.approvalNumber || 'AT.ATO.106')]] as [string, string][]) : []),
     ...(query ? ([['Search', query]] as [string, string][]) : []),
   ]
 
@@ -781,6 +789,11 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 </option>
               ))}
             </select>
+            <select value={filterAuthority} onChange={(e) => setFilterAuthority(e.target.value as '' | 'AT' | 'UK')} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+              <option value="">{t('grading.admin.allAuthorities')}</option>
+              <option value="AT">{t('grading.authorityAT', { nr: doc.approvalNumber || 'AT.ATO.106' })}</option>
+              <option value="UK">{t('grading.authorityUK', { nr: doc.approvalNumberUK || 'GBR.ATO.0541' })}</option>
+            </select>
             <select value={filterAircraft} onChange={(e) => setFilterAircraft(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
               <option value="">{t('grading.admin.allAircraft')}</option>
               {aircraftOptions.map((a) => (
@@ -936,6 +949,8 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
           fleet={statsFleet}
           onFleetChange={setStatsFleet}
           fleetOptions={aircraftOptions}
+          authority={statsAuthority}
+          onAuthorityChange={setStatsAuthority}
           period={statsPeriod}
           onPeriodChange={setStatsPeriod}
         />
@@ -953,6 +968,12 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                   {a}
                 </option>
               ))}
+            </select>
+            <label className="text-[13px] font-medium text-dim">{t('grading.admin.authorityFilter')}</label>
+            <select value={statsAuthority} onChange={(e) => setStatsAuthority(e.target.value as '' | 'AT' | 'UK')} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+              <option value="">{t('grading.admin.allAuthorities')}</option>
+              <option value="AT">{t('grading.authorityAT', { nr: doc.approvalNumber || 'AT.ATO.106' })}</option>
+              <option value="UK">{t('grading.authorityUK', { nr: doc.approvalNumberUK || 'GBR.ATO.0541' })}</option>
             </select>
             {/* Zeitraum gilt auch für den Standardisierungsbericht — beide
                 zeigen denselben Ausschnitt und nennen ihn. */}
@@ -1080,7 +1101,17 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 <Button
                   key={s}
                   variant="ghost"
-                  onClick={() => exportCsv(s, { records: statsFleet ? records.filter((r) => r.header.aircraftType === statsFleet) : records, filters: [['Fleet', statsFleet || 'All fleets']] })}
+                  onClick={() =>
+                    exportCsv(s, {
+                      records: records.filter(
+                        (r) => (!statsFleet || r.header.aircraftType === statsFleet) && (!statsAuthority || authorityOf(r) === statsAuthority),
+                      ),
+                      filters: [
+                        ['Fleet', statsFleet || 'All fleets'],
+                        ['Authority', statsAuthority === 'UK' ? (doc.approvalNumberUK || 'GBR.ATO.0541') : statsAuthority === 'AT' ? (doc.approvalNumber || 'AT.ATO.106') : 'All authorities'],
+                      ],
+                    })
+                  }
                   className="flex items-center gap-1.5 text-[13px]"
                 >
                   <Download size={14} /> {t(`grading.admin.export_${s}`)}

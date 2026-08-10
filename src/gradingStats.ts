@@ -115,9 +115,15 @@ export function periodLabel(period: PeriodKey): string {
  *  - **Nur Blätter mit Piloten.** Anwesenheitslisten haben keine Bewertung.
  *  - **Zeitraum über den Schulungstag** (siehe trainingDate).
  */
+/** Behörde eines Datensatzes; Altbestand ohne Angabe zählt als AT
+ *  (der Standard beim Anlegen). */
+export function authorityOf(r: GradingRecord): 'AT' | 'UK' {
+  return r.authority === 'UK' ? 'UK' : 'AT'
+}
+
 export function scopeRecords(
   records: GradingRecord[],
-  opts: { fleet?: string; period: PeriodKey; now: number },
+  opts: { fleet?: string; authority?: '' | 'AT' | 'UK'; period: PeriodKey; now: number },
 ): GradingRecord[] {
   const from = periodStart(opts.period, opts.now)
   return records.filter(
@@ -126,6 +132,7 @@ export function scopeRecords(
       !r.parentId &&
       r.trainees.length > 0 &&
       (!opts.fleet || r.header.aircraftType === opts.fleet) &&
+      (!opts.authority || authorityOf(r) === opts.authority) &&
       trainingDate(r) >= from,
   )
 }
