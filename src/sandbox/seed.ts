@@ -200,6 +200,7 @@ function seedState(now: number): AppState {
       { id: 'c3', department: 'Administration', position: 'Office / Dispo Sim-Planung', name: 'James Bond', phone: '+43 1 5550 100', email: 'james.bond@aviationacademy.at' },
     ],
     changelog: [
+      { version: '1.4.1', date: '2026-08-10', changes: 'Alle Grading-Admin-Ansichten (Formularliste, Statistik, Standardisierungsbericht) lassen sich jetzt nach Behörde filtern — AT.ATO.106 (Austro Control) oder GBR.ATO.0541 (UK CAA). Der Filter gilt auch für die Exporte und steht im Dateikopf.' },
       { version: '1.4.0', date: '2026-08-10', changes: 'Großes Audit umgesetzt: Zustand liegt jetzt in IndexedDB (kein stiller Datenverlust mehr), Unterschrift belegt Chronologie und Inhalt, Ausgangskorb prüft echte Erreichbarkeit, Update wirft keine Eingaben mehr weg und lädt automatisch. Barrierefreiheit: Karten per Tastatur, richtige Ansagen, getippte Unterschrift, 150-%-Zoom. PDF ohne Browserzeilen mit Dateiname Form_Name_Datum_Event; ATO-Kennung wählbar (AT.ATO.106 / GBR.ATO.0541); Aviation Academy Austria. Feedback mit Musterbezug, Instructor Info ohne Zielgruppen, Admin-Kachel „Chats".' },
       { version: '1.0.0', date: '2026-08-04', changes: 'Erstversion: Chat mit Gruppen und Umfragen, Instructor Info, Who to call, Feedback, Admin-Panel, Sandbox-Modus.' },
       { version: '1.1.0', date: '2026-08-09', changes: 'Grading Tool und Lesson Plans, Lese-Bestätigungen mit Kontrollliste, Gruppen-Sichtbarkeit, Feedback-Empfänger und Urgent, Offline-Modus (PWA) mit Update-Banner, Druck-Layout.' },

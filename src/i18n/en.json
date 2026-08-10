@@ -427,7 +427,10 @@
       "onlyHidden": "Hidden from lists",
       "hiddenBadge": "Hidden by {{count}}",
       "restore": "Restore to all lists",
-      "resultCount": "{{shown}} of {{total}} forms match the filters"
+      "resultCount": "{{shown}} of {{total}} forms match the filters",
+      "allAuthorities": "All authorities",
+      "authorityFilter": "Authority",
+      "authority": "Authority"
     },
     "attendance": "Record of Attendance",
     "studentName": "Student name",

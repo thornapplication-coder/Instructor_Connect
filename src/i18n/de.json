@@ -427,7 +427,10 @@
       "onlyHidden": "Aus Listen ausgeblendet",
       "hiddenBadge": "Ausgeblendet von {{count}}",
       "restore": "In alle Listen zurückholen",
-      "resultCount": "{{shown}} von {{total}} Formularen entsprechen den Filtern"
+      "resultCount": "{{shown}} von {{total}} Formularen entsprechen den Filtern",
+      "allAuthorities": "Alle Behörden",
+      "authorityFilter": "Behörde",
+      "authority": "Behörde"
     },
     "attendance": "Teilnehmerliste",
     "studentName": "Name des Teilnehmers",
