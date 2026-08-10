@@ -129,6 +129,46 @@ input[type='date'] {
   }
 }
 
+/*
+ * Umbruch langer Zeichenketten. Im Projekt gab es dafür keine einzige Regel,
+ * und die Folgen reichten weit über Kosmetik hinaus:
+ *  - im Ausdruck überdruckten sich Spalten, ein langer Feldwert lag komplett
+ *    außerhalb des Blatts und fehlte damit auf dem Nachweis
+ *  - ein einzelnes langes Wort im Chat zog die Seite auf über 3000 px
+ *  - läuft die Seite waagerecht über, wird ein „fixed inset-0"-Dialog so
+ *    breit wie der Überlauf, und Schließen- und Speichern-Knopf liegen
+ *    außerhalb des Bildschirms
+ *
+ * `overflow-wrap: anywhere` bricht NUR, wenn es sonst überliefe — normaler
+ * Text bricht weiterhin an Leerzeichen. Bewusst nicht `word-break: break-all`,
+ * das würde auch dort trennen, wo Platz ist.
+ *
+ * Ausgenommen sind Elemente, deren Inhalt eine Einheit bildet und die ihren
+ * Überlauf selbst regeln (Auswahlfelder, Tabellen mit eigenem Scrollbereich).
+ */
+body,
+p,
+span,
+li,
+dt,
+dd,
+h1,
+h2,
+h3,
+th,
+td,
+label,
+button {
+  overflow-wrap: anywhere;
+}
+
+/* Eingaben behalten ihr eigenes Scrollverhalten */
+input,
+select,
+textarea {
+  overflow-wrap: normal;
+}
+
 /* dezente Scrollbars */
 * {
   scrollbar-width: thin;

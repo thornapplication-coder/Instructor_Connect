@@ -56,10 +56,16 @@ export function ChatList() {
                 <Avatar name={g.name} size={44} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-[15px] font-semibold">{g.name}</p>
-                    {/* Muster der Gruppe — die Themen unterscheiden sich je Typ */}
+                    <p className="min-w-0 flex-1 truncate text-[15px] font-semibold">{g.name}</p>
+                    {/* Muster der Gruppe — die Themen unterscheiden sich je Typ.
+                        Der Chip darf schrumpfen und kürzen: mit shrink-0 nahm
+                        ein langer Mustername dem Gruppennamen den gesamten
+                        Platz, und in der Liste war kein einziger Name mehr
+                        lesbar. max-w begrenzt ihn auf ein Drittel der Zeile. */}
                     {g.aircraftType && (
-                      <span className="shrink-0 rounded-full bg-raised px-2 py-0.5 text-[11px] font-medium text-accent">{g.aircraftType}</span>
+                      <span className="max-w-[33%] shrink truncate rounded-full bg-raised px-2 py-0.5 text-[11px] font-medium text-accent">
+                        {g.aircraftType}
+                      </span>
                     )}
                     {g.muted && <BellOff size={13} className="shrink-0 text-dim" />}
                   </div>

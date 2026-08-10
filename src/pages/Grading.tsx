@@ -337,7 +337,9 @@ export function Grading() {
                     <span className="min-w-0 max-w-full truncate">
                       {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('grading.noTrainee')}
                     </span>
-                    <span className="shrink-0">· {r.header.aircraftType}</span>
+                    {/* schrumpfbar: ein langer Mustername drängte sonst den
+                        Pilotennamen vollständig aus der Zeile */}
+                    <span className="min-w-0 max-w-[40%] shrink truncate">· {r.header.aircraftType}</span>
                     <span className="shrink-0">· {formatDate(r.createdAt)}</span>
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
