@@ -9,6 +9,7 @@ import { ChatRoom } from './pages/ChatRoom'
 import { DevicePreview } from './pages/DevicePreview'
 import { Feedback } from './pages/Feedback'
 import { Grading } from './pages/Grading'
+import { MonthlyReportPage } from './pages/MonthlyReportPage'
 import { decodeChain, GradingForm } from './pages/GradingForm'
 import { GradingView } from './pages/GradingView'
 import { Home } from './pages/Home'
@@ -36,6 +37,8 @@ function Screen() {
   const moduleOfRoute = (r: string): ModuleKey | null => {
     if (r.startsWith('/chat')) return 'chat'
     if (r.startsWith('/grading')) return 'grading'
+    // Der Monatsbericht wertet Gradings aus und faellt unter dasselbe Modul
+    if (r.startsWith('/report')) return 'grading'
     if (r.startsWith('/lessons')) return 'lessons'
     if (r.startsWith('/info')) return 'info'
     if (r.startsWith('/feedback')) return 'feedback'
@@ -65,7 +68,8 @@ function Screen() {
     // ?print=1 öffnet die Ansicht und startet direkt den PDF-/Druckdialog
     const [id, query] = route.slice('/grading/'.length).split('?')
     page = <GradingView key={route} recordId={id} autoPrint={new URLSearchParams(query ?? '').get('print') === '1'} />
-  } else if (route === '/lessons') page = <LessonPlans />
+  } else if (route === '/report') page = <MonthlyReportPage />
+  else if (route === '/lessons') page = <LessonPlans />
   else if (route === '/info') page = <InstructorInfo />
   else if (route === '/contacts') page = <WhoToCall />
   else if (route === '/feedback') page = <Feedback />

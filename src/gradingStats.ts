@@ -138,6 +138,23 @@ export function scopeRecords(
 }
 
 /**
+ * Kalibrierungs-Flag aus der Abweichung zum Vergleichswert.
+ *
+ * Dieselbe Rechnung braucht der Standardisierungsbericht (je Instruktor
+ * gegen die Flotte) und der persönliche Monatsbericht (eigener Schnitt
+ * gegen Flotte bzw. Gesamt). Sie steht deshalb genau einmal hier — zwei
+ * Kopien wären zwei Wahrheiten, sobald jemand eine Schwelle anfasst.
+ *
+ * „insufficient" ist keine Bewertung, sondern die ehrliche Auskunft, dass
+ * die Datenbasis für eine Aussage nicht reicht.
+ */
+export function calibrationFlag(delta: number | null, gradesN: number, sessions: number): Flag {
+  if (gradesN < MIN_GRADES || sessions < MIN_SESSIONS) return 'insufficient'
+  if (delta === null || Math.abs(delta) < WATCH) return 'none'
+  return Math.abs(delta) < REVIEW ? 'watch' : 'review'
+}
+
+/**
  * Auswertung je Kompetenzsatz. Piloten- und Instruktorenbewertungen folgen
  * unterschiedlichen Maßstäben und dürfen nie gegeneinander gerechnet werden:
  * Ein Instruktor, der viele 308G schreibt, wäre sonst gegen Piloten-
@@ -176,14 +193,7 @@ export function statsBySet(
           const trainees = own.flatMap((r) => r.trainees)
           const nc = trainees.filter((tr) => tr.overall === 'not_competent').length
           const delta = m === null || overall === null ? null : m - overall
-          const enough = nums.length >= MIN_GRADES && sessions >= MIN_SESSIONS
-          const flag: Flag = !enough
-            ? 'insufficient'
-            : delta === null || Math.abs(delta) < WATCH
-              ? 'none'
-              : Math.abs(delta) < REVIEW
-                ? 'watch'
-                : 'review'
+          const flag = calibrationFlag(delta, nums.length, sessions)
           return {
             id,
             sessions,

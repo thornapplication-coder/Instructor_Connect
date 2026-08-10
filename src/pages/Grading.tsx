@@ -7,6 +7,7 @@ import { gradingListComparator } from '../gradingRules'
 import { trainingDate } from '../gradingStats'
 import { useStore } from '../store'
 import { TraineeHistory } from './admin/TraineeHistory'
+import { MonthlyReport } from './admin/MonthlyReport'
 import { followUpStarted, isComplete, missingFollowUps, traineesOf, trafficLight, type TrafficColor } from '../gradingRules'
 import type { GradingRecord } from '../types'
 
@@ -83,7 +84,7 @@ function TrainingAdminGrading() {
   const { i18n } = useTranslation()
   const t = i18n.getFixedT('en')
   const { state, now } = useStore()
-  const [tab, setTab] = useState<'completed' | 'open' | 'trainees'>('completed')
+  const [tab, setTab] = useState<'completed' | 'open' | 'trainees' | 'monthly'>('completed')
   const [period, setPeriod] = useState('all')
   const [fTrainee, setFTrainee] = useState('')
   const [fAircraft, setFAircraft] = useState('')
@@ -154,7 +155,7 @@ function TrainingAdminGrading() {
             Der Verlauf traegt keinen Zaehler — er zaehlt Piloten, nicht
             Formulare, und stuende sonst irrefuehrend neben den beiden. */}
         <div className="flex gap-2">
-          {(['completed', 'open', 'trainees'] as const).map((tb) => (
+          {(['completed', 'open', 'trainees', 'monthly'] as const).map((tb) => (
             <button
               key={tb}
               onClick={() => setTab(tb)}
@@ -162,8 +163,8 @@ function TrainingAdminGrading() {
                 tab === tb ? 'border-accent bg-accent/15 text-accent' : 'border-line/15 text-dim'
               }`}
             >
-              {tb === 'trainees'
-                ? t('grading.admin.trainees')
+              {tb === 'trainees' || tb === 'monthly'
+                ? t(`grading.admin.${tb}`)
                 : `${t(`grading.ta.${tb}`)} (${all.filter((r) => (tb === 'completed' ? isCompleted(r) : !isCompleted(r))).length})`}
             </button>
           ))}
@@ -171,10 +172,11 @@ function TrainingAdminGrading() {
 
         {/* Die Ablage bleibt durchgehend englisch — deshalb feste Sprache. */}
         {tab === 'trainees' && <TraineeHistory records={state.gradingRecords} lng="en" />}
+        {tab === 'monthly' && <MonthlyReport records={state.gradingRecords} lng="en" />}
 
         {/* Filter und Formularliste gehoeren zu den beiden Formular-Reitern;
             der Verlauf bringt seine eigene Suche mit. */}
-        {tab !== 'trainees' && (
+        {tab !== 'trainees' && tab !== 'monthly' && (
         <>
         {/* Filter: Zeitraum, Student, Aircraft Type, Instruktor */}
         <div className="flex flex-wrap gap-2">
@@ -288,7 +290,7 @@ export function Grading() {
   // Verlauf je Pilot: nur mit vollem Archivzugriff sinnvoll — die
   // Instruktorenliste reicht wegen der Wochenfrist nicht über einen Kurs.
   const maySeeHistory = can('grading_view_all')
-  const [showHistory, setShowHistory] = useState(false)
+  const [adminView, setAdminView] = useState<'records' | 'trainees' | 'monthly'>('records')
   const list = visibleGradingRecords.filter((r) => !trafficFilter || trafficLight(r, state.gradingRecords) === trafficFilter)
   const filterAnsage = (
     <p role="status" className="sr-only">
@@ -326,24 +328,25 @@ export function Grading() {
             Archivzugriff, sonst zeigte der Verlauf bloß Lücken. */}
         {maySeeHistory && (
           <div className="flex gap-2">
-            {[false, true].map((v) => (
+            {(['records', 'trainees', 'monthly'] as const).map((v) => (
               <button
-                key={String(v)}
-                onClick={() => setShowHistory(v)}
-                aria-pressed={showHistory === v}
+                key={v}
+                onClick={() => setAdminView(v)}
+                aria-pressed={adminView === v}
                 className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
-                  showHistory === v ? 'border-accent bg-accent/15 text-accent' : 'border-line/15 text-dim'
+                  adminView === v ? 'border-accent bg-accent/15 text-accent' : 'border-line/15 text-dim'
                 }`}
               >
-                {v ? t('grading.admin.trainees') : t('grading.admin.records')}
+                {t(`grading.admin.${v}`)}
               </button>
             ))}
           </div>
         )}
 
-        {maySeeHistory && showHistory && <TraineeHistory records={state.gradingRecords} />}
+        {maySeeHistory && adminView === 'trainees' && <TraineeHistory records={state.gradingRecords} />}
+        {maySeeHistory && adminView === 'monthly' && <MonthlyReport records={state.gradingRecords} />}
 
-        {!showHistory && (
+        {adminView === 'records' && (
         <>
         {/* Ampel-Legende — antippen filtert die Liste. Mobil sauber
             untereinander, ab Tablet als symmetrisches 2×2-Raster. */}
