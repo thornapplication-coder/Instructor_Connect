@@ -570,12 +570,25 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
     } else if (scope === 'competencies') {
       csv += row(['Form', 'Trainee', 'Competency', 'Title', 'Grade', 'Comment'])
       scopeRecords.forEach((r) =>
-        r.trainees.forEach((tr) =>
+        r.trainees.forEach((tr) => {
           tr.grades.forEach((gr) => {
             const title = r.competencies?.find((c) => c.code === gr.code)?.title ?? ''
             csv += row([r.formTypeId, traineeLabel(tr), gr.code, title, gr.grade, gr.comment])
-          }),
-        ),
+          })
+          // Die zusammenfassende Bewertung ist Pflichtfeld auf dem Formular
+          // und genau der Teil, den ein Prüfer liest — sie fehlte bisher in
+          // jedem Export. Als eigene Zeilen je Pilot, damit die Spalten der
+          // Kompetenzzeilen unverändert bleiben.
+          const zusammenfassung: [string, string][] = [
+            ['Positive aspects', tr.positiveComment],
+            ['Areas for development', tr.developmentComment],
+            ['Summary', tr.summaryComment],
+          ]
+          zusammenfassung.forEach(([abschnitt, text]) => {
+            if (text?.trim()) csv += row([r.formTypeId, traineeLabel(tr), '', abschnitt, '', text])
+          })
+          if (tr.overall) csv += row([r.formTypeId, traineeLabel(tr), '', 'Overall result', '', tr.overall])
+        }),
       )
       // Folgeformulare haben keine Kompetenzen, ihre Freitexte sind aber der
       // eigentliche Nachweis — deshalb als eigene Zeilen mitgeben.
