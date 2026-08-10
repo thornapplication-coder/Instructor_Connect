@@ -73,10 +73,26 @@ export function traineesOf(r: GradingRecord, all: GradingRecord[]) {
  */
 export type TrafficColor = 'green' | 'yellow' | 'red'
 
+/**
+ * Liegt der Beleg vollständig vor? Die Ampel las früher nur `status`,
+ * `mailStatus` und die Folgeformulare — ein Datensatz mit leeren
+ * Signaturfeldern und ohne `signedAt` zeigte damit grün und war optisch von
+ * einem vollständigen Nachweis nicht zu unterscheiden.
+ *
+ * Anwesenheitsformulare (307A/307B) tragen keine Gegenzeichnung des Piloten;
+ * dort bürgt der Instruktor. Sie brauchen dafür aber mindestens einen
+ * Teilnehmer — eine Anwesenheitsliste ohne Anwesende belegt nichts.
+ */
+export function hasEvidence(r: GradingRecord): boolean {
+  if (!r.signatureInstructor || !r.signedAt) return false
+  if (r.attendance) return r.attendance.some((a) => a.name.trim())
+  return !!r.signatureTrainee
+}
+
 export function trafficLight(r: GradingRecord, all?: GradingRecord[]): TrafficColor {
   if (r.mailStatus === 'failed') return 'red'
   if (all && missingFollowUps(r, all).length > 0) return 'yellow'
-  if (r.status === 'signed' && r.mailStatus === 'sent') return 'green'
+  if (r.status === 'signed' && r.mailStatus === 'sent' && hasEvidence(r)) return 'green'
   return 'yellow'
 }
 

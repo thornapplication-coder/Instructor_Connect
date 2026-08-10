@@ -520,7 +520,8 @@
       }
     },
     "deputisedNote": "Unterschrift des Piloten in Vertretung des führenden Instruktors durch {{name}} eingeholt — dessen Konto war deaktiviert.",
-    "sigAlt": "Unterschrift vorhanden: {{label}}"
+    "sigAlt": "Unterschrift vorhanden: {{label}}",
+    "errNoAttendee": "Bitte mindestens einen Teilnehmer eintragen — eine Anwesenheitsliste ohne Anwesende belegt nichts."
   },
   "lessons": {
     "newPlan": "Lesson Plan hochladen",

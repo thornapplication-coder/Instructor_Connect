@@ -520,7 +520,8 @@
       }
     },
     "deputisedNote": "Trainee signature captured on behalf of the assigned instructor by {{name}} — the assigned instructor's account was deactivated.",
-    "sigAlt": "Signature present: {{label}}"
+    "sigAlt": "Signature present: {{label}}",
+    "errNoAttendee": "Please add at least one attendee — an attendance record without attendees is not evidence."
   },
   "lessons": {
     "newPlan": "Upload lesson plan",

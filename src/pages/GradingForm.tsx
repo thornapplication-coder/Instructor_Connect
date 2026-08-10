@@ -359,6 +359,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     for (const f of postFields) {
       if (f.required && !header[f.key]?.trim()) return t('grading.errRequired', { field: f.label })
     }
+    // Eine Anwesenheitsliste ohne Anwesende belegt nichts — sie war bisher
+    // absendbar und wurde grün.
+    if (isAttendance && !attendance.some((a) => a.name.trim())) return t('grading.errNoAttendee')
     // 307A ist eine Anwesenheitsliste: wer daraufsteht, war da und unterschreibt.
     if (formTypeId === '307A') {
       const open = attendance.find((a) => a.name.trim() && !a.signature)
