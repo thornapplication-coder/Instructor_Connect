@@ -82,7 +82,10 @@ export function TopBar({
           </button>
         )}
         <h1 className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight">{title}</h1>
-        {right}
+        {/* Der Titel gibt nach, die Aktion rechts nicht: Ein langer Titel
+            drückte sonst „Upload lesson plan" zusammen, bis die globale
+            Umbruchregel den Text mitten im Wort trennte. */}
+        {right && <div className="flex shrink-0 items-center gap-1">{right}</div>}
         {home && (
           <button
             onClick={() => navigate('/')}

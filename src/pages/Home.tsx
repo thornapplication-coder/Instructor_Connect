@@ -81,14 +81,26 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
   return (
     <div className="flex flex-1 flex-col">
       <header className="safe-top-6 mx-auto flex w-full max-w-3xl items-center justify-between px-5 xl:max-w-none xl:px-10">
-        <div className="flex items-center gap-3">
+        {/* Die Begrüßung gibt nach, die Bedienelemente nicht.
+            Ohne `min-w-0`/`truncate` drückte ein längerer Vorname die rechte
+            Gruppe zusammen — gemessen am iPhone: „Hello, Christian" umbrach
+            auf zwei Zeilen, und der DE/EN-Schalter wurde so schmal, dass die
+            globale Umbruchregel ihn zu „D E" / „E N" zerlegte. */}
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <Avatar name={currentUser!.name} size={40} />
-          <div>
-            <p className="text-[15px] font-semibold leading-tight">{t('home.hello', { name: firstName })}</p>
-            <p className="text-[12px] text-dim">{t(`roles.${currentUser!.role}`)}</p>
+          <div className="min-w-0">
+            {/* Am schmalen Handy steht nur der Name: „Hello, Christian" passt
+                bei 375 px nicht neben Aktualisieren, Thema und DE/EN und
+                wurde zu „Hello, Chri…" abgeschnitten — dann lieber den Namen
+                ganz zeigen. Ab Tablet ist Platz für die Begrüßung. */}
+            <p className="truncate text-[15px] font-semibold leading-tight">
+              <span className="sm:hidden">{firstName}</span>
+              <span className="hidden sm:inline">{t('home.hello', { name: firstName })}</span>
+            </p>
+            <p className="truncate text-[12px] text-dim">{t(`roles.${currentUser!.role}`)}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
           {/* App neu laden — bleibt dank Hash-Routing auf der aktuellen Seite */}
           <button
             onClick={() => window.location.reload()}
@@ -99,12 +111,12 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
             <RefreshCw size={17} />
           </button>
           <ThemeToggle />
-          <div className="flex overflow-hidden rounded-lg border border-line/15 text-[11px]">
+          <div className="flex shrink-0 overflow-hidden rounded-lg border border-line/15 text-[11px]">
             {(['de', 'en'] as const).map((lng) => (
               <button
                 key={lng}
                 onClick={() => i18n.changeLanguage(lng)}
-                className={`min-h-11 px-4 py-1 font-medium uppercase transition ${i18n.language === lng ? 'bg-accent text-bg' : 'text-dim hover:text-ink'}`}
+                className={`min-h-11 whitespace-nowrap px-3.5 py-1 font-medium uppercase transition ${i18n.language === lng ? 'bg-accent text-bg' : 'text-dim hover:text-ink'}`}
               >
                 {lng}
               </button>
