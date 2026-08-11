@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { SandboxBar } from './components/SandboxBar'
 import { OfflineBanner } from './components/OfflineBanner'
 import { StorageBanner } from './components/StorageBanner'
@@ -9,7 +10,6 @@ import { ChatRoom } from './pages/ChatRoom'
 import { DevicePreview } from './pages/DevicePreview'
 import { Feedback } from './pages/Feedback'
 import { Grading } from './pages/Grading'
-import { MonthlyReportPage } from './pages/MonthlyReportPage'
 import { decodeChain, GradingForm } from './pages/GradingForm'
 import { GradingView } from './pages/GradingView'
 import { Home } from './pages/Home'
@@ -18,7 +18,7 @@ import { Imprint } from './pages/Imprint'
 import { InstructorInfo } from './pages/InstructorInfo'
 import { Login } from './pages/Login'
 import { WhoToCall } from './pages/WhoToCall'
-import { useRoute } from './router'
+import { navigate, useRoute } from './router'
 import { StoreProvider, useStore } from './store'
 import type { ModuleKey } from './types'
 
@@ -37,8 +37,6 @@ function Screen() {
   const moduleOfRoute = (r: string): ModuleKey | null => {
     if (r.startsWith('/chat')) return 'chat'
     if (r.startsWith('/grading')) return 'grading'
-    // Der Monatsbericht wertet Gradings aus und faellt unter dasselbe Modul
-    if (r.startsWith('/report')) return 'grading'
     if (r.startsWith('/lessons')) return 'lessons'
     if (r.startsWith('/info')) return 'info'
     if (r.startsWith('/feedback')) return 'feedback'
@@ -68,7 +66,13 @@ function Screen() {
     // ?print=1 öffnet die Ansicht und startet direkt den PDF-/Druckdialog
     const [id, query] = route.slice('/grading/'.length).split('?')
     page = <GradingView key={route} recordId={id} autoPrint={new URLSearchParams(query ?? '').get('print') === '1'} />
-  } else if (route === '/report') page = <MonthlyReportPage />
+  }
+  // Der Monatsbericht hatte eine eigene Seite und eine eigene Kachel. Er ist
+  // im Grading Tool bereits ein Reiter — zwei Wege zur selben Auswertung
+  // heißt, sie an zwei Stellen pflegen zu müssen. Alte Lesezeichen und die
+  // zum Startbildschirm gelegte App landen deshalb hier im Grading Tool,
+  // statt ins Leere zu laufen.
+  else if (route === '/report') page = <ReportRedirect />
   else if (route === '/lessons') page = <LessonPlans />
   else if (route === '/info') page = <InstructorInfo />
   else if (route === '/contacts') page = <WhoToCall />
@@ -96,6 +100,23 @@ function AppShell() {
       <SandboxBar />
     </div>
   )
+}
+
+/**
+ * Der Monatsbericht hatte eine eigene Seite und eine eigene Kachel. Er ist im
+ * Grading Tool bereits ein Reiter — zwei Wege zur selben Auswertung heißen,
+ * sie an zwei Stellen pflegen zu müssen. Alte Lesezeichen und eine zum
+ * Startbildschirm gelegte App zeigen aber weiter auf #/report; sie landen
+ * deshalb im Grading Tool, statt ins Leere zu laufen.
+ *
+ * Der Sprung passiert im Effekt, nicht in der Render-Phase: Ein Seiteneffekt
+ * beim Rendern hat in diesem Projekt schon einmal für Schleifen gesorgt.
+ */
+function ReportRedirect() {
+  useEffect(() => {
+    navigate('/grading', true)
+  }, [])
+  return <Grading />
 }
 
 export default function App() {

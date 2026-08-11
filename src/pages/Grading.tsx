@@ -304,6 +304,17 @@ export function Grading() {
   // Verlauf je Pilot: nur mit vollem Archivzugriff sinnvoll — die
   // Instruktorenliste reicht wegen der Wochenfrist nicht über einen Kurs.
   const maySeeHistory = can('grading_view_all')
+  /**
+   * Reiter dieser Ansicht.
+   *
+   * Der Verlauf je Pilot braucht den vollen Archivzugriff, sonst zeigte er
+   * bloß Lücken. Der Monatsbericht dagegen wertet die EIGENEN Bewertungen
+   * aus — er gehört jedem, der bewertet. Er hatte dafür eine eigene Kachel
+   * auf der Startseite; die ist entfallen, und damit muss er hier
+   * erreichbar sein, sonst käme ein Member gar nicht mehr an seine eigene
+   * Monatsauswertung.
+   */
+  const views = ['records', ...(maySeeHistory ? (['trainees'] as const) : []), ...(mayGrade || maySeeHistory ? (['monthly'] as const) : [])] as const
   const [adminView, setAdminView] = useState<'records' | 'trainees' | 'monthly'>('records')
   const list = visibleGradingRecords.filter((r) => !trafficFilter || trafficLight(r, state.gradingRecords) === trafficFilter)
   const filterAnsage = (
@@ -340,9 +351,9 @@ export function Grading() {
 
         {/* Umschalter Formulare / Verlauf je Pilot — nur mit vollem
             Archivzugriff, sonst zeigte der Verlauf bloß Lücken. */}
-        {maySeeHistory && (
+        {views.length > 1 && (
           <div className="flex gap-2">
-            {(['records', 'trainees', 'monthly'] as const).map((v) => (
+            {views.map((v) => (
               <button
                 key={v}
                 onClick={() => setAdminView(v)}
@@ -358,7 +369,12 @@ export function Grading() {
         )}
 
         {maySeeHistory && adminView === 'trainees' && <TraineeHistory records={state.gradingRecords} />}
-        {maySeeHistory && adminView === 'monthly' && <MonthlyReport records={state.gradingRecords} />}
+        {adminView === 'monthly' && (
+          <>
+            <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('forms:admin.monthlyIntro')}</p>
+            <MonthlyReport records={state.gradingRecords} />
+          </>
+        )}
 
         {adminView === 'records' && (
         <>

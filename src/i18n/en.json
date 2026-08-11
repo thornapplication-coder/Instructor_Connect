@@ -296,7 +296,8 @@
     "feedbackAddNote": "Add note",
     "feedbackEditNote": "Edit note",
     "feedbackNotePlaceholder": "What was done?",
-    "feedbackNoteLabel": "Follow-up note"
+    "feedbackNoteLabel": "Follow-up note",
+    "lessonCategories": "Lesson plan training types"
   },
   "imprint": {
     "title": "Legal notice & terms of use",
@@ -322,6 +323,8 @@
     "empty": "No lesson plans available for your assigned aircraft types.",
     "noAircraft": "No aircraft type has been assigned to you yet. An admin can change this in user management — afterwards you will see the matching lesson plans.",
     "deleteConfirm": "Delete the lesson plan “{{title}}”? This cannot be undone.",
-    "noFile": "No file attached"
+    "noFile": "No file attached",
+    "category": "Training type",
+    "noCategory": "Unassigned"
   }
 }

@@ -296,7 +296,8 @@
     "feedbackAddNote": "Notiz hinzufügen",
     "feedbackEditNote": "Notiz bearbeiten",
     "feedbackNotePlaceholder": "Was wurde gemacht?",
-    "feedbackNoteLabel": "Follow-up-Notiz"
+    "feedbackNoteLabel": "Follow-up-Notiz",
+    "lessonCategories": "Schulungsarten der Lesson Plans"
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",
@@ -322,6 +323,8 @@
     "empty": "Keine Lesson Plans für die zugewiesenen Muster vorhanden.",
     "noAircraft": "Dir ist noch kein Muster zugewiesen. Der Admin kann das im Benutzer-Management ändern — danach siehst du die passenden Lesson Plans.",
     "deleteConfirm": "Lesson Plan „{{title}}“ löschen? Das lässt sich nicht rückgängig machen.",
-    "noFile": "Keine Datei hinterlegt"
+    "noFile": "Keine Datei hinterlegt",
+    "category": "Schulungsart",
+    "noCategory": "Ohne Zuordnung"
   }
 }

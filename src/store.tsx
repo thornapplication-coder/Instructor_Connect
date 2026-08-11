@@ -90,7 +90,7 @@ export interface Store {
   updateGrading: (patch: Partial<GradingSettings>) => void
   /** Lesson Plans, die der aktuelle Nutzer sehen darf */
   visibleLessonPlans: LessonPlan[]
-  addLessonPlan: (plan: { title: string; description: string; aircraftType: string; fileName: string }) => void
+  addLessonPlan: (plan: { title: string; description: string; aircraftType: string; category: string; fileName: string }) => void
   deleteLessonPlan: (id: string) => void
   /** Rechte-Matrix: darf der aktuelle Nutzer diese Fähigkeit nutzen? */
   can: (key: PermKey) => boolean

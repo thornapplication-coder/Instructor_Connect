@@ -903,6 +903,15 @@ function SettingsTab() {
         <StringListEditor label={t('admin.infoCategories')} values={s.infoCategories} onChange={(v) => updateSettings({ infoCategories: v })} />
       </Card>
       <Card className="p-4">
+        {/* Schulungsarten der Lesson Plans — sie gliedern die Liste innerhalb
+            eines Musters und füllen das Auswahlfeld beim Hochladen. */}
+        <StringListEditor
+          label={t('admin.lessonCategories')}
+          values={s.lessonCategories ?? []}
+          onChange={(v) => updateSettings({ lessonCategories: v })}
+        />
+      </Card>
+      <Card className="p-4">
         <StringListEditor label={t('admin.categories')} values={s.feedbackCategories} onChange={(v) => updateSettings({ feedbackCategories: v })} />
       </Card>
       <Card className="p-4">
