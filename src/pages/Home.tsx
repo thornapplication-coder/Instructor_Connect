@@ -10,10 +10,12 @@ import { APP_VERSION } from '../types'
 import { TrafficDot, trafficLight, type TrafficColor } from './Grading'
 
 /* Kachel-Beschriftungen bleiben laut Spez. §5 in beiden Sprachen Englisch. */
-// Reihenfolge der Kacheln = Reihenfolge auf der Startseite. Der Monatsbericht
-// steht bewusst am Ende: Er ist die Auswertung des Monats, kein Werkzeug für
-// den Arbeitstag — vorne stehen die Dinge, die vor und nach einer Session
-// gebraucht werden.
+// Reihenfolge der Kacheln = Reihenfolge auf der Startseite.
+//
+// Der Monatsbericht hat hier bewusst KEINE eigene Kachel mehr: Er ist im
+// Grading Tool bereits ein eigener Reiter, und dieselbe Auswertung an zwei
+// Stellen anzubieten heißt, sie an zwei Stellen pflegen zu müssen. Die
+// Startseite bleibt damit auf sechs Kacheln — eine Reihe.
 const TILES = [
   { to: '/grading', label: 'Grading Tool', icon: GradingIcon },
   { to: '/lessons', label: 'Lesson Plan', icon: BookOpenCheck },
@@ -21,7 +23,6 @@ const TILES = [
   { to: '/info', label: 'Instructor Info', icon: GraduationCap },
   { to: '/feedback', label: 'Feedback', icon: MessageSquareText },
   { to: '/contacts', label: 'Who to call', icon: Phone },
-  { to: '/report', label: 'Monthly Report', icon: CalendarRange },
 ] as const
 
 export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
@@ -56,7 +57,6 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
   // Eintrag hier ist ein Compile-Fehler, kein still fehlender Punkt.
   const hasNews: Record<(typeof TILES)[number]['to'], boolean> = {
     '/grading': false, // Grading trägt stattdessen den Ampel-Punkt
-    '/report': false, // erscheint monatlich, nicht ereignisgetrieben
     '/lessons': false,
     '/chat': unreadGroups.size > 0,
     '/feedback': false, // bewusst ohne Punkt — Feedback ist eine Einbahnstraße
@@ -70,9 +70,6 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
   // Training Admin fest verdrahtet und freigegebene Rechte unerreichbar.
   const tiles = TILES.filter((tl) => {
     if (tl.to === '/grading') return can('grading_create') || can('grading_view_all')
-    // Der Bericht wertet die eigenen Bewertungen aus — ohne Bewertungsrecht
-    // gaebe es nichts zu zeigen.
-    if (tl.to === '/report') return can('grading_create') || can('grading_view_all')
     if (tl.to === '/lessons') return moduleAllowed('lessons')
     if (tl.to === '/info') return moduleAllowed('info')
     if (tl.to === '/chat') return moduleAllowed('chat')

@@ -1,4 +1,4 @@
-import type { AppState } from '../types'
+import { LESSON_CATEGORIES, type AppState } from '../types'
 import { GRADING_DEFAULTS } from './gradingDefaults'
 import { IMPRINT_DE, IMPRINT_EN } from './imprintDefaults'
 
@@ -212,6 +212,8 @@ function seedState(now: number): AppState {
         'HR (hr@aviationacademy.at)',
       ],
       infoCategories: ['General', 'Ground Training', 'Simulator Training', 'HR', 'Operator Info', 'SIM Defects', 'AAA intern', 'Approved Manuals'],
+      // Schulungsarten der Lesson Plans — im Admin-Panel pflegbar.
+      lessonCategories: [...LESSON_CATEGORIES],
       documentHeader: {
         atoName: 'Aviation Academy Austria',
         approvalNumber: 'AT.ATO.106',
@@ -240,10 +242,10 @@ function seedState(now: number): AppState {
     seen: {},
     contactsChangedAt: now - 2 * d,
     lessonPlans: [
-      { id: 'lp1', title: 'CL30 — Lesson Plan TR Session 1-4', description: 'Grundlagen Type Rating: Systeme, Normalverfahren, erste FFS-Sessions.', aircraftType: 'CL30', fileName: 'cl350-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 20 * d },
-      { id: 'lp2', title: 'CL30 — Lesson Plan Recurrent OPC', description: 'Ablauf und Schwerpunkte der jährlichen OPC-Session im Simulator.', aircraftType: 'CL30', fileName: 'cl350-recurrent-opc.pdf', uploadedBy: 'u-christian', createdAt: now - 12 * d },
-      { id: 'lp3', title: 'C560 XLS+ — Lesson Plan TR Session 1-4', description: 'Type Rating C560 XLS+: Systeme, SOPs, FFS-Einführung.', aircraftType: 'C560 XLS+', fileName: 'xls-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 18 * d },
-      { id: 'lp4', title: 'C560 XLS+ — Lesson Plan LVO / CAT II', description: 'Schulung für Allwetterflugbetrieb im Simulator.', aircraftType: 'C560 XLS+', fileName: 'xls-lvo.pdf', uploadedBy: 'u-christian', createdAt: now - 6 * d },
+      { id: 'lp1', title: 'CL30 — Lesson Plan TR Session 1-4', description: 'Grundlagen Type Rating: Systeme, Normalverfahren, erste FFS-Sessions.', aircraftType: 'CL30', category: 'Type Rating', fileName: 'cl350-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 20 * d },
+      { id: 'lp2', title: 'CL30 — Lesson Plan Recurrent OPC', description: 'Ablauf und Schwerpunkte der jährlichen OPC-Session im Simulator.', aircraftType: 'CL30', category: 'Recurrent', fileName: 'cl350-recurrent-opc.pdf', uploadedBy: 'u-christian', createdAt: now - 12 * d },
+      { id: 'lp3', title: 'C560 XLS+ — Lesson Plan TR Session 1-4', description: 'Type Rating C560 XLS+: Systeme, SOPs, FFS-Einführung.', aircraftType: 'C560 XLS+', category: 'Type Rating', fileName: 'xls-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 18 * d },
+      { id: 'lp4', title: 'C560 XLS+ — Lesson Plan LVO / CAT II', description: 'Schulung für Allwetterflugbetrieb im Simulator.', aircraftType: 'C560 XLS+', category: 'Difference Training', fileName: 'xls-lvo.pdf', uploadedBy: 'u-christian', createdAt: now - 6 * d },
     ],
     gradingRecords: [
       /* Drei frühere Sessions von Sophie Berger — sie machen den Verlauf je

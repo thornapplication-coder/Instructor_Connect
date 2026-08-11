@@ -1,5 +1,5 @@
 import { createSeedState } from './sandbox/seed'
-import type { AppState } from './types'
+import { LESSON_CATEGORIES, type AppState } from './types'
 
 /**
  * Sanfte Datenmigrationen auf bereits gespeicherten Zustand — OHNE
@@ -27,6 +27,10 @@ export function migrateState(st: AppState): AppState {
     list && !list.includes('General') ? ['General', ...list] : list
   const feedbackCategories = withGeneral(st.settings.feedbackCategories)
   const infoCategories = withGeneral(st.settings.infoCategories)
+  // Schulungsarten der Lesson Plans: Es gab sie im alten Schema nicht. Ohne
+  // Nachtrag stünde das Auswahlfeld auf Bestandsgeräten leer, und die
+  // Gliederung nach Schulungsart hätte nichts zu gliedern.
+  const lessonCategories = st.settings.lessonCategories?.length ? st.settings.lessonCategories : [...LESSON_CATEGORIES]
 
   // Demo-Platzhalter „Max Mustermann" heißt jetzt „Steven Fermie" — Nutzer
   // (u-max) und Verzeichniskontakt (c2), nur solange der alte Name steht.
@@ -60,7 +64,10 @@ export function migrateState(st: AppState): AppState {
   const markSeedHistory = !histDone
 
   const headerChanged = atoName !== dh.atoName || approvalNumber !== dh.approvalNumber || approvalNumberUK !== dh.approvalNumberUK
-  const catsChanged = feedbackCategories !== st.settings.feedbackCategories || infoCategories !== st.settings.infoCategories
+  const catsChanged =
+    feedbackCategories !== st.settings.feedbackCategories ||
+    infoCategories !== st.settings.infoCategories ||
+    lessonCategories !== st.settings.lessonCategories
   const usersChanged = users !== st.users && users?.some((u, i) => u !== st.users[i])
   const contactsChanged = contacts !== st.contacts && contacts?.some((c, i) => c !== st.contacts[i])
   if (!headerChanged && !catsChanged && !usersChanged && !contactsChanged && !clNeedsReset && !histMissing && !markSeedHistory)
@@ -77,6 +84,7 @@ export function migrateState(st: AppState): AppState {
       documentHeader: { ...dh, atoName, approvalNumber, approvalNumberUK },
       feedbackCategories: feedbackCategories ?? st.settings.feedbackCategories,
       infoCategories: infoCategories ?? st.settings.infoCategories,
+      lessonCategories,
     },
   }
 }

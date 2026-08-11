@@ -12,6 +12,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [aircraftType, setAircraftType] = useState('')
+  const [category, setCategory] = useState('')
   const [fileName, setFileName] = useState('')
 
   const valid = title.trim() && aircraftType
@@ -20,7 +21,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
     <Modal
       title={t('lessons.newPlan')}
       onClose={onClose}
-      confirmDiscard={title.trim() || description.trim() || aircraftType || fileName ? t('common.discardConfirm') : undefined}
+      confirmDiscard={title.trim() || description.trim() || aircraftType || category || fileName ? t('common.discardConfirm') : undefined}
     >
       <div className="space-y-3.5">
         <Field label={t('lessons.aircraftType') + ' *'}>
@@ -29,6 +30,19 @@ function UploadModal({ onClose }: { onClose: () => void }) {
             {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
               <option key={a} value={a}>
                 {a}
+              </option>
+            ))}
+          </select>
+        </Field>
+        {/* Schulungsart: erste Zelle leer, Rest alphabetisch — wie überall in
+            der App (#16). Die Liste kommt aus den Einstellungen und ist im
+            Admin-Panel pflegbar; sie gliedert zugleich die Liste. */}
+        <Field label={t('lessons.category')}>
+          <select value={category} onChange={(e) => setCategory(e.target.value)} className={selectCls}>
+            <option value="">…</option>
+            {[...(state.settings.lessonCategories ?? [])].sort((a, b) => a.localeCompare(b)).map((c) => (
+              <option key={c} value={c}>
+                {c}
               </option>
             ))}
           </select>
@@ -59,7 +73,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
               // Ohne hochgeladene Datei wird auch keine behauptet — die Karte
               // bot sonst Ansehen und Herunterladen für ein Dokument an, das
               // es nie gab.
-              addLessonPlan({ title: title.trim(), description: description.trim(), aircraftType, fileName: fileName.trim() })
+              addLessonPlan({ title: title.trim(), description: description.trim(), aircraftType, category, fileName: fileName.trim() })
               onClose()
             }}
           >
@@ -87,9 +101,24 @@ export function LessonPlans() {
   // bliebe die Liste nach Rollenwechsel oder Entzug eines Musters leer.
   const activeFilter = availableTypes.includes(filter) ? filter : ''
   const shown = visibleLessonPlans.filter((p) => !activeFilter || p.aircraftType === activeFilter)
+  /**
+   * Zwei Ebenen: Muster, darunter Schulungsart.
+   *
+   * Innerhalb eines Musters lagen bisher Type Rating, Recurrent und
+   * Conversion in einer einzigen Reihe — bei drei Plänen geht das, bei
+   * dreißig sucht man. Die Schulungsarten erscheinen alphabetisch (wie das
+   * Auswahlfeld), Pläne ohne Zuordnung stehen am Ende unter „Ohne
+   * Zuordnung": Sie sollen sichtbar bleiben, aber nicht vorne stehen.
+   */
   const grouped = availableTypes
     .filter((a) => !activeFilter || a === activeFilter)
-    .map((a) => ({ aircraftType: a, plans: shown.filter((p) => p.aircraftType === a) }))
+    .map((a) => {
+      const plans = shown.filter((p) => p.aircraftType === a)
+      const kategorien = [...new Set(plans.map((p) => p.category?.trim() || ''))]
+        .sort((x, y) => (x === '' ? 1 : y === '' ? -1 : x.localeCompare(y)))
+        .map((c) => ({ category: c, plans: plans.filter((p) => (p.category?.trim() || '') === c) }))
+      return { aircraftType: a, groups: kategorien }
+    })
 
   return (
     <>
@@ -139,12 +168,16 @@ export function LessonPlans() {
 
         {shown.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('lessons.empty')}</p>}
 
-        {grouped.map(({ aircraftType, plans }) => (
-          <section key={aircraftType}>
-            <h2 className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wide text-dim">
+        {grouped.map(({ aircraftType, groups }) => (
+          <section key={aircraftType} className="space-y-3">
+            <h2 className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wide text-dim">
               <Plane size={14} /> {aircraftType}
             </h2>
-            <div className="space-y-3">
+            {groups.map(({ category, plans }) => (
+            <div key={category || '—'} className="space-y-3">
+              <h3 className="ml-0.5 border-l-2 border-accent/40 pl-2 text-[12.5px] font-semibold text-ink">
+                {category || t('lessons.noCategory')}
+              </h3>
               {plans.map((p) => (
                 <Card key={p.id} className="p-4">
                   <div className="flex items-start gap-3">
@@ -195,6 +228,7 @@ export function LessonPlans() {
                 </Card>
               ))}
             </div>
+            ))}
           </section>
         ))}
 

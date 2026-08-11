@@ -113,12 +113,35 @@ export interface FeedbackEntry {
   resolutionNote?: string
 }
 
+/**
+ * Startwerte der Schulungsarten, nach denen die Lesson Plans innerhalb eines
+ * Musters gegliedert werden. Sie liegen wie die Feedback- und
+ * Info-Kategorien in den Einstellungen und sind im Admin-Panel pflegbar —
+ * diese Liste ist nur der Erststand.
+ *
+ * Angezeigt wird immer alphabetisch (Auswahlfeld wie Gliederung), mit
+ * leerer erster Zelle: Ein Plan ohne Zuordnung verschwindet nicht, er steht
+ * unter „Ohne Zuordnung".
+ */
+export const LESSON_CATEGORIES = [
+  'Command Course',
+  'Conversion',
+  'Difference Training',
+  'Other Training',
+  'Recurrent',
+  'Renewal',
+  'Type Rating',
+]
+
 export interface LessonPlan {
   id: string
   title: string
   description: string
   /** Muster, für das der Lesson Plan gilt */
   aircraftType: string
+  /** Schulungsart innerhalb des Musters. Optional — Altbestand hat sie
+   *  nicht, und ein Plan ohne Zuordnung bleibt sichtbar. */
+  category?: string
   fileName: string
   uploadedBy: string
   createdAt: number
@@ -161,6 +184,10 @@ export interface Settings {
   feedbackRecipients: string[]
   /** Kategorien der Instructor-Info-Einträge, im Admin Panel pflegbar */
   infoCategories: string[]
+  /** Schulungsarten der Lesson Plans (Type Rating, Recurrent …), im Admin
+   *  Panel pflegbar. Optional, damit ein gespeicherter Altbestand ohne diese
+   *  Liste gültig bleibt — migrateState trägt sie nach. */
+  lessonCategories?: string[]
   allowedDomains: string[]
   /** Kopf-/Fußzeile jedes ausgedruckten Formulars — ein Ausdruck ohne
    *  Organisation und Formularstand ist keinem Nachweis zuzuordnen. */

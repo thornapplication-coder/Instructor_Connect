@@ -150,3 +150,19 @@ describe('migrateState — Zusagen, die bisher niemand geprueft hat', () => {
     expect(migrateState(eigen).users.find((u) => u.id === 'u-max')?.name).toBe('Eigener Name')
   })
 })
+
+describe('migrateState — Schulungsarten der Lesson Plans', () => {
+  it('traegt die Liste nach, wenn sie fehlt', () => {
+    // Im alten Schema gab es sie nicht; ohne Nachtrag stuende das
+    // Auswahlfeld auf Bestandsgeraeten leer.
+    const alt = createSeedState()
+    delete (alt.settings as { lessonCategories?: string[] }).lessonCategories
+    expect(migrateState(alt).settings.lessonCategories).toContain('Type Rating')
+  })
+
+  it('laesst eine eigene Liste unangetastet', () => {
+    const alt = createSeedState()
+    alt.settings.lessonCategories = ['Nur das hier']
+    expect(migrateState(alt).settings.lessonCategories).toEqual(['Nur das hier'])
+  })
+})
