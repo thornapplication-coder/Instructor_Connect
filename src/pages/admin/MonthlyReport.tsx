@@ -51,7 +51,7 @@ function FlagBadge({ flag, t }: { flag: Flag; t: (k: string) => string }) {
   }
   return (
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${map[flag]}`}>
-      {t(`grading.admin.${label[flag]}`)}
+      {t(`forms:admin.${label[flag]}`)}
     </span>
   )
 }
@@ -82,7 +82,7 @@ function Distribution({ dist, t }: { dist: Figures['dist']; t: (k: string) => st
   const total = Object.values(dist).reduce((a, b) => a + b, 0)
   return (
     <div>
-      <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.distribution')}</p>
+      <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.distribution')}</p>
       <div className="flex flex-wrap gap-1.5">
         {(['1', '2', '3', '4', '5', 'NO'] as const).map((k) => {
           const n = dist[k] ?? 0
@@ -109,12 +109,12 @@ function CompetencyTable({ lines, t }: { lines: CompetencyLine[]; t: (k: string)
       <table className="w-full min-w-[520px] border-collapse text-[13px]">
         <thead>
           <tr className="border-b border-line/15 text-left text-[12px] uppercase tracking-wide text-dim">
-            <th className="py-2 pr-2 font-semibold">{t('grading.admin.perCompetency')}</th>
-            <th className="py-2 px-2 text-right font-semibold">{t('grading.admin.yours')}</th>
-            <th className="py-2 px-2 text-right font-semibold">{t('grading.admin.fleetCol')}</th>
-            <th className="py-2 px-2 text-right font-semibold">{t('grading.admin.allCol')}</th>
-            <th className="py-2 px-2 text-right font-semibold">{t('grading.admin.vsFleet')}</th>
-            <th className="py-2 pl-2 text-right font-semibold">{t('grading.admin.vsAll')}</th>
+            <th className="py-2 pr-2 font-semibold">{t('forms:admin.perCompetency')}</th>
+            <th className="py-2 px-2 text-right font-semibold">{t('forms:admin.yours')}</th>
+            <th className="py-2 px-2 text-right font-semibold">{t('forms:admin.fleetCol')}</th>
+            <th className="py-2 px-2 text-right font-semibold">{t('forms:admin.allCol')}</th>
+            <th className="py-2 px-2 text-right font-semibold">{t('forms:admin.vsFleet')}</th>
+            <th className="py-2 pl-2 text-right font-semibold">{t('forms:admin.vsAll')}</th>
           </tr>
         </thead>
         <tbody>
@@ -136,9 +136,12 @@ function CompetencyTable({ lines, t }: { lines: CompetencyLine[]; t: (k: string)
   )
 }
 
-export function MonthlyReport({ records, lng }: { records: GradingRecord[]; lng?: string }) {
-  const { t: tUi, i18n } = useTranslation()
-  const t = lng ? i18n.getFixedT(lng) : tUi
+export function MonthlyReport({ records }: { records: GradingRecord[] }) {
+  // Kein `lng` mehr: Der Text dieses Berichts liegt im Namensraum `forms`,
+  // den es nur auf Englisch gibt. Vorher entschied die einbindende Ansicht
+  // über die Sprache — und vergaß sie an einer von zwei Stellen, weshalb
+  // derselbe Bericht im Grading Tool englisch und im Admin-Panel deutsch war.
+  const { t } = useTranslation()
   const { state, currentUser, can } = useStore()
 
   const mayPickInstructor = can('grading_view_all')
@@ -168,25 +171,26 @@ export function MonthlyReport({ records, lng }: { records: GradingRecord[]; lng?
   )
 
   const monthLabel = (m: MonthKey) =>
-    new Date(m.year, m.month, 1).toLocaleDateString(lng ?? i18n.language, { month: 'long', year: 'numeric' })
+    // Der Monatsname gehoert zum Berichtstext und bleibt deshalb englisch.
+    new Date(m.year, m.month, 1).toLocaleDateString('en', { month: 'long', year: 'numeric' })
 
   const exportCsv = () => {
     if (!report) return
-    let csv = csvRow([t('grading.admin.monthly'), monthLabel(report.month), userName(report.instructorId)])
+    let csv = csvRow([t('forms:admin.monthly'), monthLabel(report.month), userName(report.instructorId)])
     csv += csvRow([])
-    csv += csvRow(['', t('grading.admin.yours'), t('grading.admin.fleetCol'), t('grading.admin.allCol')])
+    csv += csvRow(['', t('forms:admin.yours'), t('forms:admin.fleetCol'), t('forms:admin.allCol')])
     const rows: [string, keyof Figures][] = [
-      [t('grading.admin.sessions'), 'sessions'],
-      [t('grading.admin.traineesGraded'), 'trainees'],
-      [t('grading.admin.gradesGiven'), 'gradesN'],
+      [t('forms:admin.sessions'), 'sessions'],
+      [t('forms:admin.traineesGraded'), 'trainees'],
+      [t('forms:admin.gradesGiven'), 'gradesN'],
     ]
     rows.forEach(([label, key]) => csv += csvRow([label, report.own[key] as number, report.fleet[key] as number, report.all[key] as number]))
-    csv += csvRow([t('grading.admin.meanGrade'), csvNum(report.own.mean), csvNum(report.fleet.mean), csvNum(report.all.mean)])
-    csv += csvRow([t('grading.admin.lowShareLbl'), csvNum(report.own.lowShare, 0), csvNum(report.fleet.lowShare, 0), csvNum(report.all.lowShare, 0)])
-    csv += csvRow([t('grading.admin.highShareLbl'), csvNum(report.own.highShare, 0), csvNum(report.fleet.highShare, 0), csvNum(report.all.highShare, 0)])
-    csv += csvRow([t('grading.admin.ncRateLbl'), csvNum(report.own.ncRate, 0), csvNum(report.fleet.ncRate, 0), csvNum(report.all.ncRate, 0)])
+    csv += csvRow([t('forms:admin.meanGrade'), csvNum(report.own.mean), csvNum(report.fleet.mean), csvNum(report.all.mean)])
+    csv += csvRow([t('forms:admin.lowShareLbl'), csvNum(report.own.lowShare, 0), csvNum(report.fleet.lowShare, 0), csvNum(report.all.lowShare, 0)])
+    csv += csvRow([t('forms:admin.highShareLbl'), csvNum(report.own.highShare, 0), csvNum(report.fleet.highShare, 0), csvNum(report.all.highShare, 0)])
+    csv += csvRow([t('forms:admin.ncRateLbl'), csvNum(report.own.ncRate, 0), csvNum(report.fleet.ncRate, 0), csvNum(report.all.ncRate, 0)])
     csv += csvRow([])
-    csv += csvRow([t('grading.admin.perCompetency'), t('grading.admin.yours'), t('grading.admin.fleetCol'), t('grading.admin.allCol'), t('grading.admin.vsFleet'), t('grading.admin.vsAll')])
+    csv += csvRow([t('forms:admin.perCompetency'), t('forms:admin.yours'), t('forms:admin.fleetCol'), t('forms:admin.allCol'), t('forms:admin.vsFleet'), t('forms:admin.vsAll')])
     report.competencies.forEach((c) =>
       csv += csvRow([`${c.code} ${c.title}`, csvNum(c.own), csvNum(c.fleet), csvNum(c.all), csvNum(c.deltaFleet), csvNum(c.deltaAll)]),
     )
@@ -195,21 +199,21 @@ export function MonthlyReport({ records, lng }: { records: GradingRecord[]; lng?
   }
 
   if (months.length === 0)
-    return <Card className="p-4 text-[13.5px] text-dim">{t('grading.admin.noMonths')}</Card>
+    return <Card className="p-4 text-[13.5px] text-dim">{t('forms:admin.noMonths')}</Card>
 
   return (
     <div className="space-y-3">
-      <p className="text-[13px] leading-relaxed text-dim">{t('grading.admin.monthlyHint')}</p>
+      <p className="text-[13px] leading-relaxed text-dim">{t('forms:admin.monthlyHint')}</p>
 
       {/* Auswahl: Monat und — mit vollem Archivzugriff — der Instruktor */}
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex items-center gap-1.5 text-[13px] font-medium text-dim">
-          <CalendarRange size={15} /> {t('grading.admin.month')}
+          <CalendarRange size={15} /> {t('forms:admin.month')}
         </label>
         <select
           value={picked || (month ? `${month.year}-${month.month}` : '')}
           onChange={(e) => setPicked(e.target.value)}
-          aria-label={t('grading.admin.month')}
+          aria-label={t('forms:admin.month')}
           className={`${selectCls} w-auto`}
         >
           {months.map((m) => (
@@ -220,11 +224,11 @@ export function MonthlyReport({ records, lng }: { records: GradingRecord[]; lng?
         </select>
         {mayPickInstructor && (
           <>
-            <label className="text-[13px] font-medium text-dim">{t('grading.admin.instructorPick')}</label>
+            <label className="text-[13px] font-medium text-dim">{t('forms:admin.instructorPick')}</label>
             <select
               value={instructorId}
               onChange={(e) => { setInstructorId(e.target.value); setPicked('') }}
-              aria-label={t('grading.admin.instructorPick')}
+              aria-label={t('forms:admin.instructorPick')}
               className={`${selectCls} w-auto`}
             >
               {instructorOptions.map((o) => (
@@ -237,12 +241,12 @@ export function MonthlyReport({ records, lng }: { records: GradingRecord[]; lng?
           onClick={exportCsv}
           className="ml-auto flex min-h-11 items-center gap-1.5 rounded-xl border border-line/15 px-3 py-2 text-[13px] text-dim transition hover:border-accent/40 hover:text-accent"
         >
-          <Download size={15} /> {t('grading.admin.downloadCsv')}
+          <Download size={15} /> {t('forms:admin.downloadCsv')}
         </button>
       </div>
 
       {!report || report.own.sessions === 0 ? (
-        <Card className="p-4 text-[13.5px] text-dim">{t('grading.admin.noDataMonth')}</Card>
+        <Card className="p-4 text-[13.5px] text-dim">{t('forms:admin.noDataMonth')}</Card>
       ) : (
         <>
           {/* Kalibrierung zuerst — sie ist die Aussage, der Rest ist Beleg. */}
@@ -257,51 +261,51 @@ export function MonthlyReport({ records, lng }: { records: GradingRecord[]; lng?
                   sich selbst — die 0 waere dann keine Aussage, sondern Zufall
                   der Datenlage. Dann lieber den Grund nennen. */}
               <div className="rounded-xl border border-line/10 p-3">
-                <p className="mb-1 text-[12px] uppercase tracking-wide text-dim">{t('grading.admin.vsFleet')}</p>
+                <p className="mb-1 text-[12px] uppercase tracking-wide text-dim">{t('forms:admin.vsFleet')}</p>
                 {report.fleetHasOthers ? (
                   <>
                     <p className={`text-[19px] font-bold tabular-nums ${deltaClass(report.deltaFleet)}`}>{fmtDelta(report.deltaFleet)}</p>
                     <FlagBadge flag={report.flagFleet} t={t} />
                   </>
                 ) : (
-                  <p className="text-[12.5px] leading-relaxed text-dim">{t('grading.admin.onlyYou')}</p>
+                  <p className="text-[12.5px] leading-relaxed text-dim">{t('forms:admin.onlyYou')}</p>
                 )}
               </div>
               <div className="rounded-xl border border-line/10 p-3">
-                <p className="mb-1 text-[12px] uppercase tracking-wide text-dim">{t('grading.admin.vsAll')}</p>
+                <p className="mb-1 text-[12px] uppercase tracking-wide text-dim">{t('forms:admin.vsAll')}</p>
                 {report.allHasOthers ? (
                   <>
                     <p className={`text-[19px] font-bold tabular-nums ${deltaClass(report.deltaAll)}`}>{fmtDelta(report.deltaAll)}</p>
                     <FlagBadge flag={report.flagAll} t={t} />
                   </>
                 ) : (
-                  <p className="text-[12.5px] leading-relaxed text-dim">{t('grading.admin.onlyYou')}</p>
+                  <p className="text-[12.5px] leading-relaxed text-dim">{t('forms:admin.onlyYou')}</p>
                 )}
               </div>
             </div>
-            <p className="text-[12px] leading-relaxed text-dim">{t('grading.admin.deltaHint')}</p>
+            <p className="text-[12px] leading-relaxed text-dim">{t('forms:admin.deltaHint')}</p>
           </Card>
 
           <Card className="p-4">
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
-                <caption className="sr-only">{t('grading.admin.figuresCaption')}</caption>
+                <caption className="sr-only">{t('forms:admin.figuresCaption')}</caption>
                 <thead>
                   <tr className="border-b border-line/15 text-[12px] uppercase tracking-wide text-dim">
                     <td />
-                    <th scope="col" className="py-1.5 px-2 text-right font-semibold">{t('grading.admin.yours')}</th>
-                    <th scope="col" className="py-1.5 px-2 text-right font-semibold">{t('grading.admin.fleetCol')}</th>
-                    <th scope="col" className="py-1.5 pl-2 text-right font-semibold">{t('grading.admin.allCol')}</th>
+                    <th scope="col" className="py-1.5 px-2 text-right font-semibold">{t('forms:admin.yours')}</th>
+                    <th scope="col" className="py-1.5 px-2 text-right font-semibold">{t('forms:admin.fleetCol')}</th>
+                    <th scope="col" className="py-1.5 pl-2 text-right font-semibold">{t('forms:admin.allCol')}</th>
                   </tr>
                 </thead>
                 <tbody>
-            <FigureRow label={t('grading.admin.sessions')} own={String(report.own.sessions)} fleet={String(report.fleet.sessions)} all={String(report.all.sessions)} />
-            <FigureRow label={t('grading.admin.traineesGraded')} own={String(report.own.trainees)} fleet={String(report.fleet.trainees)} all={String(report.all.trainees)} />
-            <FigureRow label={t('grading.admin.gradesGiven')} own={String(report.own.gradesN)} fleet={String(report.fleet.gradesN)} all={String(report.all.gradesN)} />
-            <FigureRow label={t('grading.admin.meanGrade')} own={fmt(report.own.mean)} fleet={fmt(report.fleet.mean)} all={fmt(report.all.mean)} />
-            <FigureRow label={t('grading.admin.lowShareLbl')} own={fmtPct(report.own.lowShare)} fleet={fmtPct(report.fleet.lowShare)} all={fmtPct(report.all.lowShare)} />
-            <FigureRow label={t('grading.admin.highShareLbl')} own={fmtPct(report.own.highShare)} fleet={fmtPct(report.fleet.highShare)} all={fmtPct(report.all.highShare)} />
-            <FigureRow label={t('grading.admin.ncRateLbl')} own={fmtPct(report.own.ncRate)} fleet={fmtPct(report.fleet.ncRate)} all={fmtPct(report.all.ncRate)} />
+            <FigureRow label={t('forms:admin.sessions')} own={String(report.own.sessions)} fleet={String(report.fleet.sessions)} all={String(report.all.sessions)} />
+            <FigureRow label={t('forms:admin.traineesGraded')} own={String(report.own.trainees)} fleet={String(report.fleet.trainees)} all={String(report.all.trainees)} />
+            <FigureRow label={t('forms:admin.gradesGiven')} own={String(report.own.gradesN)} fleet={String(report.fleet.gradesN)} all={String(report.all.gradesN)} />
+            <FigureRow label={t('forms:admin.meanGrade')} own={fmt(report.own.mean)} fleet={fmt(report.fleet.mean)} all={fmt(report.all.mean)} />
+            <FigureRow label={t('forms:admin.lowShareLbl')} own={fmtPct(report.own.lowShare)} fleet={fmtPct(report.fleet.lowShare)} all={fmtPct(report.all.lowShare)} />
+            <FigureRow label={t('forms:admin.highShareLbl')} own={fmtPct(report.own.highShare)} fleet={fmtPct(report.fleet.highShare)} all={fmtPct(report.all.highShare)} />
+            <FigureRow label={t('forms:admin.ncRateLbl')} own={fmtPct(report.own.ncRate)} fleet={fmtPct(report.fleet.ncRate)} all={fmtPct(report.all.ncRate)} />
                 </tbody>
               </table>
             </div>
@@ -317,7 +321,7 @@ export function MonthlyReport({ records, lng }: { records: GradingRecord[]; lng?
 
           <div className="flex items-start gap-2.5 rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[12.5px] text-dim">
             <Info size={15} className="mt-0.5 shrink-0 text-accent" />
-            <p>{t('grading.admin.onlyOwn')}</p>
+            <p>{t('forms:admin.onlyOwn')}</p>
           </div>
         </>
       )}

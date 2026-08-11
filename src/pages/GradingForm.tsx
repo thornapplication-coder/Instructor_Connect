@@ -101,9 +101,10 @@ export function decodeChain(raw: string): FollowUpStep[] {
 }
 
 export function GradingForm({ recordId, presetType, parentId, next = [] }: { recordId?: string; presetType?: FormTypeId; parentId?: string; next?: FollowUpStep[] }) {
-  // Formulare sind immer vollständig englisch, unabhängig von der App-Sprache.
-  const { i18n } = useTranslation()
-  const t = useMemo(() => i18n.getFixedT('en'), [i18n])
+  // Formulare sind immer vollständig englisch. Das steht nicht mehr hier,
+  // sondern im Namensraum `forms`, den es nur auf Englisch gibt — ein
+  // vergessenes getFixedT kann die Sprache damit nicht mehr kippen.
+  const { t } = useTranslation()
   const { state, currentUser, saveGradingRecord, can, gradingRecordById } = useStore()
   const grading = state.settings.grading
 
@@ -228,7 +229,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   /** Vor dem Verlassen fragen — gibt false zurück, wenn geblieben wird. */
   const leaveGuard = useCallback(() => {
     if (!dirty || submittingRef.current) return true
-    return window.confirm(t('grading.leaveConfirm'))
+    return window.confirm(t('forms:leaveConfirm'))
   }, [dirty, t])
 
   // Browser-Zurück abfangen: der Hash-Router wechselt sonst kommentarlos die
@@ -239,7 +240,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     history.pushState(null, '', route)
     const onPop = () => {
       if (submittingRef.current) return
-      if (window.confirm(t('grading.leaveConfirm'))) {
+      if (window.confirm(t('forms:leaveConfirm'))) {
         navigate('/grading')
         return
       }
@@ -328,11 +329,11 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   /** Schritt 1: Kopfdaten inkl. Student/Instructor */
   const validateHeader = (): string => {
     errorKeyRef.current = null
-    if (!formType) return t('grading.errFormType')
+    if (!formType) return t('forms:errFormType')
     for (const f of preFields) {
       if (f.required && !header[f.key]?.trim()) {
         errorKeyRef.current = f.key
-        return t('grading.errRequired', { field: f.label })
+        return t('forms:errRequired', { field: f.label })
       }
     }
     // Entweder-oder-Paare: eines von beiden ist Pflicht
@@ -341,11 +342,11 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
       if (!partner) continue
       if (!header[f.key]?.trim() && !header[partner.key]?.trim()) {
         errorKeyRef.current = f.key
-        return t('grading.errEitherOr', { a: f.label, b: partner.label })
+        return t('forms:errEitherOr', { a: f.label, b: partner.label })
       }
     }
     if (competencies.length > 0) {
-      if (trainees.length === 0 || trainees.some((tr) => !tr.traineeName?.trim())) return t('grading.errNoTrainee')
+      if (trainees.length === 0 || trainees.some((tr) => !tr.traineeName?.trim())) return t('forms:errNoTrainee')
     }
     return ''
   }
@@ -356,31 +357,31 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     if (headErr) return headErr
     if (competencies.length > 0) {
       for (const tr of trainees) {
-        const name = tr.traineeName?.trim() || t('grading.trainee')
-        if (tr.grades.some((g) => g.grade === null)) return t('grading.errGrades')
+        const name = tr.traineeName?.trim() || t('forms:trainee')
+        if (tr.grades.some((g) => g.grade === null)) return t('forms:errGrades')
         // „NO" heißt not observed. Ein Blatt ohne eine einzige echte Note
         // belegt keine Kompetenz und darf nicht abgeschlossen werden.
-        if (!tr.grades.some((g) => typeof g.grade === 'number')) return t('grading.errAllNotObserved', { name })
+        if (!tr.grades.some((g) => typeof g.grade === 'number')) return t('forms:errAllNotObserved', { name })
         if (tr.grades.some((g) => (g.grade === 1 || g.grade === 2) && !g.comment.trim()))
-          return t('grading.errGradeComment', { name })
+          return t('forms:errGradeComment', { name })
         if (!tr.positiveComment.trim() || !tr.developmentComment.trim() || !tr.summaryComment.trim())
-          return t('grading.errComments', { name })
-        if (!tr.overall) return t('grading.errOverall')
+          return t('forms:errComments', { name })
+        if (!tr.overall) return t('forms:errOverall')
       }
-      if (!sessionStatus) return t('grading.errSession')
+      if (!sessionStatus) return t('forms:errSession')
     }
     for (const f of postFields) {
-      if (f.required && !header[f.key]?.trim()) return t('grading.errRequired', { field: f.label })
+      if (f.required && !header[f.key]?.trim()) return t('forms:errRequired', { field: f.label })
     }
     // Eine Anwesenheitsliste ohne Anwesende belegt nichts — sie war bisher
     // absendbar und wurde grün.
-    if (isAttendance && !attendance.some((a) => a.name.trim())) return t('grading.errNoAttendee')
+    if (isAttendance && !attendance.some((a) => a.name.trim())) return t('forms:errNoAttendee')
     // 307A ist eine Anwesenheitsliste: wer daraufsteht, war da und unterschreibt.
     if (formTypeId === '307A') {
       const open = attendance.find((a) => a.name.trim() && !a.signature)
-      if (open) return t('grading.errAttendanceSignature', { name: open.name.trim() })
+      if (open) return t('forms:errAttendanceSignature', { name: open.name.trim() })
     }
-    if (!sigInstructor) return t('grading.errSignature')
+    if (!sigInstructor) return t('forms:errSignature')
     return ''
   }
 
@@ -487,9 +488,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   const confirmImplausible = (): boolean => {
     const today = new Date(Date.now() + state.timeOffsetMs).toISOString().slice(0, 10)
     const future = headerFields.some((f) => f.type === 'date' && header[f.key] && header[f.key] > today)
-    if (future && !window.confirm(t('grading.warnFutureDate'))) return false
+    if (future && !window.confirm(t('forms:warnFutureDate'))) return false
     const zeroTime = headerFields.some((f) => f.type === 'duration' && f.required && header[f.key] === '00:00')
-    if (zeroTime && !window.confirm(t('grading.warnNoFlightTime'))) return false
+    if (zeroTime && !window.confirm(t('forms:warnNoFlightTime'))) return false
     return true
   }
 
@@ -684,9 +685,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   if (!mayGrade) {
     return (
       <>
-        <TopBar title={t('grading.newForm')} back="/grading" home={false} wide />
+        <TopBar title={t('forms:newForm')} back="/grading" home={false} wide />
         <Page>
-          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] leading-relaxed text-dim">{t('grading.noPermission')}</p>
+          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] leading-relaxed text-dim">{t('forms:noPermission')}</p>
         </Page>
       </>
     )
@@ -695,7 +696,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   return (
     <>
       <TopBar
-        title={parent ? `${formTypeId} · ${t('grading.followUpFor')} ${parent.formTypeId}` : t('grading.newForm')}
+        title={parent ? `${formTypeId} · ${t('forms:followUpFor')} ${parent.formTypeId}` : t('forms:newForm')}
         back="/grading"
         onBack={leaveGuard}
         home={false}
@@ -705,7 +706,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         {/* Wiederhergestellter Entwurf: sichtbar machen und verwerfbar halten */}
         {draftRestored && (
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 p-3.5 text-[13px]">
-            <p className="min-w-0 flex-1 leading-relaxed">{t('grading.draftRestored')}</p>
+            <p className="min-w-0 flex-1 leading-relaxed">{t('forms:draftRestored')}</p>
             <Button
               variant="ghost"
               onClick={() => {
@@ -714,14 +715,14 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 navigate('/grading')
               }}
             >
-              {t('grading.draftDiscard')}
+              {t('forms:draftDiscard')}
             </Button>
           </div>
         )}
 
         {/* 1. Formulartyp */}
         <Card className="p-4">
-          <Field label={t('grading.formType')}>
+          <Field label={t('forms:formType')}>
             <select
               value={formTypeId ?? ''}
               disabled={!!existing || !!presetType}
@@ -758,13 +759,13 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             {/* 2a. Student / Instructor — Aufbau wie im Originalformular */}
             {competencies.length > 0 && (
               <Card className="space-y-4 p-4">
-                <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.participants')}</p>
+                <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:participants')}</p>
 
                 {trainees.map((tr, i) => (
                   <div key={i} className="rounded-xl border border-line/10 p-3">
                     <div className="mb-2 flex items-center gap-2">
                       <p className="flex-1 text-[13px] font-semibold text-accent">
-                        {isInstructorSheet ? 'Candidate Instructor' : t('grading.student')} {trainees.length > 1 ? i + 1 : ''}
+                        {isInstructorSheet ? 'Candidate Instructor' : t('forms:student')} {trainees.length > 1 ? i + 1 : ''}
                       </p>
                       {trainees.length > 1 && (
                         <button onClick={() => removeTrainee(i)} className="text-dim hover:text-danger">
@@ -776,7 +777,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                     <input
                       value={tr.traineeName ?? ''}
                       onChange={(e) => setTrainee(i, { traineeName: e.target.value })}
-                      placeholder={t('grading.studentName')}
+                      placeholder={t('forms:studentName')}
                       className={`${inputCls} mb-2`}
                     />
                     {/* 308G kennt keine CDR/FO- und Sitzchips — dort stehen
@@ -813,15 +814,15 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   onClick={() => setTrainees([...trainees, emptyTrainee(codes, isInstructorSheet ? '' : 'CDR')])}
                   className="flex items-center gap-1.5 text-[13.5px] font-medium text-accent hover:underline"
                 >
-                  <Plus size={15} /> {t('grading.addTrainee')}
+                  <Plus size={15} /> {t('forms:addTrainee')}
                 </button>
                 {trainees.length > 1 && (
-                  <p className="rounded-xl bg-bg/40 p-3 text-[12px] leading-relaxed text-dim">{t('grading.multiStudentHint')}</p>
+                  <p className="rounded-xl bg-bg/40 p-3 text-[12px] leading-relaxed text-dim">{t('forms:multiStudentHint')}</p>
                 )}
 
                 <div className="rounded-xl border border-line/10 p-3">
                   <p className="mb-2 text-[13px] font-semibold text-accent">
-                    {isInstructorSheet ? 'Course Instructor' : t('grading.instructor')}
+                    {isInstructorSheet ? 'Course Instructor' : t('forms:instructor')}
                   </p>
                   <p className="mb-2 rounded-lg bg-bg/40 px-3 py-2 text-[14px]">{currentUser!.name}</p>
                   <div className={`flex flex-wrap items-center gap-1.5 ${isInstructorSheet ? 'hidden' : ''}`}>
@@ -855,14 +856,14 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
             {/* 2b. Kopfdaten (nur Felder, die VOR dem Grading erfasst werden) */}
             <Card className="space-y-3 p-4">
-              <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.headerData')}</p>
+              <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:headerData')}</p>
               <div className="grid gap-3 sm:grid-cols-2">{preFields.map(renderField)}</div>
               {/* Kein Katalogfeld: die Behörde gehört zu JEDEM Formulartyp
                   und bestimmt die ATO-Kennung im Dokumentkopf. */}
-              <Field label={t('grading.authority')}>
+              <Field label={t('forms:authority')}>
                 <select value={authority} onChange={(e) => setAuthority(e.target.value as 'AT' | 'UK')} className={selectCls}>
-                  <option value="AT">{t('grading.authorityAT', { nr: state.settings.documentHeader?.approvalNumber || 'AT.ATO.106' })}</option>
-                  <option value="UK">{t('grading.authorityUK', { nr: state.settings.documentHeader?.approvalNumberUK || 'GBR.ATO.0541' })}</option>
+                  <option value="AT">{t('forms:authorityAT', { nr: state.settings.documentHeader?.approvalNumber || 'AT.ATO.106' })}</option>
+                  <option value="UK">{t('forms:authorityUK', { nr: state.settings.documentHeader?.approvalNumberUK || 'GBR.ATO.0541' })}</option>
                 </select>
               </Field>
             </Card>
@@ -902,7 +903,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 scrollToTop()
               }}
             >
-              {competencies.length > 0 ? t('grading.toGrading') : t('grading.continue')} <ArrowRight size={16} />
+              {competencies.length > 0 ? t('forms:toGrading') : t('forms:continue')} <ArrowRight size={16} />
             </Button>
             {error && (
               <p id="form-error" role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-[13px] text-danger">
@@ -915,7 +916,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         {formType && step === 2 && (
           <>
             <button onClick={() => { setStep(1); scrollToTop() }} className="flex items-center gap-1.5 text-[13.5px] text-dim hover:text-ink">
-              <ArrowLeft size={15} /> {t('grading.backToHeader')}
+              <ArrowLeft size={15} /> {t('forms:backToHeader')}
             </button>
 
             {/* 4. Grading je Pilot */}
@@ -926,7 +927,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 <Card key={i} className="space-y-4 p-4">
                   <div className="flex items-center gap-2">
                     <p className="flex-1 text-[13px] font-semibold uppercase tracking-wide text-dim">
-                      {tr.traineeName?.trim() || t('grading.traineeN', { n: i + 1 })}
+                      {tr.traineeName?.trim() || t('forms:traineeN', { n: i + 1 })}
                       {tr.position ? ` · ${tr.position}` : ''}
                       {tr.seat ? ` · ${tr.seat}` : ''}
                     </p>
@@ -948,7 +949,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                             </div>
                             <button
                               onClick={() => setOpenBehaviour(openBehaviour === key ? null : key)}
-                              title={t('grading.behaviours')}
+                              title={t('forms:behaviours')}
                               className="min-h-11 flex shrink-0 items-center gap-1 rounded-lg border border-line/15 px-2 py-1 text-[11.5px] text-dim hover:text-accent"
                             >
                               <Info size={12} /> OB <ChevronDown size={11} className={openBehaviour === key ? 'rotate-180' : ''} />
@@ -977,7 +978,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                           <input
                             value={g?.comment ?? ''}
                             onChange={(e) => setGradeComment(i, c.code, e.target.value)}
-                            placeholder={commentRequired ? t('grading.commentRequired') : t('grading.commentOptional')}
+                            placeholder={commentRequired ? t('forms:commentRequired') : t('forms:commentOptional')}
                             className={`${inputCls} mt-2 text-[13px] ${commentRequired && !g?.comment.trim() ? 'border-danger/60' : ''}`}
                           />
                         </div>
@@ -986,18 +987,18 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-3">
-                    <Field label={t('grading.positive') + ' *'}>
+                    <Field label={t('forms:positive') + ' *'}>
                       <textarea value={tr.positiveComment} onChange={(e) => setTrainee(i, { positiveComment: e.target.value })} className={`${inputCls} min-h-24`} />
                     </Field>
-                    <Field label={t('grading.development') + ' *'}>
+                    <Field label={t('forms:development') + ' *'}>
                       <textarea value={tr.developmentComment} onChange={(e) => setTrainee(i, { developmentComment: e.target.value })} className={`${inputCls} min-h-24`} />
                     </Field>
-                    <Field label={t('grading.summary') + ' *'}>
+                    <Field label={t('forms:summary') + ' *'}>
                       <textarea value={tr.summaryComment} onChange={(e) => setTrainee(i, { summaryComment: e.target.value })} className={`${inputCls} min-h-24`} />
                     </Field>
                   </div>
 
-                  <Field label={t('grading.overall') + ' *'} group>
+                  <Field label={t('forms:overall') + ' *'} group>
                     <div className="flex gap-2">
                       {(['competent', 'not_competent'] as OverallResult[]).map((o) => (
                         <button
@@ -1013,11 +1014,11 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                               : 'border-line/15 text-dim'
                           }`}
                         >
-                          {t(`grading.${o}`)}
+                          {t(`forms:${o}`)}
                         </button>
                       ))}
                     </div>
-                    {auto && <p role="status" className="mt-2 text-[12.5px] leading-relaxed text-danger">{t('grading.autoNotCompetent')}</p>}
+                    {auto && <p role="status" className="mt-2 text-[12.5px] leading-relaxed text-danger">{t('forms:autoNotCompetent')}</p>}
                   </Field>
                 </Card>
                 )
@@ -1026,7 +1027,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             {competencies.length > 0 && (
               <>
                 <Card className="p-4">
-                  <Field label={t('grading.sessionStatus') + ' *'} group>
+                  <Field label={t('forms:sessionStatus') + ' *'} group>
                     <div className="flex gap-2">
                       {(['completed', 'not_completed'] as SessionStatus[]).map((sst) => (
                         <button
@@ -1037,7 +1038,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                             sessionStatus === sst ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-line/15 text-dim'
                           }`}
                         >
-                          {t(`grading.${sst}`)}
+                          {t(`forms:${sst}`)}
                         </button>
                       ))}
                     </div>
@@ -1049,8 +1050,8 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             {/* 4b. Session-Daten — werden immer erst NACH dem Grading erfasst */}
             {postFields.length > 0 && (
               <Card className="space-y-3 p-4">
-                <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.sessionData')}</p>
-                <p className="text-[12px] leading-relaxed text-dim">{t('grading.sessionDataHint')}</p>
+                <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:sessionData')}</p>
+                <p className="text-[12px] leading-relaxed text-dim">{t('forms:sessionDataHint')}</p>
                 <div className="grid gap-3 sm:grid-cols-2">{postFields.map(renderField)}</div>
               </Card>
             )}
@@ -1058,7 +1059,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             {/* 4c. Teilnehmerliste (307A/307B) */}
             {isAttendance && (
               <Card className="space-y-3 p-4">
-                <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.attendance')}</p>
+                <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:attendance')}</p>
                 {attendance.map((a, i) => (
                   <div key={i} className="space-y-2 rounded-xl border border-line/10 p-3">
                     <div className="flex items-center gap-2">
@@ -1066,13 +1067,13 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                       <input
                         value={a.name}
                         onChange={(e) => setAttendance(attendance.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
-                        placeholder={t('grading.studentName')}
+                        placeholder={t('forms:studentName')}
                         className={inputCls}
                       />
                       {attendance.length > 1 && (
                         <button
                           onClick={() => setAttendance(attendance.filter((_, j) => j !== i))}
-                          aria-label={t('common.delete')}
+                          aria-label={t('forms:removePilot')}
                           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dim hover:text-danger"
                         >
                           <Trash2 size={15} />
@@ -1086,7 +1087,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                       <SignaturePad
                         value={a.signature}
                         onChange={(sig) => setAttendance(attendance.map((x, j) => (j === i ? { ...x, signature: sig } : x)))}
-                        label={t('grading.attendanceSignature')}
+                        label={t('forms:attendanceSignature')}
                       />
                     )}
                   </div>
@@ -1095,9 +1096,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   onClick={() => setAttendance([...attendance, { name: '', signature: null }])}
                   className="flex items-center gap-1.5 text-[13.5px] font-medium text-accent hover:underline"
                 >
-                  <Plus size={15} /> {t('grading.addAttendee')}
+                  <Plus size={15} /> {t('forms:addAttendee')}
                 </button>
-                {formTypeId === '307B' && <p className="text-[11.5px] leading-relaxed text-dim">{t('grading.attendance307B')}</p>}
+                {formTypeId === '307B' && <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:attendance307B')}</p>}
               </Card>
             )}
 
@@ -1105,39 +1106,39 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 Bei mehreren Studenten unterschreibt JEDER einzeln; pro Student
                 entsteht beim Abschluss ein eigenes Formular. */}
             <Card className="space-y-4 p-4">
-              <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.signatures')}</p>
+              <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:signatures')}</p>
               <div className="grid gap-4 sm:grid-cols-2">
-                <SignaturePad value={sigInstructor} onChange={setSigInstructor} label={t('grading.sigInstructor')} />
+                <SignaturePad value={sigInstructor} onChange={setSigInstructor} label={t('forms:sigInstructor')} />
                 {competencies.length > 0 ? (
                   trainees.map((tr, i) => (
                     <SignaturePad
                       key={i}
                       value={sigTrainees[i] ?? null}
                       onChange={(v) => setSigTrainees((s) => ({ ...s, [i]: v }))}
-                      label={`${t('grading.sigTrainee')} — ${tr.traineeName?.trim() || t('grading.traineeN', { n: i + 1 })}`}
+                      label={`${t('forms:sigTrainee')} — ${tr.traineeName?.trim() || t('forms:traineeN', { n: i + 1 })}`}
                     />
                   ))
                 ) : (
-                  !isAttendance && <SignaturePad value={sigTrainee} onChange={setSigTrainee} label={t('grading.sigTrainee')} />
+                  !isAttendance && <SignaturePad value={sigTrainee} onChange={setSigTrainee} label={t('forms:sigTrainee')} />
                 )}
               </div>
               {trainees.length > 1 && (
-                <p className="text-[11.5px] leading-relaxed text-dim">{t('grading.multiStudentHint')}</p>
+                <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:multiStudentHint')}</p>
               )}
-              <p className="text-[11.5px] leading-relaxed text-dim">{t('grading.lockNote')}</p>
-              <p className="text-[11.5px] leading-relaxed text-dim">{t('grading.sigLiveNote')}</p>
+              <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:lockNote')}</p>
+              <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:sigLiveNote')}</p>
             </Card>
 
             {/* Deferred Item: Versand geht immer an den Training Admin */}
             {formTypeId === '310' && (
               <p className="rounded-xl border border-warm/25 bg-warm/5 p-3.5 text-[12.5px] leading-relaxed text-dim">
-                {t('grading.deferredMailNote', { recipients: grading.deferredRecipients.join(', ') })}
+                {t('forms:deferredMailNote', { recipients: grading.deferredRecipients.join(', ') })}
               </p>
             )}
 
             {/* 6. Empfänger: Standard (Admin-Konfiguration) + zusätzliche */}
             <Card className="space-y-3 p-4">
-              <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.recipientsCard')}</p>
+              <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:recipientsCard')}</p>
               <div className="flex flex-wrap gap-1.5">
                 {[
                   ...grading.defaultRecipients,
@@ -1170,7 +1171,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                       value={recipientDraft}
                       onChange={(e) => setRecipientDraft(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && addRecipient()}
-                      placeholder={t('grading.addRecipient')}
+                      placeholder={t('forms:addRecipient')}
                       className={inputCls}
                     />
                     <Button variant="ghost" onClick={addRecipient} disabled={!/.+@.+\..+/.test(recipientDraft.trim())}>
@@ -1179,7 +1180,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   </div>
                 )
               })()}
-              <p className="text-[11.5px] leading-relaxed text-dim">{t('grading.extraRecipientsHint')}</p>
+              <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:extraRecipientsHint')}</p>
             </Card>
 
             {/* 7. Senden — erst möglich, wenn alles vollständig ausgefüllt ist */}
@@ -1189,7 +1190,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 <>
                   {liveError && (
                     <p className="rounded-xl border border-warm/25 bg-warm/5 p-3.5 text-[12.5px] leading-relaxed text-dim">
-                      {t('grading.sendBlocked')} {liveError}
+                      {t('forms:sendBlocked')} {liveError}
                     </p>
                   )}
                   <Button
@@ -1197,7 +1198,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                     className="flex w-full items-center justify-center gap-2 py-3 disabled:cursor-not-allowed disabled:opacity-45"
                     onClick={submit}
                   >
-                    <Send size={16} /> {t('grading.finish')}
+                    <Send size={16} /> {t('forms:finish')}
                   </Button>
                 </>
               )
@@ -1207,8 +1208,8 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
       </Page>
 
       {showFollowUp && (
-        <Modal title={t('grading.followUpTitle')} onClose={() => setShowFollowUp(false)}>
-          <p className="mb-4 text-[13.5px] leading-relaxed text-dim">{t('grading.followUpBodyMandatory')}</p>
+        <Modal title={t('forms:followUpTitle')} onClose={() => setShowFollowUp(false)}>
+          <p className="mb-4 text-[13.5px] leading-relaxed text-dim">{t('forms:followUpBodyMandatory')}</p>
           <div className="space-y-2">
             {/* Über den Katalog iterieren, nicht über eine feste Liste: Fehlt
                 ein Typ (der Superadmin darf ihn löschen, solange kein
@@ -1239,7 +1240,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   {/* Pflichtformular: vorausgewählt und nicht abwählbar */}
                   {required && (
                     <span className="shrink-0 rounded-full bg-danger/15 px-2 py-0.5 text-[11px] font-semibold text-danger">
-                      {t('grading.mandatory')}
+                      {t('forms:mandatory')}
                     </span>
                   )}
                 </button>
@@ -1249,19 +1250,19 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
           {/* Bei mehreren Piloten im Durchgang entsteht je Pilot ein 306 */}
           {notCompetentCount > 1 && followUps.includes('306') && (
             <p className="mt-3 rounded-xl border border-warm/25 bg-warm/5 p-3 text-[12.5px] leading-relaxed">
-              {t('grading.followUp306PerPilot', { count: notCompetentCount })}
+              {t('forms:followUp306PerPilot', { count: notCompetentCount })}
             </p>
           )}
           {/* Gleiches gilt seit #24 für das 310: es nennt genau einen Piloten. */}
           {trainees.length > 1 && followUps.includes('310') && (
             <p className="mt-3 rounded-xl border border-warm/25 bg-warm/5 p-3 text-[12.5px] leading-relaxed">
-              {t('grading.followUp310PerPilot', { count: trainees.length })}
+              {t('forms:followUp310PerPilot', { count: trainees.length })}
             </p>
           )}
-          <p className="mt-3 text-[12px] leading-relaxed text-dim">{t('grading.followUpMailNote')}</p>
+          <p className="mt-3 text-[12px] leading-relaxed text-dim">{t('forms:followUpMailNote')}</p>
           <div className="mt-5 flex justify-end">
             <Button onClick={finish} disabled={followUps.length === 0 || submitting}>
-              {t('grading.openFollowUp')}
+              {t('forms:openFollowUp')}
             </Button>
           </div>
         </Modal>

@@ -99,17 +99,17 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
     <div className="mt-2 space-y-2.5 rounded-xl border border-accent/30 bg-bg/40 p-3">
       <div className="flex gap-2">
         {!hideCodes && (
-          <Field label={t('grading.admin.codeLabel')}>
+          <Field label={t('forms:admin.codeLabel')}>
             <input className={`${inputCls} w-24 font-mono uppercase`} value={draft.code} onChange={(e) => setDraft({ ...draft, code: e.target.value })} />
           </Field>
         )}
         <div className="flex-1">
-          <Field label={t('grading.admin.titleLabel')}>
+          <Field label={t('forms:admin.titleLabel')}>
             <input className={inputCls} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
           </Field>
         </div>
       </div>
-      <Field label={t('grading.admin.obLabel')}>
+      <Field label={t('forms:admin.obLabel')}>
         <textarea className={`${inputCls} min-h-28 text-[12.5px]`} value={draft.behaviours} onChange={(e) => setDraft({ ...draft, behaviours: e.target.value })} />
       </Field>
       <div className="flex justify-end gap-2">
@@ -133,7 +133,7 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
                 <Pencil size={14} />
               </button>
               <button
-                onClick={() => window.confirm(t('grading.admin.deleteCompetencyConfirm')) && onChange(set.competencies.filter((x) => x.code !== c.code))}
+                onClick={() => window.confirm(t('forms:admin.deleteCompetencyConfirm')) && onChange(set.competencies.filter((x) => x.code !== c.code))}
                 title={t('common.delete')}
                 className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-danger"
               >
@@ -145,7 +145,7 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
         ))}
         <div className="px-3 py-2">
           <button onClick={() => startEdit()} className="flex items-center gap-1.5 text-[13px] font-medium text-accent hover:underline">
-            <Plus size={14} /> {t('grading.admin.addCompetency')}
+            <Plus size={14} /> {t('forms:admin.addCompetency')}
           </button>
           {editCode === '__new__' && editorForm}
         </div>
@@ -175,7 +175,7 @@ function FieldOptionsEditor({ field, onChange }: { field: FormField; onChange: (
       </p>
       {/* Die Musterliste gilt app-weit und wird in den Einstellungen gepflegt */}
       {field.key === 'aircraftType' ? (
-        <p className="text-[11.5px] leading-relaxed text-dim">{t('grading.admin.aircraftCentral')}</p>
+        <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:admin.aircraftCentral')}</p>
       ) : (
         <>
           <div className="mb-2 flex flex-wrap gap-1.5">
@@ -255,20 +255,20 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
             <span className="w-14 shrink-0 font-mono text-[12.5px] font-semibold">{f.id}</span>
             <span className="min-w-0 flex-1 truncate text-[13px]">{f.title}</span>
             <span className="shrink-0 text-[11.5px] text-dim">
-              {f.fields.filter((x) => x.required).length} {t('grading.admin.requiredFields')} · {f.fields.length} {t('grading.admin.fieldsTotal')}
+              {f.fields.filter((x) => x.required).length} {t('forms:admin.requiredFields')} · {f.fields.length} {t('forms:admin.fieldsTotal')}
             </span>
             <button onClick={() => startEdit(f)} title={t('common.edit')} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-accent">
               <Pencil size={14} />
             </button>
             <button
               onClick={() => setOptionsId(optionsId === f.id ? null : f.id)}
-              title={t('grading.admin.editOptions')}
+              title={t('forms:admin.editOptions')}
               className={`shrink-0 rounded-lg p-1.5 transition ${optionsId === f.id ? 'text-accent' : 'text-dim hover:text-accent'}`}
             >
               <ListChecks size={14} />
             </button>
             <button
-              onClick={() => window.confirm(t('grading.admin.deleteFormTypeConfirm')) && onChange(formTypes.filter((x) => x.id !== f.id))}
+              onClick={() => window.confirm(t('forms:admin.deleteFormTypeConfirm')) && onChange(formTypes.filter((x) => x.id !== f.id))}
               title={t('common.delete')}
               className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-danger"
             >
@@ -278,7 +278,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
           {/* Auswahlwerte aller Felder dieses Formulars pflegen */}
           {optionsId === f.id && (
             <div className="mt-2 space-y-2 rounded-xl border border-accent/30 bg-bg/40 p-3">
-              <p className="text-[12px] leading-relaxed text-dim">{t('grading.admin.editOptionsHint')}</p>
+              <p className="text-[12px] leading-relaxed text-dim">{t('forms:admin.editOptionsHint')}</p>
               {f.fields.filter((fl) => ['select', 'radiogroup', 'checkgroup'].includes(fl.type)).map((fl) => (
                 <FieldOptionsEditor
                   key={fl.key}
@@ -296,7 +296,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
           )}
           {editId === f.id && (
             <div className="mt-2 space-y-2.5 rounded-xl border border-accent/30 bg-bg/40 p-3">
-              <Field label={t('grading.admin.titleLabel')}>
+              <Field label={t('forms:admin.titleLabel')}>
                 <input className={inputCls} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} autoFocus />
               </Field>
               <div className="flex justify-end gap-2">
@@ -309,33 +309,33 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
       ))}
       <div className="px-3 py-2">
         <button onClick={() => startEdit()} className="flex items-center gap-1.5 text-[13px] font-medium text-accent hover:underline">
-          <Plus size={14} /> {t('grading.admin.addFormType')}
+          <Plus size={14} /> {t('forms:admin.addFormType')}
         </button>
         {editId === '__new__' && (
           <div className="mt-2 space-y-2.5 rounded-xl border border-accent/30 bg-bg/40 p-3">
             <div className="flex gap-2">
-              <Field label={t('grading.admin.formIdLabel')}>
+              <Field label={t('forms:admin.formIdLabel')}>
                 <input className={`${inputCls} w-28 font-mono uppercase`} value={draft.id} onChange={(e) => setDraft({ ...draft, id: e.target.value })} autoFocus />
               </Field>
               <div className="flex-1">
-                <Field label={t('grading.admin.titleLabel')}>
+                <Field label={t('forms:admin.titleLabel')}>
                   <input className={inputCls} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />
                 </Field>
               </div>
             </div>
-            <Field label={t('grading.admin.schemeLabel')}>
+            <Field label={t('forms:admin.schemeLabel')}>
               <select
                 value={draft.scheme}
                 onChange={(e) => setDraft({ ...draft, scheme: e.target.value as CompetencySetKey | 'none' })}
                 className={selectCls}
               >
-                <option value="pilot">{t('grading.admin.schemePilot')}</option>
-                <option value="instructor">{t('grading.admin.schemeInstructor')}</option>
-                <option value="none">{t('grading.admin.schemeNone')}</option>
+                <option value="pilot">{t('forms:admin.schemePilot')}</option>
+                <option value="instructor">{t('forms:admin.schemeInstructor')}</option>
+                <option value="none">{t('forms:admin.schemeNone')}</option>
               </select>
             </Field>
-            {idTaken && <p className="text-[12.5px] text-danger">{t('grading.admin.formIdTaken')}</p>}
-            <p className="text-[11.5px] leading-relaxed text-dim">{t('grading.admin.newFormHint')}</p>
+            {idTaken && <p className="text-[12.5px] text-danger">{t('forms:admin.formIdTaken')}</p>}
+            <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:admin.newFormHint')}</p>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditId(null)}>{t('common.cancel')}</Button>
               <Button disabled={!draft.id.trim() || !draft.title.trim() || idTaken} onClick={save}>{t('common.save')}</Button>
@@ -463,9 +463,16 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
         // Aus dem gemeinsamen Modul, damit Kachel und Bericht nicht
         // auseinanderlaufen können.
         const shared = calibrationSets.find((c) => c.key === key)
+        // Abweichung UND Kennzeichnung kommen mit — die Kachel rechnete die
+        // Abweichung vorher selbst nach und beurteilte sie mit einer eigenen
+        // Schwelle (0,50, ohne Mindestdatenmenge). Damit gab es zwei
+        // Antworten auf dieselbe Frage: Der Monatsbericht meldete bei 0,45
+        // bereits „beobachten", die Kachel schwieg; bei acht Noten meldete
+        // die Kachel eine Auffaelligkeit, wo der Bericht ehrlich „zu wenig
+        // Daten" sagte.
         const calibration = {
           overall: shared?.overall ?? null,
-          rows: (shared?.rows ?? []).map((r) => ({ id: r.id, avg: r.mean, sessions: r.sessions })),
+          rows: (shared?.rows ?? []).map((r) => ({ id: r.id, avg: r.mean, sessions: r.sessions, delta: r.delta, flag: r.flag })),
         }
 
         const fleets = [...new Set(allOfSet.map((r) => r.header.aircraftType).filter(Boolean))].sort()
@@ -547,7 +554,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
    *  selbst sagen, welcher Ausschnitt sie ist. */
   const activeFilters: [string, string][] = [
     ['Rows', `${filtered.length} of ${records.length}`],
-    ...(filterPeriod !== 'all' ? ([['Period', t(`grading.ta.period.${filterPeriod}`)]] as [string, string][]) : []),
+    ...(filterPeriod !== 'all' ? ([['Period', t(`forms:ta.period.${filterPeriod}`)]] as [string, string][]) : []),
     ...(filterType ? ([['Form type', filterType]] as [string, string][]) : []),
     ...(trafficFilter ? ([['Traffic light', trafficFilter]] as [string, string][]) : []),
     ...(filterTrainee ? ([['Trainee', filterTrainee]] as [string, string][]) : []),
@@ -682,7 +689,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg">
                 <Icon size={24} />
               </span>
-              <span className="px-2 text-center text-[13.5px] font-semibold leading-tight">{t(`grading.admin.${key}`)}</span>
+              <span className="px-2 text-center text-[13.5px] font-semibold leading-tight">{t(`forms:admin.${key}`)}</span>
             </button>
           ))}
         </div>
@@ -697,15 +704,15 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
         <div className="space-y-3">
           {/* Ampel-Legende */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line/10 bg-surface/60 px-3.5 py-2.5 text-[11.5px] text-dim">
-            <span className="inline-flex items-center gap-1.5"><TrafficDot color="green" /> {t('grading.traffic.green')}</span>
-            <span className="inline-flex items-center gap-1.5"><TrafficDot color="yellow" /> {t('grading.traffic.yellow')}</span>
-            <span className="inline-flex items-center gap-1.5"><TrafficDot color="red" /> {t('grading.traffic.red')}</span>
+            <span className="inline-flex items-center gap-1.5"><TrafficDot color="green" /> {t('forms:traffic.green')}</span>
+            <span className="inline-flex items-center gap-1.5"><TrafficDot color="yellow" /> {t('forms:traffic.yellow')}</span>
+            <span className="inline-flex items-center gap-1.5"><TrafficDot color="red" /> {t('forms:traffic.red')}</span>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {[
-              { label: t('grading.admin.openSignatures'), value: openSignatures.length, icon: Clock, tone: openSignatures.length ? 'text-warm' : 'text-dim' },
-              { label: t('grading.admin.failedMails'), value: failedMails.length, icon: AlertTriangle, tone: failedMails.length ? 'text-danger' : 'text-dim' },
-              { label: t('grading.admin.openFollowUps'), value: openFollowUps.length, icon: AlertTriangle, tone: openFollowUps.length ? 'text-warm' : 'text-dim' },
+              { label: t('forms:admin.openSignatures'), value: openSignatures.length, icon: Clock, tone: openSignatures.length ? 'text-warm' : 'text-dim' },
+              { label: t('forms:admin.failedMails'), value: failedMails.length, icon: AlertTriangle, tone: failedMails.length ? 'text-danger' : 'text-dim' },
+              { label: t('forms:admin.openFollowUps'), value: openFollowUps.length, icon: AlertTriangle, tone: openFollowUps.length ? 'text-warm' : 'text-dim' },
             ].map((k) => (
               <Card key={k.label} className="flex items-center gap-3 p-4">
                 <k.icon size={20} className={k.tone} />
@@ -728,7 +735,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                   <p className="text-[12.5px] text-dim">{r.mailError}</p>
                 </div>
                 <Button variant="ghost" onClick={() => retryGradingMail(r.id)} className="flex shrink-0 items-center gap-1.5 py-1.5 text-[12.5px]">
-                  <RefreshCw size={13} /> {t('grading.admin.retry')}
+                  <RefreshCw size={13} /> {t('forms:admin.retry')}
                 </Button>
               </div>
             </Card>
@@ -738,7 +745,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
             <Card
               key={r.id}
               onClick={() => navigate(`/grading/${r.id}`)}
-              label={`${r.formTypeId} · ${traineesOf(r, records).map(traineeLabel).join(', ') || t('grading.openForm')} · ${dateLabel(r.createdAt)}`}
+              label={`${r.formTypeId} · ${traineesOf(r, records).map(traineeLabel).join(', ') || t('forms:openForm')} · ${dateLabel(r.createdAt)}`}
               className="flex items-center gap-3 p-4"
             >
               <Clock size={16} className="shrink-0 text-warm" />
@@ -746,7 +753,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 <p className="truncate text-[14px] font-semibold">
                   {r.formTypeId} · {traineesOf(r, records).map(traineeLabel).join(', ') || '—'}
                 </p>
-                <p className="text-[12.5px] text-dim">{t('grading.admin.awaitingSince', { date: dateLabel(r.createdAt) })}</p>
+                <p className="text-[12.5px] text-dim">{t('forms:admin.awaitingSince', { date: dateLabel(r.createdAt) })}</p>
               </div>
               <ChevronRight size={16} className="text-dim" />
             </Card>
@@ -761,7 +768,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                   {r.formTypeId} · {traineesOf(r, records).map(traineeLabel).join(', ') || '—'}
                 </p>
                 <p className="text-[12.5px] text-dim">
-                  {t('grading.admin.followUpMissing', { forms: missingFollowUps(r, records).join(', ') })}
+                  {t('forms:admin.followUpMissing', { forms: missingFollowUps(r, records).join(', ') })}
                 </p>
               </div>
               <ChevronRight size={16} className="text-dim" />
@@ -774,17 +781,17 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
       {section === 'records' && (
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('grading.admin.search')} className={`${inputCls} min-w-40 flex-1`} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('forms:admin.search')} className={`${inputCls} min-w-40 flex-1`} />
             <select value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
               {Object.keys(PERIOD_DAYS).map((k) => (
                 <option key={k} value={k}>
-                  {t(`grading.ta.period.${k}`)}
+                  {t(`forms:ta.period.${k}`)}
                 </option>
               ))}
             </select>
             {/* Trainee-Filter zuerst — die Standard-Sicht auf die Ablage */}
             <select value={filterTrainee} onChange={(e) => setFilterTrainee(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
-              <option value="">{t('grading.admin.allTrainees')}</option>
+              <option value="">{t('forms:admin.allTrainees')}</option>
               {traineeOptions.map((n) => (
                 <option key={n} value={n}>
                   {n}
@@ -792,7 +799,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               ))}
             </select>
             <select value={filterInstructor} onChange={(e) => setFilterInstructor(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
-              <option value="">{t('grading.admin.allInstructors')}</option>
+              <option value="">{t('forms:admin.allInstructors')}</option>
               {instructorOptions.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.name}
@@ -800,12 +807,12 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               ))}
             </select>
             <select value={filterAuthority} onChange={(e) => setFilterAuthority(e.target.value as '' | 'AT' | 'UK')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
-              <option value="">{t('grading.admin.allAuthorities')}</option>
-              <option value="AT">{t('grading.authorityAT', { nr: doc.approvalNumber || 'AT.ATO.106' })}</option>
-              <option value="UK">{t('grading.authorityUK', { nr: doc.approvalNumberUK || 'GBR.ATO.0541' })}</option>
+              <option value="">{t('forms:admin.allAuthorities')}</option>
+              <option value="AT">{t('forms:authorityAT', { nr: doc.approvalNumber || 'AT.ATO.106' })}</option>
+              <option value="UK">{t('forms:authorityUK', { nr: doc.approvalNumberUK || 'GBR.ATO.0541' })}</option>
             </select>
             <select value={filterAircraft} onChange={(e) => setFilterAircraft(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
-              <option value="">{t('grading.admin.allAircraft')}</option>
+              <option value="">{t('forms:admin.allAircraft')}</option>
               {aircraftOptions.map((a) => (
                 <option key={a} value={a}>
                   {a}
@@ -813,7 +820,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               ))}
             </select>
             <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
-              <option value="">{t('grading.admin.allTypes')}</option>
+              <option value="">{t('forms:admin.allTypes')}</option>
               {[...g.formTypes].sort((a, b) => a.id.localeCompare(b.id)).map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.id}
@@ -827,7 +834,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               onClick={() => setTrafficFilter('')}
               className={`min-h-11 rounded-full border px-2.5 py-1 transition ${trafficFilter === '' ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'}`}
             >
-              {t('grading.traffic.all')}
+              {t('forms:traffic.all')}
             </button>
             {(['green', 'yellow', 'red'] as TrafficColor[]).map((c) => (
               <button
@@ -837,7 +844,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                   trafficFilter === c ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'
                 }`}
               >
-                <TrafficDot color={c} /> {t(`grading.traffic.${c}`)}
+                <TrafficDot color={c} /> {t(`forms:traffic.${c}`)}
               </button>
             ))}
             {/* Ausblenden ist je Nutzer — hier sieht der Admin, was irgendwo
@@ -849,7 +856,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 onlyHidden ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'
               }`}
             >
-              <EyeOff size={12} /> {t('grading.admin.onlyHidden')}
+              <EyeOff size={12} /> {t('forms:admin.onlyHidden')}
             </button>
           </div>
           {/* Export genau dieser Ansicht: was die Filter zeigen, steht in der
@@ -862,19 +869,19 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 onClick={() => exportCsv(sc, { records: filtered, filters: activeFilters })}
                 className="flex items-center gap-1.5 text-[12.5px]"
               >
-                <Download size={13} /> {t(`grading.admin.export_${sc}`)}
+                <Download size={13} /> {t(`forms:admin.export_${sc}`)}
               </Button>
             ))}
-            <span className="text-[12px] text-dim">{t('grading.admin.exportListHint', { count: filtered.length })}</span>
+            <span className="text-[12px] text-dim">{t('forms:admin.exportListHint', { count: filtered.length })}</span>
           </div>
           {/* Filterergebnis ansagen — sichtbar ändert sich nur die Liste */}
-          <p role="status" className="sr-only">{t('grading.admin.resultCount', { shown: filtered.length, total: records.length })}</p>
-          {filtered.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('grading.empty')}</p>}
+          <p role="status" className="sr-only">{t('forms:admin.resultCount', { shown: filtered.length, total: records.length })}</p>
+          {filtered.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('forms:empty')}</p>}
           {filtered.map((r) => (
             <Card
               key={r.id}
               onClick={() => navigate(`/grading/${r.id}`)}
-              label={`${r.formTypeId} · ${traineesOf(r, records).map(traineeLabel).join(', ') || t('grading.openForm')} · ${dateLabel(r.createdAt)}`}
+              label={`${r.formTypeId} · ${traineesOf(r, records).map(traineeLabel).join(', ') || t('forms:openForm')} · ${dateLabel(r.createdAt)}`}
               className="flex items-center gap-3 p-4"
             >
               <TrafficDot color={trafficLight(r, records)} />
@@ -888,17 +895,17 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                   <span className="shrink-0">· {dateLabel(r.createdAt)}</span>
                 </p>
               </div>
-              {r.trainees.some((tr) => tr.overall === 'not_competent') && <Badge tone="warm">{t('grading.notCompetent')}</Badge>}
+              {r.trainees.some((tr) => tr.overall === 'not_competent') && <Badge tone="warm">{t('forms:notCompetent')}</Badge>}
               {!!r.hiddenFor?.length && (
                 <>
-                  <Badge tone="warm">{t('grading.admin.hiddenBadge', { count: r.hiddenFor.length })}</Badge>
+                  <Badge tone="warm">{t('forms:admin.hiddenBadge', { count: r.hiddenFor.length })}</Badge>
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
                       unhideGradingRecord(r.id)
                     }}
-                    title={t('grading.admin.restore')}
-                    aria-label={t('grading.admin.restore')}
+                    title={t('forms:admin.restore')}
+                    aria-label={t('forms:admin.restore')}
                     className="pointer-events-auto relative z-10 shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-ok/10 hover:text-ok"
                   >
                     <Eye size={16} />
@@ -911,7 +918,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    if (window.confirm(t('grading.ta.deleteConfirm'))) deleteGradingRecord(r.id)
+                    if (window.confirm(t('forms:ta.deleteConfirm'))) deleteGradingRecord(r.id)
                   }}
                   aria-label={t('common.delete')}
                   title={t('common.delete')}
@@ -929,13 +936,13 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
       {section === 'config' && (
         <div className="space-y-4">
           <Card className="space-y-4 p-4">
-            <StringList label={t('grading.admin.defaultRecipients')} values={g.defaultRecipients} onChange={(v) => updateGrading({ defaultRecipients: v })} />
-            <StringList label={t('grading.admin.escalationRecipients')} values={g.escalationRecipients} onChange={(v) => updateGrading({ escalationRecipients: v })} />
-            <StringList label={t('grading.admin.deferredRecipients')} values={g.deferredRecipients} onChange={(v) => updateGrading({ deferredRecipients: v })} />
+            <StringList label={t('forms:admin.defaultRecipients')} values={g.defaultRecipients} onChange={(v) => updateGrading({ defaultRecipients: v })} />
+            <StringList label={t('forms:admin.escalationRecipients')} values={g.escalationRecipients} onChange={(v) => updateGrading({ escalationRecipients: v })} />
+            <StringList label={t('forms:admin.deferredRecipients')} values={g.deferredRecipients} onChange={(v) => updateGrading({ deferredRecipients: v })} />
           </Card>
 
           <Card className="p-4">
-            <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.competencySets')}</p>
+            <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.competencySets')}</p>
             {g.competencySets.map((set) => (
               <CompetencySetEditor
                 key={set.key}
@@ -945,11 +952,11 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 }
               />
             ))}
-            <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('grading.admin.competencyHint')}</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('forms:admin.competencyHint')}</p>
           </Card>
 
           <Card className="p-4">
-            <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.formTypes')}</p>
+            <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.formTypes')}</p>
             <FormTypeEditor formTypes={g.formTypes} onChange={(formTypes) => updateGrading({ formTypes })} />
           </Card>
         </div>
@@ -979,24 +986,24 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
         <div className="print-landscape space-y-4">
           {/* Vergleich einzelner Flotten: Auswahl gilt für Trendflags und Kalibrierung */}
           <div className="flex flex-wrap items-center gap-2">
-            <label className="text-[13px] font-medium text-dim">{t('grading.admin.fleetFilter')}</label>
+            <label className="text-[13px] font-medium text-dim">{t('forms:admin.fleetFilter')}</label>
             <select value={statsFleet} onChange={(e) => setStatsFleet(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
-              <option value="">{t('grading.admin.allAircraft')}</option>
+              <option value="">{t('forms:admin.allAircraft')}</option>
               {aircraftOptions.map((a) => (
                 <option key={a} value={a}>
                   {a}
                 </option>
               ))}
             </select>
-            <label className="text-[13px] font-medium text-dim">{t('grading.admin.authorityFilter')}</label>
+            <label className="text-[13px] font-medium text-dim">{t('forms:admin.authorityFilter')}</label>
             <select value={statsAuthority} onChange={(e) => setStatsAuthority(e.target.value as '' | 'AT' | 'UK')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
-              <option value="">{t('grading.admin.allAuthorities')}</option>
-              <option value="AT">{t('grading.authorityAT', { nr: doc.approvalNumber || 'AT.ATO.106' })}</option>
-              <option value="UK">{t('grading.authorityUK', { nr: doc.approvalNumberUK || 'GBR.ATO.0541' })}</option>
+              <option value="">{t('forms:admin.allAuthorities')}</option>
+              <option value="AT">{t('forms:authorityAT', { nr: doc.approvalNumber || 'AT.ATO.106' })}</option>
+              <option value="UK">{t('forms:authorityUK', { nr: doc.approvalNumberUK || 'GBR.ATO.0541' })}</option>
             </select>
             {/* Zeitraum gilt auch für den Standardisierungsbericht — beide
                 zeigen denselben Ausschnitt und nennen ihn. */}
-            <label className="text-[13px] font-medium text-dim">{t('grading.std.period.label')}</label>
+            <label className="text-[13px] font-medium text-dim">{t('forms:std.period.label')}</label>
             <select
               value={statsPeriod}
               onChange={(e) => setStatsPeriod(e.target.value as PeriodKey)}
@@ -1004,19 +1011,19 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
             >
               {PERIODS.map((p2) => (
                 <option key={p2.key} value={p2.key}>
-                  {t(`grading.std.period.${p2.key}`)}
+                  {t(`forms:std.period.${p2.key}`)}
                 </option>
               ))}
             </select>
             <span className="text-[12.5px] text-dim">
-              {t('grading.admin.sessionCount', { count: sessionCount(statsRecords) })}
+              {t('forms:admin.sessionCount', { count: sessionCount(statsRecords) })}
             </span>
           </div>
           {/* Die Datenbasis gehört sichtbar an die Zahlen: ohne sie war nicht
               erkennbar, warum Kachel und Bericht verschiedene Werte zeigten. */}
-          <p className="text-[12px] leading-relaxed text-dim">{t('grading.admin.statsScopeNote')}</p>
+          <p className="text-[12px] leading-relaxed text-dim">{t('forms:admin.statsScopeNote')}</p>
 
-          {statsBySet.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('grading.empty')}</p>}
+          {statsBySet.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('forms:empty')}</p>}
 
           {/* Je Kompetenzsatz eine eigene Auswertung — Piloten- und
               Instruktorenbewertungen folgen verschiedenen Maßstäben und
@@ -1025,56 +1032,57 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
             <div key={st.key} className="space-y-4">
               <p className="border-b border-line/10 pb-1 text-[14px] font-semibold">
                 {st.name}{' '}
-                <span className="font-normal text-dim">· {t('grading.admin.sessionCount', { count: st.sessions })}</span>
+                <span className="font-normal text-dim">· {t('forms:admin.sessionCount', { count: st.sessions })}</span>
               </p>
 
               <Card className="p-4">
                 <p className="mb-2 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-dim">
-                  <TrendingDown size={15} /> {t('grading.admin.trendFlags')}
+                  <TrendingDown size={15} /> {t('forms:admin.trendFlags')}
                 </p>
-                {st.trendFlags.length === 0 && <p className="text-[13px] text-dim">{t('grading.admin.noTrendFlags')}</p>}
+                {st.trendFlags.length === 0 && <p className="text-[13px] text-dim">{t('forms:admin.noTrendFlags')}</p>}
                 {st.trendFlags.map((f) => (
                   <div key={f.code} className="flex items-center justify-between gap-3 border-b border-line/[0.06] py-1.5 text-[13.5px] last:border-0">
                     <span className="min-w-0 flex-1 font-medium">{f.label}</span>
                     <span className="shrink-0 text-dim">Ø {f.avg!.toFixed(2)} · n={f.n}</span>
                   </div>
                 ))}
-                <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('grading.admin.trendHint')}</p>
+                <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('forms:admin.trendHint')}</p>
               </Card>
 
               <Card className="p-4">
-                <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.calibration')}</p>
+                <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.calibration')}</p>
                 <p className="mb-2 text-[12.5px] text-dim">
-                  {t('grading.admin.overallAvg')}: <span className="font-semibold text-ink">{st.calibration.overall?.toFixed(2) ?? '–'}</span>
+                  {t('forms:admin.overallAvg')}: <span className="font-semibold text-ink">{st.calibration.overall?.toFixed(2) ?? '–'}</span>
                 </p>
                 {st.calibration.rows.map((row) => {
-                  const diff = (row.avg ?? 0) - (st.calibration.overall ?? 0)
+                  const diff = row.delta ?? 0
+                  // Ein und dieselbe Schwelle wie im Monatsbericht (WATCH/REVIEW
+                  // aus gradingStats) — samt der Mindestdatenmenge, unter der
+                  // gar keine Aussage getroffen wird.
+                  const ton =
+                    row.flag === 'review' ? 'font-semibold text-danger' : row.flag === 'watch' ? 'font-semibold text-warm' : 'text-dim'
                   return (
                     <div key={row.id} className="flex items-center justify-between border-b border-line/[0.06] py-2 text-[13.5px] last:border-0">
                       <span className="min-w-0 flex-1 truncate">{userName(row.id)}</span>
-                      <span className="mx-3 text-[12px] text-dim">{t('grading.admin.sessionCount', { count: row.sessions })}</span>
-                      <span className="w-14 text-right font-semibold">{row.avg?.toFixed(2)}</span>
-                      {/* Schwelle auf dem angezeigten Wert: -0,497 wurde als
-                          „-0.50" gedruckt, aber nicht hervorgehoben. */}
-                      <span
-                        className={`w-16 text-right text-[12.5px] ${Math.abs(Number(diff.toFixed(2))) >= 0.5 ? 'font-semibold text-warm' : 'text-dim'}`}
-                      >
+                      <span className="mx-3 text-[12px] text-dim">{t('forms:admin.sessionCount', { count: row.sessions })}</span>
+                      <span className="w-14 text-right font-semibold tabular-nums">{row.avg?.toFixed(2)}</span>
+                      <span className={`w-16 text-right text-[12.5px] tabular-nums ${ton}`} title={t(`forms:admin.flag${row.flag[0].toUpperCase()}${row.flag.slice(1)}`)}>
                         {diff >= 0 ? '+' : ''}
                         {diff.toFixed(2)}
                       </span>
                     </div>
                   )
                 })}
-                <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('grading.admin.calibrationHint')}</p>
+                <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('forms:admin.calibrationHint')}</p>
               </Card>
 
               <Card className="p-4">
-                <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.fleetMatrix')}</p>
+                <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.fleetMatrix')}</p>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[12.5px]">
                     <thead>
                       <tr className="text-dim">
-                        <th className="p-1.5 text-left font-medium">{t('grading.admin.fleet')}</th>
+                        <th className="p-1.5 text-left font-medium">{t('forms:admin.fleet')}</th>
                         {st.fleetMatrix.codes.map((c) => (
                           <th key={c} className="p-1.5 align-bottom font-medium print:max-w-24 print:whitespace-normal print:text-[9px]">
                             {st.fleetMatrix.labelOf(c)}
@@ -1114,7 +1122,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
           ))}
 
           <Card className="p-4">
-            <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.export')}</p>
+            <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.export')}</p>
             <div className="flex flex-wrap gap-2">
               {(['records', 'competencies', 'people'] as const).map((s) => (
                 <Button
@@ -1133,11 +1141,11 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                   }
                   className="flex items-center gap-1.5 text-[13px]"
                 >
-                  <Download size={14} /> {t(`grading.admin.export_${s}`)}
+                  <Download size={14} /> {t(`forms:admin.export_${s}`)}
                 </Button>
               ))}
             </div>
-            <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('grading.admin.exportHint')}</p>
+            <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('forms:admin.exportHint')}</p>
           </Card>
         </div>
       )}

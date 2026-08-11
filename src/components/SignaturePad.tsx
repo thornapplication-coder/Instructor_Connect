@@ -66,8 +66,7 @@ function typedSignatureImage(name: string): string {
 
 export function SignaturePad({ value, onChange, label }: { value: string | null; onChange: (dataUrl: string | null) => void; label: string }) {
   // Teil der Grading-Formulare → immer englisch
-  const { i18n } = useTranslation()
-  const t = i18n.getFixedT('en')
+  const { t } = useTranslation()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const valueRef = useRef(value)
   valueRef.current = value
@@ -206,7 +205,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
         <span className="flex items-center gap-2">
           {value && (
             <button onClick={clear} className="flex items-center gap-1 text-[12px] text-dim hover:text-danger">
-              <Eraser size={12} /> {t('grading.clearSignature')}
+              <Eraser size={12} /> {t('forms:clearSignature')}
             </button>
           )}
           <button
@@ -215,7 +214,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
             className="flex min-h-11 items-center gap-1 text-[12px] text-dim underline-offset-2 hover:text-accent hover:underline"
           >
             {mode === 'draw' ? <Keyboard size={12} /> : <PenLine size={12} />}
-            {mode === 'draw' ? t('grading.typeInstead') : t('grading.drawInstead')}
+            {mode === 'draw' ? t('forms:typeInstead') : t('forms:drawInstead')}
           </button>
         </span>
       </div>
@@ -230,7 +229,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
                 value={typedName}
                 onChange={(e) => setTypedName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && typedName.trim() && onChange(typedSignatureImage(typedName.trim()))}
-                placeholder={t('grading.typedNamePlaceholder')}
+                placeholder={t('forms:typedNamePlaceholder')}
                 aria-label={label}
                 className="w-full rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20"
               />
@@ -239,11 +238,11 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
                 disabled={!typedName.trim()}
                 className="min-h-11 shrink-0 rounded-xl border border-line/15 px-3 text-[13px] text-ink transition hover:bg-line/5 disabled:opacity-40"
               >
-                {t('grading.useTyped')}
+                {t('forms:useTyped')}
               </button>
             </div>
           )}
-          {!value && <p className="mt-1 text-[11.5px] text-dim">{t('grading.typedHint')}</p>}
+          {!value && <p className="mt-1 text-[11.5px] text-dim">{t('forms:typedHint')}</p>}
         </div>
       )}
       {/* Feste Farben statt Theme-Token: die Fläche zeigt beim Zeichnen genau
@@ -266,7 +265,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
         }
         className="h-28 w-full rounded-xl border border-dashed"
       />
-      {!value && mode === 'draw' && <p className="mt-1 text-[11.5px] text-dim">{t('grading.signHint')}</p>}
+      {!value && mode === 'draw' && <p className="mt-1 text-[11.5px] text-dim">{t('forms:signHint')}</p>}
     </div>
   )
 }
