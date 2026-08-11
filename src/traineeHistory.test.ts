@@ -159,3 +159,16 @@ describe('historyOf', () => {
     expect(historyOf([], 'niemand', NOW)).toBeUndefined()
   })
 })
+
+describe('Altbestand ohne traineeId', () => {
+  it('stuerzt nicht ab, wenn weder Name noch ID gefuehrt werden', () => {
+    // `traineeId` galt als Pflichtfeld und wurde ungeprueft getrimmt — ein
+    // von Hand eingespielter Datensatz ohne dieses Feld riss den gesamten
+    // Verlauf mit, nicht nur die eine Zeile.
+    const ohne = rec('x', '2026-08-05', [
+      { ...trainee('', [g('KNO', 3)]), traineeName: undefined, traineeId: undefined } as unknown as TraineeGrading,
+    ])
+    expect(() => traineeHistories([ohne], NOW)).not.toThrow()
+    expect(traineeHistories([ohne], NOW)).toEqual([])
+  })
+})

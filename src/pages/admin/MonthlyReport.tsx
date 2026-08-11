@@ -1,5 +1,5 @@
 import { CalendarRange, Download, Info } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, selectCls } from '../../components/ui'
 import { csvNum, csvRow, downloadCsv } from '../../csv'
@@ -13,7 +13,7 @@ import {
   type MonthlyReport as Report,
 } from '../../monthlyReport'
 import { useStore } from '../../store'
-import type { GradingRecord } from '../../types'
+import type { CompetencySetKey, GradingRecord } from '../../types'
 import { gradeColor } from '../Grading'
 
 /**
@@ -159,7 +159,17 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
   const [picked, setPicked] = useState<string>('')
   const month: MonthKey | undefined = months.find((m) => `${m.year}-${m.month}` === picked) ?? months[0]
 
-  const report: Report | undefined = useMemo(() => (month ? monthlyReport(records, who, month) : undefined), [records, who, month])
+  // Kompetenzsatz je Blatt aus dem Katalog — der Bericht vergleicht nur
+  // innerhalb eines Satzes (siehe monthlyReport.ts).
+  const setOfRecord = useCallback(
+    (r: GradingRecord): CompetencySetKey | null =>
+      state.settings.grading.formTypes.find((f) => f.id === r.formTypeId)?.competencySet ?? null,
+    [state.settings.grading.formTypes],
+  )
+  const report: Report | undefined = useMemo(
+    () => (month ? monthlyReport(records, who, month, setOfRecord) : undefined),
+    [records, who, month, setOfRecord],
+  )
 
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? id
   const instructorOptions = useMemo(

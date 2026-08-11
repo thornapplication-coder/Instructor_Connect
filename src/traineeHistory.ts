@@ -87,7 +87,9 @@ export function traineeHistories(records: GradingRecord[], now: number): Trainee
 
   scoped.forEach((r) => {
     r.trainees.forEach((tr) => {
-      const raw = tr.traineeName?.trim() || tr.traineeId.trim()
+      // Beide Felder optional lesen: Ein Datensatz ohne traineeId (Altbestand,
+      // von Hand eingespielt) brachte den ganzen Verlauf zum Absturz.
+      const raw = tr.traineeName?.trim() || tr.traineeId?.trim()
       if (!raw) return
       const key = traineeKey(raw)
       const entry = byTrainee.get(key) ?? { name: raw, sessions: [] }

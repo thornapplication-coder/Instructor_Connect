@@ -191,3 +191,47 @@ describe('monthlyReport — Kompetenzzeilen', () => {
     expect(r.flagFleet).toBe('insufficient')
   })
 })
+
+/**
+ * Piloten- und Instruktorenbewertungen folgen unterschiedlichen Maßstäben
+ * und dürfen nie gegeneinander gerechnet werden — dieselbe Zusage, die
+ * `statsBySet` im Standardisierungsbericht einhält. Der Monatsbericht tat
+ * es zunächst nicht: Ein TRI mit vielen 308G stand gegen Piloten-
+ * Durchschnitte und bekam eine Abweichung ausgewiesen, die nur aus der
+ * Vermischung stammte.
+ */
+describe('Kompetenzsätze werden nicht vermischt', () => {
+  const setOf = (r: GradingRecord) => (r.formTypeId === '308G' ? ('instructor' as const) : ('pilot' as const))
+
+  it('vergleicht nur innerhalb des Satzes, in dem man selbst gewertet hat', () => {
+    const eigen = rec({ id: 'a', date: '2026-08-05', trainees: [trainee([g('KNO', 3)])] })
+    // Ein fremdes Instruktoren-Blatt mit deutlich anderem Niveau ...
+    const fremdInstr = rec({ id: 'b', date: '2026-08-06', instructorId: 'u2', formTypeId: '308G', trainees: [trainee([g('KNO', 5)])] })
+    const fremdPilot = rec({ id: 'c', date: '2026-08-07', instructorId: 'u2', trainees: [trainee([g('KNO', 3)])] })
+    const r = monthlyReport([eigen, fremdInstr, fremdPilot], 'u1', AUG, setOf)
+    expect(r.competencySet).toBe('pilot')
+    // ... zieht den Vergleichswert NICHT: 3 gegen 3 ist kein Unterschied.
+    expect(r.all.mean).toBe(3)
+    expect(r.deltaAll).toBe(0)
+  })
+
+  it('nimmt den Satz, in dem der Instruktor die meisten Noten vergeben hat', () => {
+    const instr1 = rec({ id: 'a', date: '2026-08-05', formTypeId: '308G', trainees: [trainee([g('KNO', 4), g('COM', 4)])] })
+    const pilot1 = rec({ id: 'b', date: '2026-08-06', trainees: [trainee([g('KNO', 2)])] })
+    const r = monthlyReport([instr1, pilot1], 'u1', AUG, setOf)
+    expect(r.competencySet).toBe('instructor')
+    expect(r.own.mean).toBe(4)
+  })
+
+  it('zaehlt Folgeformulare nicht als eigene Session', () => {
+    const blatt = rec({ id: 'a', date: '2026-08-05' })
+    const folge = rec({ id: 'b', date: '2026-08-06', formTypeId: '306', parentId: 'a', trainees: [] })
+    expect(monthlyReport([blatt, folge], 'u1', AUG, setOf).own.sessions).toBe(1)
+  })
+
+  it('faellt ohne Angabe auf den Pilotensatz zurueck', () => {
+    const r = monthlyReport([rec({ id: 'a', date: '2026-08-05' })], 'u1', AUG)
+    expect(r.competencySet).toBe('pilot')
+    expect(r.own.sessions).toBe(1)
+  })
+})

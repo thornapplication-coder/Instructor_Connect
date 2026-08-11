@@ -7,7 +7,8 @@ import {
   trainingDate,
   type Flag,
 } from './gradingStats'
-import type { Grade, GradingRecord } from './types'
+import { isFollowUpType } from './gradingRules'
+import type { CompetencySetKey, Grade, GradingRecord } from './types'
 
 /**
  * Persönlicher Monatsbericht eines Instruktors.
@@ -62,6 +63,9 @@ export interface CompetencyLine {
 export interface MonthlyReport {
   month: MonthKey
   instructorId: string
+  /** Kompetenzsatz, auf den sich der ganze Bericht bezieht — Piloten- und
+   *  Instruktorenbewertungen werden nie gegeneinander gerechnet. */
+  competencySet: CompetencySetKey
   /** Muster, auf denen dieser Instruktor im Monat geschult hat */
   fleets: string[]
   authorities: ('AT' | 'UK')[]
@@ -162,8 +166,38 @@ const meanForCode = (records: GradingRecord[], code: string): { mean: number | n
   return { mean: mean(vals), n: numbersOf(vals).length }
 }
 
-export function monthlyReport(records: GradingRecord[], instructorId: string, m: MonthKey): MonthlyReport {
-  const monthRecords = inMonth(records, m)
+/**
+ * `setOf` liefert den Kompetenzsatz eines Blattes (pilot/instructor).
+ *
+ * Ohne ihn rechnete der Bericht Piloten- und Instruktorenbewertungen
+ * gegeneinander — genau das, was `statsBySet` im Standardisierungsbericht
+ * ausdrücklich verhindert: Die beiden Sätze folgen unterschiedlichen
+ * Maßstäben. Ein TRI, der in einem Monat viele 308G schreibt, stand damit
+ * gegen Piloten-Durchschnitte und bekam eine Abweichung ausgewiesen, die
+ * nur aus der Vermischung stammte.
+ *
+ * Der Bericht beschränkt sich deshalb auf EINEN Satz — den, in dem der
+ * Instruktor in diesem Monat die meisten Noten vergeben hat — und
+ * vergleicht ausschließlich innerhalb dieses Satzes. Welcher es ist, steht
+ * als `competencySet` im Ergebnis.
+ *
+ * Folgeformulare (306/310) tragen keine Noten, zählten aber als eigene
+ * Session mit. Sie fallen hier heraus: Ein 306 ist die Folge einer Session,
+ * nicht eine zweite.
+ */
+export function monthlyReport(
+  records: GradingRecord[],
+  instructorId: string,
+  m: MonthKey,
+  setOf: (r: GradingRecord) => CompetencySetKey | null = () => 'pilot',
+): MonthlyReport {
+  const gewertet = inMonth(records, m).filter((r) => !isFollowUpType(r.formTypeId))
+  const eigene = gewertet.filter((r) => r.instructorId === instructorId)
+  // Dominanter Satz des Monats: der mit den meisten eigenen Noten.
+  const notenJeSatz = (key: CompetencySetKey) =>
+    eigene.filter((r) => setOf(r) === key).reduce((n, r) => n + r.trainees.reduce((k, tr) => k + tr.grades.length, 0), 0)
+  const competencySet: CompetencySetKey = notenJeSatz('instructor') > notenJeSatz('pilot') ? 'instructor' : 'pilot'
+  const monthRecords = gewertet.filter((r) => setOf(r) === competencySet)
   const ownRecords = monthRecords.filter((r) => r.instructorId === instructorId)
   const fleets = [...new Set(ownRecords.map((r) => r.header.aircraftType).filter(Boolean))].sort()
   const authorities = [...new Set(ownRecords.map(authorityOf))].sort()
@@ -203,6 +237,7 @@ export function monthlyReport(records: GradingRecord[], instructorId: string, m:
   return {
     month: m,
     instructorId,
+    competencySet,
     fleets,
     authorities,
     own,
