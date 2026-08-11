@@ -739,7 +739,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 // Liste wird neu aufgebaut — alte Unterschriften dürfen nicht stehen bleiben
                 setSigTrainees({})
               }}
-              className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px] disabled:opacity-60"
+              className="w-full rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-[14px] disabled:opacity-60"
             >
               <option value="">…</option>
               {[...grading.formTypes]

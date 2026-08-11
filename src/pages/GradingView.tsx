@@ -155,14 +155,18 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             der ATO noch einem Formularstand zuordnen. */}
         <div className="hidden border-b-2 border-line/60 pb-2 print:block">
           <p className="text-[11px] font-semibold uppercase tracking-wide">
-            {[doc.atoName, approval].filter(Boolean).join(' · ')}
+            {doc.atoName}
+            {doc.atoName && approval ? ' · ' : ''}
+            {/* Die ATO-Kennung darf nicht mitten im Wert umbrechen — auf dem
+                Ausdruck ist sie die Zuordnung zur Zulassung. */}
+            {approval && <span className="zusammen">{approval}</span>}
           </p>
           <h1 className="text-2xl font-bold tracking-tight">
             {record.formTypeId} — {formType?.title ?? ''}
           </h1>
           <p className="mt-1 flex justify-between gap-4 text-[11px] text-dim">
             <span>{t('grading.exportStamp', { date: formatDateTime(Date.now() + state.timeOffsetMs), name: currentUser!.name })}</span>
-            <span>{doc.formRevision}</span>
+            <span className="zusammen">{doc.formRevision}</span>
           </p>
         </div>
 

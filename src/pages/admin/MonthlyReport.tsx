@@ -57,14 +57,24 @@ function FlagBadge({ flag, t }: { flag: Flag; t: (k: string) => string }) {
 }
 
 /** Kennzahlenzeile: eigener Wert, Flotte, Gesamt — immer in dieser Ordnung. */
+/**
+ * Eine Kennzahlzeile. Bewusst echtes <tr>/<th>/<td>: Der Block war ein Raster
+ * aus <span>, und damit fehlte jede Verbindung zwischen einem Wert und seiner
+ * Spaltenüberschrift. Vorgelesen wurde „2,95 2,88 3,01" ohne die Angabe,
+ * welche Zahl die eigene und welche die der Flotte ist — bei einer
+ * Gegenüberstellung ist das die ganze Aussage. Mit einer Tabelle nennt die
+ * Vorlesesoftware zu jedem Wert Zeile und Spalte.
+ */
 function FigureRow({ label, own, fleet, all }: { label: string; own: string; fleet: string; all: string }) {
   return (
-    <div className="grid grid-cols-[1.6fr_1fr_1fr_1fr] items-center gap-2 border-b border-line/[0.06] py-1.5 text-[13px] last:border-0">
-      <span className="text-dim">{label}</span>
-      <span className="text-right font-semibold">{own}</span>
-      <span className="text-right text-dim">{fleet}</span>
-      <span className="text-right text-dim">{all}</span>
-    </div>
+    <tr className="border-b border-line/[0.06] text-[13px] last:border-0">
+      <th scope="row" className="py-1.5 pr-2 text-left font-normal text-dim">
+        {label}
+      </th>
+      <td className="py-1.5 px-2 text-right font-semibold tabular-nums">{own}</td>
+      <td className="py-1.5 px-2 text-right tabular-nums text-dim">{fleet}</td>
+      <td className="py-1.5 pl-2 text-right tabular-nums text-dim">{all}</td>
+    </tr>
   )
 }
 
@@ -273,12 +283,18 @@ export function MonthlyReport({ records, lng }: { records: GradingRecord[]; lng?
           </Card>
 
           <Card className="p-4">
-            <div className="grid grid-cols-[1.6fr_1fr_1fr_1fr] gap-2 border-b border-line/15 pb-1.5 text-[12px] uppercase tracking-wide text-dim">
-              <span />
-              <span className="text-right font-semibold">{t('grading.admin.yours')}</span>
-              <span className="text-right font-semibold">{t('grading.admin.fleetCol')}</span>
-              <span className="text-right font-semibold">{t('grading.admin.allCol')}</span>
-            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <caption className="sr-only">{t('grading.admin.figuresCaption')}</caption>
+                <thead>
+                  <tr className="border-b border-line/15 text-[12px] uppercase tracking-wide text-dim">
+                    <td />
+                    <th scope="col" className="py-1.5 px-2 text-right font-semibold">{t('grading.admin.yours')}</th>
+                    <th scope="col" className="py-1.5 px-2 text-right font-semibold">{t('grading.admin.fleetCol')}</th>
+                    <th scope="col" className="py-1.5 pl-2 text-right font-semibold">{t('grading.admin.allCol')}</th>
+                  </tr>
+                </thead>
+                <tbody>
             <FigureRow label={t('grading.admin.sessions')} own={String(report.own.sessions)} fleet={String(report.fleet.sessions)} all={String(report.all.sessions)} />
             <FigureRow label={t('grading.admin.traineesGraded')} own={String(report.own.trainees)} fleet={String(report.fleet.trainees)} all={String(report.all.trainees)} />
             <FigureRow label={t('grading.admin.gradesGiven')} own={String(report.own.gradesN)} fleet={String(report.fleet.gradesN)} all={String(report.all.gradesN)} />
@@ -286,6 +302,9 @@ export function MonthlyReport({ records, lng }: { records: GradingRecord[]; lng?
             <FigureRow label={t('grading.admin.lowShareLbl')} own={fmtPct(report.own.lowShare)} fleet={fmtPct(report.fleet.lowShare)} all={fmtPct(report.all.lowShare)} />
             <FigureRow label={t('grading.admin.highShareLbl')} own={fmtPct(report.own.highShare)} fleet={fmtPct(report.fleet.highShare)} all={fmtPct(report.all.highShare)} />
             <FigureRow label={t('grading.admin.ncRateLbl')} own={fmtPct(report.own.ncRate)} fleet={fmtPct(report.fleet.ncRate)} all={fmtPct(report.all.ncRate)} />
+                </tbody>
+              </table>
+            </div>
           </Card>
 
           <Card className="p-4">

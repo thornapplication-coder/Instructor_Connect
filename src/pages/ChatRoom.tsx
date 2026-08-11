@@ -354,7 +354,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
       />
 
       {myGroups.length > 1 && (
-        <nav className="sticky top-14 z-10 border-b border-line/10 bg-bg/85 backdrop-blur">
+        <nav className="below-topbar sticky z-10 border-b border-line/10 bg-bg/85 backdrop-blur">
           <div className="mx-auto flex max-w-3xl gap-2 overflow-x-auto px-3 py-2">
             {myGroups.map((g) => (
               <button
@@ -401,7 +401,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
         <div ref={bottomRef} />
       </main>
 
-      <div className="sticky bottom-11 z-20 border-t border-line/10 bg-bg/90 px-3 py-2.5 backdrop-blur">
+      <div className="above-sandbox-sticky sticky z-20 border-t border-line/10 bg-bg/90 px-3 py-2.5 backdrop-blur">
         {/* Vom Admin gesperrt: mitlesen ja, senden nein */}
         {currentUser!.chatBlocked ? (
           <div className="mx-auto flex max-w-3xl items-center gap-2.5 rounded-xl border border-danger/25 bg-danger/10 px-3.5 py-3 text-[13px] text-danger">

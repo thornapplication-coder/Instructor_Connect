@@ -142,7 +142,7 @@ function TrainingAdminGrading() {
     return true
   })
 
-  const selCls = 'rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]'
+  const selCls = 'rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]'
   return (
     <>
       {/* Filterergebnis für Sprachausgaben — die Liste ändert sich sonst lautlos */}
@@ -384,7 +384,12 @@ export function Grading() {
           const missing = missingFollowUps(r, state.gradingRecords)
           const light = trafficLight(r, state.gradingRecords)
           return (
-            <Card key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="p-4">
+            <Card
+              key={r.id}
+              onClick={() => navigate(`/grading/${r.id}`)}
+              label={`${r.formTypeId} · ${traineesOf(r, state.gradingRecords).map((tr) => tr.traineeName).filter(Boolean).join(', ') || t('grading.openForm')} · ${formatDate(r.header.date || r.createdAt)}`}
+              className="p-4"
+            >
               <div className="flex items-start gap-3">
                 {/* Status-Icon spiegelt die Ampel: grün ✓, gelb ?, rot ✕ */}
                 <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised">
@@ -444,7 +449,7 @@ export function Grading() {
                   </div>
                 </div>
                 {/* Ampel + Aktionen in EINER Reihe */}
-                <div className="mt-0.5 flex shrink-0 items-center gap-1">
+                <div className="pointer-events-auto relative z-10 mt-0.5 flex shrink-0 items-center gap-1">
                   <TrafficDot color={light} className="mr-1" />
                   {/* Komplett ausgefüllte Formulare als PDF herunterladen —
                       öffnet die Ein-Seiten-Druckansicht mit PDF-Dialog */}
@@ -455,7 +460,7 @@ export function Grading() {
                         navigate(`/grading/${r.id}?print=1`)
                       }}
                       title={t('grading.downloadPdf')}
-                      className="flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-accent/10 hover:text-accent"
+                      className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-accent/10 hover:text-accent"
                     >
                       <FileDown size={16} />
                     </button>
@@ -473,7 +478,7 @@ export function Grading() {
                       if (window.confirm(t('grading.deleteOwnConfirm'))) hideGradingRecord(r.id)
                     }}
                     title={t('grading.deleteOwn')}
-                    className="flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
+                    className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
                   >
                     <Trash2 size={16} />
                   </button>

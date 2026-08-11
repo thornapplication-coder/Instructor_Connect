@@ -108,7 +108,55 @@ export function Page({ children, className = '', wide = false }: { children: Rea
  * Tab-Reihenfolge auf der Chat-Seite lautete Zurück → Gruppe anlegen →
  * Home → Sandbox-Leiste; keine einzige Gruppe war ohne Maus erreichbar.
  */
-export function Card({ children, className = '', onClick }: { children: ReactNode; className?: string; onClick?: () => void }) {
+/**
+ * Karte. Mit `onClick` wird sie als Ganzes anklickbar.
+ *
+ * `label` ist für Karten gedacht, die SELBST Knöpfe enthalten (Listenzeilen
+ * mit Download- und Mülleimer-Knopf). Ein `role="button"` darf keine
+ * weiteren Bedienelemente enthalten: Vorlesesoftware zieht den gesamten
+ * Karteninhalt zum Namen des Knopfes zusammen, und die inneren Knöpfe sind
+ * per Tastatur nicht mehr einzeln erreichbar — beim Formularblatt betraf
+ * das ausgerechnet „PDF herunterladen" und „aus der Liste entfernen".
+ *
+ * Mit `label` liegt deshalb ein echter, unsichtbarer Knopf über der Karte
+ * (mit genau diesem Namen), die inneren Knöpfe liegen darüber und behalten
+ * ihre eigene Reihenfolge im Tabulator. Die Karte selbst bleibt ein
+ * schlichtes div ohne ARIA-Rolle.
+ */
+export function Card({
+  children,
+  className = '',
+  onClick,
+  label,
+}: {
+  children: ReactNode
+  className?: string
+  onClick?: () => void
+  label?: string
+}) {
+  const optik = `rounded-2xl border border-line/[0.06] bg-surface/90 shadow-soft ${onClick ? 'cursor-pointer transition hover:border-accent/30 hover:bg-raised/70' : ''}`
+  const base = `${optik} ${className}`
+
+  if (onClick && label) {
+    // `className` traegt hier die Anordnung (flex, Innenabstand) und gehoert
+    // deshalb an den Inhalt, nicht an die aeussere Huelle — sonst waere der
+    // ganze Inhalt EIN Flex-Element.
+    return (
+      <div className={`relative ${optik}`}>
+        <button
+          type="button"
+          onClick={onClick}
+          aria-label={label}
+          className="absolute inset-0 rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+        />
+        {/* Der Inhalt selbst nimmt keine Klicks an — sie fallen auf den Knopf
+            darunter. Einzelne Bedienelemente holen sich das mit
+            `pointer-events-auto relative z-10` zurück. */}
+        <div className={`pointer-events-none ${className}`}>{children}</div>
+      </div>
+    )
+  }
+
   return (
     <div
       onClick={onClick}
@@ -125,7 +173,7 @@ export function Card({ children, className = '', onClick }: { children: ReactNod
             },
           }
         : {})}
-      className={`rounded-2xl border border-line/[0.06] bg-surface/90 shadow-soft ${onClick ? 'cursor-pointer transition hover:border-accent/30 hover:bg-raised/70' : ''} ${className}`}
+      className={base}
     >
       {children}
     </div>
@@ -168,10 +216,10 @@ export function Button({
  *  Klassenliste an vierzehn Stellen wortgleich im Code und wich an zwei
  *  Stellen davon ab. */
 export const selectCls =
-  'w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2.5 text-[14px] text-ink outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+  'w-full rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-[14px] text-ink outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
 export const inputCls =
-  'w-full rounded-xl border border-line/10 bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+  'w-full rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
 /**
  * Beschriftetes Feld.

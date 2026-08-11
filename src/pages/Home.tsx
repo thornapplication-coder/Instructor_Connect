@@ -112,7 +112,11 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 short:py-3 md:max-w-4xl xl:max-w-none xl:px-10">
+      {/* short: = Handy im Querformat. `justify-center` schneidet dort oben ab,
+          sobald der Inhalt höher ist als das Fenster — zentrierter Überlauf
+          ragt in beide Richtungen, und der obere Teil ist nicht erreichbar.
+          Deshalb dort von oben ausrichten. */}
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 short:justify-start short:py-3 md:max-w-4xl xl:max-w-none xl:px-10">
         {/* Bildmarke und Titel mittig über den Kacheln. Im flachen Fenster
             (Handy quer) rückt der Schriftzug neben die Bildmarke, damit die
             Kacheln ohne Scrollen erreichbar bleiben. */}
@@ -128,7 +132,11 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
         </div>
 
         {/* 2 Spalten am Handy, 3 ab Tablet — große, gut greifbare Kacheln */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-6 short:grid-cols-3 short:gap-2.5">
+        {/* Vier Spalten im Querformat: Mit sieben Kacheln ergaben drei Spalten
+            drei Reihen, und die Seite lief um rund 90 px über — die letzte
+            Kachel und die Fußzeile lagen unter der Falz. Vier Spalten sind
+            zwei Reihen. */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-6 short:grid-cols-4 short:gap-2.5">
           {tiles.map(({ to, label, icon: Icon }) => (
             <button
               key={to}

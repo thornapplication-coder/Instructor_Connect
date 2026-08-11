@@ -735,7 +735,12 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
           ))}
 
           {openSignatures.map((r) => (
-            <Card key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="flex items-center gap-3 p-4">
+            <Card
+              key={r.id}
+              onClick={() => navigate(`/grading/${r.id}`)}
+              label={`${r.formTypeId} · ${traineesOf(r, records).map(traineeLabel).join(', ') || t('grading.openForm')} · ${dateLabel(r.createdAt)}`}
+              className="flex items-center gap-3 p-4"
+            >
               <Clock size={16} className="shrink-0 text-warm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-semibold">
@@ -770,7 +775,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
         <div className="space-y-3">
           <div className="flex flex-wrap gap-2">
             <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t('grading.admin.search')} className={`${inputCls} min-w-40 flex-1`} />
-            <select value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+            <select value={filterPeriod} onChange={(e) => setFilterPeriod(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
               {Object.keys(PERIOD_DAYS).map((k) => (
                 <option key={k} value={k}>
                   {t(`grading.ta.period.${k}`)}
@@ -778,7 +783,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               ))}
             </select>
             {/* Trainee-Filter zuerst — die Standard-Sicht auf die Ablage */}
-            <select value={filterTrainee} onChange={(e) => setFilterTrainee(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+            <select value={filterTrainee} onChange={(e) => setFilterTrainee(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
               <option value="">{t('grading.admin.allTrainees')}</option>
               {traineeOptions.map((n) => (
                 <option key={n} value={n}>
@@ -786,7 +791,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 </option>
               ))}
             </select>
-            <select value={filterInstructor} onChange={(e) => setFilterInstructor(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+            <select value={filterInstructor} onChange={(e) => setFilterInstructor(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
               <option value="">{t('grading.admin.allInstructors')}</option>
               {instructorOptions.map((o) => (
                 <option key={o.id} value={o.id}>
@@ -794,12 +799,12 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 </option>
               ))}
             </select>
-            <select value={filterAuthority} onChange={(e) => setFilterAuthority(e.target.value as '' | 'AT' | 'UK')} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+            <select value={filterAuthority} onChange={(e) => setFilterAuthority(e.target.value as '' | 'AT' | 'UK')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
               <option value="">{t('grading.admin.allAuthorities')}</option>
               <option value="AT">{t('grading.authorityAT', { nr: doc.approvalNumber || 'AT.ATO.106' })}</option>
               <option value="UK">{t('grading.authorityUK', { nr: doc.approvalNumberUK || 'GBR.ATO.0541' })}</option>
             </select>
-            <select value={filterAircraft} onChange={(e) => setFilterAircraft(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+            <select value={filterAircraft} onChange={(e) => setFilterAircraft(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
               <option value="">{t('grading.admin.allAircraft')}</option>
               {aircraftOptions.map((a) => (
                 <option key={a} value={a}>
@@ -807,7 +812,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 </option>
               ))}
             </select>
-            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+            <select value={filterType} onChange={(e) => setFilterType(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
               <option value="">{t('grading.admin.allTypes')}</option>
               {[...g.formTypes].sort((a, b) => a.id.localeCompare(b.id)).map((f) => (
                 <option key={f.id} value={f.id}>
@@ -866,7 +871,12 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
           <p role="status" className="sr-only">{t('grading.admin.resultCount', { shown: filtered.length, total: records.length })}</p>
           {filtered.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('grading.empty')}</p>}
           {filtered.map((r) => (
-            <Card key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="flex items-center gap-3 p-4">
+            <Card
+              key={r.id}
+              onClick={() => navigate(`/grading/${r.id}`)}
+              label={`${r.formTypeId} · ${traineesOf(r, records).map(traineeLabel).join(', ') || t('grading.openForm')} · ${dateLabel(r.createdAt)}`}
+              className="flex items-center gap-3 p-4"
+            >
               <TrafficDot color={trafficLight(r, records)} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-semibold">
@@ -889,7 +899,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                     }}
                     title={t('grading.admin.restore')}
                     aria-label={t('grading.admin.restore')}
-                    className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-ok/10 hover:text-ok"
+                    className="pointer-events-auto relative z-10 shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-ok/10 hover:text-ok"
                   >
                     <Eye size={16} />
                   </button>
@@ -905,7 +915,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                   }}
                   aria-label={t('common.delete')}
                   title={t('common.delete')}
-                  className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
+                  className="pointer-events-auto relative z-10 shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -970,7 +980,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
           {/* Vergleich einzelner Flotten: Auswahl gilt für Trendflags und Kalibrierung */}
           <div className="flex flex-wrap items-center gap-2">
             <label className="text-[13px] font-medium text-dim">{t('grading.admin.fleetFilter')}</label>
-            <select value={statsFleet} onChange={(e) => setStatsFleet(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+            <select value={statsFleet} onChange={(e) => setStatsFleet(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
               <option value="">{t('grading.admin.allAircraft')}</option>
               {aircraftOptions.map((a) => (
                 <option key={a} value={a}>
@@ -979,7 +989,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               ))}
             </select>
             <label className="text-[13px] font-medium text-dim">{t('grading.admin.authorityFilter')}</label>
-            <select value={statsAuthority} onChange={(e) => setStatsAuthority(e.target.value as '' | 'AT' | 'UK')} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]">
+            <select value={statsAuthority} onChange={(e) => setStatsAuthority(e.target.value as '' | 'AT' | 'UK')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]">
               <option value="">{t('grading.admin.allAuthorities')}</option>
               <option value="AT">{t('grading.authorityAT', { nr: doc.approvalNumber || 'AT.ATO.106' })}</option>
               <option value="UK">{t('grading.authorityUK', { nr: doc.approvalNumberUK || 'GBR.ATO.0541' })}</option>
@@ -990,7 +1000,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
             <select
               value={statsPeriod}
               onChange={(e) => setStatsPeriod(e.target.value as PeriodKey)}
-              className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]"
+              className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]"
             >
               {PERIODS.map((p2) => (
                 <option key={p2.key} value={p2.key}>

@@ -232,7 +232,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
                 onKeyDown={(e) => e.key === 'Enter' && typedName.trim() && onChange(typedSignatureImage(typedName.trim()))}
                 placeholder={t('grading.typedNamePlaceholder')}
                 aria-label={label}
-                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20"
+                className="w-full rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20"
               />
               <button
                 onClick={() => typedName.trim() && onChange(typedSignatureImage(typedName.trim()))}
