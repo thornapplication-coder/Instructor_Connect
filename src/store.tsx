@@ -5,7 +5,7 @@ import { createSeedState } from './sandbox/seed'
 import { migrateState } from './migrateState'
 import { SANDBOX } from './sandbox/flag'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
-import { clearPersistedState, persistState, readPreloadedState } from './persist'
+import { backupPersistedState, clearPersistedState, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
 import type { InfoEntry } from './types'
 
 const EMPTY_SEEN: SeenState = { chat: {}, info: 0, contacts: 0 }
@@ -119,7 +119,11 @@ function loadPersistedState(): AppState | null {
     if (!raw) return null
     const parsed = JSON.parse(raw) as { v?: number; state?: AppState }
     if (parsed.v !== STATE_VERSION || !parsed.state?.users?.length) {
-      clearPersistedState()
+      // NICHT mehr löschen: Ein Sprung der STATE_VERSION verwarf bisher den
+      // gesamten Bestand — unterschriebene Formulare eingeschlossen — und
+      // zwar wortlos. Der alte Stand wird jetzt beiseitegelegt und bleibt
+      // auslesbar; die App startet daneben auf den Seed-Daten.
+      backupPersistedState(raw, parsed.v)
       return null
     }
     return parsed.state
@@ -179,6 +183,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Für asynchrone Aktionen (Erreichbarkeitsprobe): immer der aktuelle Stand
   const stateRef = useRef(state)
   stateRef.current = state
+  /** Laufende Ausgangskorb-Probe — verhindert mehrere gleichzeitig. */
+  const flushRef = useRef<Promise<boolean> | null>(null)
 
   // Automatische Aktualisierung alle 5 Sekunden: neue Nachrichten erscheinen
   // ohne manuelles Neuladen, abgelaufene werden ausgeblendet. In der
@@ -201,6 +207,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }, 400)
     return () => clearTimeout(tm)
   }, [state])
+
+  // Mehrere offene Tabs: Jeder hielt eine eigene vollständige Kopie, und wer
+  // im zweiten Tab etwas tat, schrieb dessen älteren Stand über den ersten —
+  // ein dort gerade unterschriebenes Formular war damit weg. Jetzt übernimmt
+  // jeder Tab den Stand, den ein anderer gesichert hat.
+  //
+  // Die Anmeldung bleibt dabei tab-eigen (sie steht in localStorage, nicht im
+  // Zustand): Wer in der Sandbox in zwei Tabs verschiedene Rollen ansieht,
+  // wird nicht aus seiner Rolle geworfen.
+  useEffect(
+    () =>
+      subscribeToOtherTabs((raw) => {
+        try {
+          const parsed = JSON.parse(raw) as { v?: number; state?: AppState }
+          if (parsed.v !== STATE_VERSION || !parsed.state?.users?.length) return
+          lastPersisted.current = raw
+          setState((s) => ({ ...parsed.state!, currentUserId: s.currentUserId, timeOffsetMs: s.timeOffsetMs }))
+        } catch {
+          /* unlesbare Nachricht eines anderen Tabs wird ignoriert */
+        }
+      }),
+    [],
+  )
 
   const now = useCallback(() => Date.now() + state.timeOffsetMs, [state.timeOffsetMs])
 
@@ -868,21 +897,39 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // navigator.onLine: das meldet „online" auch im WLAN ohne Internet —
       // dort behauptete der Korb den Versand, ohne je gesendet zu haben.
       // Rückgabe: war der Origin erreichbar? (Für die Anzeige im Banner.)
-      flushOutbox: async () => {
-        const queued = () => stateRef.current.gradingRecords.some((r) => r.mailStatus === 'queued')
-        if (!queued()) return navigator.onLine !== false
-        const reachable = await networkReachable()
-        if (!reachable) return false
-        patch((s) =>
-          s.gradingRecords.some((r) => r.mailStatus === 'queued')
-            ? {
-                gradingRecords: s.gradingRecords.map((r) =>
-                  r.mailStatus === 'queued' ? { ...r, mailStatus: 'sent' as const, mailError: undefined } : r,
-                ),
-              }
-            : null,
-        )
-        return true
+      flushOutbox: () => {
+        // Ein Lauf zur Zeit. Der Streifen ruft bei online, visibilitychange
+        // und beim Start; ohne diese Sperre liefen mehrere Proben parallel,
+        // und jede erklärte anschließend den GESAMTEN Korb für versendet.
+        if (flushRef.current) return flushRef.current
+        const offen = stateRef.current.gradingRecords.filter((r) => r.mailStatus === 'queued').map((r) => r.id)
+        if (offen.length === 0) return Promise.resolve(navigator.onLine !== false)
+        const lauf = (async () => {
+          const reachable = await networkReachable()
+          if (!reachable) return false
+          // Nur die Blätter, die BEIM START der Probe im Korb lagen. Vorher
+          // wurde pauschal alles auf „versendet" gesetzt — auch ein Blatt,
+          // das erst während der laufenden Probe unterschrieben wurde und
+          // für das folglich nie etwas geprüft worden war.
+          const ids = new Set(offen)
+          patch((s) =>
+            s.gradingRecords.some((r) => ids.has(r.id) && r.mailStatus === 'queued')
+              ? {
+                  gradingRecords: s.gradingRecords.map((r) =>
+                    ids.has(r.id) && r.mailStatus === 'queued'
+                      ? { ...r, mailStatus: 'sent' as const, mailError: undefined }
+                      : r,
+                  ),
+                }
+              : null,
+          )
+          return true
+        })()
+        flushRef.current = lauf
+        void lauf.finally(() => {
+          flushRef.current = null
+        })
+        return lauf
       },
       updateGrading: (p) =>
         patch((s) => {

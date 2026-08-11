@@ -4,13 +4,23 @@ import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
 import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
 import { contentFingerprint, HASH_VERSION } from '../docHash'
+import { networkReachable } from '../net'
 import { autoNotCompetent, isFollowUpType, isNotCompetent } from '../gradingRules'
 import { navigate, scrollToTop } from '../router'
 
-/** Ohne Netz ist der Versand nicht gescheitert, sondern noch nicht erfolgt:
- *  'queued' hält den Vorgang offen, ohne den Instruktor zum Handeln zu
- *  zwingen — die App sendet selbst, sobald wieder Empfang da ist. */
-const mailStatusNow = () => (navigator.onLine === false ? ('queued' as const) : ('sent' as const))
+/**
+ * Ohne Netz ist der Versand nicht gescheitert, sondern noch nicht erfolgt:
+ * 'queued' hält den Vorgang offen, ohne den Instruktor zum Handeln zu
+ * zwingen — die App sendet selbst, sobald wieder Empfang da ist.
+ *
+ * Jedes unterschriebene Blatt beginnt deshalb im Ausgangskorb. Ob daraus
+ * „versendet" wird, entscheidet erst die echte Erreichbarkeitsprobe in
+ * saveAll. Vorher stand hier `navigator.onLine`, und das meldet „online"
+ * auch im WLAN ohne Internet oder hinter einer Anmeldeseite — also genau
+ * dort, wo der Ausgangskorb gebraucht wird: Ein Blatt galt als versendet,
+ * ohne dass je eine Netzanfrage stattgefunden hätte.
+ */
+const mailStatusNow = () => 'queued' as const
 import { DURATION_OPTIONS } from '../sandbox/gradingDefaults'
 import { useStore } from '../store'
 import { GRADES, type AttendanceEntry, type FormField, type FormType, type FormTypeId, type Grade, type GradingRecord, type OverallResult, type SessionStatus, type TraineeGrading } from '../types'
@@ -454,11 +464,16 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   const saveAll = async (): Promise<GradingRecord[]> => {
     // Der Fingerabdruck entsteht im Moment des Unterschreibens — VOR dem
     // Speichern, damit der abgelegte Datensatz ihn von Anfang an trägt.
-    const recs = await Promise.all(
+    const gebaut = await Promise.all(
       buildRecords().map(async (r) =>
         r.status === 'signed' ? { ...r, contentHash: await contentFingerprint(r), hashVersion: HASH_VERSION } : r,
       ),
     )
+    // Eine Probe für den ganzen Durchgang: Ist der Origin wirklich
+    // erreichbar, gilt der Versand — sonst bleibt alles im Ausgangskorb und
+    // geht raus, sobald wieder Empfang da ist.
+    const erreichbar = gebaut.some((r) => r.mailStatus === 'queued') ? await networkReachable() : false
+    const recs = erreichbar ? gebaut.map((r) => (r.mailStatus === 'queued' ? { ...r, mailStatus: 'sent' as const } : r)) : gebaut
     recs.forEach(saveGradingRecord)
     clearDraft()
     return recs

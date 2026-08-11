@@ -26,6 +26,7 @@
     "outboxSending_one": "Wieder online — {{count}} Formular wird versendet",
     "outboxSending_other": "Wieder online — {{count}} Formulare werden versendet",
     "storageError": "Speichern fehlgeschlagen — der Gerätespeicher ist voll. Änderungen gelten nur noch für diese Sitzung. Bitte Speicherplatz freigeben.",
+    "storageUnreadable": "Der gespeicherte Bestand konnte nicht gelesen werden. Es wird derzeit nichts gespeichert — bitte die App neu laden, bevor etwas eingegeben wird.",
     "storageAlmostFull": "Der Gerätespeicher ist fast voll — bald sichern und Platz schaffen.",
     "new": "Neu"
   },

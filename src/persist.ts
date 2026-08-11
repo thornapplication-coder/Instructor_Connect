@@ -22,6 +22,8 @@
 const DB_NAME = 'instructor-connect'
 const DB_STORE = 'kv'
 const STATE_KEY = 'aaa-state'
+/** Kanal, über den sich mehrere offene Tabs denselben Stand zurufen. */
+const SYNC_CHANNEL = 'aaa-state-sync'
 
 /** Wird gemeldet, wenn ein Speichern fehlschlägt — vorher passierte das stumm. */
 export const STORAGE_ERROR_EVENT = 'aaa-storage-error'
@@ -81,6 +83,22 @@ function idbDel(key: string): Promise<void> {
 let preloaded: string | null = null
 /** IndexedDB nicht nutzbar → localStorage bleibt die Ablage (wie bisher). */
 let idbBroken = false
+/**
+ * Der Lesevorgang ist gescheitert, OBWOHL dort etwas liegen könnte.
+ *
+ * Bisher lief die App in diesem Fall stumm auf den Seed-Daten an: Der
+ * Instruktor sah eine leere Ablage — und der erste Klick schrieb diesen
+ * leeren Stand über den vorhandenen. Ein Lesefehler ist aber kein Beleg
+ * dafür, dass nichts da ist. Solange er gilt, wird deshalb NICHT
+ * gespeichert; stattdessen meldet der Warnstreifen, dass die App neu
+ * geladen werden muss.
+ */
+let readFailed = false
+
+/** Konnte der gespeicherte Bestand nicht gelesen werden? */
+export function storageReadFailed(): boolean {
+  return readFailed
+}
 
 /**
  * Vor dem ersten Render aufrufen. Liest den Stand aus IndexedDB; findet
@@ -114,6 +132,9 @@ export async function preloadPersistedState(): Promise<void> {
   } catch {
     idbBroken = true
     preloaded = legacy
+    // Nur wenn es auch keinen localStorage-Stand gibt, ist der Bestand
+    // wirklich unbekannt — dann darf nichts überschrieben werden.
+    readFailed = legacy === null
   }
   // Den Browser bitten, die Ablage nicht bei Platzmangel zu räumen —
   // auf einem Nachweissystem darf der Verlauf nicht heimlich verschwinden.
@@ -131,6 +152,13 @@ export function readPreloadedState(): string | null {
 
 /** Zustand sichern. Fehler werden gemeldet statt verschluckt. */
 export function persistState(payload: string) {
+  // Nach einem Lesefehler wird nichts geschrieben: Was nicht gelesen werden
+  // konnte, darf nicht überschrieben werden.
+  if (readFailed) {
+    window.dispatchEvent(new CustomEvent(STORAGE_ERROR_EVENT))
+    return
+  }
+  broadcast(payload)
   if (idbBroken) {
     try {
       localStorage.setItem(STATE_KEY, payload)
@@ -142,6 +170,72 @@ export function persistState(payload: string) {
   idbSet(STATE_KEY, payload).catch(() => {
     window.dispatchEvent(new CustomEvent(STORAGE_ERROR_EVENT))
   })
+}
+
+/**
+ * Einen Stand beiseitelegen, statt ihn wegzuwerfen.
+ *
+ * Ein Sprung der STATE_VERSION verwarf den gesamten gespeicherten Bestand —
+ * unterschriebene Formulare eingeschlossen — und zwar wortlos. Das ist bei
+ * einer Ablage mit Nachweispflicht nicht vertretbar. Der alte Stand wandert
+ * jetzt unter einen eigenen Schlüssel; von dort ist er auslesbar, solange
+ * niemand die Ablage von Hand räumt.
+ */
+export function backupPersistedState(raw: string, version: number | undefined): void {
+  const key = `${STATE_KEY}-backup-v${version ?? 'unknown'}`
+  if (idbBroken) {
+    try {
+      localStorage.setItem(key, raw)
+    } catch {
+      window.dispatchEvent(new CustomEvent(STORAGE_ERROR_EVENT))
+    }
+    return
+  }
+  idbSet(key, raw).catch(() => {
+    window.dispatchEvent(new CustomEvent(STORAGE_ERROR_EVENT))
+  })
+}
+
+/* ===================== Mehrere Tabs ===================== */
+
+/**
+ * Zwei offene Tabs hielten je eine vollständige Kopie des Zustands. Wer im
+ * zweiten Tab etwas tat, schrieb dessen — älteren — Stand über den ersten:
+ * ein im ersten Tab gerade unterschriebenes Formular war damit weg, ohne
+ * jede Meldung. Gemessen wurde genau das.
+ *
+ * Deshalb ruft jeder Tab seinen frisch gesicherten Stand über einen
+ * BroadcastChannel aus, und die übrigen übernehmen ihn. Damit arbeiten alle
+ * Tabs auf demselben Stand, statt sich gegenseitig zu überschreiben.
+ */
+let channel: BroadcastChannel | null = null
+/** Was dieser Tab selbst zuletzt ausgerufen hat — kommt es zurück, ignorieren. */
+let lastBroadcast = ''
+
+function getChannel(): BroadcastChannel | null {
+  if (channel === null && typeof BroadcastChannel !== 'undefined') channel = new BroadcastChannel(SYNC_CHANNEL)
+  return channel
+}
+
+function broadcast(payload: string) {
+  lastBroadcast = payload
+  try {
+    getChannel()?.postMessage(payload)
+  } catch {
+    /* ohne BroadcastChannel bleibt es beim bisherigen Verhalten */
+  }
+}
+
+/** Auf Stände anderer Tabs hören. Liefert die Abmeldefunktion. */
+export function subscribeToOtherTabs(onState: (raw: string) => void): () => void {
+  const ch = getChannel()
+  if (!ch) return () => undefined
+  const handler = (ev: MessageEvent) => {
+    if (typeof ev.data !== 'string' || ev.data === lastBroadcast) return
+    onState(ev.data)
+  }
+  ch.addEventListener('message', handler)
+  return () => ch.removeEventListener('message', handler)
 }
 
 export function clearPersistedState() {

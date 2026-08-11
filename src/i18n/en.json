@@ -26,6 +26,7 @@
     "outboxSending_one": "Back online — sending {{count}} form",
     "outboxSending_other": "Back online — sending {{count}} forms",
     "storageError": "Saving failed — device storage is full. Changes now only live in this session. Free up space on the device.",
+    "storageUnreadable": "Saved data could not be read. Nothing is being saved right now — please reload the app before entering anything.",
     "storageAlmostFull": "Device storage is almost full — back up and free up space soon.",
     "new": "New"
   },

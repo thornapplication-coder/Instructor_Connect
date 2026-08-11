@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Clock, Printer, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { contentFingerprint, HASH_VERSION, shortFingerprint } from '../docHash'
+import { networkReachable } from '../net'
 import { useUnsavedWork } from '../editGuard'
 import { SignaturePad } from '../components/SignaturePad'
 import { useTranslation } from 'react-i18next'
@@ -519,8 +520,10 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                     signatureTrainee: lateSignature,
                     ...(mayCountersign ? {} : { lateSignatureBy: currentUser!.id }),
                     status: 'signed',
-                    // Ohne Netz in den Ausgangskorb statt „versendet"
-                    mailStatus: navigator.onLine === false ? 'queued' : 'sent',
+                    // Ohne Netz in den Ausgangskorb statt „versendet". Maßgeblich
+                    // ist die echte Probe, nicht navigator.onLine: das meldet
+                    // „online" auch im WLAN ohne Internet.
+                    mailStatus: (await networkReachable()) ? 'sent' : 'queued',
                     // Chronologie bleibt erhalten: signedAt (Abschluss) wird
                     // gesetzt, der Zeitpunkt der Instruktorunterschrift steht
                     // in instructorSignedAt und wird hier NICHT angefasst —
