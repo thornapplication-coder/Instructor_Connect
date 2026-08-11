@@ -10,14 +10,18 @@ import { APP_VERSION } from '../types'
 import { TrafficDot, trafficLight, type TrafficColor } from './Grading'
 
 /* Kachel-Beschriftungen bleiben laut Spez. §5 in beiden Sprachen Englisch. */
+// Reihenfolge der Kacheln = Reihenfolge auf der Startseite. Der Monatsbericht
+// steht bewusst am Ende: Er ist die Auswertung des Monats, kein Werkzeug für
+// den Arbeitstag — vorne stehen die Dinge, die vor und nach einer Session
+// gebraucht werden.
 const TILES = [
   { to: '/grading', label: 'Grading Tool', icon: GradingIcon },
-  { to: '/report', label: 'Monthly Report', icon: CalendarRange },
   { to: '/lessons', label: 'Lesson Plan', icon: BookOpenCheck },
   { to: '/chat', label: 'Chat', icon: MessagesSquare },
   { to: '/info', label: 'Instructor Info', icon: GraduationCap },
   { to: '/feedback', label: 'Feedback', icon: MessageSquareText },
   { to: '/contacts', label: 'Who to call', icon: Phone },
+  { to: '/report', label: 'Monthly Report', icon: CalendarRange },
 ] as const
 
 export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {

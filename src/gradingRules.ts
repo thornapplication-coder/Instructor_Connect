@@ -129,16 +129,33 @@ export function trafficLight(r: GradingRecord, all?: GradingRecord[]): TrafficCo
  * (absteigend, neueste oben); bei gleichem Datum nach dem Status —
  * Sending failed (rot) vor Open (gelb) vor Completed (grün).
  */
+/**
+ * Datum, nach dem die Listen ordnen UND gruppieren: der SCHULUNGSTAG aus
+ * dem Kopf, ersatzweise der Anlagezeitpunkt.
+ *
+ * Beides auseinanderzuhalten war schon einmal ein Befund (#51): Ein Blatt,
+ * das am Folgetag ausgefüllt wird, gehört zur Session, nicht zum Tag des
+ * Ausfüllens. Die Liste sortierte danach bereits, zeigte in der Zeile aber
+ * `createdAt` — zwei verschiedene Daten für dieselbe Zeile.
+ */
+export function gradingListDate(r: GradingRecord): number {
+  const raw = r.header.date
+  if (raw) {
+    const t = new Date(`${raw}T00:00:00`).getTime()
+    if (!Number.isNaN(t)) return t
+  }
+  return r.createdAt
+}
+
+/** Tagesschlüssel (YYYY-MM-DD) zum Gruppieren der Liste. */
+export function gradingDayKey(r: GradingRecord): string {
+  const d = new Date(gradingListDate(r))
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function gradingListComparator(all: GradingRecord[]) {
   const rank: Record<TrafficColor, number> = { red: 0, yellow: 1, green: 2 }
-  const dateOf = (r: GradingRecord): number => {
-    const raw = r.header.date
-    if (raw) {
-      const t = new Date(`${raw}T00:00:00`).getTime()
-      if (!Number.isNaN(t)) return t
-    }
-    return r.createdAt
-  }
+  const dateOf = gradingListDate
   return (a: GradingRecord, b: GradingRecord): number => {
     const dd = dateOf(b) - dateOf(a)
     if (dd !== 0) return dd
