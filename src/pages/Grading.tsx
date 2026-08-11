@@ -8,7 +8,7 @@ import { trainingDate } from '../gradingStats'
 import { useStore } from '../store'
 import { TraineeHistory } from './admin/TraineeHistory'
 import { MonthlyReport } from './admin/MonthlyReport'
-import { followUpStarted, isComplete, missingFollowUps, traineesOf, trafficLight, type TrafficColor } from '../gradingRules'
+import { followUpStarted, gradingDayKey, gradingListDate, isComplete, missingFollowUps, traineesOf, trafficLight, type TrafficColor } from '../gradingRules'
 import type { GradingRecord } from '../types'
 
 // Weiterreichen, damit die Ansichten weiterhin aus einer Datei importieren
@@ -24,6 +24,22 @@ export function gradeColor(g: number | 'NO' | null): string {
   if (g === 3) return 'bg-emerald-800 text-white'
   if (g === 2) return 'bg-amber-500 text-black'
   return 'bg-red-700 text-white'
+}
+
+/**
+ * Liste nach Schulungstag gruppieren — die Reihenfolge der bereits
+ * sortierten Liste bleibt erhalten (jüngster Tag zuerst), es wird nur
+ * gebündelt. Map bewahrt die Einfügereihenfolge, deshalb genügt das.
+ */
+function byDay(list: GradingRecord[]): [string, GradingRecord[]][] {
+  const groups = new Map<string, GradingRecord[]>()
+  list.forEach((r) => {
+    const key = gradingDayKey(r)
+    const bucket = groups.get(key)
+    if (bucket) bucket.push(r)
+    else groups.set(key, [r])
+  })
+  return [...groups.entries()]
 }
 
 /* Einheitliches Datumsformat DD.MM.YYYY für das gesamte Grading-Modul */
@@ -377,7 +393,19 @@ export function Grading() {
 
         {list.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('forms:empty')}</p>}
 
-        {list.map((r) => {
+        {/* Nach Schulungstag gruppiert, jüngster Tag zuerst. Die Liste war
+            zwar schon so sortiert, aber ohne sichtbare Grenze: Bei einem
+            Durchgang mit mehreren Piloten standen vier gleich aussehende
+            Zeilen untereinander, und wo ein Tag endete, war nicht zu sehen.
+            Das Datum steht jetzt EINMAL über der Gruppe statt in jeder
+            Zeile — in der Zeile stand es überdies als Anlagedatum, während
+            sortiert wurde nach dem Schulungstag (#51). */}
+        {byDay(list).map(([tag, blaetter]) => (
+          <div key={tag} className="space-y-2.5">
+            <h2 className="sticky top-14 z-[5] -mx-1 bg-bg/85 px-1 py-1.5 text-[12.5px] font-semibold uppercase tracking-wide text-dim backdrop-blur">
+              {formatDate(gradingListDate(blaetter[0]))}
+            </h2>
+            {blaetter.map((r) => {
           const notCompetent = r.trainees.some((tr) => tr.overall === 'not_competent')
           const missing = missingFollowUps(r, state.gradingRecords)
           const light = trafficLight(r, state.gradingRecords)
@@ -403,8 +431,6 @@ export function Grading() {
                   <p className="text-[15px] font-semibold leading-snug">
                     {r.formTypeId} · {formTitle(r.formTypeId)}
                   </p>
-                  {/* Datum steht abgesetzt: es unterscheidet zwei Formulare
-                      desselben Piloten und wurde vom Abschneiden verschluckt. */}
                   <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-[13px] text-dim">
                     <span className="min-w-0 max-w-full truncate">
                       {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('forms:noTrainee')}
@@ -412,7 +438,6 @@ export function Grading() {
                     {/* schrumpfbar: ein langer Mustername drängte sonst den
                         Pilotennamen vollständig aus der Zeile */}
                     <span className="min-w-0 max-w-[40%] shrink truncate">· {r.header.aircraftType}</span>
-                    <span className="shrink-0">· {formatDate(r.createdAt)}</span>
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {r.status === 'signed' ? (
@@ -485,7 +510,9 @@ export function Grading() {
               </div>
             </Card>
           )
-        })}
+            })}
+          </div>
+        ))}
         </>
         )}
       </Page>

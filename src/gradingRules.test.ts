@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import {
   autoNotCompetent,
   followUpStarted,
+  gradingDayKey,
   gradingListComparator,
+  gradingListDate,
   hasEvidence,
   isComplete,
   isFollowUpType,
@@ -264,5 +266,34 @@ describe('traineesOf — Rueckfall ins Leere', () => {
   it('liefert eine leere Liste, wenn das Folgeformular gar kein Elternblatt nennt', () => {
     const ohne = rec({ formTypeId: '306', trainees: [], header: {} })
     expect(traineesOf(ohne, [ohne])).toEqual([])
+  })
+})
+
+/**
+ * Die Liste sortierte nach dem SCHULUNGSTAG (#51), zeigte in der Zeile aber
+ * `createdAt` — zwei verschiedene Daten für dieselbe Zeile. Seit die Liste
+ * nach Tagen gruppiert ist, muss beides dieselbe Quelle haben.
+ */
+describe('gradingListDate / gradingDayKey — der Schulungstag zaehlt', () => {
+  it('nimmt den Schulungstag aus dem Kopf, nicht den Anlagezeitpunkt', () => {
+    const r = rec({ header: { date: '2026-08-05' }, createdAt: Date.UTC(2026, 7, 9) })
+    expect(gradingDayKey(r)).toBe('2026-08-05')
+  })
+
+  it('faellt auf den Anlagezeitpunkt zurueck, wenn kein Datum im Kopf steht', () => {
+    const r = rec({ header: {}, createdAt: new Date(2026, 7, 9, 12).getTime() })
+    expect(gradingDayKey(r)).toBe('2026-08-09')
+  })
+
+  it('faellt auch bei unlesbarem Datum zurueck, statt NaN zu liefern', () => {
+    const r = rec({ header: { date: 'kein Datum' }, createdAt: new Date(2026, 7, 9, 12).getTime() })
+    expect(gradingDayKey(r)).toBe('2026-08-09')
+    expect(Number.isNaN(gradingListDate(r))).toBe(false)
+  })
+
+  it('gibt Blaettern desselben Tages denselben Schluessel — auch bei anderem createdAt', () => {
+    const a = rec({ id: 'a', header: { date: '2026-08-05' }, createdAt: Date.UTC(2026, 7, 5) })
+    const b = rec({ id: 'b', header: { date: '2026-08-05' }, createdAt: Date.UTC(2026, 7, 9) })
+    expect(gradingDayKey(a)).toBe(gradingDayKey(b))
   })
 })
