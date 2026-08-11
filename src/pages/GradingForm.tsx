@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
 import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
-import { contentFingerprint } from '../docHash'
+import { contentFingerprint, HASH_VERSION } from '../docHash'
 import { isFollowUpType } from '../gradingRules'
 import { navigate, scrollToTop } from '../router'
 
@@ -462,7 +462,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     // Der Fingerabdruck entsteht im Moment des Unterschreibens — VOR dem
     // Speichern, damit der abgelegte Datensatz ihn von Anfang an trägt.
     const recs = await Promise.all(
-      buildRecords().map(async (r) => (r.status === 'signed' ? { ...r, contentHash: await contentFingerprint(r) } : r)),
+      buildRecords().map(async (r) =>
+        r.status === 'signed' ? { ...r, contentHash: await contentFingerprint(r), hashVersion: HASH_VERSION } : r,
+      ),
     )
     recs.forEach(saveGradingRecord)
     clearDraft()

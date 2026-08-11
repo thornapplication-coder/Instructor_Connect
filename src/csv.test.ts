@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CSV_SEPARATOR, csvEsc, csvNum, csvRow } from './csv'
+import { CSV_SEPARATOR, csvEsc, csvNum, csvRow, downloadCsv } from './csv'
 
 /**
  * Der CSV-Export landet in Excel. Zwei Dinge müssen deshalb halten:
@@ -72,5 +72,57 @@ describe('csvRow', () => {
 
   it('wendet den Formelschutz auf jede Zelle an', () => {
     expect(csvRow(['ok', '=BOOM()'])).toBe(`ok${CSV_SEPARATOR}'=BOOM()\n`)
+  })
+})
+
+describe('downloadCsv', () => {
+  /**
+   * Braucht Browser-Bausteine (Blob, URL, Anker) — die stubben wir hier,
+   * statt die Datei von der Pruefung auszunehmen. Was zaehlt, ist die
+   * Zusage: BOM voran (sonst zerlegt Excel die Umlaute), richtiger MIME-Typ,
+   * gesetzter Dateiname und ein wieder freigegebenes Objekt.
+   */
+  const withStubs = async (fn: (calls: Record<string, unknown>) => void | Promise<void>) => {
+    const calls: Record<string, unknown> = {}
+    const g = globalThis as unknown as Record<string, unknown>
+    const orig = { Blob: g.Blob, URL: g.URL, document: g.document, setTimeout: g.setTimeout }
+    g.Blob = class {
+      constructor(parts: string[], opts: { type: string }) {
+        calls.parts = parts
+        calls.type = opts.type
+      }
+    }
+    g.URL = {
+      createObjectURL: () => 'blob:stub',
+      revokeObjectURL: (u: string) => { calls.revoked = u },
+    }
+    const anchor: Record<string, unknown> = { click: () => { calls.clicked = true } }
+    g.document = { createElement: (tag: string) => { calls.tag = tag; return anchor } }
+    g.setTimeout = ((cb: () => void) => { cb(); return 0 }) as unknown as typeof setTimeout
+    try {
+      await fn(Object.assign(calls, { anchor }))
+    } finally {
+      Object.assign(g, orig)
+    }
+  }
+
+  it('stellt das BOM voran und setzt den CSV-MIME-Typ', async () => {
+    await withStubs((calls) => {
+      downloadCsv('bericht.csv', 'a;b\n')
+      expect((calls.parts as string[])[0]).toBe('﻿' + 'a;b\n')
+      expect(calls.type).toBe('text/csv;charset=utf-8')
+    })
+  })
+
+  it('setzt den Dateinamen, loest den Download aus und gibt das Objekt wieder frei', async () => {
+    await withStubs((calls) => {
+      downloadCsv('monatsbericht.csv', 'x\n')
+      const a = calls.anchor as Record<string, unknown>
+      expect(calls.tag).toBe('a')
+      expect(a.download).toBe('monatsbericht.csv')
+      expect(a.href).toBe('blob:stub')
+      expect(calls.clicked).toBe(true)
+      expect(calls.revoked).toBe('blob:stub')
+    })
   })
 })

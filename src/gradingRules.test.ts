@@ -185,3 +185,33 @@ describe('traineesOf', () => {
     expect(traineesOf(child, [parent, child]).map((t) => t.traineeName)).toEqual(['Sophie Berger'])
   })
 })
+
+describe('followUpStarted — Reichweite wie bei der Pflichtpruefung', () => {
+  it('erkennt ein angefangenes 310 auch am Geschwisterblatt des Durchgangs', () => {
+    const a = rec({ id: 'a', batchId: 'b1', sessionStatus: 'not_completed' })
+    const b = rec({ id: 'b', batchId: 'b1', sessionStatus: 'not_completed' })
+    const entwurf = rec({ id: 'd', formTypeId: '310', parentId: 'a', status: 'awaiting_signature' })
+    expect(followUpStarted(b, [a, b, entwurf], '310')).toBe(true)
+    // ... das 306 dagegen bleibt an genau einem Blatt haengen
+    const draft306 = rec({ id: 'e', formTypeId: '306', parentId: 'a', status: 'awaiting_signature' })
+    expect(followUpStarted(b, [a, b, draft306], '306')).toBe(false)
+    expect(followUpStarted(a, [a, b, draft306], '306')).toBe(true)
+  })
+
+  it('meldet nichts, wenn gar kein Folgeformular angefangen wurde', () => {
+    const r = rec()
+    expect(followUpStarted(r, [r], '306')).toBe(false)
+  })
+})
+
+describe('traineesOf — Rueckfall ins Leere', () => {
+  it('liefert eine leere Liste, wenn weder eigene Piloten noch ein auffindbares Elternblatt da sind', () => {
+    const waise = rec({ formTypeId: '306', trainees: [], header: {}, parentId: 'gibt-es-nicht' })
+    expect(traineesOf(waise, [waise])).toEqual([])
+  })
+
+  it('liefert eine leere Liste, wenn das Folgeformular gar kein Elternblatt nennt', () => {
+    const ohne = rec({ formTypeId: '306', trainees: [], header: {} })
+    expect(traineesOf(ohne, [ohne])).toEqual([])
+  })
+})

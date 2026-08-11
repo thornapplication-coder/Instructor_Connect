@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle2, Clock, Printer, RefreshCw } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { contentFingerprint, shortFingerprint } from '../docHash'
+import { contentFingerprint, HASH_VERSION, shortFingerprint } from '../docHash'
 import { useUnsavedWork } from '../editGuard'
 import { SignaturePad } from '../components/SignaturePad'
 import { useTranslation } from 'react-i18next'
@@ -36,7 +36,10 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
     setHashState(null)
     if (!record?.contentHash) return
     let stop = false
-    void contentFingerprint({ ...record, contentHash: undefined }).then((h) => {
+    // Mit DER Fassung nachrechnen, unter der das Dokument entstanden ist —
+    // sonst meldet jede spätere Erweiterung der Feldliste den gesamten
+    // Altbestand als „nachträglich geändert".
+    void contentFingerprint({ ...record, contentHash: undefined }, record.hashVersion ?? 1).then((h) => {
       if (!stop) setHashState(h === record.contentHash ? 'ok' : 'bad')
     })
     return () => {
@@ -525,7 +528,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                     signedAt: now,
                     countersignedAt: now,
                   }
-                  saveGradingRecord({ ...next, contentHash: await contentFingerprint(next) })
+                  saveGradingRecord({ ...next, contentHash: await contentFingerprint(next), hashVersion: HASH_VERSION })
                   setLateSignature(null)
                   // Fehlt noch ein Pflicht-Folgeformular, bleibt der Nutzer auf
                   // dem Formular und sieht dort, was offen ist.

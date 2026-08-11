@@ -3,6 +3,7 @@ import { gradingListComparator, isComplete, isFollowUpType } from './gradingRule
 import { networkReachable } from './net'
 import { createSeedState } from './sandbox/seed'
 import { migrateState } from './migrateState'
+import { SANDBOX } from './sandbox/flag'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import { clearPersistedState, persistState, readPreloadedState } from './persist'
 import type { InfoEntry } from './types'
@@ -456,12 +457,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         persistUser(null)
         patch(() => ({ currentUserId: null }))
       },
+      // Die drei Sandbox-Werkzeuge greifen NUR im Sandbox-Betrieb. Bisher
+      // hing das allein daran, dass die Leiste sie anbietet — wer sie über
+      // die Konsole aufrief, wechselte die Identität ohne Anmeldung,
+      // verschob die Unterschriftszeitpunkte (die im Fingerabdruck stecken)
+      // oder löschte den gesamten Bestand.
       switchUser: (userId) => {
+        if (!SANDBOX) return
         persistUser(userId)
         patch(() => ({ currentUserId: userId }))
       },
-      advanceTime: (ms) => patch((s) => ({ timeOffsetMs: s.timeOffsetMs + ms })),
+      advanceTime: (ms) => {
+        if (!SANDBOX) return
+        patch((s) => ({ timeOffsetMs: s.timeOffsetMs + ms }))
+      },
       resetSandbox: () => {
+        if (!SANDBOX) return
         clearPersistedState()
         setState(() => ({ ...createSeedState(), currentUserId: state.currentUserId }))
       },
@@ -747,6 +758,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       saveGradingRecord: (record) =>
         patch((s) => {
+          // Ein vollständig unterschriebenes Blatt ist der Nachweis selbst
+          // und wird nicht mehr überschrieben. Bisher hing das allein daran,
+          // dass die Oberfläche keinen Bearbeiten-Knopf mehr anbot — wer die
+          // ID in die Adresszeile tippte, schrieb den Datensatz trotzdem neu.
+          // Der Fingerabdruck hätte die Änderung zwar ausgewiesen, aber erst
+          // im Nachhinein; hier wird sie gar nicht erst zugelassen.
+          // Die Nachtragsunterschrift ist davon nicht betroffen: sie setzt an
+          // einem Blatt an, das noch auf 'awaiting_signature' steht.
+          const vorher = s.gradingRecords.find((r) => r.id === record.id)
+          if (vorher?.status === 'signed') return null
+
           // parentId kommt letztlich aus der Adresszeile. Nur 306/310 sind
           // Folgeformulare, und nur ein vorhandenes Formular kann Elternteil
           // sein — alles andere wird verworfen, sonst hebelt ein erfundenes

@@ -308,7 +308,8 @@
     "reset": "Daten zurücksetzen",
     "offset": "+{{days}} T",
     "device": "iPhone/iPad-Vorschau",
-    "rotate": "Drehen"
+    "rotate": "Drehen",
+    "resetConfirm": "Sandbox zurücksetzen? Alle Formulare, Unterschriften und Nachrichten auf diesem Gerät werden gelöscht."
   },
   "grading": {
     "newForm": "Neues Formular",

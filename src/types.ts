@@ -209,6 +209,11 @@ export interface AppState {
    *  attempts begrenzt das Durchprobieren — nach fünf Fehlversuchen ist der
    *  Code verbraucht und muss neu angefordert werden. */
   pendingLogin: { email: string; code: string; expiresAt: number; attempts: number } | null
+  /** Marke der Nachtrags-Migration für die drei Demo-Sessions: einmal
+   *  gesetzt, werden sie nie wieder ergänzt. Ohne diese Marke kamen sie
+   *  nach dem Löschen bei jedem Start zurück — jedes Mal mit frisch
+   *  gerechneten Zeitstempeln, also als NEUE Daten. */
+  seedHistoryMigrated?: boolean
 }
 
 
@@ -369,6 +374,11 @@ export interface GradingRecord {
   /** SHA-256 über die prüfrelevanten Felder samt Unterschriftsbildern,
    *  gebildet im Moment des Unterschreibens (siehe docHash.ts) */
   contentHash?: string
+  /** Fassung des Abdruck-Verfahrens, unter der `contentHash` entstand.
+   *  Fehlt sie, ist es ein Altbestand aus Fassung 1 — er wird auch mit
+   *  Fassung 1 nachgerechnet, damit die Erweiterung der Feldliste nicht
+   *  jedes bereits unterschriebene Dokument als geändert meldet. */
+  hashVersion?: number
   /** Zuständige Behörde des Trainings: AT (AT.ATO.106) oder UK
    *  (GBR.ATO.0541) — bestimmt die Kennung im Dokumentkopf. Fehlt der
    *  Wert (Altbestand), gilt AT. */

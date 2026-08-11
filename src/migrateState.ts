@@ -41,22 +41,34 @@ export function migrateState(st: AppState): AppState {
   // Die drei historischen Sessions von Sophie Berger nachtragen: Ohne sie
   // zeigt der Verlauf je Pilot auf Bestandsgeräten nur eine Session und damit
   // überall „zu wenige Sessions" — die Funktion wäre da, aber unsichtbar.
-  // Idempotent über die IDs; wer die Blätter löscht, bekommt sie nicht zurück,
-  // solange eines davon noch existiert.
+  //
+  // Der Nachtrag läuft GENAU EINMAL und merkt sich das (seedHistoryMigrated).
+  // Vorher hing die Entscheidung allein daran, ob noch eines der drei Blätter
+  // im Bestand lag: Wer sie als Superadmin vollständig löschte, bekam sie beim
+  // nächsten Laden zurück — und weil createSeedState() alle Zeitstempel gegen
+  // die aktuelle Uhr rechnet, jedes Mal mit anderem Datum. Ein Löschen, das
+  // sich von selbst rückgängig macht, ist in einer Ausbildungsablage das
+  // Gegenteil dessen, was der Nutzer angewiesen hat.
   const histIds = ['gr-hist1', 'gr-hist2', 'gr-hist3']
-  const histMissing = st.gradingRecords !== undefined && !st.gradingRecords.some((r) => histIds.includes(r.id))
+  const histDone = st.seedHistoryMigrated === true || st.gradingRecords === undefined
+  const histMissing = !histDone && !st.gradingRecords.some((r) => histIds.includes(r.id))
   const gradingRecords = histMissing
     ? [...createSeedState().gradingRecords.filter((r) => histIds.includes(r.id)), ...st.gradingRecords]
     : st.gradingRecords
+  // Marke auch dann setzen, wenn nichts zu ergänzen war — der Nachtrag ist
+  // damit endgültig erledigt, nicht nur für diesen Start.
+  const markSeedHistory = !histDone
 
   const headerChanged = atoName !== dh.atoName || approvalNumber !== dh.approvalNumber || approvalNumberUK !== dh.approvalNumberUK
   const catsChanged = feedbackCategories !== st.settings.feedbackCategories || infoCategories !== st.settings.infoCategories
   const usersChanged = users !== st.users && users?.some((u, i) => u !== st.users[i])
   const contactsChanged = contacts !== st.contacts && contacts?.some((c, i) => c !== st.contacts[i])
-  if (!headerChanged && !catsChanged && !usersChanged && !contactsChanged && !clNeedsReset && !histMissing) return st
+  if (!headerChanged && !catsChanged && !usersChanged && !contactsChanged && !clNeedsReset && !histMissing && !markSeedHistory)
+    return st
   return {
     ...st,
     gradingRecords,
+    seedHistoryMigrated: st.seedHistoryMigrated || markSeedHistory || undefined,
     users: usersChanged ? users! : st.users,
     contacts: contactsChanged ? contacts! : st.contacts,
     changelog,

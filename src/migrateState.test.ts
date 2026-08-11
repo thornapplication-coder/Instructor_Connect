@@ -11,23 +11,31 @@ import { migrateState } from './migrateState'
 const HIST = ['gr-hist1', 'gr-hist2', 'gr-hist3']
 const idsOf = (st: ReturnType<typeof createSeedState>) => st.gradingRecords.map((r) => r.id)
 
+/** Ein Bestandsgeraet kennt die Nachtrags-Marke noch nicht — genau das ist
+ *  der Zustand, fuer den die Migration gebaut ist. */
+const bestand = (over: Partial<ReturnType<typeof createSeedState>> = {}) => {
+  const st = { ...createSeedState(), ...over }
+  delete (st as { seedHistoryMigrated?: boolean }).seedHistoryMigrated
+  return st
+}
+
 describe('migrateState — historische Sessions', () => {
   it('traegt die Verlaufs-Blaetter nach, wenn sie fehlen', () => {
-    const alt = { ...createSeedState(), gradingRecords: createSeedState().gradingRecords.filter((r) => !HIST.includes(r.id)) }
+    const alt = bestand({ gradingRecords: createSeedState().gradingRecords.filter((r) => !HIST.includes(r.id)) })
     expect(idsOf(alt).filter((id) => HIST.includes(id))).toEqual([])
     const neu = migrateState(alt)
     expect(idsOf(neu).filter((id) => HIST.includes(id)).sort()).toEqual([...HIST].sort())
   })
 
   it('doppelt nichts bei mehrfachem Lauf', () => {
-    const einmal = migrateState(createSeedState())
+    const einmal = migrateState(bestand())
     const zweimal = migrateState(einmal)
     expect(idsOf(zweimal).length).toBe(idsOf(einmal).length)
     HIST.forEach((id) => expect(idsOf(zweimal).filter((x) => x === id)).toHaveLength(1))
   })
 
   it('laesst bestehende Formulare unangetastet', () => {
-    const alt = { ...createSeedState(), gradingRecords: createSeedState().gradingRecords.filter((r) => !HIST.includes(r.id)) }
+    const alt = bestand({ gradingRecords: createSeedState().gradingRecords.filter((r) => !HIST.includes(r.id)) })
     const vorher = idsOf(alt)
     const neu = migrateState(alt)
     vorher.forEach((id) => expect(idsOf(neu)).toContain(id))
@@ -35,11 +43,40 @@ describe('migrateState — historische Sessions', () => {
 
   it('holt sie nicht zurueck, solange noch eines der Blaetter da ist', () => {
     // Wer bewusst aufraeumt, soll nicht gegen die Migration ankaempfen.
-    const seed = createSeedState()
-    const nurEines = { ...seed, gradingRecords: seed.gradingRecords.filter((r) => r.id !== 'gr-hist2' && r.id !== 'gr-hist3') }
+    const nurEines = bestand({ gradingRecords: createSeedState().gradingRecords.filter((r) => r.id !== 'gr-hist2' && r.id !== 'gr-hist3') })
     const neu = migrateState(nurEines)
     expect(idsOf(neu)).toContain('gr-hist1')
     expect(idsOf(neu)).not.toContain('gr-hist2')
+  })
+
+  /**
+   * Der eigentliche Befund: Der Nachtrag entschied allein danach, ob noch
+   * eines der drei Blaetter im Bestand lag. Wer sie als Superadmin
+   * VOLLSTAENDIG loeschte, bekam sie beim naechsten Start zurueck — und
+   * weil createSeedState() alle Zeitstempel gegen die aktuelle Uhr rechnet,
+   * jedes Mal mit neuem Datum. Ein Loeschen, das sich von selbst rueckgaengig
+   * macht, ist in einer Ausbildungsablage nicht hinnehmbar.
+   */
+  it('holt vollstaendig geloeschte Blaetter NICHT zurueck', () => {
+    const nachNachtrag = migrateState(bestand())
+    expect(nachNachtrag.seedHistoryMigrated).toBe(true)
+    const geloescht = { ...nachNachtrag, gradingRecords: nachNachtrag.gradingRecords.filter((r) => !HIST.includes(r.id)) }
+    const neuGeladen = migrateState(geloescht)
+    expect(idsOf(neuGeladen).filter((id) => HIST.includes(id))).toEqual([])
+    // Auch nach mehreren Starts bleibt das Loeschen bestehen.
+    expect(idsOf(migrateState(migrateState(neuGeladen))).filter((id) => HIST.includes(id))).toEqual([])
+  })
+
+  it('setzt die Marke auch dann, wenn nichts nachzutragen war', () => {
+    // Sonst bliebe das Fenster offen: einmal ohne Marke geladen, danach
+    // geloescht — und der Nachtrag griffe beim uebernaechsten Start doch.
+    const alt = bestand()
+    expect(alt.seedHistoryMigrated).toBeUndefined()
+    expect(migrateState(alt).seedHistoryMigrated).toBe(true)
+  })
+
+  it('der Seed traegt die Marke bereits — er bringt die Blaetter selbst mit', () => {
+    expect(createSeedState().seedHistoryMigrated).toBe(true)
   })
 })
 
@@ -67,5 +104,49 @@ describe('migrateState — bestehende Zusagen', () => {
     const s = migrateState(alt).settings
     expect(s.feedbackCategories).toContain('General')
     expect(s.infoCategories).toContain('General')
+  })
+})
+
+describe('migrateState — Zusagen, die bisher niemand geprueft hat', () => {
+  it('laesst eine bewusst gesetzte eigene ATO-Angabe unangetastet', () => {
+    // Der Kommentar verspricht das ausdruecklich; eine Erweiterung von
+    // OLD_NAMES wuerde sonst echte Kundendaten ueberschreiben.
+    const st = createSeedState()
+    st.settings.documentHeader = { ...st.settings.documentHeader, atoName: 'Meine ATO', approvalNumber: 'AT.ATO.999' }
+    const dh = migrateState(st).settings.documentHeader
+    expect(dh.atoName).toBe('Meine ATO')
+    expect(dh.approvalNumber).toBe('AT.ATO.999')
+  })
+
+  it('ergaenzt die fehlende UK-Nummer, ohne eine vorhandene zu ueberschreiben', () => {
+    const ohne = createSeedState()
+    ohne.settings.documentHeader = { ...ohne.settings.documentHeader, approvalNumberUK: '' }
+    expect(migrateState(ohne).settings.documentHeader.approvalNumberUK).toBe('GBR.ATO.0541')
+
+    const eigen = createSeedState()
+    eigen.settings.documentHeader = { ...eigen.settings.documentHeader, approvalNumberUK: 'GBR.ATO.1234' }
+    expect(migrateState(eigen).settings.documentHeader.approvalNumberUK).toBe('GBR.ATO.1234')
+  })
+
+  it('steigt ohne documentHeader aus, statt zu stolpern', () => {
+    // Altbestand ohne Kopfdaten: die Migration darf nicht werfen.
+    const st = createSeedState()
+    delete (st.settings as { documentHeader?: unknown }).documentHeader
+    expect(() => migrateState(st)).not.toThrow()
+    expect(migrateState(st)).toBe(st)
+  })
+
+  it('benennt den Demo-Platzhalter um, aber nur solange der alte Name steht', () => {
+    const st = createSeedState()
+    st.users = st.users.map((u) => (u.id === 'u-max' ? { ...u, name: 'Max Mustermann' } : u))
+    st.contacts = st.contacts.map((c) => (c.id === 'c2' ? { ...c, name: 'Max Mustermann' } : c))
+    const neu = migrateState(st)
+    expect(neu.users.find((u) => u.id === 'u-max')?.name).toBe('Steven Fermie')
+    expect(neu.contacts.find((c) => c.id === 'c2')?.name).toBe('Steven Fermie')
+
+    // Ein bewusst vergebener eigener Name bleibt stehen
+    const eigen = createSeedState()
+    eigen.users = eigen.users.map((u) => (u.id === 'u-max' ? { ...u, name: 'Eigener Name' } : u))
+    expect(migrateState(eigen).users.find((u) => u.id === 'u-max')?.name).toBe('Eigener Name')
   })
 })

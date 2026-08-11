@@ -32,7 +32,12 @@ export default defineConfig({
         'src/editGuard.ts', // Ebene 2: React-Hook plus DOM
         'src/useIsDesktop.ts', // Ebene 2: React-Hook plus matchMedia
       ],
-      thresholds: { lines: 90, functions: 90, statements: 90, branches: 85 },
+      // perFile ist der Kern der Zusage: Ohne diesen Schalter wertet v8 nur
+      // die GESAMTSUMME, und eine kleine ungetestete Datei verschwindet
+      // darin. Genau das war der Fall — csv.ts stand bei 68 % Lines, ohne
+      // dass der Lauf rot wurde. Die Regel in CLAUDE.md gilt erst mit
+      // perFile wirklich.
+      thresholds: { perFile: true, lines: 90, functions: 90, statements: 90, branches: 85 },
       reporter: ['text-summary'],
     },
   },

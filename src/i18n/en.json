@@ -308,7 +308,8 @@
     "reset": "Reset data",
     "offset": "+{{days}} d",
     "device": "iPhone/iPad preview",
-    "rotate": "Rotate"
+    "rotate": "Rotate",
+    "resetConfirm": "Reset the sandbox? All forms, signatures and messages on this device will be deleted."
   },
   "grading": {
     "newForm": "New form",

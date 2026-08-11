@@ -2,6 +2,7 @@ import { FastForward, FlaskConical, RotateCcw, Smartphone } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { navigate } from '../router'
 import { useStore } from '../store'
+import { SANDBOX } from '../sandbox/flag'
 
 const DAY = 24 * 3600_000
 
@@ -14,6 +15,9 @@ export function SandboxBar() {
   const { t } = useTranslation()
   const { state, currentUser, switchUser, advanceTime, resetSandbox } = useStore()
   const offsetDays = Math.round(state.timeOffsetMs / DAY)
+
+  // Kein Sandbox-Betrieb, keine Leiste — der Kommentar oben gilt jetzt wirklich.
+  if (!SANDBOX) return null
 
   return (
     <div className="safe-bottom sticky bottom-0 z-30 min-h-11 border-t border-amber-400/30 bg-[#2b2410]/95 text-amber-200 backdrop-blur">
@@ -54,7 +58,11 @@ export function SandboxBar() {
           {offsetDays > 0 && <span className="font-semibold">({t('sandbox.offset', { days: offsetDays })})</span>}
         </span>
         <button
-          onClick={resetSandbox}
+          onClick={() => {
+            // Ein Fehlgriff in der scrollenden Leiste loeschte bisher wortlos
+            // den gesamten Bestand an unterschriebenen Formularen.
+            if (window.confirm(t('sandbox.resetConfirm'))) resetSandbox()
+          }}
           title={t('sandbox.reset')}
           className="flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 rounded-md border border-amber-400/30 px-3 py-0.5 hover:bg-amber-400/10"
         >
