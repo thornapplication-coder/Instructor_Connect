@@ -554,6 +554,7 @@
       }
     },
     "followUp306PerPilot": "One Form 306 per pilot graded “Not Competent” — {{count}} will be opened one after another, each with that pilot’s own deficiencies and signature.",
+    "followUp310PerPilot": "One Form 310 per pilot — {{count}} will be opened one after another, each naming that pilot and listing the items deferred for them.",
     "errAllNotObserved": "At least one competency of {{name}} must carry a grade — a sheet graded “NO” throughout is not a record of competence.",
     "warnFutureDate": "The date is in the future. Complete the form anyway?",
     "warnNoFlightTime": "A mandatory flight time is 00:00. Complete the form anyway?",

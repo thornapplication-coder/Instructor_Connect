@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
 import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
 import { contentFingerprint, HASH_VERSION } from '../docHash'
-import { isFollowUpType } from '../gradingRules'
+import { autoNotCompetent, isFollowUpType, isNotCompetent } from '../gradingRules'
 import { navigate, scrollToTop } from '../router'
 
 /** Ohne Netz ist der Versand nicht gescheitert, sondern noch nicht erfolgt:
@@ -30,13 +30,6 @@ function emptyTrainee(codes: string[], position: string): TraineeGrading {
     summaryComment: '',
     overall: null,
   }
-}
-
-/** Automatik laut Vorgabe: mind. eine „1“ oder mind. zwei „2“ ⇒ Not Competent */
-export function autoNotCompetent(tr: TraineeGrading): boolean {
-  const ones = tr.grades.filter((g) => g.grade === 1).length
-  const twos = tr.grades.filter((g) => g.grade === 2).length
-  return ones >= 1 || twos >= 2
 }
 
 /**
@@ -307,14 +300,14 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   const hideCodes = formType?.competencySet === 'instructor'
 
   const needsFollowUp =
-    trainees.some((tr) => tr.overall === 'not_competent' || autoNotCompetent(tr)) || sessionStatus === 'not_completed'
+    trainees.some(isNotCompetent) || sessionStatus === 'not_completed'
 
   /** Anzahl der Piloten, für die je ein eigenes 306 fällig wird */
-  const notCompetentCount = trainees.filter((tr) => tr.overall === 'not_competent' || autoNotCompetent(tr)).length
+  const notCompetentCount = trainees.filter(isNotCompetent).length
 
   /** Pflicht-Folgeformulare: Not Competent ⇒ 306, Session nicht abgeschlossen ⇒ 310 */
   const requiredFollowUps: FormTypeId[] = [
-    ...(trainees.some((tr) => tr.overall === 'not_competent' || autoNotCompetent(tr)) ? (['306'] as FormTypeId[]) : []),
+    ...(trainees.some(isNotCompetent) ? (['306'] as FormTypeId[]) : []),
     ...(sessionStatus === 'not_completed' ? (['310'] as FormTypeId[]) : []),
   ]
 
@@ -524,16 +517,18 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     setSubmitting(true)
     const recs = await saveAll()
     setShowFollowUp(false)
-    // Je nicht bestandenem Piloten ein eigenes 306 — es dokumentiert dessen
-    // Defizite und trägt dessen Unterschrift. Das 310 betrifft dagegen den
-    // ganzen Durchgang und wird einmal am ersten Formular angehängt.
+    // Je Pilot ein eigenes Folgeformular — beide tragen seinen Namen und
+    // seine Unterschrift. Das 310 hing frueher einmalig am ersten Blatt des
+    // Durchgangs; seit es ein Pflichtfeld „Pilot / Student Name" fuehrt
+    // (#24), kann es fuer die uebrigen Piloten nichts belegen, haekelte deren
+    // offene Punkte aber trotzdem ab. Jetzt entsteht es je Blatt.
     const chain: FollowUpStep[] = []
     if (followUps.includes('306')) {
-      recs
-        .filter((r) => r.trainees.some((tr) => tr.overall === 'not_competent'))
-        .forEach((r) => chain.push({ type: '306', parentId: r.id }))
+      recs.filter((r) => r.trainees.some(isNotCompetent)).forEach((r) => chain.push({ type: '306', parentId: r.id }))
     }
-    followUps.filter((id) => id !== '306').forEach((id) => chain.push({ type: id, parentId: recs[0].id }))
+    followUps
+      .filter((id) => id !== '306')
+      .forEach((id) => recs.forEach((r) => chain.push({ type: id, parentId: r.id })))
     if (chain.length > 0) {
       navigate(`/grading/new?type=${chain[0].type}&parent=${chain[0].parentId}&next=${encodeChain(chain.slice(1))}`)
     } else {
@@ -1240,6 +1235,12 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
           {notCompetentCount > 1 && followUps.includes('306') && (
             <p className="mt-3 rounded-xl border border-warm/25 bg-warm/5 p-3 text-[12.5px] leading-relaxed">
               {t('grading.followUp306PerPilot', { count: notCompetentCount })}
+            </p>
+          )}
+          {/* Gleiches gilt seit #24 für das 310: es nennt genau einen Piloten. */}
+          {trainees.length > 1 && followUps.includes('310') && (
+            <p className="mt-3 rounded-xl border border-warm/25 bg-warm/5 p-3 text-[12.5px] leading-relaxed">
+              {t('grading.followUp310PerPilot', { count: trainees.length })}
             </p>
           )}
           <p className="mt-3 text-[12px] leading-relaxed text-dim">{t('grading.followUpMailNote')}</p>

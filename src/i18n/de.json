@@ -554,6 +554,7 @@
       }
     },
     "followUp306PerPilot": "Ein Formular 306 je mit „Not Competent“ bewertetem Piloten — {{count}} werden nacheinander geöffnet, jeweils mit den Defiziten und der Unterschrift dieses Piloten.",
+    "followUp310PerPilot": "Ein Formular 310 je Pilot — {{count}} werden nacheinander geöffnet, jeweils mit dem Namen dieses Piloten und den für ihn offenen Punkten.",
     "errAllNotObserved": "Mindestens eine Kompetenz von {{name}} braucht eine Note — ein durchgehend mit „NO“ bewertetes Blatt ist kein Kompetenznachweis.",
     "warnFutureDate": "Das Datum liegt in der Zukunft. Formular trotzdem abschließen?",
     "warnNoFlightTime": "Eine Pflicht-Flugzeit steht auf 00:00. Formular trotzdem abschließen?",

@@ -774,10 +774,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // sein — alles andere wird verworfen, sonst hebelt ein erfundenes
           // parentId die Folgeformular-Pflicht aus und fällt zugleich aus
           // jeder Statistik (die Auswertungen überspringen Folgeformulare).
-          const parentOk =
-            record.parentId !== undefined &&
-            isFollowUpType(record.formTypeId) &&
-            s.gradingRecords.some((r) => r.id === record.parentId)
+          //
+          // Geprüft wird zusätzlich, ob der Anlegende dieses Blatt überhaupt
+          // sehen darf. Vorher genügte die blosse EXISTENZ: Wer eine fremde ID
+          // erriet, hängte sein 306 an das Blatt eines anderen Instruktors —
+          // und hakte damit dessen offene Pflicht ab, ohne je Zugriff auf das
+          // Blatt gehabt zu haben. Dieselbe Regel wie in gradingRecordById.
+          const actor = s.users.find((u) => u.id === s.currentUserId)
+          const parent = record.parentId !== undefined ? s.gradingRecords.find((r) => r.id === record.parentId) : undefined
+          const darfElter =
+            !!parent &&
+            !!actor &&
+            (userHasPerm(s.settings, actor, 'grading_view_all') || parent.instructorId === actor.id)
+          const parentOk = record.parentId !== undefined && isFollowUpType(record.formTypeId) && darfElter
           const clean = parentOk || record.parentId === undefined ? record : { ...record, parentId: undefined }
           return {
             gradingRecords: s.gradingRecords.some((r) => r.id === clean.id)
@@ -819,21 +828,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (actor?.role !== 'superadmin') return null
           const target = s.gradingRecords.find((r) => r.id === id)
           if (!target) return null
-          // Geschwister desselben Durchgangs (gleiche batchId). Das 310 gilt
-          // für den GANZEN Durchgang, hängt aber technisch an einem einzelnen
-          // Blatt. Wurde dieses gelöscht, verschwand der Nachweis der übrigen
-          // gleich mit — sie fielen von grün zurück auf „Missing Form 310".
-          const siblings = target.batchId
-            ? s.gradingRecords.filter((r) => r.id !== id && r.batchId === target.batchId && !r.parentId)
-            : []
-          const heir = siblings[0]
+          // Die Folgeformulare gehen MIT. Vorher wurden alle Kinder auf ein
+          // Geschwisterblatt desselben Durchgangs umgehängt — gedacht war das
+          // für das damals durchgangsweite 310, umgehängt wurde aber ALLES,
+          // also auch das 306, das die Defizite genau EINES Piloten
+          // dokumentiert. Es stand danach unter dem Blatt eines anderen
+          // Piloten und hakte dessen Pflicht ab. Seit 306 und 310 beide an
+          // genau einem Blatt hängen (siehe gradingRules), gibt es dafür
+          // keinen Anlass mehr: Wer das Ausgangsblatt endgültig löscht,
+          // löscht den Vorgang, nicht nur ein Stück davon.
           return {
-            gradingRecords: s.gradingRecords
-              .filter((r) => r.id !== id)
-              // Kinder umhängen, solange ein Geschwister den Durchgang
-              // weiterführt; sonst fallen sie mit dem letzten Blatt weg.
-              .map((r) => (r.parentId === id && heir ? { ...r, parentId: heir.id } : r))
-              .filter((r) => r.parentId !== id),
+            gradingRecords: s.gradingRecords.filter((r) => r.id !== id && r.parentId !== id),
           }
         }),
       // Erneut senden: ohne Netz landet der Versuch im Ausgangskorb, statt
