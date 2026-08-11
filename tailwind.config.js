@@ -19,6 +19,9 @@ export default {
         warm: 'rgb(var(--c-warm) / <alpha-value>)',
         danger: 'rgb(var(--c-danger) / <alpha-value>)',
         line: 'rgb(var(--c-line) / <alpha-value>)',
+        // Rand von Eingabefeldern — eigener Ton je Theme, weil er 3:1 gegen
+        // die Feldfüllung erreichen muss (WCAG 1.4.11).
+        field: 'rgb(var(--c-field) / <alpha-value>)',
         sand: 'rgb(var(--c-sand) / <alpha-value>)',
         // Ampel- und Fokusfarben je Theme — im Hellmodus deutlich dunkler,
         // damit der Statuspunkt überhaupt sichtbar ist.

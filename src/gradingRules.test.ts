@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import {
+  autoNotCompetent,
   followUpStarted,
   gradingListComparator,
   hasEvidence,
   isComplete,
   isFollowUpType,
+  isNotCompetent,
   missingFollowUps,
   trafficLight,
   traineesOf,
@@ -78,15 +80,23 @@ describe('missingFollowUps', () => {
     expect(missingFollowUps(parent, [parent, impostor])).toContain('306')
   })
 
-  it('bindet das 306 an genau EIN Blatt, das 310 an den ganzen Durchgang', () => {
+  /**
+   * ERWARTUNG GEAENDERT (vorher: „das 310 gilt fuer den ganzen Durchgang").
+   * Mit Befund #24 hat das Formular 310 ein PFLICHTFELD „Pilot / Student
+   * Name" bekommen. Seither kann ein 310, das Pilot A nennt, unmoeglich der
+   * Nachweis fuer Pilot B sein — es hakte dessen offene Punkte ab, ohne ihn
+   * je zu erwaehnen. 306 und 310 haengen deshalb beide an genau EINEM Blatt.
+   */
+  it('bindet 306 UND 310 an genau ein Blatt — je Pilot ein eigener Nachweis', () => {
     const a = rec({ id: 'a', batchId: 'b1', trainees: [trainee('not_competent', 'A')], sessionStatus: 'not_completed' })
     const b = rec({ id: 'b', batchId: 'b1', trainees: [trainee('not_competent', 'B')], sessionStatus: 'not_completed' })
     const deferred = rec({ id: 'd', formTypeId: '310', parentId: 'a', status: 'signed' })
     const add306 = rec({ id: 'e', formTypeId: '306', parentId: 'a', status: 'signed' })
-    // Das 310 an Blatt a deckt auch Blatt b ab (gleicher batchId) ...
-    expect(missingFollowUps(b, [a, b, deferred, add306])).not.toContain('310')
-    // ... das 306 dagegen nicht: b braucht sein eigenes.
-    expect(missingFollowUps(b, [a, b, deferred, add306])).toContain('306')
+    const alle = [a, b, deferred, add306]
+    // Blatt a ist versorgt ...
+    expect(missingFollowUps(a, alle)).toEqual([])
+    // ... Blatt b dagegen nicht: es braucht beides selbst.
+    expect(missingFollowUps(b, alle).sort()).toEqual(['306', '310'])
   })
 
   it('fordert von einem Folgeformular selbst kein weiteres Folgeformular', () => {
@@ -94,6 +104,45 @@ describe('missingFollowUps', () => {
     expect(missingFollowUps(child, [child])).toEqual([])
     expect(isFollowUpType('306')).toBe(true)
     expect(isFollowUpType('308A')).toBe(false)
+  })
+})
+
+/**
+ * Die Automatik (eine „1" oder zwei „2" ⇒ Not Competent) stand nur im
+ * Formular. Die Pflichtkette las danach ausschliesslich `overall` — ein
+ * Datensatz mit zwei Zweien und `overall: 'competent'` kam ohne 306 durch
+ * und zeigte gruen. Genau so lagen die Demo-Sessions im Bestand.
+ */
+describe('autoNotCompetent / isNotCompetent — die Automatik gilt auch nachtraeglich', () => {
+  const mitNoten = (noten: (1 | 2 | 3 | 4 | 5 | 'NO')[], overall: TraineeGrading['overall'] = 'competent'): TraineeGrading => ({
+    ...trainee(overall),
+    grades: noten.map((grade, i) => ({ code: `C${i}`, grade, comment: '' })),
+  })
+
+  it('eine einzelne 1 genuegt', () => {
+    expect(autoNotCompetent(mitNoten([1, 3, 3]))).toBe(true)
+  })
+
+  it('zwei Zweien genuegen', () => {
+    expect(autoNotCompetent(mitNoten([2, 2, 3]))).toBe(true)
+  })
+
+  it('eine einzelne 2 genuegt NICHT — ein schlechter Tag ist kein Befund', () => {
+    expect(autoNotCompetent(mitNoten([2, 3, 3]))).toBe(false)
+  })
+
+  it('erklaertes Not Competent zaehlt auch ohne auffaellige Noten', () => {
+    expect(isNotCompetent(mitNoten([3, 3, 3], 'not_competent'))).toBe(true)
+  })
+
+  it('verlangt ein 306 auch dann, wenn overall faelschlich auf competent steht', () => {
+    const r = rec({ trainees: [mitNoten([2, 2, 3])] })
+    expect(missingFollowUps(r, [r])).toContain('306')
+  })
+
+  it('verlangt kein 306 bei sauberen Noten', () => {
+    const r = rec({ trainees: [mitNoten([3, 4, 3])] })
+    expect(missingFollowUps(r, [r])).toEqual([])
   })
 })
 
@@ -183,5 +232,37 @@ describe('traineesOf', () => {
     const parent = rec({ id: 'p1' })
     const child = rec({ id: 'c1', formTypeId: '306', trainees: [], header: {}, parentId: 'p1' })
     expect(traineesOf(child, [parent, child]).map((t) => t.traineeName)).toEqual(['Sophie Berger'])
+  })
+})
+
+describe('followUpStarted — Reichweite wie bei der Pflichtpruefung', () => {
+  /** ERWARTUNG GEAENDERT, gleiche Begruendung wie oben: das 310 nennt seit
+   *  #24 genau einen Piloten und deckt deshalb nur sein eigenes Blatt ab. */
+  it('meldet ein angefangenes Folgeformular nur am eigenen Blatt', () => {
+    const a = rec({ id: 'a', batchId: 'b1', sessionStatus: 'not_completed' })
+    const b = rec({ id: 'b', batchId: 'b1', sessionStatus: 'not_completed' })
+    const entwurf = rec({ id: 'd', formTypeId: '310', parentId: 'a', status: 'awaiting_signature' })
+    expect(followUpStarted(a, [a, b, entwurf], '310')).toBe(true)
+    expect(followUpStarted(b, [a, b, entwurf], '310')).toBe(false)
+    const draft306 = rec({ id: 'e', formTypeId: '306', parentId: 'a', status: 'awaiting_signature' })
+    expect(followUpStarted(b, [a, b, draft306], '306')).toBe(false)
+    expect(followUpStarted(a, [a, b, draft306], '306')).toBe(true)
+  })
+
+  it('meldet nichts, wenn gar kein Folgeformular angefangen wurde', () => {
+    const r = rec()
+    expect(followUpStarted(r, [r], '306')).toBe(false)
+  })
+})
+
+describe('traineesOf — Rueckfall ins Leere', () => {
+  it('liefert eine leere Liste, wenn weder eigene Piloten noch ein auffindbares Elternblatt da sind', () => {
+    const waise = rec({ formTypeId: '306', trainees: [], header: {}, parentId: 'gibt-es-nicht' })
+    expect(traineesOf(waise, [waise])).toEqual([])
+  })
+
+  it('liefert eine leere Liste, wenn das Folgeformular gar kein Elternblatt nennt', () => {
+    const ohne = rec({ formTypeId: '306', trainees: [], header: {} })
+    expect(traineesOf(ohne, [ohne])).toEqual([])
   })
 })

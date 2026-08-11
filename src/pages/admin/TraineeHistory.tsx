@@ -27,11 +27,11 @@ type T = ReturnType<typeof useTranslation>['t']
 
 function TrendBadge({ trend, t }: { trend: CompetencyTrack['trend']; t: T }) {
   if (trend === null)
-    return <span className="text-[12px] text-dim">{t('grading.admin.trendNone')}</span>
+    return <span className="text-[12px] text-dim">{t('forms:admin.trendNone')}</span>
   const map = {
-    up: { Icon: TrendingUp, cls: 'text-ok', label: t('grading.admin.trendUp') },
-    down: { Icon: TrendingDown, cls: 'text-danger', label: t('grading.admin.trendDown') },
-    flat: { Icon: Minus, cls: 'text-dim', label: t('grading.admin.trendFlat') },
+    up: { Icon: TrendingUp, cls: 'text-ok', label: t('forms:admin.trendUp') },
+    down: { Icon: TrendingDown, cls: 'text-danger', label: t('forms:admin.trendDown') },
+    flat: { Icon: Minus, cls: 'text-dim', label: t('forms:admin.trendFlat') },
   }[trend]
   return (
     <span className={`inline-flex items-center gap-1 text-[12px] font-medium ${map.cls}`}>
@@ -48,7 +48,7 @@ function CompetencyRow({ c, t }: { c: CompetencyTrack; t: T }) {
         <span className="min-w-0 flex-1 truncate text-[13px] text-dim">{c.title}</span>
         {c.recurringWeak && (
           <span className="inline-flex items-center gap-1 rounded-full bg-warm/15 px-2.5 py-0.5 text-[11.5px] font-semibold text-warm">
-            <TriangleAlert size={12} /> {t('grading.admin.recurringWeak')}
+            <TriangleAlert size={12} /> {t('forms:admin.recurringWeak')}
           </span>
         )}
       </div>
@@ -64,7 +64,7 @@ function CompetencyRow({ c, t }: { c: CompetencyTrack; t: T }) {
           </span>
         ))}
         <span className="ml-1 text-[12.5px] text-dim">
-          {t('grading.admin.average')} {c.mean === null ? '–' : c.mean.toFixed(2)}
+          {t('forms:admin.average')} {c.mean === null ? '–' : c.mean.toFixed(2)}
         </span>
         <span className="ml-auto">
           <TrendBadge trend={c.trend} t={t} />
@@ -82,27 +82,27 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
   return (
     <div className="space-y-4">
       <button onClick={onBack} className="flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink">
-        <ArrowLeft size={15} /> {t('grading.admin.backToTrainees')}
+        <ArrowLeft size={15} /> {t('forms:admin.backToTrainees')}
       </button>
 
       <Card className="space-y-1 p-4">
         <h3 className="text-[17px] font-bold">{history.name}</h3>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-dim">
-          <span>{t('grading.admin.sessionsCount', { count: history.sessions.length })}</span>
-          <span>{t('grading.admin.lastSession', { date: formatDate(history.lastDate) })}</span>
+          <span>{t('forms:admin.sessionsCount', { count: history.sessions.length })}</span>
+          <span>{t('forms:admin.lastSession', { date: formatDate(history.lastDate) })}</span>
           {weak > 0 && (
-            <span className="font-semibold text-warm">{t('grading.admin.recurringWeakCount', { count: weak })}</span>
+            <span className="font-semibold text-warm">{t('forms:admin.recurringWeakCount', { count: weak })}</span>
           )}
           {history.notCompetentCount > 0 && (
             <span className="font-semibold text-danger">
-              {t('grading.admin.notCompetentCount', { count: history.notCompetentCount })}
+              {t('forms:admin.notCompetentCount', { count: history.notCompetentCount })}
             </span>
           )}
         </div>
       </Card>
 
       <Card className="space-y-2.5 p-4">
-        <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.course')}</p>
+        <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.course')}</p>
         {/* Wiederkehrende Schwächen zuerst — sie sind der Grund, warum man
             diese Ansicht überhaupt öffnet. */}
         {[...history.competencies]
@@ -113,7 +113,7 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
       </Card>
 
       <Card className="space-y-1.5 p-4">
-        <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('grading.admin.sessionList')}</p>
+        <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.sessionList')}</p>
         {history.sessions.map((s) => (
           <button
             key={s.recordId}
@@ -131,7 +131,7 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
             </span>
             {s.overall === 'not_competent' && (
               <span className="shrink-0 rounded-full bg-danger/15 px-2.5 py-0.5 text-[11.5px] font-semibold text-danger">
-                {t('grading.notCompetent')}
+                {t('forms:notCompetent')}
               </span>
             )}
             <ChevronRight size={16} className="shrink-0 text-dim" />
@@ -142,11 +142,12 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
   )
 }
 
-/** `lng` erzwingt eine feste Sprache — die Formularablage des Training
- *  Admins ist durchgehend englisch, die Admin-Panels folgen der Oberflaeche. */
-export function TraineeHistory({ records, lng }: { records: GradingRecord[]; lng?: string }) {
-  const { t: tUi, i18n } = useTranslation()
-  const t = lng ? i18n.getFixedT(lng) : tUi
+export function TraineeHistory({ records }: { records: GradingRecord[] }) {
+  // Kein `lng` mehr: Der Text dieses Berichts liegt im Namensraum `forms`,
+  // den es nur auf Englisch gibt. Vorher entschied die einbindende Ansicht
+  // über die Sprache — und vergaß sie an einer von zwei Stellen, weshalb
+  // derselbe Bericht im Grading Tool englisch und im Admin-Panel deutsch war.
+  const { t } = useTranslation()
   const { now } = useStore()
   const [query, setQuery] = useState('')
   const [openKey, setOpenKey] = useState<string | null>(null)
@@ -163,10 +164,10 @@ export function TraineeHistory({ records, lng }: { records: GradingRecord[]; lng
 
   return (
     <div className="space-y-3">
-      <p className="text-[13px] leading-relaxed text-dim">{t('grading.admin.traineesHint')}</p>
+      <p className="text-[13px] leading-relaxed text-dim">{t('forms:admin.traineesHint')}</p>
 
       {histories.length === 0 ? (
-        <Card className="p-4 text-[13.5px] text-dim">{t('grading.admin.noTrainees')}</Card>
+        <Card className="p-4 text-[13.5px] text-dim">{t('forms:admin.noTrainees')}</Card>
       ) : (
         <>
           <label className="relative block">
@@ -174,14 +175,14 @@ export function TraineeHistory({ records, lng }: { records: GradingRecord[]; lng
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('grading.admin.searchTrainee')}
-              aria-label={t('grading.admin.searchTrainee')}
+              placeholder={t('forms:admin.searchTrainee')}
+              aria-label={t('forms:admin.searchTrainee')}
               className={`${inputCls} pl-9`}
             />
           </label>
 
           {shown.length === 0 ? (
-            <Card className="p-4 text-[13.5px] text-dim">{t('grading.admin.noMatch')}</Card>
+            <Card className="p-4 text-[13.5px] text-dim">{t('forms:admin.noMatch')}</Card>
           ) : (
             <div className="space-y-2">
               {shown.map((h) => {
@@ -192,8 +193,8 @@ export function TraineeHistory({ records, lng }: { records: GradingRecord[]; lng
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[14.5px] font-semibold">{h.name}</span>
                         <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[12px] text-dim">
-                          <span>{t('grading.admin.sessionsCount', { count: h.sessions.length })}</span>
-                          <span>{t('grading.admin.lastSession', { date: formatDate(h.lastDate) })}</span>
+                          <span>{t('forms:admin.sessionsCount', { count: h.sessions.length })}</span>
+                          <span>{t('forms:admin.lastSession', { date: formatDate(h.lastDate) })}</span>
                         </span>
                       </span>
                       {weak > 0 && (

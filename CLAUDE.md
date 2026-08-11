@@ -46,6 +46,15 @@ prüfen, nicht der Code anzupassen**, bis er zum Test passt.
 
 - **Sprache:** Oberfläche DE/EN über i18next. Grading-Formulare und der
   Behördenexport sind **immer englisch** — unabhängig von der Oberfläche.
+  Das hängt nicht mehr an Disziplin: Diese Texte liegen im Namensraum
+  `forms` (`src/i18n/forms.json`), den es **nur auf Englisch gibt**. Wer
+  Formular- oder Berichtstext ergänzt, legt ihn dort ab und ruft ihn als
+  `t('forms:…')` — eine deutsche Fassung kann gar nicht erst gezogen werden,
+  egal welche Ansicht die Komponente einbindet. `src/i18n.test.ts` bewacht
+  das: kein `grading`-Zweig in den Oberflächen-Bundles, jeder benutzte
+  `forms:`-Schlüssel existiert, und de/en führen dieselben Schlüssel.
+  Folge, bewusst in Kauf genommen: Auch die Bedienleisten des Grading-
+  Bereichs im Admin-Panel (Filter, Reiter, Export-Knöpfe) sind englisch.
 - **Kommentare** erklären das *Warum* (gern mit dem Befund, der dahintersteht),
   nicht das *Was*. Deutsch, wie der Bestand.
 - **Auslieferung:** Entwicklung im Feature-Branch, Merge per PR nach `main`;

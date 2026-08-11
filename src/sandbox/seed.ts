@@ -231,6 +231,11 @@ function seedState(now: number): AppState {
     },
     currentUserId: null,
     pendingLogin: null,
+    // Der Seed bringt die drei historischen Sessions selbst mit — der
+    // Nachtrag in migrateState ist damit von Anfang an erledigt. Ohne diese
+    // Marke käme er zum Zug, sobald ein Superadmin die Blätter löscht, und
+    // stellte sie beim nächsten Laden wieder her.
+    seedHistoryMigrated: true,
     timeOffsetMs: 0,
     seen: {},
     contactsChangedAt: now - 2 * d,
@@ -242,9 +247,15 @@ function seedState(now: number): AppState {
     ],
     gradingRecords: [
       /* Drei frühere Sessions von Sophie Berger — sie machen den Verlauf je
-         Pilot überhaupt erst ablesbar: PRO und WLM bleiben über den ganzen
-         Kurs schwach (wiederkehrende Schwäche), FPM verbessert sich sichtbar.
-         Ein einzelnes Blatt zeigt so etwas nie. */
+         Pilot überhaupt erst ablesbar: PRO bleibt über den Kurs schwach
+         (wiederkehrende Schwäche), FPM verbessert sich sichtbar von 2 auf 4.
+         Ein einzelnes Blatt zeigt so etwas nie.
+
+         Wichtig: je Session höchstens EINE Zwei. Zwei Zweien machen einen
+         Piloten nach autoNotCompetent zwingend „Not Competent" samt
+         Pflicht-306 — ein Demo-Datensatz mit zwei Zweien und
+         overall: 'competent' behauptet einen Zustand, den die App bei
+         Neueingabe gar nicht zuließe, und hebelt die Pflichtkette aus. */
       {
         id: 'gr-hist1',
         formTypeId: '308A',
@@ -254,10 +265,10 @@ function seedState(now: number): AppState {
           {
             traineeId: '', traineeName: 'Sophie Berger', position: 'FO', seat: 'Right',
             grades: [
-              { code: 'KNO', grade: 3, comment: '' }, { code: 'PRO', grade: 2, comment: 'Flow sequence not yet automatic.' },
+              { code: 'KNO', grade: 3, comment: '' }, { code: 'PRO', grade: 3, comment: '' },
               { code: 'COM', grade: 3, comment: '' }, { code: 'FPA', grade: 3, comment: '' },
               { code: 'FPM', grade: 2, comment: 'Manual handling still coarse.' }, { code: 'LTW', grade: 3, comment: '' },
-              { code: 'PSD', grade: 3, comment: '' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 2, comment: 'Falls behind when tasks accumulate.' },
+              { code: 'PSD', grade: 3, comment: '' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 3, comment: '' },
             ],
             positiveComment: 'Good preparation, asks precise questions.',
             developmentComment: 'Practise flows until they run without prompting.',
@@ -282,7 +293,7 @@ function seedState(now: number): AppState {
               { code: 'KNO', grade: 3, comment: '' }, { code: 'PRO', grade: 2, comment: 'Checklist timing still late.' },
               { code: 'COM', grade: 3, comment: '' }, { code: 'FPA', grade: 3, comment: '' },
               { code: 'FPM', grade: 3, comment: 'Noticeably steadier than last session.' }, { code: 'LTW', grade: 3, comment: '' },
-              { code: 'PSD', grade: 3, comment: '' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 2, comment: 'Prioritisation still slips under load.' },
+              { code: 'PSD', grade: 3, comment: '' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 3, comment: '' },
             ],
             positiveComment: 'Manual flying clearly improved.',
             developmentComment: 'Keep working on checklist discipline and workload management.',
@@ -307,7 +318,7 @@ function seedState(now: number): AppState {
               { code: 'KNO', grade: 4, comment: '' }, { code: 'PRO', grade: 2, comment: 'Checklists again initiated late.' },
               { code: 'COM', grade: 3, comment: '' }, { code: 'FPA', grade: 4, comment: '' },
               { code: 'FPM', grade: 4, comment: 'Manual handling now stable.' }, { code: 'LTW', grade: 3, comment: '' },
-              { code: 'PSD', grade: 3, comment: '' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 2, comment: 'Workload management remains the limiting factor.' },
+              { code: 'PSD', grade: 3, comment: '' }, { code: 'SAW', grade: 3, comment: '' }, { code: 'WLM', grade: 3, comment: '' },
             ],
             positiveComment: 'Handling and automation clearly on standard.',
             developmentComment: 'Checklist discipline and workload management remain open.',

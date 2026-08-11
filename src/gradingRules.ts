@@ -1,4 +1,4 @@
-import type { GradingRecord } from './types'
+import type { GradingRecord, TraineeGrading } from './types'
 
 /**
  * Reine Regeln des Grading-Moduls — bewusst ohne React und ohne Store, damit
@@ -7,36 +7,57 @@ import type { GradingRecord } from './types'
  */
 
 /**
- * Pflicht-Folgeformulare, die zu diesem Formular noch fehlen:
- * Not Competent ⇒ 306 (Additional Training) ist verpflichtend,
- * Session not completed ⇒ 310 (Deferred Item) ist verpflichtend.
+ * Automatik laut Vorgabe: mind. eine „1" oder mind. zwei „2" ⇒ Not Competent.
  *
- * Die beiden Formulare haben bewusst unterschiedliche Reichweite:
- * das 306 dokumentiert die Defizite EINES Piloten und muss deshalb an
- * genau diesem Formular hängen; das 310 betrifft den Durchgang als
- * Ganzes und gilt für alle Geschwister-Formulare des Batches.
- *
- * Erfüllt ist die Pflicht erst mit der Unterschrift: ein angelegtes, aber
- * nicht unterschriebenes Folgeformular ist kein Nachweis und darf das
- * Ausgangsformular nicht stillschweigend abhaken.
+ * Die Regel stand nur im Formular und griff dort beim Tippen. Die Pflichtkette
+ * las danach ausschliesslich `overall` — ein Datensatz mit zwei Zweien, dessen
+ * `overall` aus einem Entwurf, einer Migration oder den Seed-Daten noch auf
+ * 'competent' stand, kam damit ohne 306 durch und zeigte gruen. Deshalb liegt
+ * die Regel jetzt hier, wo BEIDE Seiten sie benutzen.
  */
+export function autoNotCompetent(tr: TraineeGrading): boolean {
+  const ones = tr.grades.filter((g) => g.grade === 1).length
+  const twos = tr.grades.filter((g) => g.grade === 2).length
+  return ones >= 1 || twos >= 2
+}
+
+/** Gilt der Pilot als nicht bestanden — erklaert oder rechnerisch? */
+export function isNotCompetent(tr: TraineeGrading): boolean {
+  return tr.overall === 'not_competent' || autoNotCompetent(tr)
+}
+
 /** 306 und 310 sind die einzigen Folgeformular-Typen. */
 export function isFollowUpType(formTypeId: string): boolean {
   return formTypeId === '306' || formTypeId === '310'
 }
 
+/**
+ * Pflicht-Folgeformulare, die zu diesem Formular noch fehlen:
+ * Not Competent ⇒ 306 (Additional Training) ist verpflichtend,
+ * Session not completed ⇒ 310 (Deferred Item) ist verpflichtend.
+ *
+ * BEIDE hängen an genau EINEM Blatt, also an genau einem Piloten. Das 310
+ * galt früher für den ganzen Durchgang (alle Blätter desselben batchId) —
+ * diese Zusage ist mit Befund #24 hinfällig geworden: Seither führt das
+ * Formular 310 ein Pflichtfeld „Pilot / Student Name". Ein 310, das Pilot A
+ * nennt, kann den Nachweis für Pilot B nicht erbringen; es hakte dessen
+ * offene Punkte stillschweigend ab, ohne ihn je zu erwähnen.
+ *
+ * Erfüllt ist die Pflicht erst mit der Unterschrift: ein angelegtes, aber
+ * nicht unterschriebenes Folgeformular ist kein Nachweis und darf das
+ * Ausgangsformular nicht stillschweigend abhaken.
+ */
 export function missingFollowUps(r: GradingRecord, all: GradingRecord[]): string[] {
   // Maßgeblich ist der TYP, nicht das parentId-Feld: Über die Adresszeile
   // ließ sich ein gewöhnliches Blatt mit erfundenem parentId anlegen und
   // damit die Pflicht auf 306/310 aushebeln — „Not Competent" wurde grün,
   // ohne dass je ein Folgeformular entstand.
   if (isFollowUpType(r.formTypeId)) return []
-  const family = new Set([r.id, ...(r.batchId ? all.filter((x) => x.batchId === r.batchId).map((x) => x.id) : [])])
-  const signedChild = (formTypeId: string, parents: (id: string) => boolean) =>
-    all.some((c) => c.parentId !== undefined && parents(c.parentId) && c.formTypeId === formTypeId && c.status === 'signed')
+  const signedChild = (formTypeId: string) =>
+    all.some((c) => c.parentId === r.id && c.formTypeId === formTypeId && c.status === 'signed')
   const out: string[] = []
-  if (r.trainees.some((tr) => tr.overall === 'not_competent') && !signedChild('306', (id) => id === r.id)) out.push('306')
-  if (r.sessionStatus === 'not_completed' && !signedChild('310', (id) => family.has(id))) out.push('310')
+  if (r.trainees.some(isNotCompetent) && !signedChild('306')) out.push('306')
+  if (r.sessionStatus === 'not_completed' && !signedChild('310')) out.push('310')
   return out
 }
 
@@ -46,9 +67,7 @@ export function missingFollowUps(r: GradingRecord, all: GradingRecord[]): string
  * nur noch auf die Unterschrift, statt komplett zu fehlen.
  */
 export function followUpStarted(r: GradingRecord, all: GradingRecord[], formTypeId: string): boolean {
-  const family = new Set([r.id, ...(r.batchId ? all.filter((x) => x.batchId === r.batchId).map((x) => x.id) : [])])
-  const inScope = formTypeId === '306' ? (id: string) => id === r.id : (id: string) => family.has(id)
-  return all.some((c) => c.parentId !== undefined && inScope(c.parentId) && c.formTypeId === formTypeId && c.status !== 'signed')
+  return all.some((c) => c.parentId === r.id && c.formTypeId === formTypeId && c.status !== 'signed')
 }
 
 /** Piloten eines Formulars — Folgeformulare (306/310) führen ihren Piloten

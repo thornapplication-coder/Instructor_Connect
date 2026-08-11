@@ -99,7 +99,7 @@ function UsersTab() {
           placeholder={t('admin.searchUsers')}
           className={`${inputCls} min-w-48 flex-1`}
         />
-        <select value={fRole} onChange={(e) => setFRole(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fRole} onChange={(e) => setFRole(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="">{t('admin.allRoles')}</option>
           {(['member', 'training_admin', 'group_admin', 'superadmin'] as Role[]).map((r) => (
             <option key={r} value={r}>
@@ -107,12 +107,12 @@ function UsersTab() {
             </option>
           ))}
         </select>
-        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="">{t('admin.allStatus')}</option>
           <option value="active">{t('admin.active')}</option>
           <option value="inactive">{t('admin.inactive')}</option>
         </select>
-        <select value={fGroup} onChange={(e) => setFGroup(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fGroup} onChange={(e) => setFGroup(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="">{t('admin.allGroups')}</option>
           {sortedGroups.map((g) => (
             <option key={g.id} value={g.id}>
@@ -120,7 +120,7 @@ function UsersTab() {
             </option>
           ))}
         </select>
-        <select value={sortMode} onChange={(e) => setSortMode(e.target.value as 'name' | 'role')} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={sortMode} onChange={(e) => setSortMode(e.target.value as 'name' | 'role')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="name">{t('admin.sortByName')}</option>
           <option value="role">{t('admin.sortByRole')}</option>
         </select>
@@ -152,7 +152,7 @@ function UsersTab() {
             <select
               value={u.role}
               onChange={(e) => updateUser(u.id, { role: e.target.value as Role })}
-              className="rounded-lg border border-line/10 bg-bg/60 px-2 py-1.5"
+              className="rounded-lg border border-field bg-bg/60 px-2 py-1.5"
             >
               {(['member', 'training_admin', 'group_admin', 'superadmin'] as Role[]).map((r) => (
                 <option key={r} value={r}>
@@ -467,7 +467,7 @@ function GroupsTab() {
               <select
                 value={g.aircraftType ?? ''}
                 onChange={(e) => setGroupAircraft(g.id, e.target.value)}
-                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]"
+                className="w-full rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]"
               >
                 <option value="">{t('admin.groupNoAircraft')}</option>
                 {aircraftTypes.map((a) => (
@@ -483,7 +483,7 @@ function GroupsTab() {
               <select
                 value={g.retention ?? 'default'}
                 onChange={(e) => setGroupRetention(g.id, e.target.value === 'default' ? null : (e.target.value as RetentionKey))}
-                className="w-full rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13.5px]"
+                className="w-full rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]"
               >
                 <option value="default">
                   {t('retention.default', { value: t(`retention.${state.settings.defaultRetention}`) })}
@@ -748,7 +748,7 @@ function FeedbackTab() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <select value={fCat} onChange={(e) => setFCat(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fCat} onChange={(e) => setFCat(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="">{t('admin.allCategories')}</option>
           {cats.map((c) => (
             <option key={c} value={c}>
@@ -756,7 +756,7 @@ function FeedbackTab() {
             </option>
           ))}
         </select>
-        <select value={fRec} onChange={(e) => setFRec(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fRec} onChange={(e) => setFRec(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="">{t('admin.allRecipients')}</option>
           {recs.map((r) => (
             <option key={r} value={r}>
@@ -764,7 +764,7 @@ function FeedbackTab() {
             </option>
           ))}
         </select>
-        <select value={fScope} onChange={(e) => setFScope(e.target.value)} className="rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fScope} onChange={(e) => setFScope(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="">{t('admin.allScopes')}</option>
           <option value="general">{t('feedback.scopeGeneral')}</option>
           {scopeTypes.map((a) => (

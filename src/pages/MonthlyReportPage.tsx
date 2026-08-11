@@ -18,9 +18,9 @@ export function MonthlyReportPage() {
   const { state } = useStore()
   return (
     <>
-      <TopBar title={t('grading.admin.monthly')} back="/" />
+      <TopBar title={t('forms:admin.monthly')} back="/" />
       <Page className="space-y-3">
-        <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.admin.monthlyIntro')}</p>
+        <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('forms:admin.monthlyIntro')}</p>
         <MonthlyReport records={state.gradingRecords} />
       </Page>
     </>

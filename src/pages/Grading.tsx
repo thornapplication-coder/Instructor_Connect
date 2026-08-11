@@ -81,8 +81,7 @@ export function TrafficDot({ color, className = '', size = 13 }: { color: Traffi
  * Ansehen, PDF-Download/Druck und endgültigem Löschen.
  */
 function TrainingAdminGrading() {
-  const { i18n } = useTranslation()
-  const t = i18n.getFixedT('en')
+  const { t } = useTranslation()
   const { state, now } = useStore()
   const [tab, setTab] = useState<'completed' | 'open' | 'trainees' | 'monthly'>('completed')
   const [period, setPeriod] = useState('all')
@@ -142,14 +141,14 @@ function TrainingAdminGrading() {
     return true
   })
 
-  const selCls = 'rounded-xl border border-line/10 bg-bg/60 px-3 py-2 text-[13px]'
+  const selCls = 'rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]'
   return (
     <>
       {/* Filterergebnis für Sprachausgaben — die Liste ändert sich sonst lautlos */}
-      <p role="status" className="sr-only">{t('grading.admin.resultCount', { shown: list.length, total: all.length })}</p>
+      <p role="status" className="sr-only">{t('forms:admin.resultCount', { shown: list.length, total: all.length })}</p>
       <TopBar title="Grading Tool" back="/" />
       <Page wide className="space-y-3">
-        <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.trainingAdminNote')}</p>
+        <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('forms:trainingAdminNote')}</p>
 
         {/* Reiter: Abgeschlossen / Zu bearbeiten / Verlauf je Pilot.
             Der Verlauf traegt keinen Zaehler — er zaehlt Piloten, nicht
@@ -164,15 +163,15 @@ function TrainingAdminGrading() {
               }`}
             >
               {tb === 'trainees' || tb === 'monthly'
-                ? t(`grading.admin.${tb}`)
-                : `${t(`grading.ta.${tb}`)} (${all.filter((r) => (tb === 'completed' ? isCompleted(r) : !isCompleted(r))).length})`}
+                ? t(`forms:admin.${tb}`)
+                : `${t(`forms:ta.${tb}`)} (${all.filter((r) => (tb === 'completed' ? isCompleted(r) : !isCompleted(r))).length})`}
             </button>
           ))}
         </div>
 
         {/* Die Ablage bleibt durchgehend englisch — deshalb feste Sprache. */}
-        {tab === 'trainees' && <TraineeHistory records={state.gradingRecords} lng="en" />}
-        {tab === 'monthly' && <MonthlyReport records={state.gradingRecords} lng="en" />}
+        {tab === 'trainees' && <TraineeHistory records={state.gradingRecords} />}
+        {tab === 'monthly' && <MonthlyReport records={state.gradingRecords} />}
 
         {/* Filter und Formularliste gehoeren zu den beiden Formular-Reitern;
             der Verlauf bringt seine eigene Suche mit. */}
@@ -183,12 +182,12 @@ function TrainingAdminGrading() {
           <select value={period} onChange={(e) => setPeriod(e.target.value)} className={selCls}>
             {PERIODS.map((x) => (
               <option key={x.key} value={x.key}>
-                {t(`grading.ta.period.${x.key}`)}
+                {t(`forms:ta.period.${x.key}`)}
               </option>
             ))}
           </select>
           <select value={fTrainee} onChange={(e) => setFTrainee(e.target.value)} className={selCls}>
-            <option value="">{t('grading.admin.allTrainees')}</option>
+            <option value="">{t('forms:admin.allTrainees')}</option>
             {traineeOptions.map((n) => (
               <option key={n} value={n}>
                 {n}
@@ -196,7 +195,7 @@ function TrainingAdminGrading() {
             ))}
           </select>
           <select value={fAircraft} onChange={(e) => setFAircraft(e.target.value)} className={selCls}>
-            <option value="">{t('grading.admin.allAircraft')}</option>
+            <option value="">{t('forms:admin.allAircraft')}</option>
             {aircraftOptions.map((a) => (
               <option key={a} value={a}>
                 {a}
@@ -204,7 +203,7 @@ function TrainingAdminGrading() {
             ))}
           </select>
           <select value={fInstructor} onChange={(e) => setFInstructor(e.target.value)} className={selCls}>
-            <option value="">{t('grading.admin.allInstructors')}</option>
+            <option value="">{t('forms:admin.allInstructors')}</option>
             {instructorOptions.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}
@@ -213,7 +212,7 @@ function TrainingAdminGrading() {
           </select>
         </div>
 
-        {list.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('grading.empty')}</p>}
+        {list.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('forms:empty')}</p>}
 
         {/* Einfache, kompakte Liste */}
         <div className="divide-y divide-line/[0.06] overflow-hidden rounded-xl border border-line/10 bg-surface/60">
@@ -238,7 +237,7 @@ function TrainingAdminGrading() {
                 </p>
                 <p className="flex flex-wrap items-baseline gap-x-1.5 text-[12px] text-dim">
                   <span className="min-w-0 max-w-full truncate">
-                    {traineesOf(r, all).map(traineeLabel).join(', ') || t('grading.noTrainee')}
+                    {traineesOf(r, all).map(traineeLabel).join(', ') || t('forms:noTrainee')}
                   </span>
                   <span className="shrink-0">· {userName(r.instructorId)}</span>
                   <span className="shrink-0">· {r.header.aircraftType || '—'}</span>
@@ -252,7 +251,7 @@ function TrainingAdminGrading() {
                     e.stopPropagation()
                     navigate(`/grading/${r.id}?print=1`)
                   }}
-                  title={t('grading.downloadPdf')}
+                  title={t('forms:downloadPdf')}
                   className="flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-accent/10 hover:text-accent"
                 >
                   <FileDown size={16} />
@@ -273,8 +272,7 @@ function TrainingAdminGrading() {
 
 export function Grading() {
   // Das Grading-Modul ist immer vollständig englisch
-  const { i18n } = useTranslation()
-  const t = i18n.getFixedT('en')
+  const { t } = useTranslation()
   const { state, currentUser, visibleGradingRecords, hideGradingRecord, can } = useStore()
 
   const formTitle = (id: string) => state.settings.grading.formTypes.find((f) => f.id === id)?.title ?? id
@@ -294,7 +292,7 @@ export function Grading() {
   const list = visibleGradingRecords.filter((r) => !trafficFilter || trafficLight(r, state.gradingRecords) === trafficFilter)
   const filterAnsage = (
     <p role="status" className="sr-only">
-      {t('grading.admin.resultCount', { shown: list.length, total: visibleGradingRecords.length })}
+      {t('forms:admin.resultCount', { shown: list.length, total: visibleGradingRecords.length })}
     </p>
   )
 
@@ -314,15 +312,15 @@ export function Grading() {
               onClick={() => navigate('/grading/new')}
               className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
             >
-              <Plus size={15} /> {t('grading.newForm')}
+              <Plus size={15} /> {t('forms:newForm')}
             </button>
           ) : undefined
         }
       />
       <Page className="space-y-3">
-        {!mayGrade && !isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.noPermission')}</p>}
+        {!mayGrade && !isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('forms:noPermission')}</p>}
         {/* Training Admin: reiner Lese-/Download-Zugriff auf alle Formulare */}
-        {isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('grading.trainingAdminNote')}</p>}
+        {isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('forms:trainingAdminNote')}</p>}
 
         {/* Umschalter Formulare / Verlauf je Pilot — nur mit vollem
             Archivzugriff, sonst zeigte der Verlauf bloß Lücken. */}
@@ -337,7 +335,7 @@ export function Grading() {
                   adminView === v ? 'border-accent bg-accent/15 text-accent' : 'border-line/15 text-dim'
                 }`}
               >
-                {t(`grading.admin.${v}`)}
+                {t(`forms:admin.${v}`)}
               </button>
             ))}
           </div>
@@ -358,7 +356,7 @@ export function Grading() {
             }`}
           >
             <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-line/40" />
-            {t('grading.traffic.all')}
+            {t('forms:traffic.all')}
           </button>
           {(['green', 'yellow', 'red'] as TrafficColor[]).map((c) => (
             <button
@@ -369,22 +367,27 @@ export function Grading() {
               }`}
             >
               <TrafficDot color={c} />
-              {t(`grading.traffic.${c}`)}
+              {t(`forms:traffic.${c}`)}
             </button>
           ))}
         </div>
 
         {/* Aufbewahrung in der Instruktoren-Ansicht: 1 Woche */}
-        {isMember && <p className="px-1 text-[11.5px] leading-relaxed text-dim">{t('grading.retentionHint')}</p>}
+        {isMember && <p className="px-1 text-[11.5px] leading-relaxed text-dim">{t('forms:retentionHint')}</p>}
 
-        {list.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('grading.empty')}</p>}
+        {list.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('forms:empty')}</p>}
 
         {list.map((r) => {
           const notCompetent = r.trainees.some((tr) => tr.overall === 'not_competent')
           const missing = missingFollowUps(r, state.gradingRecords)
           const light = trafficLight(r, state.gradingRecords)
           return (
-            <Card key={r.id} onClick={() => navigate(`/grading/${r.id}`)} className="p-4">
+            <Card
+              key={r.id}
+              onClick={() => navigate(`/grading/${r.id}`)}
+              label={`${r.formTypeId} · ${traineesOf(r, state.gradingRecords).map((tr) => tr.traineeName).filter(Boolean).join(', ') || t('forms:openForm')} · ${formatDate(r.header.date || r.createdAt)}`}
+              className="p-4"
+            >
               <div className="flex items-start gap-3">
                 {/* Status-Icon spiegelt die Ampel: grün ✓, gelb ?, rot ✕ */}
                 <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised">
@@ -404,7 +407,7 @@ export function Grading() {
                       desselben Piloten und wurde vom Abschneiden verschluckt. */}
                   <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-[13px] text-dim">
                     <span className="min-w-0 max-w-full truncate">
-                      {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('grading.noTrainee')}
+                      {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('forms:noTrainee')}
                     </span>
                     {/* schrumpfbar: ein langer Mustername drängte sonst den
                         Pilotennamen vollständig aus der Zeile */}
@@ -414,19 +417,19 @@ export function Grading() {
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {r.status === 'signed' ? (
                       <Badge tone="dim">
-                        <CheckCircle2 size={11} className="mr-1" /> {t('grading.status.signed')}
+                        <CheckCircle2 size={11} className="mr-1" /> {t('forms:status.signed')}
                       </Badge>
                     ) : r.status === 'awaiting_signature' ? (
                       <Badge tone="warm">
-                        <Clock size={11} className="mr-1" /> {t('grading.status.awaiting_signature')}
+                        <Clock size={11} className="mr-1" /> {t('forms:status.awaiting_signature')}
                       </Badge>
                     ) : (
-                      <Badge tone="dim">{t('grading.status.draft')}</Badge>
+                      <Badge tone="dim">{t('forms:status.draft')}</Badge>
                     )}
-                    {notCompetent && <Badge tone="warm">{t('grading.notCompetent')}</Badge>}
+                    {notCompetent && <Badge tone="warm">{t('forms:notCompetent')}</Badge>}
                     {r.mailStatus === 'failed' && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[11px] font-medium text-danger">
-                        <AlertTriangle size={11} /> {t('grading.mail.failed')}
+                        <AlertTriangle size={11} /> {t('forms:mail.failed')}
                       </span>
                     )}
                     {/* Pflicht-Folgeformular noch nicht ausgefüllt */}
@@ -436,15 +439,15 @@ export function Grading() {
                         {/* Angelegt, aber unsigniert: dann fehlt nur noch die
                             Unterschrift — das ist etwas anderes als „gar nicht da". */}
                         {followUpStarted(r, state.gradingRecords, id)
-                          ? t('grading.unsignedForm', { id })
-                          : t('grading.missingForm', { id })}
+                          ? t('forms:unsignedForm', { id })
+                          : t('forms:missingForm', { id })}
                       </span>
                     ))}
-                    {r.parentId && <Badge tone="dim">{t('grading.linked')}</Badge>}
+                    {r.parentId && <Badge tone="dim">{t('forms:linked')}</Badge>}
                   </div>
                 </div>
                 {/* Ampel + Aktionen in EINER Reihe */}
-                <div className="mt-0.5 flex shrink-0 items-center gap-1">
+                <div className="pointer-events-auto relative z-10 mt-0.5 flex shrink-0 items-center gap-1">
                   <TrafficDot color={light} className="mr-1" />
                   {/* Komplett ausgefüllte Formulare als PDF herunterladen —
                       öffnet die Ein-Seiten-Druckansicht mit PDF-Dialog */}
@@ -454,8 +457,8 @@ export function Grading() {
                         e.stopPropagation()
                         navigate(`/grading/${r.id}?print=1`)
                       }}
-                      title={t('grading.downloadPdf')}
-                      className="flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-accent/10 hover:text-accent"
+                      title={t('forms:downloadPdf')}
+                      className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-accent/10 hover:text-accent"
                     >
                       <FileDown size={16} />
                     </button>
@@ -470,10 +473,10 @@ export function Grading() {
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
-                      if (window.confirm(t('grading.deleteOwnConfirm'))) hideGradingRecord(r.id)
+                      if (window.confirm(t('forms:deleteOwnConfirm'))) hideGradingRecord(r.id)
                     }}
-                    title={t('grading.deleteOwn')}
-                    className="flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
+                    title={t('forms:deleteOwn')}
+                    className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
                   >
                     <Trash2 size={16} />
                   </button>

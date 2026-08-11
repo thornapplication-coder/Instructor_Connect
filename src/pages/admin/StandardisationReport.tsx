@@ -57,9 +57,9 @@ export function StandardisationReport({
   period: PeriodKey
   onPeriodChange: (p: PeriodKey) => void
 }) {
-  const { t: tUi, i18n } = useTranslation()
-  // Der Bericht selbst ist ein Behördendokument und bleibt englisch.
-  const t = i18n.getFixedT('en')
+  // Der Bericht ist ein Behördendokument: Sein gesamter Text kommt aus dem
+  // Namensraum `forms`, den es nur auf Englisch gibt (siehe i18n/index.ts).
+  const { t } = useTranslation()
   const { state, currentUser } = useStore()
 
   const doc = state.settings.documentHeader
@@ -101,7 +101,7 @@ export function StandardisationReport({
         csv += row([
           r.name, r.sessions, r.n, csvNum(r.mean), csvNum(r.delta),
           r.dist['1'], r.dist['2'], r.dist['3'], r.dist['4'], r.dist['5'], r.dist.NO,
-          csvNum(r.lowShare), csvNum(r.highShare), csvNum(r.ncRate), t(`grading.std.flag.${r.flag}`),
+          csvNum(r.lowShare), csvNum(r.highShare), csvNum(r.ncRate), t(`forms:std.flag.${r.flag}`),
         ])
       })
       csv += row([
@@ -128,7 +128,7 @@ export function StandardisationReport({
       {/* Bedienelemente in der Bediensprache — sie stehen nicht auf dem Papier */}
       <div className="flex flex-wrap items-center gap-2 print:hidden">
         <select value={fleet} onChange={(e) => onFleetChange(e.target.value)} className={`${selectCls} w-auto`}>
-          <option value="">{tUi('grading.admin.allAircraft')}</option>
+          <option value="">{t('forms:admin.allAircraft')}</option>
           {fleetOptions.map((f) => (
             <option key={f} value={f}>
               {f}
@@ -136,14 +136,14 @@ export function StandardisationReport({
           ))}
         </select>
         <select value={authority} onChange={(e) => onAuthorityChange(e.target.value as '' | 'AT' | 'UK')} className={`${selectCls} w-auto`}>
-          <option value="">{tUi('grading.admin.allAuthorities')}</option>
-          <option value="AT">{tUi('grading.authorityAT', { nr: doc.approvalNumber || 'AT.ATO.106' })}</option>
-          <option value="UK">{tUi('grading.authorityUK', { nr: doc.approvalNumberUK || 'GBR.ATO.0541' })}</option>
+          <option value="">{t('forms:admin.allAuthorities')}</option>
+          <option value="AT">{t('forms:authorityAT', { nr: doc.approvalNumber || 'AT.ATO.106' })}</option>
+          <option value="UK">{t('forms:authorityUK', { nr: doc.approvalNumberUK || 'GBR.ATO.0541' })}</option>
         </select>
         <select value={period} onChange={(e) => onPeriodChange(e.target.value as PeriodKey)} className={`${selectCls} w-auto`}>
           {PERIODS.map((p) => (
             <option key={p.key} value={p.key}>
-              {tUi(`grading.std.period.${p.key}`)}
+              {t(`forms:std.period.${p.key}`)}
             </option>
           ))}
         </select>
@@ -151,14 +151,14 @@ export function StandardisationReport({
           onClick={() => window.print()}
           className="min-h-11 flex items-center gap-1.5 rounded-xl border border-line/15 px-3 text-[13px] transition hover:bg-line/5"
         >
-          <Printer size={15} /> {tUi('grading.print')}
+          <Printer size={15} /> {t('forms:print')}
         </button>
         <button
           onClick={exportCsv}
           className="min-h-11 flex items-center gap-1.5 rounded-xl border border-line/15 px-3 text-[13px] transition hover:bg-line/5"
           disabled={sets.length === 0}
         >
-          <Table2 size={15} /> {tUi('grading.std.exportCsv')}
+          <Table2 size={15} /> {t('forms:std.exportCsv')}
         </button>
       </div>
 
@@ -168,40 +168,40 @@ export function StandardisationReport({
         <p className="text-[11px] font-semibold uppercase tracking-wide">
           {[doc.atoName, approval].filter(Boolean).join(' · ')}
         </p>
-        <h2 className="text-[19px] font-bold tracking-tight">{t('grading.std.title')}</h2>
+        <h2 className="text-[19px] font-bold tracking-tight">{t('forms:std.title')}</h2>
         <p className="mt-1 flex flex-wrap justify-between gap-x-4 gap-y-0.5 text-[11px] text-dim">
           <span>
-            {t('grading.std.period.label')}: {label} · {t('grading.admin.fleet')}: {fleet || t('grading.admin.allAircraft')} · {t('grading.admin.authority')}: {approval || t('grading.admin.allAuthorities')}
+            {t('forms:std.period.label')}: {label} · {t('forms:admin.fleet')}: {fleet || t('forms:admin.allAircraft')} · {t('forms:admin.authority')}: {approval || t('forms:admin.allAuthorities')}
           </span>
-          <span>{t('grading.exportStamp', { date: formatDateTime(now), name: currentUser!.name })}</span>
+          <span>{t('forms:exportStamp', { date: formatDateTime(now), name: currentUser!.name })}</span>
         </p>
       </div>
 
-      {sets.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('grading.empty')}</p>}
+      {sets.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('forms:empty')}</p>}
 
       {sets.map((s) => (
         <div key={s.key} className="rounded-2xl border border-line/10 bg-surface/60 p-3.5">
           <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-dim">
-            {t('grading.std.set')}: <span className="text-ink">{s.name}</span>
+            {t('forms:std.set')}: <span className="text-ink">{s.name}</span>
           </p>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[12px]">
               <thead>
                 <tr className="border-b border-line/20 text-left text-dim">
-                  <th className="py-1.5 pr-2 font-medium">{t('grading.std.instructor')}</th>
-                  <th className="py-1.5 pr-2 text-right font-medium">{t('grading.std.sessionsCol')}</th>
-                  <th className="py-1.5 pr-2 text-right font-medium">{t('grading.std.gradesCol')}</th>
-                  <th className="py-1.5 pr-2 text-right font-medium">{t('grading.std.meanCol')}</th>
-                  <th className="py-1.5 pr-2 text-right font-medium">{t('grading.std.deltaCol')}</th>
+                  <th className="py-1.5 pr-2 font-medium">{t('forms:std.instructor')}</th>
+                  <th className="py-1.5 pr-2 text-right font-medium">{t('forms:std.sessionsCol')}</th>
+                  <th className="py-1.5 pr-2 text-right font-medium">{t('forms:std.gradesCol')}</th>
+                  <th className="py-1.5 pr-2 text-right font-medium">{t('forms:std.meanCol')}</th>
+                  <th className="py-1.5 pr-2 text-right font-medium">{t('forms:std.deltaCol')}</th>
                   {['1', '2', '3', '4', '5', 'NO'].map((k) => (
                     <th key={k} className="py-1.5 pr-2 text-right font-medium">
                       {k}
                     </th>
                   ))}
-                  <th className="py-1.5 pr-2 text-right font-medium">{t('grading.std.lowCol')}</th>
-                  <th className="py-1.5 pr-2 text-right font-medium">{t('grading.std.highCol')}</th>
-                  <th className="py-1.5 pr-2 text-right font-medium">{t('grading.std.ncCol')}</th>
-                  <th className="py-1.5 font-medium">{t('grading.std.assessmentCol')}</th>
+                  <th className="py-1.5 pr-2 text-right font-medium">{t('forms:std.lowCol')}</th>
+                  <th className="py-1.5 pr-2 text-right font-medium">{t('forms:std.highCol')}</th>
+                  <th className="py-1.5 pr-2 text-right font-medium">{t('forms:std.ncCol')}</th>
+                  <th className="py-1.5 font-medium">{t('forms:std.assessmentCol')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -220,11 +220,11 @@ export function StandardisationReport({
                     <td className="py-1.5 pr-2 text-right tabular-nums">{fmtPct(r.lowShare)}</td>
                     <td className="py-1.5 pr-2 text-right tabular-nums">{fmtPct(r.highShare)}</td>
                     <td className="py-1.5 pr-2 text-right tabular-nums">{fmtPct(r.ncRate)}</td>
-                    <td className={`py-1.5 ${flagCls[r.flag]}`}>{t(`grading.std.flag.${r.flag}`)}</td>
+                    <td className={`py-1.5 ${flagCls[r.flag]}`}>{t(`forms:std.flag.${r.flag}`)}</td>
                   </tr>
                 ))}
                 <tr className="border-t-2 border-line/30 font-semibold">
-                  <td className="py-1.5 pr-2">{t('grading.std.fleetMean')}</td>
+                  <td className="py-1.5 pr-2">{t('forms:std.fleetMean')}</td>
                   <td className="py-1.5 pr-2 text-right tabular-nums">{s.sessions}</td>
                   <td className="py-1.5 pr-2 text-right tabular-nums">{s.n}</td>
                   <td className="py-1.5 pr-2 text-right tabular-nums">{fmt(s.overall)}</td>
@@ -245,7 +245,7 @@ export function StandardisationReport({
 
       {sets.length > 0 && (
         <p className="text-[10.5px] leading-relaxed text-dim">
-          {t('grading.std.footnote', { watch: WATCH.toFixed(2), review: REVIEW.toFixed(2), grades: MIN_GRADES, sessions: MIN_SESSIONS })}
+          {t('forms:std.footnote', { watch: WATCH.toFixed(2), review: REVIEW.toFixed(2), grades: MIN_GRADES, sessions: MIN_SESSIONS })}
         </p>
       )}
     </div>

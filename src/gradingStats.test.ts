@@ -178,3 +178,23 @@ describe('statsBySet', () => {
     expect(row.flag).not.toBe('insufficient')
   })
 })
+
+describe('statsBySet — Sortierung bei fehlendem Delta', () => {
+  it('sortiert Zeilen ohne Delta nicht als „unauffaellig" mitten ins Feld', () => {
+    // Wer nur „NO" vergeben hat, hat kein Delta. Heute rutscht er ueber
+    // `?? 0` zwischen die auffaelligen Instruktoren — dieser Test haelt das
+    // aktuelle Verhalten fest, damit eine Korrektur sichtbar wird.
+    const setOf = () => 'pilot' as const
+    const mk = (id: string, instr: string, vals: (Grade | null)[]) =>
+      rec({ id, batchId: id, instructorId: instr, trainees: [trainee(grades(...vals))] })
+    const rs = [
+      ...[1, 2, 3].map((i) => mk(`hoch${i}`, 'u-hoch', [5, 5, 5, 5])),
+      ...[1, 2, 3].map((i) => mk(`no${i}`, 'u-no', ['NO', 'NO', 'NO', 'NO'])),
+      ...[1, 2, 3].map((i) => mk(`tief${i}`, 'u-tief', [1, 1, 1, 1])),
+    ]
+    const rows = statsBySet(rs, setOf).find((s) => s.key === 'pilot')!.rows
+    expect(rows.map((r) => r.id)).toEqual(['u-hoch', 'u-no', 'u-tief'])
+    expect(rows.find((r) => r.id === 'u-no')!.mean).toBeNull()
+    expect(rows.find((r) => r.id === 'u-no')!.flag).toBe('insufficient')
+  })
+})

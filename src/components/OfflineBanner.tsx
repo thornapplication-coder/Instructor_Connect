@@ -47,7 +47,11 @@ export function OfflineBanner() {
       window.removeEventListener('offline', sync)
       document.removeEventListener('visibilitychange', sync)
     }
-  }, [flushOutbox])
+    // `queued` gehört in die Abhängigkeiten: Ein Blatt, das gerade in den
+    // Korb gewandert ist, soll sofort geprüft werden — nicht erst beim
+    // nächsten online- oder visibilitychange-Ereignis, das im Simulator
+    // stundenlang ausbleiben kann.
+  }, [flushOutbox, queued])
 
   // Online und nichts offen: kein Streifen. Online mit Rest im Korb kann
   // nur kurz auftreten (Versand läuft) — dann zeigt der Streifen das an.

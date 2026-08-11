@@ -25,6 +25,13 @@
   --c-warm: 122 92 46;     /* #7A5C2E  warmer Kontrastton      */
   --c-danger: 168 42 34;   /* #A82A22  destruktive Aktionen (AA auch auf getönter Fläche) */
   --c-line: 22 37 61;      /* dunkle Basis für Ränder          */
+  /* Rand von EINGABEFELDERN. Er trennt eine Bedienfläche vom Umfeld und
+     muss deshalb 3:1 erreichen (WCAG 1.4.11); mit border-line/10 lag er bei
+     1,21:1 und war auf hellen Geräten im Sonnenlicht schlicht nicht da.
+     Gemessen: hell 3,19:1 gegen die Feldfüllung und 3,55:1 gegen die Karte,
+     dunkel 3,72:1 bzw. 3,20:1. Bewusst knapp über der Schwelle gehalten,
+     damit die Felder nicht wie umrandete Kästen wirken. */
+  --c-field: 125 134 148;
   --c-sand: 146 95 22;     /* Sandbox-Hinweistext              */
   /* Ampel- und Statusfarben. Im Hellmodus deutlich dunkler als die früheren
      400er-Töne: die Punkte lagen bei 1,5:1 und waren praktisch unsichtbar.
@@ -54,6 +61,7 @@
   --c-warm: 240 233 220;   /* #F0E9DC  warmes Off-White        */
   --c-danger: 255 122 122; /* #FF7A7A  destruktive Aktionen    */
   --c-line: 255 255 255;   /* Basis für Trennlinien/Ränder     */
+  --c-field: 114 122 133;
   --c-sand: 252 211 77;    /* Sandbox-Hinweistext              */
   --c-ok: 52 211 153;      /* #34D399 */
   --c-wait: 251 191 36;    /* #FBBF24 */
@@ -127,6 +135,20 @@ input[type='date'] {
   .above-sandbox {
     bottom: calc(2.75rem + env(safe-area-inset-bottom, 0px));
   }
+  /*
+   * Klebende Leisten am oberen und unteren Rand rechneten mit festen
+   * Abständen (top-14, bottom-11) und ließen die Geräte-Sicherheitsbereiche
+   * außer Acht. Auf einem iPhone mit Home-Indikator wächst die
+   * Sandbox-Leiste um 34 px (sie trägt safe-bottom) — die Chat-Eingabe lag
+   * damit dahinter und war nicht mehr erreichbar; oben verschwand die
+   * Themenleiste des Chats unter der Kopfzeile.
+   */
+  .below-topbar {
+    top: calc(3.5rem + env(safe-area-inset-top, 0px));
+  }
+  .above-sandbox-sticky {
+    bottom: calc(2.75rem + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /*
@@ -167,6 +189,23 @@ input,
 select,
 textarea {
   overflow-wrap: normal;
+}
+
+/*
+ * Werte bilden eine EINHEIT und werden nie mitten im Wert getrennt.
+ * `overflow-wrap: anywhere` bricht zwar nur bei drohendem Überlauf — genau
+ * das trat in den schmalen Zahlenspalten des Monatsberichts ein, und eine
+ * Notenmittelung las sich dann als „2," / „95" auf zwei Zeilen. Auf einem
+ * Nachweis ist eine so getrennte Zahl (oder eine ATO-Kennung wie
+ * AT.ATO.106) nicht mehr belastbar.
+ *
+ * `.tabular-nums` markiert im Projekt bereits jede Zahlenzelle; `.zusammen`
+ * ist für Kennungen und Datumsangaben gedacht, die keine Zahlen sind.
+ */
+.tabular-nums,
+.zusammen {
+  overflow-wrap: normal;
+  word-break: keep-all;
 }
 
 /* dezente Scrollbars */
