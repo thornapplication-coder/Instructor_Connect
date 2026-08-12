@@ -2,6 +2,10 @@
 
 Semantische Versionierung (MAJOR.MINOR.PATCH).
 
+Diese Datei fuehrt die Entwicklungsgeschichte des Repos. Der Changelog IN der
+App steht bewusst auf einem einzigen 1.0.0-Eintrag (Erststand) — er richtet
+sich an Instruktoren, nicht an Entwickler.
+
 ## 1.0.0 — 2026-08-04
 
 Erstversion (Sandbox-Modus, ohne Backend):
@@ -80,3 +84,55 @@ Druck und Bedienung:
 - Alle Trefferflächen mindestens 44 × 44 px, Kontraste durchgehend WCAG AA
 - Dialoge mit Escape, Schließen-Kreuz und Fokusfalle
 - Das Grading-Formular fragt vor dem Verlassen und sichert einen Entwurf
+
+## 1.3.0 — 2026-08-12
+
+Neue Bausteine, Zwischenaudit und dessen Umsetzung.
+
+Neu:
+
+- **Notes**: persönliche Merkliste je Benutzer mit Suche und Anheften. Privat —
+  kein Admin sieht sie, kein Export enthält sie; der Training Admin hat das
+  Modul nicht
+- **Benutzerimport**: Excel-/CSV-Vorlage im Admin-Panel, Vorschau je Zeile vor
+  dem Anlegen, Prüfung gegen Domainliste, Bestand, Muster und Rollen
+- **Feedback**: Kategorie „Safety" warnt sofort, dass ein Safety Report gehört
+- **Lesson Plans**: zweite Gliederung nach Schulungsart, im Admin-Panel pflegbar
+- Monatsbericht nur noch als Reiter im Grading Tool, nicht mehr als Kachel
+- Ablage des Training Admins nach Schulungstag gebündelt, jüngster Tag zuerst
+
+Dokument und Nachweis:
+
+- Der Dokumentkopf steht auf **jedem** Blatt und nennt die geschulte Person;
+  Kopf und Fuß standen vorher je einmal
+- Name der geschulten Person in Kopfdaten, Druckfuß und PDF-Dateinamen — die
+  Grading Sheets nannten ihn erst weit unten über dem Notenraster
+- ATO-Name, Zulassungsnummer, Formularstand und Formulartitel werden beim
+  Unterschreiben eingefroren und sind Teil des Fingerabdrucks (Fassung 3)
+- Das Ankreuzfeld „Competent" folgt der Regel statt dem Rohwert: Eine 1 oder
+  zwei Zweien machen einen Piloten rechnerisch nicht bestanden
+- 306/310 verlangen ihre Freitexte; ein Folgeformular zählt nur für denselben
+  Piloten, und es braucht eines je nicht bestandenem Piloten
+- Notenmaßstab und Rückverweis aufs Ausgangsblatt auf dem Ausdruck
+- Export mit Authority, SignedAt und Fingerprint
+
+Daten und Anmeldung:
+
+- Sicherung hängt an echten Änderungen statt am 5-Sekunden-Takt; Schreiben vor
+  `pagehide`; Tab-Abgleich übernimmt nur jüngere Stände; erst schreiben, dann
+  die anderen Tabs benachrichtigen
+- Versions-Sicherungen mit Zeitstempel, beim Zurücksetzen mitgeräumt
+- Service Worker: Zeitgrenze für Seitenaufrufe, Schutz gegen Anmeldeseiten im
+  Cache, Neuladen aller Tabs nach einer Übernahme
+- Schnellanmeldung nur noch in der Sandbox; Rechtematrix und Import prüfen den
+  Handelnden; Sitzung und Aktiv-Status werden laufend geprüft
+- Entwürfe tragen den Nutzer im Schlüssel (geteiltes iPad)
+
+Bedienung:
+
+- Überschriften app-weit aus zwei Komponenten, deutlicher gesetzt
+- Umbruch: Beschriftung und Knöpfe quetschen sich nicht mehr gegenseitig
+  („Clear", Reiter der Ablage, Ergebnis-Badge)
+- Barrierefreiheit: Namen an Filtern und Icon-Knöpfen, Notenknöpfe als benannte
+  Gruppe mit angesagtem Zustand, Kontrast des aktiven Zustands, Fokus nach
+  Ansichtswechsel, Schrift am Bildschirm mindestens 12 px

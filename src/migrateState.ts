@@ -1,4 +1,5 @@
 import { createSeedState } from './sandbox/seed'
+import { imprintHash, IMPRINT_DE, IMPRINT_EN, IMPRINT_LEGACY_HASHES } from './sandbox/imprintDefaults'
 import { LESSON_CATEGORIES, type AppState } from './types'
 
 /**
@@ -75,6 +76,19 @@ export function migrateState(st: AppState): AppState {
   // damit endgültig erledigt, nicht nur für diesen Start.
   const markSeedHistory = !histDone
 
+  /*
+   * Impressum: Der Text steht in den Einstellungen, eine geaenderte Vorgabe
+   * erreicht Bestandsgeraete also nicht. Ersetzt wird er nur, solange er noch
+   * unveraendert der vorigen Vorgabe entspricht (Pruefsumme) — eine im Admin
+   * Panel selbst geschriebene Fassung bleibt unangetastet. Der Text nennt
+   * inzwischen Module und einen Datenschutz-Abschnitt, die es beim alten
+   * Stand noch nicht gab; ihn dort stehen zu lassen hiesse, den Nutzern eine
+   * ueberholte Zusage zu zeigen.
+   */
+  const imp = st.settings.imprint
+  const impAlt = !!imp && IMPRINT_LEGACY_HASHES.includes(imprintHash(imp.de)) && IMPRINT_LEGACY_HASHES.includes(imprintHash(imp.en))
+  const imprint = impAlt ? { de: IMPRINT_DE, en: IMPRINT_EN } : imp
+
   // Notizen gab es im alten Schema nicht. Ohne diese Zeile stuerzte jede
   // Stelle ab, die `state.notes.length` liest, statt eine leere Liste zu
   // sehen — und der ganze Bereich waere auf Bestandsgeraeten unbenutzbar.
@@ -100,7 +114,8 @@ export function migrateState(st: AppState): AppState {
     !markSeedHistory &&
     !notesFehlten &&
     !kopfFehlte &&
-    !formulareFehlten
+    !formulareFehlten &&
+    !impAlt
   )
     return st
   return {
@@ -113,6 +128,7 @@ export function migrateState(st: AppState): AppState {
     changelog,
     settings: {
       ...st.settings,
+      imprint,
       documentHeader: { ...dh, atoName, approvalNumber, approvalNumberUK },
       feedbackCategories: feedbackCategories ?? st.settings.feedbackCategories,
       infoCategories: infoCategories ?? st.settings.infoCategories,
