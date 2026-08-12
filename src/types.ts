@@ -434,6 +434,21 @@ export interface GradingRecord {
    *  (GBR.ATO.0541) — bestimmt die Kennung im Dokumentkopf. Fehlt der
    *  Wert (Altbestand), gilt AT. */
   authority?: 'AT' | 'UK'
+  /**
+   * Dokumentenstand im Moment des Unterschreibens: ATO-Name, Zulassungs-
+   * nummer, Formularstand und Formulartitel.
+   *
+   * Diese vier Angaben wurden zur DRUCKZEIT aus den Einstellungen gelesen
+   * und sind dort frei änderbar. Ein vor drei Monaten unterschriebenes 308A
+   * druckte danach eine andere Zulassungsnummer und einen anderen
+   * Formularstand als zum Unterschriftszeitpunkt — und der Fingerabdruck
+   * bestätigte weiter „unverändert", weil er nur den Schlüssel AT/UK
+   * erfasste, nicht die Werte. Genau die Manipulation also, gegen die der
+   * Abdruck antritt. Sie stehen deshalb im Datensatz und sind ab Fassung 3
+   * Teil des Fingerabdrucks. Fehlt der Stand (Altbestand), fällt die
+   * Anzeige auf die aktuellen Einstellungen zurück.
+   */
+  docSnapshot?: { atoName: string; approval: string; formRevision: string; formTitle: string }
 }
 
 export interface GradingSettings {

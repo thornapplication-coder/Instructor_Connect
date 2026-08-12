@@ -7,6 +7,7 @@ import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType, GradingRecord } from '../../types'
+import { gradingListDate } from '../../gradingRules'
 import { formatDate, formatDateTime, missingFollowUps, TrafficDot, traineesOf, trafficLight, type TrafficColor } from '../Grading'
 import { StandardisationReport } from './StandardisationReport'
 import { TraineeHistory } from './TraineeHistory'
@@ -567,7 +568,9 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
   /** Kurzbezeichnung des Ausgangsformulars eines Folgeformulars */
   const parentLabel = (r: GradingRecord) => {
     const parent = records.find((x) => x.id === r.parentId)
-    return parent ? `${parent.formTypeId} · ${formatDate(parent.createdAt)}` : ''
+    // Schulungstag, nicht Anlagedatum: Ein nachgetragenes Blatt trug hier
+    // sonst ein anderes Datum als ueberall sonst in der App (#51).
+    return parent ? `${parent.formTypeId} · ${formatDate(gradingListDate(parent))}` : ''
   }
 
   /**
@@ -588,7 +591,11 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
     source.filters.forEach(([k, v]) => (csv += row([k, v])))
     csv += row([])
     if (scope === 'records') {
-      csv += row(['Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Status', 'FollowUpTo', 'Avg'])
+      // Behoerde, Unterschriftszeitpunkt und Fingerabdruck gehoeren in einen
+      // Auszug fuer die Behoerde: AT- und UK-Vorgaenge liegen im selben
+      // Bestand, und ohne `SignedAt`/`Fingerprint` laesst sich eine Zeile
+      // keinem geprueften Dokument zuordnen.
+      csv += row(['Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Status', 'Authority', 'SignedAt', 'Fingerprint', 'FollowUpTo', 'Avg'])
       scopeRecords.forEach((r) => {
         if (r.trainees.length > 0) {
           r.trainees.forEach((tr) => {
@@ -596,7 +603,9 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
             const avg = avgOf(tr.grades.map((g2) => g2.grade))
             csv += row([
               r.formTypeId, userName(r.instructorId), traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice,
-              r.header.date, tr.overall, r.sessionStatus, r.status, r.parentId ? parentLabel(r) : '', csvNum(avg),
+              r.header.date, tr.overall, r.sessionStatus, r.status,
+              r.authority ?? 'AT', r.signedAt ? formatDateTime(r.signedAt) : '', r.contentHash ?? '',
+              r.parentId ? parentLabel(r) : '', csvNum(avg),
             ])
           })
           return
@@ -606,7 +615,9 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
         traineesOf(r, records).forEach((tr) => {
           csv += row([
             r.formTypeId, userName(r.instructorId), traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice ?? '',
-            r.header.date, '', '', r.status, r.parentId ? parentLabel(r) : '', '',
+            r.header.date, '', '', r.status,
+            r.authority ?? 'AT', r.signedAt ? formatDateTime(r.signedAt) : '', r.contentHash ?? '',
+            r.parentId ? parentLabel(r) : '', '',
           ])
         })
       })

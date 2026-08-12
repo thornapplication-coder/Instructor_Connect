@@ -53,10 +53,39 @@ export function missingFollowUps(r: GradingRecord, all: GradingRecord[]): string
   // damit die Pflicht auf 306/310 aushebeln — „Not Competent" wurde grün,
   // ohne dass je ein Folgeformular entstand.
   if (isFollowUpType(r.formTypeId)) return []
-  const signedChild = (formTypeId: string) =>
-    all.some((c) => c.parentId === r.id && c.formTypeId === formTypeId && c.status === 'signed')
+  /*
+   * Ein Folgeformular zaehlt nur, wenn es DENSELBEN Piloten nennt.
+   *
+   * Geprueft wurden bisher nur Typ, `parentId` und Unterschrift. Der Name im
+   * 306/310 ist aber ein frei ueberschreibbares Textfeld: Ein 306, das
+   * Pilot B nennt, hakte damit die Pflicht des Blattes von Pilot A ab —
+   * genau die Konstellation, wegen der Befund #24 das 310 vom Durchgang auf
+   * das Einzelblatt umgestellt hat. Die strukturelle Bindung war geloest,
+   * die inhaltliche fehlte.
+   *
+   * Traegt das Kind keinen Namen (Altbestand vor dem Pflichtfeld), zaehlt es
+   * weiterhin — sonst meldete die App rueckwirkend Luecken, die es nie gab.
+   */
+  const namen = new Set(r.trainees.map((tr) => (tr.traineeName ?? '').trim().toLowerCase()).filter(Boolean))
+  const passtZumPiloten = (c: GradingRecord) => {
+    const kind = (c.header.traineeName ?? '').trim().toLowerCase()
+    return !kind || namen.size === 0 || namen.has(kind)
+  }
+  const signedChildren = (formTypeId: string) =>
+    all.filter((c) => c.parentId === r.id && c.formTypeId === formTypeId && c.status === 'signed' && passtZumPiloten(c))
+  const signedChild = (formTypeId: string) => signedChildren(formTypeId).length > 0
   const out: string[] = []
-  if (r.trainees.some(isNotCompetent) && !signedChild('306')) out.push('306')
+  /*
+   * EIN 306 je nicht bestandenem Piloten.
+   *
+   * Neu angelegte Durchgaenge werden je Pilot in eigene Blaetter geteilt,
+   * dort steht immer genau einer. Bestands- und Importblaetter fuehren aber
+   * mehrere — und ein einziges unterschriebenes 306 machte ein Blatt mit
+   * zwei Durchgefallenen gruen. Gezaehlt wird deshalb, nicht bloss gefragt,
+   * ob eines da ist.
+   */
+  const durchgefallen = r.trainees.filter(isNotCompetent).length
+  if (durchgefallen > 0 && signedChildren('306').length < durchgefallen) out.push('306')
   if (r.sessionStatus === 'not_completed' && !signedChild('310')) out.push('310')
   return out
 }

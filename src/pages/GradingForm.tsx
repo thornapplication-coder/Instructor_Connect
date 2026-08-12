@@ -119,6 +119,8 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
   const [formTypeId, setFormTypeId] = useState<FormTypeId | null>(existing?.formTypeId ?? presetType ?? null)
   const formType = grading.formTypes.find((f) => f.id === formTypeId) ?? null
+  // Kopfdaten der ATO fuer den einzufrierenden Dokumentenstand (siehe unten).
+  const dokKopf = state.settings.documentHeader ?? { atoName: '', approvalNumber: '', approvalNumberUK: '', formRevision: '' }
   const competencies = formType?.competencySet
     ? grading.competencySets.find((c) => c.key === formType.competencySet)?.competencies ?? []
     : []
@@ -377,6 +379,19 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     for (const f of postFields) {
       if (f.required && !header[f.key]?.trim()) return t('forms:errRequired', { field: f.label })
     }
+    /*
+     * 306 und 310 belegen die Nachschulung bzw. den offenen Punkt — ihr
+     * Inhalt steht ausschliesslich in den Freitextabschnitten. Die waren an
+     * keiner Stelle Pflicht: Ein 306 mit drei leeren Abschnitten, beidseitig
+     * unterschrieben, galt in `missingFollowUps` als Nachweis und machte das
+     * Ausgangsblatt gruen. Auf dem Grading Sheet erzwingt die App zu jeder 1
+     * und 2 einen Kommentar; auf dem Blatt, das die Nachschulung belegen
+     * soll, erzwang sie nichts.
+     */
+    if (isFollowUpType(formTypeId ?? '')) {
+      const leer = (formType?.freeTextSections ?? []).find((sec) => !freeText[sec]?.trim())
+      if (leer) return t('forms:errRequired', { field: leer })
+    }
     // Eine Anwesenheitsliste ohne Anwesende belegt nichts — sie war bisher
     // absendbar und wurde grün.
     if (isAttendance && !attendance.some((a) => a.name.trim())) return t('forms:errNoAttendee')
@@ -460,6 +475,18 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         signedAt: signed ? ts : undefined,
         instructorSignedAt: sigInstructor ? ts : undefined,
         authority,
+        // Dokumentenstand einfrieren: ATO, Zulassungsnummer, Formularstand
+        // und Formulartitel gehoerten bisher zur Anzeige und wurden zur
+        // DRUCKZEIT aus den Einstellungen gelesen — ein altes Dokument
+        // druckte danach eine andere Zulassungsnummer als zum
+        // Unterschriftszeitpunkt. Ab Fassung 3 sind sie Teil des
+        // Fingerabdrucks.
+        docSnapshot: {
+          atoName: dokKopf.atoName,
+          approval: (authority === 'UK' ? dokKopf.approvalNumberUK : dokKopf.approvalNumber) || dokKopf.approvalNumber,
+          formRevision: dokKopf.formRevision,
+          formTitle: formType?.title ?? '',
+        },
       }
     })
   }

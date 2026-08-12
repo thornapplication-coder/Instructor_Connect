@@ -75,6 +75,35 @@ describe('missingFollowUps', () => {
     expect(followUpStarted(parent, [parent, draft], '306')).toBe(true)
   })
 
+  /**
+   * Der Name im 306 ist ein frei ueberschreibbares Textfeld. Ein 306, das
+   * Pilot B nennt, hakte damit die Pflicht des Blattes von Pilot A ab —
+   * dieselbe Luecke, wegen der Befund #24 das 310 vom Durchgang auf das
+   * Einzelblatt umgestellt hat, nur inhaltlich statt strukturell.
+   */
+  it('laesst ein 306 nicht gelten, das einen ANDEREN Piloten nennt', () => {
+    const parent = rec({ trainees: [trainee('not_competent', 'Sophie Berger')] })
+    const fremd = rec({ id: 'c1', formTypeId: '306', parentId: 'r1', status: 'signed', header: { traineeName: 'Lukas Steiner' } })
+    expect(missingFollowUps(parent, [parent, fremd])).toContain('306')
+  })
+
+  it('nimmt ein 306 ohne Namen an — Altbestand vor dem Pflichtfeld', () => {
+    // Sonst meldete die App rueckwirkend Luecken, die es nie gab.
+    const parent = rec({ trainees: [trainee('not_competent')] })
+    const alt = rec({ id: 'c1', formTypeId: '306', parentId: 'r1', status: 'signed' })
+    expect(missingFollowUps(parent, [parent, alt])).not.toContain('306')
+  })
+
+  it('verlangt EIN 306 je nicht bestandenem Piloten, nicht eines je Blatt (#22)', () => {
+    // Neuanlagen werden je Pilot geteilt; Bestands- und Importblaetter nicht.
+    // Ein einziges 306 machte ein Blatt mit zwei Durchgefallenen gruen.
+    const parent = rec({ trainees: [trainee('not_competent', 'Sophie Berger'), trainee('not_competent', 'Lukas Steiner')] })
+    const eines = rec({ id: 'c1', formTypeId: '306', parentId: 'r1', status: 'signed', header: { traineeName: 'Sophie Berger' } })
+    expect(missingFollowUps(parent, [parent, eines])).toContain('306')
+    const zweites = rec({ id: 'c2', formTypeId: '306', parentId: 'r1', status: 'signed', header: { traineeName: 'Lukas Steiner' } })
+    expect(missingFollowUps(parent, [parent, eines, zweites])).not.toContain('306')
+  })
+
   it('schliesst die parentId-Luecke: ein fremdes Blatt mit erfundenem parentId hebt die Pflicht nicht auf (#50)', () => {
     const parent = rec({ trainees: [trainee('not_competent')] })
     // Ein ueber die Adresszeile angelegtes 308A, das sich als Kind ausgibt.

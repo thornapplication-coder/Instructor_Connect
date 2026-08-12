@@ -80,11 +80,11 @@ self.addEventListener('message', (e) => {
 // Nur vollständige, fehlerfreie Antworten cachen — ein einzelner 404/503
 // würde sonst dauerhaft ausgeliefert und die App blockieren.
 // Nur vollstaendige, fehlerfreie Antworten VOM EIGENEN Server cachen.
-// `redirected` und der Inhaltstyp gehoeren dazu: Eine Anmeldeseite im
-// Gaeste-WLAN (genau die Umgebung, fuer die net.ts eigens einen
-// Inhaltstyp-Test hat) beantwortet auch den Aufruf einer .js-Datei mit
-// 200/HTML. Weil Dateien cache-first ausgeliefert werden, bliebe diese
-// Seite bis zum naechsten Deployment im Cache — die App waere kaputt.
+// Umleitung und Inhaltstyp gehoeren dazu: Eine Anmeldeseite im Gaeste-WLAN
+// (genau die Umgebung, fuer die net.ts eigens einen Inhaltstyp-Test hat)
+// beantwortet auch den Aufruf einer .js-Datei mit 200/HTML. Weil Dateien
+// cache-first ausgeliefert werden, bliebe diese Seite bis zum naechsten
+// Deployment im Cache — die App waere kaputt.
 function cacheable(r, url) {
   if (!r || !r.ok || r.status !== 200 || r.type === 'opaque' || r.redirected) return false
   const typ = (r.headers.get('content-type') || '').toLowerCase()
