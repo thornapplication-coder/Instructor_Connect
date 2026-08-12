@@ -160,6 +160,26 @@
     "scheduled": "Geplant — für Nutzer noch nicht sichtbar",
     "sinceRelease": "ab Veröffentlichung"
   },
+  "notes": {
+    "title_plural": "Notizen",
+    "new": "Neue Notiz",
+    "edit": "Notiz bearbeiten",
+    "title": "Titel",
+    "body": "Notiz",
+    "aircraftType": "Aircraft Type",
+    "general": "Allgemein",
+    "allTypes": "Alle Muster",
+    "pinned": "Angeheftet",
+    "pin": "Nach oben anheften",
+    "unpin": "Nicht mehr anheften",
+    "search": "Notizen durchsuchen …",
+    "empty": "Noch keine Notizen. Halte fest, was du dir für die nächste Session merken willst.",
+    "noMatch": "Keine Notiz passt zur Suche.",
+    "updatedAt": "Geändert {{date}}",
+    "resultCount": "{{shown}} von {{total}} Notizen passen zur Suche",
+    "deleteConfirm": "Notiz „{{title}}“ löschen? Das lässt sich nicht rückgängig machen.",
+    "intro": "Deine persönlichen Notizen — niemand sonst sieht sie, auch kein Admin. Sie sind eine Gedächtnisstütze, kein Nachweis: Sie hängen an keinem Formular und gehen in keinen Export."
+  },
   "contacts": {
     "call": "Anrufen",
     "mail": "Nachricht senden",

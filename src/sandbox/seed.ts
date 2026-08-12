@@ -241,6 +241,51 @@ function seedState(now: number): AppState {
     timeOffsetMs: 0,
     seen: {},
     contactsChangedAt: now - 2 * d,
+    // Zwei Demo-Notizen je Instruktor — sie zeigen beide Ebenen der Liste
+    // (angeheftet, nach Muster) und wofuer Notizen gedacht sind: Merkposten
+    // fuer die naechste Session, nicht Dokumentation.
+    notes: [
+      {
+        id: 'n1',
+        authorId: 'u-michael',
+        title: 'Sophie Berger — Engine-out wiederholen',
+        body: 'PRO bleibt ueber drei Sessions schwach (Checklisten spaet initiiert). Naechstes Mal frueher briefen und die Sequenz vor dem Start durchsprechen.',
+        aircraftType: 'C560 XLS+',
+        pinned: true,
+        createdAt: now - 3 * d,
+        updatedAt: now - 5 * h,
+      },
+      {
+        id: 'n2',
+        authorId: 'u-michael',
+        title: 'IOS-Touchscreen rechts',
+        body: 'Traeger Touchscreen im Citation-Sim: Neustart hilft kurzfristig. Vor der Session pruefen, sonst kostet es zehn Minuten.',
+        aircraftType: 'C560 XLS+',
+        pinned: false,
+        createdAt: now - 6 * d,
+        updatedAt: now - 2 * d,
+      },
+      {
+        id: 'n3',
+        authorId: 'u-michael',
+        title: 'Standardisierungsbriefing vorbereiten',
+        body: 'Autothrottle-Verhalten nach TOGA: Unterschied CL30 / C560 XLS+ zusammenstellen. Unterlagen liegen in der Instructor Info.',
+        aircraftType: '',
+        pinned: false,
+        createdAt: now - 9 * d,
+        updatedAt: now - 9 * d,
+      },
+      {
+        id: 'n4',
+        authorId: 'u-patrick',
+        title: 'Formularstand Rev. 5 durchsehen',
+        body: 'Neue Fassung des Training Manuals gegen die Grading-Formulare pruefen — vor allem 308A und 306.',
+        aircraftType: 'CL30',
+        pinned: false,
+        createdAt: now - 4 * d,
+        updatedAt: now - 4 * d,
+      },
+    ],
     lessonPlans: [
       { id: 'lp1', title: 'CL30 — Lesson Plan TR Session 1-4', description: 'Grundlagen Type Rating: Systeme, Normalverfahren, erste FFS-Sessions.', aircraftType: 'CL30', category: 'Type Rating', fileName: 'cl350-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 20 * d },
       { id: 'lp2', title: 'CL30 — Lesson Plan Recurrent OPC', description: 'Ablauf und Schwerpunkte der jährlichen OPC-Session im Simulator.', aircraftType: 'CL30', category: 'Recurrent', fileName: 'cl350-recurrent-opc.pdf', uploadedBy: 'u-christian', createdAt: now - 12 * d },

@@ -63,6 +63,11 @@ export function migrateState(st: AppState): AppState {
   // damit endgültig erledigt, nicht nur für diesen Start.
   const markSeedHistory = !histDone
 
+  // Notizen gab es im alten Schema nicht. Ohne diese Zeile stuerzte jede
+  // Stelle ab, die `state.notes.length` liest, statt eine leere Liste zu
+  // sehen — und der ganze Bereich waere auf Bestandsgeraeten unbenutzbar.
+  const notes = st.notes ?? []
+
   const headerChanged = atoName !== dh.atoName || approvalNumber !== dh.approvalNumber || approvalNumberUK !== dh.approvalNumberUK
   const catsChanged =
     feedbackCategories !== st.settings.feedbackCategories ||
@@ -70,11 +75,13 @@ export function migrateState(st: AppState): AppState {
     lessonCategories !== st.settings.lessonCategories
   const usersChanged = users !== st.users && users?.some((u, i) => u !== st.users[i])
   const contactsChanged = contacts !== st.contacts && contacts?.some((c, i) => c !== st.contacts[i])
-  if (!headerChanged && !catsChanged && !usersChanged && !contactsChanged && !clNeedsReset && !histMissing && !markSeedHistory)
+  const notesFehlten = st.notes === undefined
+  if (!headerChanged && !catsChanged && !usersChanged && !contactsChanged && !clNeedsReset && !histMissing && !markSeedHistory && !notesFehlten)
     return st
   return {
     ...st,
     gradingRecords,
+    notes,
     seedHistoryMigrated: st.seedHistoryMigrated || markSeedHistory || undefined,
     users: usersChanged ? users! : st.users,
     contacts: contactsChanged ? contacts! : st.contacts,

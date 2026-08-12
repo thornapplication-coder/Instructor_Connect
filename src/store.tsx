@@ -4,7 +4,7 @@ import { networkReachable } from './net'
 import { createSeedState } from './sandbox/seed'
 import { migrateState } from './migrateState'
 import { SANDBOX } from './sandbox/flag'
-import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
+import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type Note, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import { backupPersistedState, clearPersistedState, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
 import type { InfoEntry } from './types'
 
@@ -90,6 +90,12 @@ export interface Store {
   updateGrading: (patch: Partial<GradingSettings>) => void
   /** Lesson Plans, die der aktuelle Nutzer sehen darf */
   visibleLessonPlans: LessonPlan[]
+  /** Eigene Notizen — fremde sind in dieser Liste gar nicht erst enthalten. */
+  visibleNotes: Note[]
+  /** Anlegen ODER aendern: ohne `id` entsteht eine neue Notiz. */
+  saveNote: (n: { id?: string; title: string; body: string; aircraftType: string }) => void
+  deleteNote: (id: string) => void
+  toggleNotePin: (id: string) => void
   addLessonPlan: (plan: { title: string; description: string; aircraftType: string; category: string; fileName: string }) => void
   deleteLessonPlan: (id: string) => void
   /** Rechte-Matrix: darf der aktuelle Nutzer diese Fähigkeit nutzen? */
@@ -357,6 +363,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (userHasPerm(state.settings, currentUser, 'lessons_manage')) return all
     return all.filter((p) => currentUser.aircraftTypes.includes(p.aircraftType))
   }, [state.lessonPlans, state.settings, currentUser])
+
+  /**
+   * Notizen sind persoenlich: Die Sicht enthaelt ausschliesslich die eigenen.
+   * Nicht ausgeblendet, sondern gar nicht erst gereicht — auch der Superadmin
+   * bekommt hier nur seine eigenen. Eine Notiz, die mitgelesen wird, waere
+   * keine, und niemand wuerde mehr offen etwas hineinschreiben.
+   */
+  const visibleNotes = useMemo(
+    () => (currentUser ? (state.notes ?? []).filter((n) => n.authorId === currentUser.id) : []),
+    [state.notes, currentUser],
+  )
 
   const store = useMemo<Store>(() => {
     // patch: fn liefert die Änderung oder null für „nichts zu tun“ — dann
@@ -957,6 +974,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           lessonPlans: [...s.lessonPlans, { ...plan, id: uid('lp'), uploadedBy: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs }],
         })),
       deleteLessonPlan: (id) => patch((s) => ({ lessonPlans: s.lessonPlans.filter((p) => p.id !== id) })),
+      visibleNotes,
+      saveNote: (n) =>
+        patch((s) => {
+          const jetzt = Date.now() + s.timeOffsetMs
+          const alle = s.notes ?? []
+          // Aendern nur an EIGENEN Notizen: Die ID kommt aus der Oberflaeche,
+          // aber verlassen darf man sich darauf nicht.
+          const vorher = n.id ? alle.find((x) => x.id === n.id && x.authorId === s.currentUserId) : undefined
+          if (n.id && !vorher) return null
+          const gesaeubert = { title: n.title.trim(), body: n.body.trim(), aircraftType: n.aircraftType.trim() }
+          if (!gesaeubert.title) return null
+          return {
+            notes: vorher
+              ? alle.map((x) => (x.id === vorher.id ? { ...x, ...gesaeubert, updatedAt: jetzt } : x))
+              : [
+                  ...alle,
+                  {
+                    id: uid('note'),
+                    authorId: s.currentUserId!,
+                    ...gesaeubert,
+                    pinned: false,
+                    createdAt: jetzt,
+                    updatedAt: jetzt,
+                  },
+                ],
+          }
+        }),
+      deleteNote: (id) =>
+        patch((s) => ({ notes: (s.notes ?? []).filter((n) => !(n.id === id && n.authorId === s.currentUserId)) })),
+      toggleNotePin: (id) =>
+        patch((s) => {
+          const jetzt = Date.now() + s.timeOffsetMs
+          return {
+            notes: (s.notes ?? []).map((n) =>
+              // `updatedAt` bleibt beim Anheften unberuehrt: Anheften ist eine
+              // Einordnung, keine inhaltliche Aenderung — sonst sprang eine
+              // alte Notiz allein durchs Anheften an die Spitze der Liste.
+              n.id === id && n.authorId === s.currentUserId ? { ...n, pinned: !n.pinned, updatedAt: n.updatedAt || jetzt } : n,
+            ),
+          }
+        }),
     }
   }, [state, now, currentUser, effectiveRetention, visibleMessages, visiblePolls, myGroups, unreadGroups, hasNewInfo, hasNewContacts, latestForeignContent, latestForeignInfo, visibleGradingRecords, visibleLessonPlans, visibleInfoEntries])
 
@@ -989,6 +1047,9 @@ export function isAdminUser(user: { role: Role } | null | undefined): boolean {
 export function userMayModule(settings: Settings, user: User | null | undefined, module: ModuleKey): boolean {
   if (!user) return false
   if (module === 'grading') return userHasPerm(settings, user, 'grading_create') || userHasPerm(settings, user, 'grading_view_all')
+  // Notizen sind persoenlich und keine Datenfreigabe — niemand wird davon
+  // ausgeschlossen, auch der Training Admin nicht.
+  if (module === 'notes') return true
   if (user.role !== 'training_admin') return true
   if (module === 'info') return userHasPerm(settings, user, 'info_manage')
   if (module === 'lessons') return userHasPerm(settings, user, 'lessons_manage')
