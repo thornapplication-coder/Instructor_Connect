@@ -152,7 +152,7 @@
     "star": "Für mich als wichtig markieren",
     "confirmDelete": "Diesen Eintrag für alle Nutzer löschen?",
     "requiresAck": "Lese-Bestätigung erforderlich (jeder Nutzer muss bestätigen)",
-    "ackButton": "Zur Kenntnis genommen",
+    "ackButton": "Zur Kenntnis nehmen",
     "ackedAt": "Bestätigt am {{date}}",
     "ackStatus": "Bestätigt: {{done}}/{{total}}",
     "ackMissing": "ausstehend",
