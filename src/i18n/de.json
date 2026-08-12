@@ -87,7 +87,6 @@
     "option": "Option",
     "addOption": "Option hinzufügen",
     "create": "Umfrage erstellen",
-    "votes": "{{count}} Stimmen",
     "votes_one": "{{count}} Stimme",
     "closePoll": "Umfrage schließen",
     "closed": "Geschlossen",
@@ -105,7 +104,8 @@
     "unknownAuthor": "Unbekannt",
     "deleteMessageConfirm": "Diese Nachricht für alle löschen? Das lässt sich nicht rückgängig machen.",
     "newMessageFrom": "Neue Nachricht von {{name}}",
-    "send": "Senden"
+    "send": "Senden",
+    "votes_other": "{{count}} Stimmen"
   },
   "chatInfo": {
     "title": "Chat-Info",
@@ -146,7 +146,7 @@
     "allCategories": "Alle",
     "validFrom": "Gültig ab",
     "validUntil": "Gültig bis",
-    "ufnHint": "„Gültig bis\" leer lassen für UFN (until further notice).",
+    "ufnHint": "„Gültig bis“ leer lassen für UFN (until further notice).",
     "validity": "Gültig",
     "expired": "abgelaufen",
     "star": "Für mich als wichtig markieren",
@@ -161,7 +161,6 @@
     "sinceRelease": "ab Veröffentlichung"
   },
   "notes": {
-    "title_plural": "Notizen",
     "new": "Neue Notiz",
     "edit": "Notiz bearbeiten",
     "title": "Titel",
@@ -178,7 +177,8 @@
     "updatedAt": "Geändert {{date}}",
     "resultCount": "{{shown}} von {{total}} Notizen passen zur Suche",
     "deleteConfirm": "Notiz „{{title}}“ löschen? Das lässt sich nicht rückgängig machen.",
-    "intro": "Deine persönlichen Notizen — niemand sonst sieht sie, auch kein Admin. Sie sind eine Gedächtnisstütze, kein Nachweis: Sie hängen an keinem Formular und gehen in keinen Export."
+    "intro": "Deine persönlichen Notizen — niemand sonst sieht sie, auch kein Admin. Sie sind eine Gedächtnisstütze, kein Nachweis: Sie hängen an keinem Formular und gehen in keinen Export.",
+    "heading": "Notizen"
   },
   "contacts": {
     "call": "Anrufen",
@@ -211,7 +211,7 @@
     "backHome": "Zurück zur Startseite",
     "errorEmpty": "Bitte Empfänger und Kategorie wählen und eine Nachricht eingeben.",
     "recipient": "Senden an",
-    "urgent": "Urgent",
+    "urgent": "Dringend",
     "urgentOn": "als dringend markiert",
     "urgentOff": "antippen, wenn es dringend ist",
     "attachment": "Anhang (Foto oder PDF, optional)",
@@ -339,7 +339,9 @@
       "p_emailDuplicate": "E-Mail kommt zweimal in der Datei vor",
       "p_role": "Rolle unbekannt (superadmin, admin, training admin, member)",
       "pAircraft": "Unbekanntes Muster verworfen: {{list}}",
-      "templateXlsx": "Vorlage herunterladen (Excel)"
+      "templateXlsx": "Vorlage herunterladen (Excel)",
+      "templateSection": "Vorlage für den Benutzer-Import",
+      "templateHint": "Dieselbe Vorlage wie unter Benutzer → Benutzer importieren. In Excel ausfüllen, als „CSV UTF-8“ speichern und unter Benutzer hochladen."
     }
   },
   "imprint": {
