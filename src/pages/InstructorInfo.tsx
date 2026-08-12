@@ -94,7 +94,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
             <input type="date" className={inputCls} value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
           </Field>
         </div>
-        <p className="-mt-2 text-[11.5px] leading-relaxed text-dim">{t('info.ufnHint')}</p>
+        <p className="-mt-2 text-[12px] leading-relaxed text-dim">{t('info.ufnHint')}</p>
         {/* Lese-Bestätigung: jeder Nutzer des Moduls muss aktiv „gelesen“ bestätigen */}
         <label className="flex items-center gap-2 text-[13.5px]">
           <input type="checkbox" checked={requiresAck} onChange={(e) => setRequiresAck(e.target.checked)} className="h-6 w-6 shrink-0 accent-accent" />
@@ -257,7 +257,7 @@ export function InstructorInfo() {
           <button
             onClick={() => setCategoryFilter('')}
             className={`min-h-11 shrink-0 rounded-full border px-4 py-1.5 text-[12.5px] transition ${
-              categoryFilter === '' ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
+              categoryFilter === '' ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
             }`}
           >
             {t('info.allCategories')}
@@ -267,7 +267,7 @@ export function InstructorInfo() {
               key={c}
               onClick={() => setCategoryFilter(categoryFilter === c ? '' : c)}
               className={`min-h-11 shrink-0 rounded-full border px-4 py-1.5 text-[12.5px] transition ${
-                categoryFilter === c ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
+                categoryFilter === c ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
               }`}
             >
               {c}
@@ -302,7 +302,7 @@ export function InstructorInfo() {
                     {entry.type === 'pdf' ? <FileText size={19} /> : <ScrollText size={19} />}
                   </span>
                   {isNew && (
-                    <span className="rounded-md bg-emerald-700 px-1.5 py-0.5 text-[10.5px] font-bold tracking-wider text-white">NEW</span>
+                    <span className="rounded-md bg-emerald-700 px-1.5 py-0.5 text-[12px] font-bold tracking-wider text-white">NEW</span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -319,17 +319,17 @@ export function InstructorInfo() {
                   </div>
                   {entry.description && <p className="mt-0.5 text-[13px] text-dim">{entry.description}</p>}
                   {/* Bewusst ohne Erstellungsdatum und Autor in der Übersicht */}
-                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11.5px] text-dim">
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px] text-dim">
                     <span className="rounded bg-raised px-1.5 py-0.5 font-medium text-dim">{entry.category}</span>
                   </p>
-                  <p className={`mt-1 text-[11.5px] ${expired ? 'text-danger' : 'text-dim'}`}>
+                  <p className={`mt-1 text-[12px] ${expired ? 'text-danger' : 'text-dim'}`}>
                     {t('info.validity')}: {validityLabel(entry)}
                     {expired && ` · ${t('info.expired')}`}
                   </p>
                   {/* Für Verwalter sichtbar: der Eintrag gilt erst später und
                       ist für die Zielgruppen noch nicht sichtbar */}
                   {scheduled && (
-                    <p className="mt-1 inline-flex items-center rounded-full bg-wait px-2 py-0.5 text-[11px] font-semibold text-waitInk">
+                    <p className="mt-1 inline-flex items-center rounded-full bg-wait px-2 py-0.5 text-[12px] font-semibold text-waitInk">
                       {t('info.scheduled')}
                     </p>
                   )}
@@ -445,7 +445,7 @@ export function InstructorInfo() {
           )
         })}
 
-        <p className="pt-2 text-center text-[11.5px] text-dim">{t('info.permanentNote')}</p>
+        <p className="pt-2 text-center text-[12px] text-dim">{t('info.permanentNote')}</p>
       </Page>
       {showNew && <NewEntryModal onClose={() => setShowNew(false)} />}
     </>

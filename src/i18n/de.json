@@ -277,6 +277,7 @@
     },
     "lastGroupBlocked": "Jeder Nutzer muss mindestens einer Gruppe angehören — sonst verliert er den Zugang zu Chats und gruppenbezogener Instructor Info. Bitte zuerst eine andere Gruppe zuweisen.",
     "aircraftTypesGlobal": "Muster (alle Formulare und Lesson Plans)",
+    "sortBy": "Sortierung",
     "searchUsers": "Name oder E-Mail suchen …",
     "autoSaving": "Wird gespeichert …",
     "autoSaveHint": "Alle Änderungen im Admin Panel werden sofort gespeichert — es gibt keinen Speichern-Knopf.",

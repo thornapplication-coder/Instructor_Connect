@@ -253,7 +253,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
               </button>
             </div>
           )}
-          {!value && <p className="mt-1 text-[11.5px] text-dim">{t('forms:typedHint')}</p>}
+          {!value && <p className="mt-1 text-[12px] text-dim">{t('forms:typedHint')}</p>}
         </div>
       )}
       {/* Feste Farben statt Theme-Token: die Fläche zeigt beim Zeichnen genau
@@ -276,7 +276,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
         }
         className="h-28 w-full rounded-xl border border-dashed"
       />
-      {!value && mode === 'draw' && <p className="mt-1 text-[11.5px] text-dim">{t('forms:signHint')}</p>}
+      {!value && mode === 'draw' && <p className="mt-1 text-[12px] text-dim">{t('forms:signHint')}</p>}
     </div>
   )
 }

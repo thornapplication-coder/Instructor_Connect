@@ -9,8 +9,10 @@ import type { GradingRecord } from './types'
  * genau den Alarm ausgelöst, den der Abdruck belegen soll.
  *
  * 1 = Erststand. 2 = zusätzlich `authority` und `extraRecipients`.
+ * 3 = zusätzlich `docSnapshot` (ATO-Name, Zulassungsnummer, Formularstand,
+ *     Formulartitel im Moment des Unterschreibens).
  */
-export const HASH_VERSION = 2
+export const HASH_VERSION = 3
 
 /**
  * Fingerabdruck des unterschriebenen Dokuments (SHA-256).
@@ -63,6 +65,10 @@ export async function contentFingerprint(r: GradingRecord, version: number = HAS
     core.authority = r.authority ?? 'AT'
     core.extraRecipients = r.extraRecipients ?? null
   }
+  // Der eingefrorene Dokumentenstand gehoert zum Nachweis: Ohne ihn liess
+  // sich die Zulassungsnummer eines unterschriebenen Dokuments nachtraeglich
+  // umstellen, ohne dass der Abdruck etwas gemerkt haette.
+  if (version >= 3) core.docSnapshot = r.docSnapshot ?? null
   const bytes = new TextEncoder().encode(JSON.stringify(core))
   const digest = await crypto.subtle.digest('SHA-256', bytes)
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')

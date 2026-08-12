@@ -13,8 +13,18 @@ import { LESSON_CATEGORIES, type AppState } from './types'
  * (oder leer) ist; eine bewusst gesetzte eigene Angabe bleibt unangetastet.
  */
 export function migrateState(st: AppState): AppState {
-  const dh = st.settings?.documentHeader
-  if (!dh) return st
+  // Ohne Einstellungen ist der Bestand nicht zu retten — dann bleibt er, wie
+  // er ist.
+  if (!st.settings) return st
+  /*
+   * Fehlende Kopfdaten sind KEIN Grund, alles Uebrige zu ueberspringen.
+   * Hier stand `if (!dh) return st` — und darunter liegen saemtliche
+   * Feld-Nachtraege: Notizen, Schulungsarten, Kategorien, die historischen
+   * Sessions. Ein Geraet aus der Zeit vor `documentHeader` startete damit
+   * ohne `notes`, und jede Stelle, die `state.notes.length` liest, lief auf
+   * `undefined` — genau der Absturz, den der Nachtrag verhindern soll.
+   */
+  const dh = st.settings.documentHeader ?? { atoName: '', approvalNumber: '', approvalNumberUK: '', formRevision: '' }
   const OLD_NAMES = ['', 'Austrian Aviation Academy']
   const OLD_NRS = ['', 'AT.ATO.007']
   const atoName = OLD_NAMES.includes(dh.atoName) ? 'Aviation Academy Austria' : dh.atoName
@@ -58,7 +68,9 @@ export function migrateState(st: AppState): AppState {
   const histMissing = !histDone && !st.gradingRecords.some((r) => histIds.includes(r.id))
   const gradingRecords = histMissing
     ? [...createSeedState().gradingRecords.filter((r) => histIds.includes(r.id)), ...st.gradingRecords]
-    : st.gradingRecords
+    : // Auch die Formularliste selbst darf nicht `undefined` bleiben: Der
+      // Offline-Streifen zaehlt darauf den Ausgangskorb, ungeprueft.
+      (st.gradingRecords ?? [])
   // Marke auch dann setzen, wenn nichts zu ergänzen war — der Nachtrag ist
   // damit endgültig erledigt, nicht nur für diesen Start.
   const markSeedHistory = !histDone
@@ -76,7 +88,20 @@ export function migrateState(st: AppState): AppState {
   const usersChanged = users !== st.users && users?.some((u, i) => u !== st.users[i])
   const contactsChanged = contacts !== st.contacts && contacts?.some((c, i) => c !== st.contacts[i])
   const notesFehlten = st.notes === undefined
-  if (!headerChanged && !catsChanged && !usersChanged && !contactsChanged && !clNeedsReset && !histMissing && !markSeedHistory && !notesFehlten)
+  const kopfFehlte = st.settings.documentHeader === undefined
+  const formulareFehlten = st.gradingRecords === undefined
+  if (
+    !headerChanged &&
+    !catsChanged &&
+    !usersChanged &&
+    !contactsChanged &&
+    !clNeedsReset &&
+    !histMissing &&
+    !markSeedHistory &&
+    !notesFehlten &&
+    !kopfFehlte &&
+    !formulareFehlten
+  )
     return st
   return {
     ...st,

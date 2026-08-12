@@ -136,9 +136,26 @@ describe('contentFingerprint — Fassungen', () => {
     expect(await contentFingerprint(rec(), 2)).toBe('9108288edabafee351d36bf7ae43db75a6197c00e296aea99bbc40ec95823d2b')
   })
 
+  it('Fassung 3 ergibt ihren bekannten Abdruck', async () => {
+    expect(await contentFingerprint(rec(), 3)).toBe('7a90d1f365c8d1e04ec0ff14ad414e4a79335e835ae78dba39d006ed90a8ba09')
+  })
+
   it('rechnet ohne Angabe mit der aktuellen Fassung', async () => {
     expect(await contentFingerprint(rec())).toBe(await contentFingerprint(rec(), HASH_VERSION))
-    expect(HASH_VERSION).toBe(2)
+    expect(HASH_VERSION).toBe(3)
+  })
+
+  /**
+   * ATO-Name, Zulassungsnummer und Formularstand wurden zur Druckzeit aus den
+   * Einstellungen gelesen und waren dort frei aenderbar. Ein unterschriebenes
+   * Dokument druckte danach eine andere Zulassungsnummer — und der Abdruck
+   * bestaetigte weiter „unveraendert". Das ist der Befund hinter Fassung 3.
+   */
+  it('Fassung 2 uebersieht den eingefrorenen Dokumentenstand, Fassung 3 nicht', async () => {
+    const stand = { atoName: 'Aviation Academy Austria', approval: 'AT.ATO.106', formRevision: 'Rev. 0.2', formTitle: 'Grading Sheet TR' }
+    const anders = { ...stand, approval: 'AT.ATO.999' }
+    expect(await contentFingerprint(rec({ docSnapshot: anders }), 2)).toBe(await contentFingerprint(rec({ docSnapshot: stand }), 2))
+    expect(await contentFingerprint(rec({ docSnapshot: anders }))).not.toBe(await contentFingerprint(rec({ docSnapshot: stand })))
   })
 
   it('Fassung 1 uebersieht die Behoerde — genau deshalb gibt es Fassung 2', async () => {

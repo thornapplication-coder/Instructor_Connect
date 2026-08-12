@@ -9,7 +9,7 @@ import { Badge, Button, Card, CardHeading, Page, TopBar } from '../components/ui
 import { navigate } from '../router'
 import { useStore, userHasPerm } from '../store'
 import type { GradingRecord } from '../types'
-import { isNotCompetent } from '../gradingRules'
+import { isNotCompetent, traineesOf } from '../gradingRules'
 import { formatDate, formatDateTime, gradeColor, missingFollowUps, TrafficDot, trafficLight } from './Grading'
 
 /**
@@ -66,7 +66,8 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
     const person = record.trainees.map((tr) => tr.traineeName || state.users.find((u) => u.id === tr.traineeId)?.name || '').filter(Boolean)
     const teile = [
       record.formTypeId,
-      typ?.title ?? '',
+      // Wortlaut vom Unterschriftszeitpunkt, nicht der aktuelle Katalog.
+      record.docSnapshot?.formTitle || typ?.title || '',
       (person.length > 0 ? person : [record.header.traineeName].filter(Boolean)).join(', '),
       state.users.find((u) => u.id === record.instructorId)?.name ?? '',
       record.header.date ? formatDate(record.header.date) : '',
@@ -141,6 +142,11 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
    * 306 und 310 haben ihn als eigenes Kopffeld (`traineeName`); dort waere
    * eine zweite Zeile eine Dopplung, deshalb die Abfrage.
    */
+  // `traineesOf` erbt bei Folgeformularen notfalls den Piloten vom
+  // Ausgangsblatt — Listen und Admin loesen ihn schon immer so auf, die
+  // Druckansicht nicht. Ein 306 aus der Zeit vor dem Pflichtfeld
+  // „Pilot / Student Name" stand damit in jeder Liste MIT Namen, auf dem
+  // Dokument aber ohne.
   const personNames = record.trainees.map(traineeLabel).filter(Boolean)
   const hasNameField = !!formType?.fields.some((f) => f.key === 'traineeName')
   // 308G beurteilt keinen Piloten, sondern einen angehenden Instruktor. „(CAI)"
@@ -156,18 +162,39 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
       ? personNames
       : record.header.traineeName
         ? [record.header.traineeName]
-        : // 307A/307B fuehren weder Kopffeld noch `trainees` — ihre Personen
-          // stehen in der Teilnehmerliste. Ohne diesen Zweig trug ein
-          // Anwesenheitsnachweis auf keinem Blatt einen Namen.
-          record.attendance && record.attendance.length > 0
+        : // Geerbter Pilot eines Folgeformulars (siehe oben)
+          traineesOf(record, state.gradingRecords).map(traineeLabel).filter(Boolean).length > 0
+          ? traineesOf(record, state.gradingRecords).map(traineeLabel).filter(Boolean)
+          : // 307A/307B fuehren weder Kopffeld noch `trainees` — ihre Personen
+            // stehen in der Teilnehmerliste. Ohne diesen Zweig trug ein
+            // Anwesenheitsnachweis auf keinem Blatt einen Namen.
+            record.attendance && record.attendance.length > 0
           ? [record.attendance[0].name + (record.attendance.length > 1 ? ` +${record.attendance.length - 1}` : '')].filter(Boolean)
           : []
 
   // Kopf-/Fußzeile des Ausdrucks kommt aus den Einstellungen, damit der
   // Superadmin ATO-Kennung und Formularstand ohne Deployment pflegen kann.
-  const doc = state.settings.documentHeader ?? { atoName: '', approvalNumber: '', approvalNumberUK: '', formRevision: '' }
+  const liveDoc = state.settings.documentHeader ?? { atoName: '', approvalNumber: '', approvalNumberUK: '', formRevision: '' }
+  /*
+   * Maßgeblich ist der im Datensatz EINGEFRORENE Stand.
+   *
+   * ATO-Name, Zulassungsnummer, Formularstand und Formulartitel wurden hier
+   * zur Druckzeit aus den Einstellungen gelesen — und sind dort frei
+   * änderbar. Ein vor drei Monaten unterschriebenes Dokument druckte danach
+   * eine andere Zulassungsnummer, und der Fingerabdruck meldete trotzdem
+   * „unverändert". Nur Altbestand ohne Momentaufnahme faellt auf die
+   * aktuellen Einstellungen zurück.
+   */
+  const snap = record.docSnapshot
+  // Auch der Formulartitel ist im Katalog editierbar — auf dem Dokument gilt
+  // der Wortlaut vom Unterschriftszeitpunkt.
+  const formTitel = snap?.formTitle || formType?.title || ''
+  const doc = {
+    atoName: snap?.atoName || liveDoc.atoName,
+    formRevision: snap?.formRevision || liveDoc.formRevision,
+  }
   // Kennung nach der Behörde des Trainings; Altbestand ohne Angabe = AT
-  const approval = (record.authority === 'UK' ? doc.approvalNumberUK : doc.approvalNumber) || doc.approvalNumber
+  const approval = snap?.approval || (record.authority === 'UK' ? liveDoc.approvalNumberUK : liveDoc.approvalNumber) || liveDoc.approvalNumber
   // Das Instruktorenblatt 308G verweist nicht auf die Pilotenformulare.
   const pilotFootnotes = formType?.competencySet !== 'instructor'
   const isAdmin = currentUser!.role !== 'member'
@@ -196,7 +223,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             Export-Stempel — ohne diese Angaben lässt sich ein Ausdruck weder
             der ATO noch einem Formularstand zuordnen. */}
         <div className="print-head border-b-2 border-line/60 pb-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide">
+          <p className="text-[12px] font-semibold uppercase tracking-wide">
             {doc.atoName}
             {doc.atoName && approval ? ' · ' : ''}
             {/* Die ATO-Kennung darf nicht mitten im Wert umbrechen — auf dem
@@ -204,7 +231,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             {approval && <span className="zusammen">{approval}</span>}
           </p>
           <h1 className="text-2xl font-bold tracking-tight">
-            {record.formTypeId} — {formType?.title ?? ''}
+            {record.formTypeId} — {formTitel}
           </h1>
           {/* Die Person gehoert in den KOPF, weil sich nur der auf jedem Blatt
               wiederholt (Chrome druckt Fussgruppen nur auf dem letzten Blatt).
@@ -214,7 +241,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               {personLabel}: {docPersons.join(', ')}
             </p>
           )}
-          <p className="mt-1 flex justify-between gap-4 text-[11px] text-dim">
+          <p className="mt-1 flex justify-between gap-4 text-[12px] text-dim">
             <span>{t('forms:exportStamp', { date: formatDateTime(Date.now() + state.timeOffsetMs), name: currentUser!.name })}</span>
             <span className="zusammen">{doc.formRevision}</span>
           </p>
@@ -235,7 +262,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             >
               <Printer size={16} /> {t('forms:printNow')}
             </Button>
-            <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:printShareFallback')}</p>
+            <p className="text-[12px] leading-relaxed text-dim">{t('forms:printShareFallback')}</p>
           </div>
         )}
 
@@ -299,6 +326,21 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[12.5px] leading-relaxed text-dim print:hidden">{t('forms:readOnlyNote')}</p>
         )}
 
+        {/* Rueckverweis auf das Ausgangsblatt — im DRUCK. Die Rueckrichtung
+            („anhaengende Formulare") stand schon auf dem Papier, die
+            Hinrichtung nicht: Auf dem ausgedruckten 306 stand nirgends, zu
+            welcher Session es gehoert. Aus der Ablage gezogen war es damit
+            ein Blatt ohne Vorgang. */}
+        {parentRec && (
+          <p className="hidden text-[10px] text-dim print:block">
+            {t('forms:followUpTo', {
+              form: `${parentRec.formTypeId} — ${parentRec.docSnapshot?.formTitle || grading.formTypes.find((f) => f.id === parentRec.formTypeId)?.title || ''}`,
+              date: formatDate(parentRec.header.date || parentRec.createdAt),
+              id: parentRec.id,
+            })}
+          </p>
+        )}
+
         {/* Folgeformulare (306/310): das auslösende Grading Sheet geht beim
             Versand automatisch mit */}
         {parentRec && (
@@ -332,7 +374,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                   {f.label}
                   {/* Fußnoten des Originalformulars (z. B. PRG*) gehören auf den
                       Nachweis, nicht nur in die Eingabemaske. */}
-                  {f.hint && <span className="block text-[11px] leading-snug text-dim">{f.hint}</span>}
+                  {f.hint && <span className="block text-[12px] leading-snug text-dim">{f.hint}</span>}
                 </dt>
                 <dd className="text-right font-medium">
                   {f.type === 'date' && record.header[f.key] ? formatDate(record.header[f.key]) : record.header[f.key] || '–'}
@@ -389,7 +431,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               ))}
             </ol>
             {record.formTypeId === '307B' && (
-              <p className="mt-2 text-[11.5px] leading-relaxed text-dim">{t('forms:attendance307B')}</p>
+              <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('forms:attendance307B')}</p>
             )}
           </Card>
         )}
@@ -409,7 +451,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 <span className="text-[12px] text-dim">{[tr.position, tr.seat].filter(Boolean).join(' · ')}</span>
                 {tr.overall && (
                   <span
-                    className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${
+                    className={`rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${
                       tr.overall === 'competent' ? 'bg-emerald-700 text-white' : 'bg-red-600 text-white'
                     }`}
                   >
@@ -437,6 +479,13 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 )
               })}
             </div>
+
+            {/* Notenmassstab: Gedruckt standen nackte Ziffern 1–5 und „NO",
+                zusaetzlich farbig hinterlegt — in Schwarzweiss faellt die
+                Farbe weg, und ein Pruefer kann das Blatt nicht aus sich
+                heraus lesen. Am Bildschirm waere die Zeile Ballast (dort
+                erklaert die Eingabemaske die Noten), deshalb nur im Druck. */}
+            <p className="mt-2 hidden text-[9.5px] leading-snug text-dim print:block">{t('forms:gradeScale')}</p>
 
             <div className="mt-3 grid gap-3 sm:grid-cols-3 print:grid-cols-3">
               {[
@@ -489,7 +538,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 Eine dritte Fußnote gab es zur Skill-Test-Reife; sie nannte
                 Formular 311, das es nicht gibt, und ist entfallen. */}
             {pilotFootnotes && (
-              <div className="mt-3 space-y-1 text-[11.5px] leading-relaxed text-dim">
+              <div className="mt-3 space-y-1 text-[12px] leading-relaxed text-dim">
                 <p>{t('forms:footnote1')}</p>
                 <p>{t('forms:footnote2')}</p>
               </div>
@@ -563,7 +612,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             </p>
           )}
           {record.contentHash && (
-            <p className={`mt-1 text-[11.5px] ${hashState === 'bad' ? 'font-semibold text-danger' : 'text-dim'}`}>
+            <p className={`mt-1 text-[12px] ${hashState === 'bad' ? 'font-semibold text-danger' : 'text-dim'}`}>
               {t('forms:fingerprint', { hash: shortFingerprint(record.contentHash) })}
               {hashState === 'ok' && ` — ${t('forms:fingerprintOk')}`}
               {hashState === 'bad' && ` — ${t('forms:fingerprintBad')}`}
@@ -651,7 +700,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         <p className="print-foot border-t border-line/40 pt-1.5 text-[10px] text-dim">
           {[
             doc.atoName,
-            `${record.formTypeId} — ${formType?.title ?? ''}`,
+            `${record.formTypeId} — ${formTitel}`,
             docPersons.join(', '),
             doc.formRevision,
             `ID ${record.id}`,

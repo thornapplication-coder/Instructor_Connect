@@ -50,7 +50,7 @@ function FlagBadge({ flag, t }: { flag: Flag; t: (k: string) => string }) {
     insufficient: 'flagInsufficient',
   }
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${map[flag]}`}>
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${map[flag]}`}>
       {t(`forms:admin.${label[flag]}`)}
     </span>
   )

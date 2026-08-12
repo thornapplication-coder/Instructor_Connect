@@ -63,7 +63,7 @@ export function ChatList() {
                         Platz, und in der Liste war kein einziger Name mehr
                         lesbar. max-w begrenzt ihn auf ein Drittel der Zeile. */}
                     {g.aircraftType && (
-                      <span className="max-w-[33%] shrink truncate rounded-full bg-raised px-2 py-0.5 text-[11px] font-medium text-accent">
+                      <span className="max-w-[33%] shrink truncate rounded-full bg-raised px-2 py-0.5 text-[12px] font-medium text-accent">
                         {g.aircraftType}
                       </span>
                     )}
@@ -80,7 +80,7 @@ export function ChatList() {
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
-                  <span className="flex items-center gap-1 text-[11px] text-dim">
+                  <span className="flex items-center gap-1 text-[12px] text-dim">
                     <Clock size={11} /> {t(`retention.${effectiveRetention(g)}`)}
                   </span>
                   <ChevronRight size={16} className="text-dim" />

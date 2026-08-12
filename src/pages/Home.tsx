@@ -115,11 +115,12 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
             <RefreshCw size={17} />
           </button>
           <ThemeToggle />
-          <div className="flex shrink-0 overflow-hidden rounded-lg border border-line/15 text-[11px]">
+          <div className="flex shrink-0 overflow-hidden rounded-lg border border-line/15 text-[12px]">
             {(['de', 'en'] as const).map((lng) => (
               <button
                 key={lng}
                 onClick={() => i18n.changeLanguage(lng)}
+          aria-pressed={i18n.language === lng}
                 className={`min-h-11 whitespace-nowrap px-3.5 py-1 font-medium uppercase transition ${i18n.language === lng ? 'bg-accent text-bg' : 'text-dim hover:text-ink'}`}
               >
                 {lng}
@@ -192,7 +193,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
         {/* Antippen öffnet das Share-Sheet (iOS: „Zum Home-Bildschirm") */}
         <button
           onClick={openInstall}
-          className="mx-auto mt-6 flex min-h-11 max-w-xs items-center gap-2 text-center text-[11px] leading-snug text-dim underline-offset-2 transition hover:text-ink hover:underline short:hidden md:mt-8"
+          className="mx-auto mt-6 flex min-h-11 max-w-xs items-center gap-2 text-center text-[12px] leading-snug text-dim underline-offset-2 transition hover:text-ink hover:underline short:hidden md:mt-8"
         >
           <Share size={13} className="shrink-0" /> {t('home.installHint')}
         </button>
@@ -217,7 +218,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
             <LogOut size={12} /> {t('common.logout')}
           </button>
         </div>
-        <p className="text-[11px] text-dim short:hidden">Instructor Connect v{APP_VERSION}</p>
+        <p className="text-[12px] text-dim short:hidden">Instructor Connect v{APP_VERSION}</p>
       </footer>
     </div>
   )

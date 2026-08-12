@@ -9,6 +9,8 @@
   "headerData": "Header data",
   "trainee": "Trainee",
   "personPilot": "Pilot / Student Name",
+  "gradeScale": "Grading scale: 5 = above standard · 4 = standard, no debriefing item · 3 = standard, debriefing item · 2 = below standard, additional training · 1 = unsatisfactory, Form 306 required · NO = not observed",
+  "followUpTo": "Follow-up to {{form}} · {{date}} · ID {{id}}",
   "personCai": "Candidate Instructor (CAI)",
   "traineeN": "Pilot {{n}}",
   "position": "Position",
@@ -233,6 +235,7 @@
   "trainingAdminNote": "Training Admin access: you can view and download all completed and open forms. Creating or removing forms is not possible.",
   "errEitherOr": "Please choose either “{{a}}” or “{{b}}”.",
   "ta": {
+    "periodLabel": "Period",
     "completed": "Completed forms",
     "open": "To be processed",
     "deleteConfirm": "Delete this form permanently? Attached follow-up forms are deleted with it.",

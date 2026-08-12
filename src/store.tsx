@@ -193,12 +193,48 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   stateRef.current = state
   /** Laufende Ausgangskorb-Probe — verhindert mehrere gleichzeitig. */
   const flushRef = useRef<Promise<boolean> | null>(null)
+  /**
+   * Zaehler echter Aenderungen. Nur er loest das Sichern aus.
+   *
+   * Vorher hing der Sicherungs-Effekt am gesamten Zustand — und der
+   * 5-Sekunden-Takt unten erzeugt alle fuenf Sekunden eine neue Referenz.
+   * Die Folge war eine vollstaendige Serialisierung des Bestands samt
+   * Unterschriftsbildern (gemessen bis 14 MB) alle fuenf Sekunden, nur um
+   * per Volltextvergleich festzustellen, dass sich nichts geaendert hat —
+   * mitten in eine laufende Unterschriftsgeste hinein.
+   */
+  const [rev, setRev] = useState(0)
+  /** Zeitpunkt der letzten EIGENEN Aenderung — entscheidet beim Tab-Abgleich. */
+  const lastChangeAt = useRef(0)
 
   // Automatische Aktualisierung alle 5 Sekunden: neue Nachrichten erscheinen
   // ohne manuelles Neuladen, abgelaufene werden ausgeblendet. In der
   // Produktivversion übernimmt das eine Supabase-Realtime-Subscription.
   useEffect(() => {
-    const iv = setInterval(() => setState((s) => ({ ...s })), 5000)
+    const iv = setInterval(() => {
+      /*
+       * Im selben Takt: Gilt die Anmeldung ueberhaupt noch?
+       *
+       * Ablauf der Sitzung und der Aktiv-Status wurden bisher NUR beim Start
+       * geprueft. Zwei Folgen: Eine offene App blieb ueber Mitternacht hinaus
+       * angemeldet, und wer im Admin-Panel (auch in einem anderen Tab)
+       * deaktiviert wurde, arbeitete unbegrenzt weiter — bis er zufaellig
+       * neu lud. Beides ist eine Zusage der Anmeldung, keine Kosmetik.
+       */
+      setState((s) => {
+        if (!s.currentUserId) return { ...s }
+        let abgelaufen = false
+        try {
+          abgelaufen = Number(localStorage.getItem(SESSION_EXP_KEY) ?? 0) <= Date.now()
+        } catch {
+          /* ohne localStorage bleibt es bei der Sitzung dieses Tabs */
+        }
+        const gesperrt = !s.users.some((u) => u.id === s.currentUserId && u.active)
+        if (!abgelaufen && !gesperrt) return { ...s }
+        persistUser(null)
+        return { ...s, currentUserId: null }
+      })
+    }, 5000)
     return () => clearInterval(iv)
   }, [])
 
@@ -206,15 +242,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // neue Referenz — deshalb wird nur geschrieben, wenn sich der serialisierte
   // Stand tatsächlich geändert hat.
   const lastPersisted = useRef<string>('')
+  const schreiben = useCallback(() => {
+    const json = JSON.stringify({ v: STATE_VERSION, state: stateRef.current, at: lastChangeAt.current })
+    if (json === lastPersisted.current) return
+    lastPersisted.current = json
+    void persistState(json).then((ok) => {
+      // Fehlgeschlagen (Ablage voll, Speicherfehler): Merker zuruecksetzen,
+      // damit der naechste Lauf es erneut versucht. Vorher galt der Stand
+      // als gesichert, lag aber nirgends — und niemand versuchte es wieder.
+      if (!ok) lastPersisted.current = ''
+    })
+  }, [])
   useEffect(() => {
-    const tm = setTimeout(() => {
-      const json = JSON.stringify({ v: STATE_VERSION, state })
-      if (json === lastPersisted.current) return
-      lastPersisted.current = json
-      persistState(json)
-    }, 400)
+    const tm = setTimeout(schreiben, 400)
     return () => clearTimeout(tm)
-  }, [state])
+  }, [rev, schreiben])
+
+  /*
+   * Vor dem Verschwinden der Seite sofort schreiben.
+   *
+   * Zwischen Eingabe und Sicherung liegen 400 ms. Auf dem iPad ist
+   * „unterschreiben, Home-Taste" der Normalfall — iOS verwirft die Seite
+   * danach, und die Aenderung lag noch im Zeitgeber. `pagehide` und
+   * `visibilitychange` sind die einzigen Ereignisse, auf die dort Verlass
+   * ist; `beforeunload` feuert am iPhone nicht.
+   */
+  useEffect(() => {
+    const sofort = () => schreiben()
+    const beiVerdeckt = () => document.visibilityState === 'hidden' && schreiben()
+    window.addEventListener('pagehide', sofort)
+    document.addEventListener('visibilitychange', beiVerdeckt)
+    return () => {
+      window.removeEventListener('pagehide', sofort)
+      document.removeEventListener('visibilitychange', beiVerdeckt)
+    }
+  }, [schreiben])
 
   // Mehrere offene Tabs: Jeder hielt eine eigene vollständige Kopie, und wer
   // im zweiten Tab etwas tat, schrieb dessen älteren Stand über den ersten —
@@ -228,8 +290,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () =>
       subscribeToOtherTabs((raw) => {
         try {
-          const parsed = JSON.parse(raw) as { v?: number; state?: AppState }
+          const parsed = JSON.parse(raw) as { v?: number; at?: number; state?: AppState }
           if (parsed.v !== STATE_VERSION || !parsed.state?.users?.length) return
+          /*
+           * Nur einen JUENGEREN Stand uebernehmen.
+           *
+           * Bisher ersetzte der Empfaenger seinen gesamten Zustand, ohne zu
+           * fragen, wie alt der fremde ist. Ablauf: Tab A ruft seinen Stand
+           * aus; unmittelbar danach unterschreibt jemand in Tab B (die
+           * Sicherung steht noch im 400-ms-Zeitgeber); dann trifft A's Ruf
+           * ein — und B's Unterschrift ist aus dem Speicher UND aus dem
+           * Schreibpfad verschwunden, lautlos. Ein fremder Stand, der aelter
+           * ist als die eigene letzte Aenderung, wird deshalb verworfen; die
+           * eigene Sicherung laeuft ohnehin gleich und ruft ihn dann aus.
+           */
+          if ((parsed.at ?? 0) < lastChangeAt.current) return
           lastPersisted.current = raw
           setState((s) => ({ ...parsed.state!, currentUserId: s.currentUserId, timeOffsetMs: s.timeOffsetMs }))
         } catch {
@@ -384,7 +459,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const patch = (fn: (s: AppState) => Partial<AppState> | null) =>
       setState((s) => {
         const p = fn(s)
-        return p ? { ...s, ...p } : s
+        if (!p) return s
+        // Echte Aenderung: Sicherung anstossen und den Zeitpunkt merken.
+        // Der Zeitpunkt entscheidet, ob der Stand eines anderen Tabs
+        // uebernommen werden darf (siehe Abgleich unten).
+        lastChangeAt.current = Date.now()
+        setRev((r) => r + 1)
+        return { ...s, ...p }
       })
 
     const seenOf = (s: AppState) => (s.currentUserId && s.seen[s.currentUserId]) || EMPTY_SEEN
@@ -448,6 +529,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
 
       login: (identifier) => {
+        // Anmeldung ohne Code gibt es NUR in der Sandbox. Der Weg im Betrieb
+        // ist requestLoginCode + verifyLoginCode; ohne diesen Riegel liesse
+        // sich die Code-Strecke mit einem einzigen Aufruf ueberspringen.
+        if (!SANDBOX) return false
         // Anmeldung ausschließlich per E-Mail — die Adressen legt der
         // Admin/Superadmin im Admin Panel an
         const needle = identifier.trim().toLowerCase()
@@ -494,8 +579,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       can: (key) => userHasPerm(state.settings, currentUser, key),
       moduleAllowed: (module) => userMayModule(state.settings, currentUser, module),
+      // Die Rechtematrix aendert ausschliesslich der Superadmin. Die Sperre
+      // lag bisher allein in der Oberflaeche (Reiterliste im Admin-Panel) —
+      // die Vergabe ALLER Rechte haengt damit an einer Anzeigeliste.
       setPermission: (role, key, value) =>
-        patch((s) => ({
+        patch((s) => (!isSuper(s) ? null : {
           settings: {
             ...s.settings,
             permissions: { ...s.settings.permissions, [role]: { ...s.settings.permissions[role], [key]: value } },
@@ -982,11 +1070,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // einem zweiten Tab jemand denselben Nutzer angelegt haben.
         let angelegt = 0
         patch((s) => {
+          // Der Import vergibt Rollen — bis hin zum Superadmin. `updateUser`
+          // schuetzt die Rolle ausdruecklich („sonst koennte sich ein
+          // group_admin selbst befoerdern"); derselbe Riegel gehoert hierher,
+          // sonst fuehrt die Tabelle am Schutz vorbei.
+          if (!isSuper(s)) return null
           const vergeben = new Set(s.users.map((u) => u.email.trim().toLowerCase()))
+          const erlaubt = s.settings.allowedDomains.map((d) => d.toLowerCase())
           const neue = rows
             .filter((r) => {
               const mail = r.email.trim().toLowerCase()
               if (!mail || vergeben.has(mail)) return false
+              // Auch im Store gegen die Domainliste pruefen, nicht nur in der
+              // Vorschau: Wer sich nie anmelden kann, soll gar nicht erst
+              // entstehen — die Liste kann sich zwischen Vorschau und Klick
+              // geaendert haben.
+              if (erlaubt.length > 0 && !erlaubt.some((d) => mail.endsWith(`@${d}`))) return false
               vergeben.add(mail)
               return true
             })

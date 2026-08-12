@@ -1,4 +1,4 @@
-import { NotebookPen, Pencil, Pin, PinOff, Plus, Search, Trash2 } from 'lucide-react'
+import { NotebookPen, Pencil, Pin, Plus, Search, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, Field, inputCls, Modal, Page, SectionHeading, TopBar } from '../components/ui'
@@ -147,7 +147,7 @@ export function Notes() {
                   <div className="min-w-0 flex-1">
                     <p className="text-[15px] font-semibold leading-snug">{n.title}</p>
                     {n.body && <p className="mt-1 text-[13.5px] leading-relaxed text-dim">{notePreview(n.body)}</p>}
-                    <p className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-[11.5px] text-dim">
+                    <p className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-[12px] text-dim">
                       {/* Geaendert steht vor Angelegt: Bei einer Merkliste
                           zaehlt, wann man zuletzt drangesessen ist. */}
                       <span className="shrink-0">{t('notes.updatedAt', { date: dateLabel(n.updatedAt) })}</span>
@@ -168,7 +168,13 @@ export function Notes() {
                       n.pinned ? 'text-accent' : 'text-dim hover:text-accent'
                     }`}
                   >
-                    {n.pinned ? <PinOff size={17} /> : <Pin size={17} />}
+                    {/* Das Symbol zeigt den ZUSTAND, nicht die Aktion: In der
+                        Gruppe „Angeheftet" stand ein durchgestrichener Pin —
+                        gemeldet als Widerspruch, und zu Recht. Angeheftet ist
+                        jetzt ein ausgefuellter Pin in Akzentfarbe, nicht
+                        angeheftet ein leerer in Grau. Was ein Tippen bewirkt,
+                        sagen `aria-pressed` und die Beschriftung. */}
+                    <Pin size={17} fill={n.pinned ? 'currentColor' : 'none'} />
                   </button>
                 </div>
                 {/* auf die Textspalte ausgerichtet: Symbol (40) + Abstand (12) */}

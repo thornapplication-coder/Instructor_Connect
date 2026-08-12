@@ -254,9 +254,12 @@ function UsersTab() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={t('admin.searchUsers')}
+          // Der Platzhalter verschwindet beim Tippen und gilt manchen
+          // Sprachausgaben nicht als Name — der Zweck gehoert ans Feld.
+          aria-label={t('admin.searchUsers')}
           className={`${inputCls} min-w-48 flex-1`}
         />
-        <select value={fRole} onChange={(e) => setFRole(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fRole} onChange={(e) => setFRole(e.target.value)} aria-label={t('admin.allRoles')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="">{t('admin.allRoles')}</option>
           {(['member', 'training_admin', 'group_admin', 'superadmin'] as Role[]).map((r) => (
             <option key={r} value={r}>
@@ -264,12 +267,12 @@ function UsersTab() {
             </option>
           ))}
         </select>
-        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} aria-label={t('admin.allStatus')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="">{t('admin.allStatus')}</option>
           <option value="active">{t('admin.active')}</option>
           <option value="inactive">{t('admin.inactive')}</option>
         </select>
-        <select value={fGroup} onChange={(e) => setFGroup(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fGroup} onChange={(e) => setFGroup(e.target.value)} aria-label={t('admin.allGroups')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="">{t('admin.allGroups')}</option>
           {sortedGroups.map((g) => (
             <option key={g.id} value={g.id}>
@@ -277,7 +280,7 @@ function UsersTab() {
             </option>
           ))}
         </select>
-        <select value={sortMode} onChange={(e) => setSortMode(e.target.value as 'name' | 'role')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={sortMode} onChange={(e) => setSortMode(e.target.value as 'name' | 'role')} aria-label={t('admin.sortBy')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="name">{t('admin.sortByName')}</option>
           <option value="role">{t('admin.sortByRole')}</option>
         </select>
@@ -403,7 +406,7 @@ function UsersTab() {
                       updateUser(u.id, { aircraftTypes: on ? u.aircraftTypes.filter((x) => x !== a) : [...u.aircraftTypes, a] })
                     }
                     className={`min-h-11 rounded-full border px-2.5 py-1 text-[12px] transition ${
-                      on ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/12 text-dim'
+                      on ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/12 text-dim'
                     }`}
                   >
                     {a}
@@ -440,9 +443,9 @@ function UsersTab() {
               {/* Die Adresse muss eindeutig bleiben — sonst hätten zwei Konten
                   denselben Login. Direkt am Feld, nicht erst beim Speichern. */}
               {emailTaken ? (
-                <p className="mt-1.5 text-[11.5px] leading-relaxed text-danger">{t('admin.emailTaken')}</p>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-danger">{t('admin.emailTaken')}</p>
               ) : (
-                <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim">{t('admin.emailLoginHint')}</p>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-dim">{t('admin.emailLoginHint')}</p>
               )}
             </Field>
             <Field label={t('contacts.phone')}>
@@ -469,7 +472,7 @@ function UsersTab() {
                 selected={form.groupIds}
                 onChange={(groupIds) => setForm({ ...form, groupIds })}
               />
-              <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim">{t('admin.userGroupsHint')}</p>
+              <p className="mt-1.5 text-[12px] leading-relaxed text-dim">{t('admin.userGroupsHint')}</p>
             </Field>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setShowNew(false)}>
@@ -592,7 +595,7 @@ function GroupsTab() {
             <button onClick={() => setOpenId(openId === g.id ? null : g.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
               <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{g.name}</span>
               {g.aircraftType && (
-                <span className="shrink-0 rounded-full bg-raised px-2 py-0.5 text-[11.5px] font-medium text-accent">{g.aircraftType}</span>
+                <span className="shrink-0 rounded-full bg-raised px-2 py-0.5 text-[12px] font-medium text-accent">{g.aircraftType}</span>
               )}
               <span className="shrink-0 text-[12px] text-dim">{t('chatInfo.members', { count: g.memberIds.length })}</span>
               <ChevronDown size={16} className={`shrink-0 text-dim transition ${openId === g.id ? 'rotate-180' : ''}`} />
@@ -665,7 +668,7 @@ function GroupsTab() {
                         setGroupAdmins(g.id, isAdmin ? g.adminIds.filter((id) => id !== u.id) : [...g.adminIds, u.id])
                       }
                       className={`min-h-11 rounded-full border px-2.5 py-1 text-[12px] transition ${
-                        isAdmin ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/12 text-dim'
+                        isAdmin ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/12 text-dim'
                       }`}
                     >
                       {u.name}
@@ -714,7 +717,7 @@ function GroupsTab() {
                 onChange={(e) => setName(e.target.value)}
                 autoFocus
               />
-              {nameTaken && <p className="mt-1.5 text-[11.5px] leading-relaxed text-danger">{t('admin.groupNameTaken')}</p>}
+              {nameTaken && <p className="mt-1.5 text-[12px] leading-relaxed text-danger">{t('admin.groupNameTaken')}</p>}
             </Field>
             <Field label={t('admin.purpose')}>
               <input className={inputCls} value={purpose} onChange={(e) => setPurpose(e.target.value)} />
@@ -787,12 +790,12 @@ function FeedbackCard({
             <Badge tone="dim">{f.category}</Badge>
             <Badge tone={f.aircraftType ? 'warm' : 'dim'}>{f.aircraftType || t('feedback.scopeGeneral')}</Badge>
             {f.urgent && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[11px] font-semibold text-danger">
+              <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[12px] font-semibold text-danger">
                 <AlertTriangle size={11} /> {t('feedback.urgent')}
               </span>
             )}
             {done && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-ok/15 px-2.5 py-0.5 text-[11px] font-semibold text-ok">
+              <span className="inline-flex items-center gap-1 rounded-full bg-ok/15 px-2.5 py-0.5 text-[12px] font-semibold text-ok">
                 <CheckCircle2 size={11} /> {t('admin.feedbackDone')}
               </span>
             )}
@@ -906,7 +909,7 @@ function FeedbackTab() {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <select value={fCat} onChange={(e) => setFCat(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fCat} onChange={(e) => setFCat(e.target.value)} aria-label={t('admin.allCategories')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="">{t('admin.allCategories')}</option>
           {cats.map((c) => (
             <option key={c} value={c}>
@@ -914,7 +917,7 @@ function FeedbackTab() {
             </option>
           ))}
         </select>
-        <select value={fRec} onChange={(e) => setFRec(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fRec} onChange={(e) => setFRec(e.target.value)} aria-label={t('admin.allRecipients')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="">{t('admin.allRecipients')}</option>
           {recs.map((r) => (
             <option key={r} value={r}>
@@ -922,7 +925,7 @@ function FeedbackTab() {
             </option>
           ))}
         </select>
-        <select value={fScope} onChange={(e) => setFScope(e.target.value)} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fScope} onChange={(e) => setFScope(e.target.value)} aria-label={t('admin.allScopes')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
           <option value="">{t('admin.allScopes')}</option>
           <option value="general">{t('feedback.scopeGeneral')}</option>
           {scopeTypes.map((a) => (

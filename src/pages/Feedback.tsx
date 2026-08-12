@@ -44,6 +44,15 @@ export function Feedback() {
     // Bei Musterbezug ist das Muster Pflicht — sonst wäre der Bezug leer.
     if (!recipient || !category || !message.trim() || (scope === 'aircraft' && !aircraftType)) {
       setError(true)
+      // Zum ersten fehlenden Feld springen, statt den Nutzer suchen zu lassen.
+      const ziel = !recipient
+        ? 'feedback-recipient'
+        : !category
+          ? 'feedback-category'
+          : scope === 'aircraft' && !aircraftType
+            ? 'feedback-aircraft'
+            : 'feedback-message'
+      requestAnimationFrame(() => document.getElementById(ziel)?.focus())
       return
     }
     // Feedback bleibt im Admin-Panel gespeichert und dort löschbar.
@@ -62,9 +71,14 @@ export function Feedback() {
     return (
       <>
         <TopBar title={t('feedback.title')} back="/" />
+        {/* Der Wechsel in die Bestaetigung ist ein Ansichtswechsel ohne
+            Seitenwechsel: Ohne `role="status"` meldete eine Sprachausgabe
+            gar nichts, der Absendeknopf war einfach verschwunden. */}
         <Page className="flex flex-col items-center justify-center pt-16 text-center">
           <CheckCircle2 size={52} className="mb-4 text-accent" />
-          <h2 className="text-xl font-bold">{t('feedback.sentTitle')}</h2>
+          <h2 role="status" className="text-xl font-bold">
+            {t('feedback.sentTitle')}
+          </h2>
           <p className="mt-1.5 max-w-sm text-[14px] text-dim">{t('feedback.sentBody')}</p>
           <Card className="mt-6 w-full max-w-sm p-4 text-left text-[13px]">
             {/* Die Kategorie fehlte in der Bestätigung, obwohl sie die
@@ -111,6 +125,7 @@ export function Feedback() {
         <Card className="space-y-4 p-4">
         <Field label={t('feedback.recipient') + ' *'}>
           <select
+            id="feedback-recipient"
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
             className={selectCls}
@@ -126,6 +141,7 @@ export function Feedback() {
 
         <Field label={t('feedback.category') + ' *'}>
           <select
+            id="feedback-category"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className={selectCls}
@@ -186,7 +202,7 @@ export function Feedback() {
         </Field>
         {scope === 'aircraft' && (
           <Field label={t('lessons.aircraftType') + ' *'}>
-            <select value={aircraftType} onChange={(e) => setAircraftType(e.target.value)} className={selectCls}>
+            <select id="feedback-aircraft" value={aircraftType} onChange={(e) => setAircraftType(e.target.value)} className={selectCls}>
               <option value="">…</option>
               {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
                 <option key={a} value={a}>
@@ -211,6 +227,7 @@ export function Feedback() {
 
         <Field label={t('feedback.message') + ' *'}>
           <textarea
+            id="feedback-message"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             className={`${inputCls} min-h-36`}
@@ -235,7 +252,7 @@ export function Feedback() {
               <button
                 onClick={() => { setAttachment(undefined); if (fileRef.current) fileRef.current.value = '' }}
                 aria-label={`${t('common.delete')}: ${attachment.name}`}
-                className="shrink-0 text-dim hover:text-danger"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
               >
                 <X size={15} />
               </button>
@@ -251,7 +268,14 @@ export function Feedback() {
         </Field>
         </Card>
 
-        {error && <p className="text-[13px] text-danger">{t('feedback.errorEmpty')}</p>}
+        {/* `role="alert"`: Wer den Knopf am Seitenende drueckt, bekam bisher
+            akustisch nichts und optisch eine Meldung, die je nach
+            Scrollstand ausserhalb des Bilds lag. */}
+        {error && (
+          <p role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-[13px] text-danger">
+            {t('feedback.errorEmpty')}
+          </p>
+        )}
 
         <div className="flex items-start gap-2.5 rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[12.5px] text-dim">
           <Info size={15} className="mt-0.5 shrink-0 text-accent" />

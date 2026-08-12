@@ -119,6 +119,8 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
   const [formTypeId, setFormTypeId] = useState<FormTypeId | null>(existing?.formTypeId ?? presetType ?? null)
   const formType = grading.formTypes.find((f) => f.id === formTypeId) ?? null
+  // Kopfdaten der ATO fuer den einzufrierenden Dokumentenstand (siehe unten).
+  const dokKopf = state.settings.documentHeader ?? { atoName: '', approvalNumber: '', approvalNumberUK: '', formRevision: '' }
   const competencies = formType?.competencySet
     ? grading.competencySets.find((c) => c.key === formType.competencySet)?.competencies ?? []
     : []
@@ -176,7 +178,11 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
    * gesichert und beim nächsten Öffnen angeboten. Unterschriften werden
    * bewusst NIE gesichert — sie müssen immer neu geleistet werden.
    */
-  const draftKey = `aaa-draft-${recordId ?? parentId ?? 'new'}-${formTypeId ?? ''}`
+  // Der Schluessel traegt den Nutzer: Auf einem im Schulungsbetrieb
+  // geteilten iPad bekam sonst der naechste Instruktor den Entwurf des
+  // vorigen angeboten — mit Pilotenname, Noten und Kommentaren. Fremde
+  // Bewertungsdaten landeten so im eigenen Blatt.
+  const draftKey = `aaa-draft-${currentUser!.id}-${recordId ?? parentId ?? 'new'}-${formTypeId ?? ''}`
   const dirty =
     !existing &&
     (Object.values(header).some((v) => v?.trim()) ||
@@ -373,6 +379,19 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     for (const f of postFields) {
       if (f.required && !header[f.key]?.trim()) return t('forms:errRequired', { field: f.label })
     }
+    /*
+     * 306 und 310 belegen die Nachschulung bzw. den offenen Punkt — ihr
+     * Inhalt steht ausschliesslich in den Freitextabschnitten. Die waren an
+     * keiner Stelle Pflicht: Ein 306 mit drei leeren Abschnitten, beidseitig
+     * unterschrieben, galt in `missingFollowUps` als Nachweis und machte das
+     * Ausgangsblatt gruen. Auf dem Grading Sheet erzwingt die App zu jeder 1
+     * und 2 einen Kommentar; auf dem Blatt, das die Nachschulung belegen
+     * soll, erzwang sie nichts.
+     */
+    if (isFollowUpType(formTypeId ?? '')) {
+      const leer = (formType?.freeTextSections ?? []).find((sec) => !freeText[sec]?.trim())
+      if (leer) return t('forms:errRequired', { field: leer })
+    }
     // Eine Anwesenheitsliste ohne Anwesende belegt nichts — sie war bisher
     // absendbar und wurde grün.
     if (isAttendance && !attendance.some((a) => a.name.trim())) return t('forms:errNoAttendee')
@@ -456,9 +475,26 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         signedAt: signed ? ts : undefined,
         instructorSignedAt: sigInstructor ? ts : undefined,
         authority,
+        // Dokumentenstand einfrieren: ATO, Zulassungsnummer, Formularstand
+        // und Formulartitel gehoerten bisher zur Anzeige und wurden zur
+        // DRUCKZEIT aus den Einstellungen gelesen — ein altes Dokument
+        // druckte danach eine andere Zulassungsnummer als zum
+        // Unterschriftszeitpunkt. Ab Fassung 3 sind sie Teil des
+        // Fingerabdrucks.
+        docSnapshot: {
+          atoName: dokKopf.atoName,
+          approval: (authority === 'UK' ? dokKopf.approvalNumberUK : dokKopf.approvalNumber) || dokKopf.approvalNumber,
+          formRevision: dokKopf.formRevision,
+          formTitle: formType?.title ?? '',
+        },
       }
     })
   }
+
+  /** Nach einem Schrittwechsel den Fokus auf die Ueberschrift setzen — der
+   *  ausloesende Knopf verschwindet, und der Fokus fiele sonst auf <body>. */
+  const fokusUeberschrift = () =>
+    requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-page-heading]')?.focus())
 
   const [submitting, setSubmitting] = useState(false)
 
@@ -630,7 +666,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   aria-pressed={on}
                   onClick={() => setField(f, on ? '' : o)}
                   className={`min-h-11 rounded-lg border px-3 py-2 text-[13px] transition ${
-                    on ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/15 text-dim'
+                    on ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
                   }`}
                 >
                   {on ? '☒' : '☐'} {o}
@@ -657,7 +693,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                     setField(f, ordered.join(', '))
                   }}
                   className={`min-h-11 rounded-lg border px-2.5 py-1.5 text-[12.5px] transition ${
-                    on ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/15 text-dim'
+                    on ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
                   }`}
                 >
                   {on ? '☒' : '☐'} {o}
@@ -677,7 +713,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
           />
         )}
         {/* Fußnoten des Originalformulars, etwa zu den PRG-Sternchen */}
-        {f.hint && <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim">{f.hint}</p>}
+        {f.hint && <p className="mt-1.5 text-[12px] leading-relaxed text-dim">{f.hint}</p>}
       </Field>
     </div>
   )
@@ -767,8 +803,16 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                       <p className="flex-1 text-[13px] font-semibold text-accent">
                         {isInstructorSheet ? 'Candidate Instructor' : t('forms:student')} {trainees.length > 1 ? i + 1 : ''}
                       </p>
+                      {/* Beschriftet und 44 px: Der Knopf loescht einen kompletten
+                          Piloten samt Bewertung und wurde als „Schaltflaeche"
+                          ohne Inhalt angesagt. */}
                       {trainees.length > 1 && (
-                        <button onClick={() => removeTrainee(i)} className="text-dim hover:text-danger">
+                        <button
+                          onClick={() => removeTrainee(i)}
+                          aria-label={`${isInstructorSheet ? 'Candidate Instructor' : t('forms:student')} ${i + 1} — ${t('common.delete')}`}
+                          title={t('common.delete')}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
+                        >
                           <Trash2 size={15} />
                         </button>
                       )}
@@ -788,7 +832,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                           key={o}
                           onClick={() => setTrainee(i, { position: o })}
                           className={`min-h-11 rounded-lg border px-3 py-1.5 text-[13px] transition ${
-                            tr.position === o ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/15 text-dim'
+                            tr.position === o ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
                           }`}
                         >
                           {tr.position === o ? '☒' : '☐'} {o}
@@ -800,7 +844,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                           key={o}
                           onClick={() => setTrainee(i, { seat: tr.seat === o ? '' : o })}
                           className={`min-h-11 rounded-lg border px-3 py-1.5 text-[13px] transition ${
-                            tr.seat === o ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/15 text-dim'
+                            tr.seat === o ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
                           }`}
                         >
                           {tr.seat === o ? '☒' : '☐'} {o}
@@ -831,7 +875,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                         key={o}
                         onClick={() => setHeader({ ...header, instructorQual: header.instructorQual === o ? '' : o })}
                         className={`min-h-11 rounded-lg border px-3 py-1.5 text-[13px] transition ${
-                          header.instructorQual === o ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/15 text-dim'
+                          header.instructorQual === o ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
                         }`}
                       >
                         {header.instructorQual === o ? '☒' : '☐'} {o}
@@ -843,7 +887,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                         key={o}
                         onClick={() => setHeader({ ...header, instructorSeat: header.instructorSeat === o ? '' : o })}
                         className={`min-h-11 rounded-lg border px-3 py-1.5 text-[13px] transition ${
-                          header.instructorSeat === o ? 'border-accent bg-accent/15 font-medium text-accent' : 'border-line/15 text-dim'
+                          header.instructorSeat === o ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
                         }`}
                       >
                         {header.instructorSeat === o ? '☒' : '☐'} {o}
@@ -901,6 +945,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 setError('')
                 setStep(2)
                 scrollToTop()
+                fokusUeberschrift()
               }}
             >
               {competencies.length > 0 ? t('forms:toGrading') : t('forms:continue')} <ArrowRight size={16} />
@@ -915,7 +960,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
         {formType && step === 2 && (
           <>
-            <button onClick={() => { setStep(1); scrollToTop() }} className="flex items-center gap-1.5 text-[13.5px] text-dim hover:text-ink">
+            <button onClick={() => { setStep(1); scrollToTop(); fokusUeberschrift() }} className="flex items-center gap-1.5 text-[13.5px] text-dim hover:text-ink">
               <ArrowLeft size={15} /> {t('forms:backToHeader')}
             </button>
 
@@ -950,7 +995,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                             <button
                               onClick={() => setOpenBehaviour(openBehaviour === key ? null : key)}
                               title={t('forms:behaviours')}
-                              className="min-h-11 flex shrink-0 items-center gap-1 rounded-lg border border-line/15 px-2 py-1 text-[11.5px] text-dim hover:text-accent"
+                              className="min-h-11 flex shrink-0 items-center gap-1 rounded-lg border border-line/15 px-2 py-1 text-[12px] text-dim hover:text-accent"
                             >
                               <Info size={12} /> OB <ChevronDown size={11} className={openBehaviour === key ? 'rotate-180' : ''} />
                             </button>
@@ -962,11 +1007,18 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                               ))}
                             </ul>
                           )}
-                          <div className="flex flex-wrap gap-1.5">
+                          {/* Knopfgruppe mit NAMEN und Zustand: Eine Sprachausgabe
+                              las hier je Kompetenz nur „1, 2, 3, 4, 5, NO" —
+                              neunmal identisch, ohne Bezug und ohne die Angabe,
+                              welche Note gesetzt ist (die steckte allein in
+                              Fuellfarbe und Ring). */}
+                          <div role="group" aria-label={`${c.code} · ${c.title}`} className="flex flex-wrap gap-1.5">
                             {GRADES.map((val) => (
                               <button
                                 key={String(val)}
                                 onClick={() => setGrade(i, c.code, val)}
+                                aria-pressed={g?.grade === val}
+                                aria-label={`${c.code} · ${c.title}: ${val}`}
                                 className={`min-h-11 min-w-[52px] rounded-lg px-3 py-2.5 text-[14px] font-semibold transition ${
                                   g?.grade === val ? gradeColor(val) + ' ring-2 ring-accent' : 'bg-line/[0.06] text-dim hover:bg-line/10'
                                 }`}
@@ -979,6 +1031,11 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                             value={g?.comment ?? ''}
                             onChange={(e) => setGradeComment(i, c.code, e.target.value)}
                             placeholder={commentRequired ? t('forms:commentRequired') : t('forms:commentOptional')}
+                            // Der Platzhalter wechselt zwischen „erforderlich" und
+                            // „optional" — als einziger Name des Feldes hiesse das:
+                            // Das Feld heisst je nach Zustand anders.
+                            aria-label={`${t('forms:commentOptional')} — ${c.code}`}
+                            aria-required={commentRequired}
                             className={`${inputCls} mt-2 text-[13px] ${commentRequired && !g?.comment.trim() ? 'border-danger/60' : ''}`}
                           />
                         </div>
@@ -1098,7 +1155,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 >
                   <Plus size={15} /> {t('forms:addAttendee')}
                 </button>
-                {formTypeId === '307B' && <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:attendance307B')}</p>}
+                {formTypeId === '307B' && <p className="text-[12px] leading-relaxed text-dim">{t('forms:attendance307B')}</p>}
               </Card>
             )}
 
@@ -1123,10 +1180,10 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 )}
               </div>
               {trainees.length > 1 && (
-                <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:multiStudentHint')}</p>
+                <p className="text-[12px] leading-relaxed text-dim">{t('forms:multiStudentHint')}</p>
               )}
-              <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:lockNote')}</p>
-              <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:sigLiveNote')}</p>
+              <p className="text-[12px] leading-relaxed text-dim">{t('forms:lockNote')}</p>
+              <p className="text-[12px] leading-relaxed text-dim">{t('forms:sigLiveNote')}</p>
             </Card>
 
             {/* Deferred Item: Versand geht immer an den Training Admin */}
@@ -1180,7 +1237,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   </div>
                 )
               })()}
-              <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:extraRecipientsHint')}</p>
+              <p className="text-[12px] leading-relaxed text-dim">{t('forms:extraRecipientsHint')}</p>
             </Card>
 
             {/* 7. Senden — erst möglich, wenn alles vollständig ausgefüllt ist */}
@@ -1239,7 +1296,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   </span>
                   {/* Pflichtformular: vorausgewählt und nicht abwählbar */}
                   {required && (
-                    <span className="shrink-0 rounded-full bg-danger/15 px-2 py-0.5 text-[11px] font-semibold text-danger">
+                    <span className="shrink-0 rounded-full bg-danger/15 px-2 py-0.5 text-[12px] font-semibold text-danger">
                       {t('forms:mandatory')}
                     </span>
                   )}

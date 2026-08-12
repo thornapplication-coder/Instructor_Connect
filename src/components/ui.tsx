@@ -81,7 +81,14 @@ export function TopBar({
             <ArrowLeft size={20} />
           </button>
         )}
-        <h1 className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight">{title}</h1>
+        {/* `data-page-heading` + `tabIndex -1`: Nach einem Seitenwechsel setzt
+            der Router den Fokus hierher (siehe router.tsx). Ohne das fiel er
+            auf <body> — Tastaturnutzer fingen wieder ganz oben an, und
+            Sprachausgaben meldeten den Wechsel gar nicht. In der
+            Tab-Reihenfolge taucht die Ueberschrift dadurch nicht auf. */}
+        <h1 data-page-heading tabIndex={-1} className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight outline-none">
+          {title}
+        </h1>
         {/* Der Titel gibt nach, die Aktion rechts nicht: Ein langer Titel
             drückte sonst „Upload lesson plan" zusammen, bis die globale
             Umbruchregel den Text mitten im Wort trennte. */}
@@ -339,6 +346,9 @@ export function NewDot({ className = '', size = 12 }: { className?: string; size
   const { t } = useTranslation()
   return (
     <span
+      // Ohne Rolle verwerfen die meisten Sprachausgaben das Label eines
+      // <span> — die ungelesenen Chats waren damit rein visuell markiert.
+      role="img"
       aria-label={t('common.new')}
       style={{ width: size, height: size }}
       className={`pointer-events-none absolute z-10 rounded-full bg-ok ring-2 ring-bg ${className}`}
@@ -361,7 +371,7 @@ export function ChipMultiSelect({ options, selected, onChange }: {
             key={o.id}
             onClick={() => onChange(on ? selected.filter((x) => x !== o.id) : [...selected, o.id])}
             className={`min-h-11 rounded-full border px-3 py-1.5 text-[12.5px] transition ${
-              on ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
+              on ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
             }`}
           >
             {o.label}
@@ -374,11 +384,15 @@ export function ChipMultiSelect({ options, selected, onChange }: {
 
 export function Badge({ children, tone = 'accent' }: { children: ReactNode; tone?: 'accent' | 'warm' | 'dim' }) {
   const tones = {
-    accent: 'bg-accent/15 text-accent',
+    /* Akzentfarbe auf 15-%-Flaeche ergab gemessene 3,86:1 — unter den
+       geforderten 4,5:1 fuer normalen Text. Die Flaeche traegt den Akzent,
+       die Schrift bleibt Text (12,4:1). Dasselbe gilt fuer den aktiven
+       Zustand jedes Umschalters in der App. */
+    accent: 'bg-accent/15 text-ink',
     warm: 'bg-warm/15 text-warm',
     dim: 'bg-line/8 text-dim',
   }[tone]
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-medium ${tones}`}>{children}</span>
+  return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium ${tones}`}>{children}</span>
 }
 
 /**

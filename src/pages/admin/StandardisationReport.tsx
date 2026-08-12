@@ -165,11 +165,11 @@ export function StandardisationReport({
       {/* Kopf des Dokuments: ohne ATO, Zeitraum und Flotte ist ein Ausdruck
           nicht zuordenbar — genau daran scheitern Audits. */}
       <div className="border-b-2 border-line/60 pb-2">
-        <p className="text-[11px] font-semibold uppercase tracking-wide">
+        <p className="text-[12px] font-semibold uppercase tracking-wide">
           {[doc.atoName, approval].filter(Boolean).join(' · ')}
         </p>
         <h2 className="text-[19px] font-bold tracking-tight">{t('forms:std.title')}</h2>
-        <p className="mt-1 flex flex-wrap justify-between gap-x-4 gap-y-0.5 text-[11px] text-dim">
+        <p className="mt-1 flex flex-wrap justify-between gap-x-4 gap-y-0.5 text-[12px] text-dim">
           <span>
             {t('forms:std.period.label')}: {label} · {t('forms:admin.fleet')}: {fleet || t('forms:admin.allAircraft')} · {t('forms:admin.authority')}: {approval || t('forms:admin.allAuthorities')}
           </span>
@@ -244,7 +244,7 @@ export function StandardisationReport({
       ))}
 
       {sets.length > 0 && (
-        <p className="text-[10.5px] leading-relaxed text-dim">
+        <p className="text-[12px] leading-relaxed text-dim">
           {t('forms:std.footnote', { watch: WATCH.toFixed(2), review: REVIEW.toFixed(2), grades: MIN_GRADES, sessions: MIN_SESSIONS })}
         </p>
       )}

@@ -7,6 +7,7 @@ import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType, GradingRecord } from '../../types'
+import { gradingListDate } from '../../gradingRules'
 import { formatDate, formatDateTime, missingFollowUps, TrafficDot, traineesOf, trafficLight, type TrafficColor } from '../Grading'
 import { StandardisationReport } from './StandardisationReport'
 import { TraineeHistory } from './TraineeHistory'
@@ -128,7 +129,7 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
             <div className="flex items-center gap-2">
               {!hideCodes && <span className="w-12 shrink-0 font-mono text-[12.5px] font-semibold">{c.code}</span>}
               <span className="min-w-0 flex-1 truncate text-[13px]">{c.title}</span>
-              <span className="shrink-0 text-[11.5px] text-dim">{c.behaviours.length} OB</span>
+              <span className="shrink-0 text-[12px] text-dim">{c.behaviours.length} OB</span>
               <button onClick={() => startEdit(c)} title={t('common.edit')} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-accent">
                 <Pencil size={14} />
               </button>
@@ -175,7 +176,7 @@ function FieldOptionsEditor({ field, onChange }: { field: FormField; onChange: (
       </p>
       {/* Die Musterliste gilt app-weit und wird in den Einstellungen gepflegt */}
       {field.key === 'aircraftType' ? (
-        <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:admin.aircraftCentral')}</p>
+        <p className="text-[12px] leading-relaxed text-dim">{t('forms:admin.aircraftCentral')}</p>
       ) : (
         <>
           <div className="mb-2 flex flex-wrap gap-1.5">
@@ -192,7 +193,7 @@ function FieldOptionsEditor({ field, onChange }: { field: FormField; onChange: (
                 </button>
               </span>
             ))}
-            {options.length === 0 && <span className="text-[11.5px] text-dim">—</span>}
+            {options.length === 0 && <span className="text-[12px] text-dim">—</span>}
           </div>
           <div className="flex gap-2">
             <input
@@ -254,7 +255,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
           <div className="flex items-center gap-2">
             <span className="w-14 shrink-0 font-mono text-[12.5px] font-semibold">{f.id}</span>
             <span className="min-w-0 flex-1 truncate text-[13px]">{f.title}</span>
-            <span className="shrink-0 text-[11.5px] text-dim">
+            <span className="shrink-0 text-[12px] text-dim">
               {f.fields.filter((x) => x.required).length} {t('forms:admin.requiredFields')} · {f.fields.length} {t('forms:admin.fieldsTotal')}
             </span>
             <button onClick={() => startEdit(f)} title={t('common.edit')} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-accent">
@@ -335,7 +336,7 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
               </select>
             </Field>
             {idTaken && <p className="text-[12.5px] text-danger">{t('forms:admin.formIdTaken')}</p>}
-            <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:admin.newFormHint')}</p>
+            <p className="text-[12px] leading-relaxed text-dim">{t('forms:admin.newFormHint')}</p>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setEditId(null)}>{t('common.cancel')}</Button>
               <Button disabled={!draft.id.trim() || !draft.title.trim() || idTaken} onClick={save}>{t('common.save')}</Button>
@@ -567,7 +568,9 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
   /** Kurzbezeichnung des Ausgangsformulars eines Folgeformulars */
   const parentLabel = (r: GradingRecord) => {
     const parent = records.find((x) => x.id === r.parentId)
-    return parent ? `${parent.formTypeId} · ${formatDate(parent.createdAt)}` : ''
+    // Schulungstag, nicht Anlagedatum: Ein nachgetragenes Blatt trug hier
+    // sonst ein anderes Datum als ueberall sonst in der App (#51).
+    return parent ? `${parent.formTypeId} · ${formatDate(gradingListDate(parent))}` : ''
   }
 
   /**
@@ -588,7 +591,11 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
     source.filters.forEach(([k, v]) => (csv += row([k, v])))
     csv += row([])
     if (scope === 'records') {
-      csv += row(['Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Status', 'FollowUpTo', 'Avg'])
+      // Behoerde, Unterschriftszeitpunkt und Fingerabdruck gehoeren in einen
+      // Auszug fuer die Behoerde: AT- und UK-Vorgaenge liegen im selben
+      // Bestand, und ohne `SignedAt`/`Fingerprint` laesst sich eine Zeile
+      // keinem geprueften Dokument zuordnen.
+      csv += row(['Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Status', 'Authority', 'SignedAt', 'Fingerprint', 'FollowUpTo', 'Avg'])
       scopeRecords.forEach((r) => {
         if (r.trainees.length > 0) {
           r.trainees.forEach((tr) => {
@@ -596,7 +603,9 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
             const avg = avgOf(tr.grades.map((g2) => g2.grade))
             csv += row([
               r.formTypeId, userName(r.instructorId), traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice,
-              r.header.date, tr.overall, r.sessionStatus, r.status, r.parentId ? parentLabel(r) : '', csvNum(avg),
+              r.header.date, tr.overall, r.sessionStatus, r.status,
+              r.authority ?? 'AT', r.signedAt ? formatDateTime(r.signedAt) : '', r.contentHash ?? '',
+              r.parentId ? parentLabel(r) : '', csvNum(avg),
             ])
           })
           return
@@ -606,7 +615,9 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
         traineesOf(r, records).forEach((tr) => {
           csv += row([
             r.formTypeId, userName(r.instructorId), traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice ?? '',
-            r.header.date, '', '', r.status, r.parentId ? parentLabel(r) : '', '',
+            r.header.date, '', '', r.status,
+            r.authority ?? 'AT', r.signedAt ? formatDateTime(r.signedAt) : '', r.contentHash ?? '',
+            r.parentId ? parentLabel(r) : '', '',
           ])
         })
       })
@@ -682,7 +693,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               className="group relative flex aspect-square flex-col items-center justify-center gap-2.5 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
             >
               {!!badge && (
-                <span className="absolute right-3 top-3 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-warm px-1.5 text-[11px] font-bold text-bg ring-2 ring-bg">
+                <span className="absolute right-3 top-3 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-warm px-1.5 text-[12px] font-bold text-bg ring-2 ring-bg">
                   {badge}
                 </span>
               )}
@@ -703,7 +714,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
       {section === 'dashboard' && (
         <div className="space-y-3">
           {/* Ampel-Legende */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line/10 bg-surface/60 px-3.5 py-2.5 text-[11.5px] text-dim">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line/10 bg-surface/60 px-3.5 py-2.5 text-[12px] text-dim">
             <span className="inline-flex items-center gap-1.5"><TrafficDot color="green" /> {t('forms:traffic.green')}</span>
             <span className="inline-flex items-center gap-1.5"><TrafficDot color="yellow" /> {t('forms:traffic.yellow')}</span>
             <span className="inline-flex items-center gap-1.5"><TrafficDot color="red" /> {t('forms:traffic.red')}</span>
@@ -829,10 +840,10 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
             </select>
           </div>
           {/* Ampel-Filter */}
-          <div className="flex flex-wrap items-center gap-1.5 text-[11.5px] text-dim">
+          <div className="flex flex-wrap items-center gap-1.5 text-[12px] text-dim">
             <button
               onClick={() => setTrafficFilter('')}
-              className={`min-h-11 rounded-full border px-2.5 py-1 transition ${trafficFilter === '' ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'}`}
+              className={`min-h-11 rounded-full border px-2.5 py-1 transition ${trafficFilter === '' ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15'}`}
             >
               {t('forms:traffic.all')}
             </button>
@@ -841,7 +852,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 key={c}
                 onClick={() => setTrafficFilter(trafficFilter === c ? '' : c)}
                 className={`min-h-11 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition ${
-                  trafficFilter === c ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'
+                  trafficFilter === c ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15'
                 }`}
               >
                 <TrafficDot color={c} /> {t(`forms:traffic.${c}`)}
@@ -853,7 +864,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               onClick={() => setOnlyHidden(!onlyHidden)}
               aria-pressed={onlyHidden}
               className={`min-h-11 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition ${
-                onlyHidden ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15'
+                onlyHidden ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15'
               }`}
             >
               <EyeOff size={12} /> {t('forms:admin.onlyHidden')}
