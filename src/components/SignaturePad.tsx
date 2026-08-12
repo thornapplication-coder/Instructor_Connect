@@ -200,18 +200,29 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
 
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between gap-2">
-        <span className="text-[13px] font-medium text-dim">{label}</span>
-        <span className="flex items-center gap-2">
+      {/*
+        Beschriftung und Knöpfe UMBRECHEN als Ganzes, statt sich gegenseitig zu
+        quetschen: Die Trainee-Zeile trägt den Namen des Piloten („Trainee
+        signature — Michael Holy"), und am Telefon blieben daneben nur noch
+        wenige Millimeter für die Knöpfe. Die projektweite Umbruchregel
+        (`overflow-wrap: anywhere`) griff dann genau dort, wofür sie nicht
+        gedacht ist, und aus „Clear" wurde „Clea" / „r". Deshalb: die Knöpfe
+        schrumpfen nicht (`shrink-0`) und brechen nicht (`whitespace-nowrap`) —
+        passen sie nicht mehr neben die Beschriftung, rücken sie geschlossen in
+        die nächste Zeile.
+      */}
+      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
+        <span className="min-w-0 text-[13px] font-medium text-dim">{label}</span>
+        <span className="ml-auto flex shrink-0 items-center gap-3">
           {value && (
-            <button onClick={clear} className="flex items-center gap-1 text-[12px] text-dim hover:text-danger">
+            <button onClick={clear} className="flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap text-[12px] text-dim hover:text-danger">
               <Eraser size={12} /> {t('forms:clearSignature')}
             </button>
           )}
           <button
             onClick={() => switchMode(mode === 'draw' ? 'type' : 'draw')}
             aria-pressed={mode === 'type'}
-            className="flex min-h-11 items-center gap-1 text-[12px] text-dim underline-offset-2 hover:text-accent hover:underline"
+            className="flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap text-[12px] text-dim underline-offset-2 hover:text-accent hover:underline"
           >
             {mode === 'draw' ? <Keyboard size={12} /> : <PenLine size={12} />}
             {mode === 'draw' ? t('forms:typeInstead') : t('forms:drawInstead')}
