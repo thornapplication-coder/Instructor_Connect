@@ -1,6 +1,6 @@
 import { Bell, BellOff, Clock, HardDriveDownload, Shield, Trash2, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Badge, Button, Card, Field, Page, selectCls, TopBar } from '../components/ui'
+import { Avatar, Badge, Button, Card, CardHeading, Field, Page, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { isGroupAdmin, mayAccessGroup, useStore } from '../store'
 import type { RetentionKey } from '../types'
@@ -77,9 +77,9 @@ export function ChatInfo({ groupId }: { groupId: string }) {
         </Card>
 
         <Card className="p-4">
-          <p className="mb-3 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-dim">
+          <CardHeading className="mb-3 flex items-center gap-2">
             <Users size={15} /> {t('chatInfo.members', { count: members.length })}
-          </p>
+          </CardHeading>
           <ul className="space-y-2.5">
             {members.map((m) => (
               <li key={m.id} className="flex items-center gap-2.5">
@@ -101,7 +101,7 @@ export function ChatInfo({ groupId }: { groupId: string }) {
 
         {mayManage && (
           <Card className="space-y-4 p-4">
-            <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('chatInfo.manage')}</p>
+            <CardHeading>{t('chatInfo.manage')}</CardHeading>
             <Field label={t('chatInfo.retentionOverride')}>
               <select
                 value={group.retention ?? 'default'}

@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle2, Clock, FileDown, HelpCircle, Plus, Trash2, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Card, Page, TopBar } from '../components/ui'
+import { Badge, Card, Page, SectionHeading, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { gradingListComparator } from '../gradingRules'
 import { trainingDate } from '../gradingStats'
@@ -418,9 +418,7 @@ export function Grading() {
             sortiert wurde nach dem Schulungstag (#51). */}
         {byDay(list).map(([tag, blaetter]) => (
           <div key={tag} className="space-y-2.5">
-            <h2 className="sticky top-14 z-[5] -mx-1 bg-bg/85 px-1 py-1.5 text-[12.5px] font-semibold uppercase tracking-wide text-dim backdrop-blur">
-              {formatDate(gradingListDate(blaetter[0]))}
-            </h2>
+            <SectionHeading sticky>{formatDate(gradingListDate(blaetter[0]))}</SectionHeading>
             {blaetter.map((r) => {
           const notCompetent = r.trainees.some((tr) => tr.overall === 'not_competent')
           const missing = missingFollowUps(r, state.gradingRecords)

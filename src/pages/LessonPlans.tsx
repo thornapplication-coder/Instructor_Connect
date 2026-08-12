@@ -1,7 +1,7 @@
 import { Download, Eye, FileText, Plane, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
+import { Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { useStore } from '../store'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
@@ -170,14 +170,10 @@ export function LessonPlans() {
 
         {grouped.map(({ aircraftType, groups }) => (
           <section key={aircraftType} className="space-y-3">
-            <h2 className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wide text-dim">
-              <Plane size={14} /> {aircraftType}
-            </h2>
+            <SectionHeading icon={<Plane size={14} className="shrink-0 text-accent" />}>{aircraftType}</SectionHeading>
             {groups.map(({ category, plans }) => (
             <div key={category || '—'} className="space-y-3">
-              <h3 className="ml-0.5 border-l-2 border-accent/40 pl-2 text-[12.5px] font-semibold text-ink">
-                {category || t('lessons.noCategory')}
-              </h3>
+              <h3 className="ml-3.5 text-[12.5px] font-semibold text-ink">{category || t('lessons.noCategory')}</h3>
               {plans.map((p) => (
                 <Card key={p.id} className="p-4">
                   <div className="flex items-start gap-3">

@@ -106,6 +106,67 @@ export function Page({ children, className = '', wide = false }: { children: Rea
 }
 
 /**
+ * ÜBERSCHRIFTEN — zwei Sorten, bewusst unterschiedlich laut.
+ *
+ * Gemeldet wurde eine Gliederungsüberschrift („ALL AIRCRAFT TYPES"), die
+ * zwischen zwei weißen Karten praktisch verschwand: klein, `text-dim` auf
+ * dem grauen Seitenhintergrund und ohne Abstand zur Karte darüber. Sie
+ * markierte damit nichts — man sah nicht, wo eine Gruppe endet und die
+ * nächste beginnt. Dasselbe Muster lag an rund vierzig Stellen im Code,
+ * jedes Mal von Hand geschrieben und leicht abweichend.
+ *
+ * Deshalb hier EIN Paar Komponenten für die ganze App:
+ *
+ *  - `SectionHeading` gliedert die SEITE. Sie steht auf dem Hintergrund
+ *    zwischen Karten, trägt eine Akzentmarke und eine feine Linie bis zum
+ *    rechten Rand — damit ist auf einen Blick zu sehen, wo eine Gruppe
+ *    anfängt, auch mitten im Scrollen.
+ *  - `CardHeading` beschriftet den Inhalt EINER Karte. Sie ist ruhiger:
+ *    Sie soll den Abschnitt benennen, nicht mit der Gliederung der Seite
+ *    konkurrieren.
+ *
+ * Beide in `text-ink` statt `text-dim`: Eine Überschrift ist die Struktur
+ * des Textes, nicht sein Kleingedrucktes.
+ */
+export function SectionHeading({
+  children,
+  icon,
+  right,
+  className = '',
+  sticky = false,
+}: {
+  children: ReactNode
+  /** kleines Symbol vor dem Titel (z. B. Muster, Ordner) */
+  icon?: ReactNode
+  /** Zusatz am rechten Rand, hinter der Linie (z. B. eine Anzahl) */
+  right?: ReactNode
+  className?: string
+  /** bleibt beim Scrollen unter der Kopfzeile stehen (lange Listen) */
+  sticky?: boolean
+}) {
+  return (
+    <h2
+      className={`flex items-center gap-2.5 text-[12.5px] font-bold uppercase tracking-[0.09em] text-ink ${
+        sticky ? 'below-topbar sticky z-[5] -mx-1 bg-bg/90 px-1 py-2 backdrop-blur' : ''
+      } ${className}`}
+    >
+      <span aria-hidden className="h-3.5 w-1 shrink-0 rounded-full bg-accent" />
+      {icon}
+      <span className="min-w-0 truncate">{children}</span>
+      {/* Die Linie füllt den Rest der Zeile — sie trennt, ohne einen Kasten
+          zu zeichnen, und macht die Gruppengrenze auch dann sichtbar, wenn
+          der Titel kurz ist. */}
+      <span aria-hidden className="h-px min-w-4 flex-1 bg-line/15" />
+      {right}
+    </h2>
+  )
+}
+
+export function CardHeading({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return <h3 className={`text-[12.5px] font-bold uppercase tracking-[0.08em] text-ink ${className}`}>{children}</h3>
+}
+
+/**
  * Eine klickbare Karte ist ein Bedienelement — sie braucht Rolle, Fokus und
  * Tastenbedienung. Vorher war sie ein nacktes <div onClick>: Die gemessene
  * Tab-Reihenfolge auf der Chat-Seite lautete Zurück → Gruppe anlegen →

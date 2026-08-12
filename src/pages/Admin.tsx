@@ -1,7 +1,7 @@
 import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, ClipboardList, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Users, UsersRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Badge, Button, Card, ChipMultiSelect, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
+import { Avatar, Badge, Button, Card, CardHeading, ChipMultiSelect, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { storageInfo, type StorageInfo } from '../persist'
 import { useStore } from '../store'
@@ -133,7 +133,7 @@ function UsersTab() {
       {users.map((u, i) => (
         <div key={u.id}>
         {sortMode === 'role' && (i === 0 || users[i - 1].role !== u.role) && (
-          <p className="mb-1.5 mt-2 px-1 text-[12px] font-semibold uppercase tracking-wide text-dim">{t(`roles.${u.role}`)}</p>
+          <SectionHeading className="mb-2 mt-4 px-1 first:mt-0">{t(`roles.${u.role}`)}</SectionHeading>
         )}
         <Card className={`p-3 ${u.active ? '' : 'opacity-55'}`}>
           {/* Kopfzeile: immer sichtbar, ganze Zeile klappt auf */}
@@ -425,7 +425,7 @@ function GroupsTab() {
       {groups.map((g, i) => (
         <div key={g.id}>
         {headingFor(i) && (
-          <p className="mb-1.5 mt-2 px-1 text-[12px] font-semibold uppercase tracking-wide text-dim">{headingFor(i)}</p>
+          <SectionHeading className="mb-2 mt-4 px-1 first:mt-0">{headingFor(i)}</SectionHeading>
         )}
         <Card className="space-y-3 p-3">
           {/* Kompakte Kopfzeile: Name und Mitgliederzahl, Details auf Klick */}
@@ -791,10 +791,9 @@ function FeedbackTab() {
         <FeedbackCard key={f.id} f={f} userName={userName} onDelete={deleteFeedback} onResolve={resolveFeedback} onReopen={reopenFeedback} />
       ))}
       {resolved.length > 0 && (
-        <div className="flex items-center gap-2 pt-3 text-[12px] font-semibold uppercase tracking-wide text-dim">
-          <CheckCircle2 size={14} className="text-ok" />
+        <SectionHeading className="mt-4" icon={<CheckCircle2 size={14} className="shrink-0 text-ok" />}>
           {t('admin.feedbackResolvedSection', { count: resolved.length })}
-        </div>
+        </SectionHeading>
       )}
       {resolved.map((f) => (
         <FeedbackCard key={f.id} f={f} userName={userName} onDelete={deleteFeedback} onResolve={resolveFeedback} onReopen={reopenFeedback} />
@@ -832,7 +831,7 @@ function StorageCard() {
   const share = info && info.quota > 0 ? info.usage / info.quota : null
   return (
     <Card className="space-y-3 p-4">
-      <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('admin.storage')}</p>
+      <CardHeading>{t('admin.storage')}</CardHeading>
       {info === null || share === null ? (
         <p className="text-[13px] text-dim">{t('admin.storageUnknown')}</p>
       ) : (
@@ -927,7 +926,7 @@ function SettingsTab() {
       {/* Herkunftsangaben des Ausdrucks — ohne sie ist ein ausgedrucktes
           Formular keiner Organisation und keinem Formularstand zuzuordnen. */}
       <Card className="space-y-3 p-4">
-        <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('admin.documentHeader')}</p>
+        <CardHeading>{t('admin.documentHeader')}</CardHeading>
         {(
           [
             ['atoName', t('admin.atoName')],

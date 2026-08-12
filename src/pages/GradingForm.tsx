@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight, ChevronDown, Info, Plus, Send, Trash2 } from 'lu
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
-import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
+import { Button, Card, CardHeading, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
 import { contentFingerprint, HASH_VERSION } from '../docHash'
 import { networkReachable } from '../net'
 import { autoNotCompetent, isFollowUpType, isNotCompetent } from '../gradingRules'
@@ -759,7 +759,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             {/* 2a. Student / Instructor — Aufbau wie im Originalformular */}
             {competencies.length > 0 && (
               <Card className="space-y-4 p-4">
-                <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:participants')}</p>
+                <CardHeading>{t('forms:participants')}</CardHeading>
 
                 {trainees.map((tr, i) => (
                   <div key={i} className="rounded-xl border border-line/10 p-3">
@@ -856,7 +856,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
             {/* 2b. Kopfdaten (nur Felder, die VOR dem Grading erfasst werden) */}
             <Card className="space-y-3 p-4">
-              <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:headerData')}</p>
+              <CardHeading>{t('forms:headerData')}</CardHeading>
               <div className="grid gap-3 sm:grid-cols-2">{preFields.map(renderField)}</div>
               {/* Kein Katalogfeld: die Behörde gehört zu JEDEM Formulartyp
                   und bestimmt die ATO-Kennung im Dokumentkopf. */}
@@ -926,11 +926,11 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 return (
                 <Card key={i} className="space-y-4 p-4">
                   <div className="flex items-center gap-2">
-                    <p className="flex-1 text-[13px] font-semibold uppercase tracking-wide text-dim">
+                    <CardHeading className="flex-1">
                       {tr.traineeName?.trim() || t('forms:traineeN', { n: i + 1 })}
                       {tr.position ? ` · ${tr.position}` : ''}
                       {tr.seat ? ` · ${tr.seat}` : ''}
-                    </p>
+                    </CardHeading>
                   </div>
 
 
@@ -1050,7 +1050,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             {/* 4b. Session-Daten — werden immer erst NACH dem Grading erfasst */}
             {postFields.length > 0 && (
               <Card className="space-y-3 p-4">
-                <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:sessionData')}</p>
+                <CardHeading>{t('forms:sessionData')}</CardHeading>
                 <p className="text-[12px] leading-relaxed text-dim">{t('forms:sessionDataHint')}</p>
                 <div className="grid gap-3 sm:grid-cols-2">{postFields.map(renderField)}</div>
               </Card>
@@ -1059,7 +1059,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             {/* 4c. Teilnehmerliste (307A/307B) */}
             {isAttendance && (
               <Card className="space-y-3 p-4">
-                <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:attendance')}</p>
+                <CardHeading>{t('forms:attendance')}</CardHeading>
                 {attendance.map((a, i) => (
                   <div key={i} className="space-y-2 rounded-xl border border-line/10 p-3">
                     <div className="flex items-center gap-2">
@@ -1106,7 +1106,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 Bei mehreren Studenten unterschreibt JEDER einzeln; pro Student
                 entsteht beim Abschluss ein eigenes Formular. */}
             <Card className="space-y-4 p-4">
-              <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:signatures')}</p>
+              <CardHeading>{t('forms:signatures')}</CardHeading>
               <div className="grid gap-4 sm:grid-cols-2">
                 <SignaturePad value={sigInstructor} onChange={setSigInstructor} label={t('forms:sigInstructor')} />
                 {competencies.length > 0 ? (
@@ -1138,7 +1138,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
             {/* 6. Empfänger: Standard (Admin-Konfiguration) + zusätzliche */}
             <Card className="space-y-3 p-4">
-              <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:recipientsCard')}</p>
+              <CardHeading>{t('forms:recipientsCard')}</CardHeading>
               <div className="flex flex-wrap gap-1.5">
                 {[
                   ...grading.defaultRecipients,

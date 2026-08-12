@@ -2,7 +2,7 @@ import { Printer, Table2 } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { csvNum, csvRow, downloadCsv } from '../../csv'
-import { selectCls } from '../../components/ui'
+import { CardHeading, selectCls } from '../../components/ui'
 import { useStore } from '../../store'
 import type { CompetencySetKey, GradingRecord } from '../../types'
 import {
@@ -181,9 +181,9 @@ export function StandardisationReport({
 
       {sets.map((s) => (
         <div key={s.key} className="rounded-2xl border border-line/10 bg-surface/60 p-3.5">
-          <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-dim">
+          <CardHeading className="mb-2">
             {t('forms:std.set')}: <span className="text-ink">{s.name}</span>
-          </p>
+          </CardHeading>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-[12px]">
               <thead>

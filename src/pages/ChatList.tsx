@@ -1,7 +1,7 @@
 import { BellOff, ChevronRight, Clock, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Button, Card, Field, inputCls, Modal, NewDot, Page, selectCls, TopBar } from '../components/ui'
+import { Avatar, Button, Card, Field, inputCls, Modal, NewDot, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { isAdminUser, useStore } from '../store'
 
@@ -32,7 +32,7 @@ export function ChatList() {
         }
       />
       <Page>
-        <p className="mb-3 text-[13px] font-medium uppercase tracking-wide text-dim">{t('chat.yourGroups')}</p>
+        <SectionHeading className="mb-3">{t('chat.yourGroups')}</SectionHeading>
         {myGroups.length === 0 && <p className="text-sm text-dim">{t('chat.noGroups')}</p>}
         <div className="space-y-3">
           {myGroups.map((g, i) => {
@@ -49,7 +49,7 @@ export function ChatList() {
             return (
               <div key={g.id}>
               {heading && (
-                <p className="mb-1.5 mt-3 px-1 text-[12px] font-semibold uppercase tracking-wide text-dim first:mt-0">{heading}</p>
+                <SectionHeading className="mb-2 mt-4 px-1 first:mt-0">{heading}</SectionHeading>
               )}
               <Card onClick={() => navigate(`/chat/${g.id}`)} className="relative flex items-center gap-3 p-4">
                 {unreadGroups.has(g.id) && <NewDot className="-right-1 -top-1" />}
