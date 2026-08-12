@@ -9,6 +9,7 @@ import { Badge, Button, Card, CardHeading, Page, TopBar } from '../components/ui
 import { navigate } from '../router'
 import { useStore, userHasPerm } from '../store'
 import type { GradingRecord } from '../types'
+import { isNotCompetent } from '../gradingRules'
 import { formatDate, formatDateTime, gradeColor, missingFollowUps, TrafficDot, trafficLight } from './Grading'
 
 /**
@@ -142,16 +143,25 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
    */
   const personNames = record.trainees.map(traineeLabel).filter(Boolean)
   const hasNameField = !!formType?.fields.some((f) => f.key === 'traineeName')
-  // 308G beurteilt keinen Piloten, sondern einen angehenden Instruktor. Die
-  // Benennung folgt dem Originalformular, das bereits „Candidate Instructor —
-  // position" fuehrt; ohne den Zusatz „name" staenden zwei Zeilen
-  // „Candidate Instructor" untereinander, eine mit der Qualifikation, eine
-  // mit der Person.
+  // 308G beurteilt keinen Piloten, sondern einen angehenden Instruktor. „(CAI)"
+  // wie bei seiner Unterschrift — das Originalformular fuehrt daneben eine
+  // Zeile „Candidate Instructor" mit der Qualifikation (TRI/SFI/MCCI
+  // Candidate); das Kuerzel unterscheidet die Person von ihrer Qualifikation.
   const personLabel = formType?.competencySet === 'instructor' ? t('forms:personCai') : t('forms:personPilot')
   const showPersonRow = !hasNameField && personNames.length > 0
   // Fuer Fuss und Dateiname: 306/310 tragen ihre Person im Kopffeld, die
   // Grading Sheets in `trainees` — beide Wege muessen zum selben Namen fuehren.
-  const docPersons = personNames.length > 0 ? personNames : [record.header.traineeName].filter(Boolean)
+  const docPersons =
+    personNames.length > 0
+      ? personNames
+      : record.header.traineeName
+        ? [record.header.traineeName]
+        : // 307A/307B fuehren weder Kopffeld noch `trainees` — ihre Personen
+          // stehen in der Teilnehmerliste. Ohne diesen Zweig trug ein
+          // Anwesenheitsnachweis auf keinem Blatt einen Namen.
+          record.attendance && record.attendance.length > 0
+          ? [record.attendance[0].name + (record.attendance.length > 1 ? ` +${record.attendance.length - 1}` : '')].filter(Boolean)
+          : []
 
   // Kopf-/Fußzeile des Ausdrucks kommt aus den Einstellungen, damit der
   // Superadmin ATO-Kennung und Formularstand ohne Deployment pflegen kann.
@@ -177,11 +187,15 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           </button>
         }
       />
-      <Page wide className="space-y-4">
+      {/* print-doc/-head/-body/-foot: Im Ausdruck werden daraus Tabellenrollen
+          (siehe index.css) — nur so wiederholen Chrome und Safari Kopf und
+          Fuss auf JEDEM Blatt. Am Bildschirm sind Kopf und Fuss ausgeblendet,
+          der Abstand zwischen den Karten sitzt deshalb am Rumpf. */}
+      <Page wide className="print-doc">
         {/* Druck-Kopf: Organisation, Formularbenennung, Formularstand und
             Export-Stempel — ohne diese Angaben lässt sich ein Ausdruck weder
             der ATO noch einem Formularstand zuordnen. */}
-        <div className="hidden border-b-2 border-line/60 pb-2 print:block">
+        <div className="print-head border-b-2 border-line/60 pb-2">
           <p className="text-[11px] font-semibold uppercase tracking-wide">
             {doc.atoName}
             {doc.atoName && approval ? ' · ' : ''}
@@ -192,12 +206,21 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           <h1 className="text-2xl font-bold tracking-tight">
             {record.formTypeId} — {formType?.title ?? ''}
           </h1>
+          {/* Die Person gehoert in den KOPF, weil sich nur der auf jedem Blatt
+              wiederholt (Chrome druckt Fussgruppen nur auf dem letzten Blatt).
+              Damit traegt auch Blatt 3 eines langen Nachweises den Namen. */}
+          {docPersons.length > 0 && (
+            <p className="text-[12px] font-semibold">
+              {personLabel}: {docPersons.join(', ')}
+            </p>
+          )}
           <p className="mt-1 flex justify-between gap-4 text-[11px] text-dim">
             <span>{t('forms:exportStamp', { date: formatDateTime(Date.now() + state.timeOffsetMs), name: currentUser!.name })}</span>
             <span className="zusammen">{doc.formRevision}</span>
           </p>
         </div>
 
+        <div className="print-body space-y-4">
         {/* iPad/iPhone: Druckdialog braucht einen Fingertipp */}
         {printHint && (
           <div className="space-y-3 rounded-xl border border-accent/40 bg-accent/10 p-3.5 print:hidden">
@@ -374,9 +397,15 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         {/* Bewertungen */}
         {record.trainees.map((tr, i) => (
           <Card key={i} className="p-4">
-            <div className="mb-3 flex items-center justify-between gap-2">
-              <p className="text-[15px] font-semibold">{traineeLabel(tr)}</p>
-              <span className="flex items-center gap-2">
+            {/* Name links, Position/Sitz und Ergebnis rechts — die rechte
+                Gruppe schrumpft NICHT: Bei einem langen Namen blieben ihr am
+                Telefon wenige Millimeter, und die projektweite Umbruchregel
+                machte aus dem Ergebnis „Not Compe/tent". Gemessen bei 320 px:
+                „Competent" stand auf zwei Zeilen. Passt beides nicht
+                nebeneinander, rueckt das Ergebnis geschlossen darunter. */}
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+              <p className="min-w-0 text-[15px] font-semibold">{traineeLabel(tr)}</p>
+              <span className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap">
                 <span className="text-[12px] text-dim">{[tr.position, tr.seat].filter(Boolean).join(' · ')}</span>
                 {tr.overall && (
                   <span
@@ -431,14 +460,21 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             {/* Ankreuzzeilen im Wortlaut des Originalformulars */}
             <CardHeading className="mb-2">Overall Result</CardHeading>
             <div className="space-y-1.5 text-[13.5px]">
+              {/* Maßgeblich ist `isNotCompetent`, nicht das rohe Feld: Eine 1 oder
+                  zwei Zweien machen einen Piloten rechnerisch „Not Competent"
+                  (gradingRules), unabhaengig davon, was im Feld steht. Vorher
+                  las diese Zeile nur das Feld — auf dem Papier stand dann
+                  „☒ Competent / Continue to next session", waehrend die Ampel
+                  gelb war und die App ein 306 einforderte. Das Dokument ist der
+                  Nachweis; es darf dem System nicht widersprechen. */}
               {record.trainees.map((tr, i) => (
                 <div key={i}>
                   <p className="flex items-start gap-2">
-                    <span className="font-mono">{tr.overall === 'competent' ? '☒' : '☐'}</span>
+                    <span className="font-mono">{!isNotCompetent(tr) && tr.overall === 'competent' ? '☒' : '☐'}</span>
                     <span>Competent / Continue to next session</span>
                   </p>
                   <p className="flex items-start gap-2">
-                    <span className="font-mono">{tr.overall === 'not_competent' ? '☒' : '☐'}</span>
+                    <span className="font-mono">{isNotCompetent(tr) ? '☒' : '☐'}</span>
                     <span>Not Competent / Additional training required{pilotFootnotes ? ' *' : ''}</span>
                   </p>
                   <p className="flex items-start gap-2">
@@ -593,8 +629,10 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 // Form 310 (Deferred Item) geht IMMER an den Training Admin
                 ...(record.formTypeId === '310' ? grading.deferredRecipients : []),
                 // 306 (Additional Training) geht zusätzlich an die Eskalationsempfänger
+                // Dieselbe Regel wie oben: auch der rechnerisch nicht
+                // bestandene Pilot loest die Eskalation aus.
                 ...(record.formTypeId === '306' ||
-                record.trainees.some((tr) => tr.overall === 'not_competent') ||
+                record.trainees.some(isNotCompetent) ||
                 record.sessionStatus === 'not_completed'
                   ? grading.escalationRecipients
                   : []),
@@ -604,14 +642,16 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           </p>
         )}
 
-        {/* Druck-Fuß: Dokumentkennung auf jedem Blatt, immer zuunterst */}
-        <p className="hidden border-t border-line/40 pt-1.5 text-[10px] text-dim print:block">
+        </div>
+
+        {/* Druck-Fuß: schliesst das Dokument ab (ID, Stand, Status). Er steht
+            auf dem LETZTEN Blatt — Chrome wiederholt Fussgruppen im Druck
+            nicht zuverlaessig, Kopfgruppen schon. Die Zuordnung jedes
+            einzelnen Blattes traegt deshalb der Kopf. */}
+        <p className="print-foot border-t border-line/40 pt-1.5 text-[10px] text-dim">
           {[
             doc.atoName,
             `${record.formTypeId} — ${formType?.title ?? ''}`,
-            // Auf einem mehrseitigen Ausdruck traegt sonst nur Blatt 1 den
-            // Namen; ein einzeln herausgeloestes Blatt 2 waere niemandem
-            // mehr zuzuordnen.
             docPersons.join(', '),
             doc.formRevision,
             `ID ${record.id}`,

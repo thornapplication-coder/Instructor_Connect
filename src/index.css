@@ -256,6 +256,17 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
   }
 }
 
+/*
+ * Kopf und Fuss des gedruckten Dokuments sind am Bildschirm unsichtbar.
+ * Bewusst hier statt ueber `hidden print:block`: Die Utility-Klasse setzt
+ * im Druck `display: block` und schlaegt damit die Tabellenrolle, auf der
+ * die Wiederholung je Blatt beruht (siehe @media print).
+ */
+.print-head,
+.print-foot {
+  display: none;
+}
+
 @media print {
   :root,
   :root[data-theme='dark'] {
@@ -295,6 +306,34 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
   @page {
     size: A4 portrait;
     margin: 0 6mm;
+  }
+
+  /*
+   * Kopf und Fuss auf JEDEM Blatt.
+   *
+   * Beide waren gewoehnliche Elemente im Textfluss und standen damit genau
+   * einmal: der Kopf auf Blatt 1, der Fuss auf dem letzten. Ein 307A mit
+   * zwanzig Teilnehmern oder ein Grading Sheet mit zwei Piloten ergibt aber
+   * Folgeblaetter — und die trugen weder ATO noch Formularnummer, Person
+   * oder Status. Aus dem Stapel gezogen war ein solches Blatt niemandem
+   * mehr zuzuordnen.
+   *
+   * Der Umweg ueber die Tabellenrollen ist der einzige, der in Chrome UND
+   * Safari (iPad!) zuverlaessig wiederholt: `position: fixed` druckt Chrome
+   * je nach Fassung nur auf dem ersten Blatt.
+   */
+  .print-doc {
+    display: table;
+    width: 100%;
+  }
+  .print-head {
+    display: table-header-group;
+  }
+  .print-body {
+    display: table-row-group;
+  }
+  .print-foot {
+    display: table-footer-group;
   }
 
   /* Breite Tabellen (Flottenmatrix, Formularlisten) im Querformat, damit
