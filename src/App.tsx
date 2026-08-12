@@ -14,6 +14,7 @@ import { decodeChain, GradingForm } from './pages/GradingForm'
 import { GradingView } from './pages/GradingView'
 import { Home } from './pages/Home'
 import { LessonPlans } from './pages/LessonPlans'
+import { Notes } from './pages/Notes'
 import { Imprint } from './pages/Imprint'
 import { InstructorInfo } from './pages/InstructorInfo'
 import { Login } from './pages/Login'
@@ -41,6 +42,7 @@ function Screen() {
     if (r.startsWith('/info')) return 'info'
     if (r.startsWith('/feedback')) return 'feedback'
     if (r.startsWith('/contacts')) return 'contacts'
+    if (r.startsWith('/notes')) return 'notes'
     return null
   }
   const blocked = moduleOfRoute(route)
@@ -76,6 +78,7 @@ function Screen() {
   else if (route === '/lessons') page = <LessonPlans />
   else if (route === '/info') page = <InstructorInfo />
   else if (route === '/contacts') page = <WhoToCall />
+  else if (route === '/notes') page = <Notes />
   else if (route === '/feedback') page = <Feedback />
   // #/admin/<bereich>[/<unterbereich>] — die Verwaltung ist adressierbar
   else if (route.startsWith('/admin')) page = <Admin sub={route.slice('/admin'.length).replace(/^\//, '').split('?')[0]} />

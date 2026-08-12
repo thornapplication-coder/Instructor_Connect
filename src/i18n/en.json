@@ -160,6 +160,26 @@
     "scheduled": "Scheduled — not yet visible to users",
     "sinceRelease": "from release"
   },
+  "notes": {
+    "title_plural": "Notes",
+    "new": "New note",
+    "edit": "Edit note",
+    "title": "Title",
+    "body": "Note",
+    "aircraftType": "Aircraft type",
+    "general": "General",
+    "allTypes": "All types",
+    "pinned": "Pinned",
+    "pin": "Pin to top",
+    "unpin": "Unpin",
+    "search": "Search notes …",
+    "empty": "No notes yet. Jot down what you want to remember for the next session.",
+    "noMatch": "No note matches the search.",
+    "updatedAt": "Edited {{date}}",
+    "resultCount": "{{shown}} of {{total}} notes match the search",
+    "deleteConfirm": "Delete the note “{{title}}”? This cannot be undone.",
+    "intro": "Your personal notes — nobody else can see them, not even an admin. They are a memory aid, not a record: they are not attached to any form and are never part of an export."
+  },
   "contacts": {
     "call": "Call",
     "mail": "Send a message",

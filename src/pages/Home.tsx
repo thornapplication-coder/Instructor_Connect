@@ -1,4 +1,4 @@
-import { BookOpenCheck, CalendarRange, LogOut, MessageSquareText, MessagesSquare, Phone, Plane, GraduationCap, RefreshCw, ShieldCheck, Share } from 'lucide-react'
+import { BookOpenCheck, LogOut, NotebookPen, MessageSquareText, MessagesSquare, Phone, Plane, GraduationCap, RefreshCw, ShieldCheck, Share } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
@@ -23,6 +23,7 @@ const TILES = [
   { to: '/info', label: 'Instructor Info', icon: GraduationCap },
   { to: '/feedback', label: 'Feedback', icon: MessageSquareText },
   { to: '/contacts', label: 'Who to call', icon: Phone },
+  { to: '/notes', label: 'Notes', icon: NotebookPen },
 ] as const
 
 export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
@@ -63,6 +64,8 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
     '/info': hasNewInfo,
     // Änderungen am Verzeichnis wurden berechnet, aber nie angezeigt
     '/contacts': hasNewContacts,
+    // Notizen schreibt man sich selbst — ein „Neu"-Punkt waere sinnlos.
+    '/notes': false,
   }
 
   // Die Kacheln folgen der Rechte-Matrix: was der Superadmin einer Rolle
@@ -75,6 +78,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
     if (tl.to === '/chat') return moduleAllowed('chat')
     if (tl.to === '/feedback') return moduleAllowed('feedback')
     if (tl.to === '/contacts') return moduleAllowed('contacts')
+    if (tl.to === '/notes') return moduleAllowed('notes')
     return true
   })
 

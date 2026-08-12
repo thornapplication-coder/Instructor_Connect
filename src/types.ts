@@ -147,6 +147,28 @@ export interface LessonPlan {
   createdAt: number
 }
 
+/**
+ * Persoenliche Notiz eines Instruktors.
+ *
+ * Sie gehoert ausschliesslich ihrem Autor — kein Admin, kein Superadmin
+ * sieht sie. Und sie ist ausdruecklich KEIN Nachweis: Sie haengt an keinem
+ * Formular und geht in keinen Behoerdenexport. Wer etwas dokumentieren muss,
+ * fuellt ein Formular aus; wer sich etwas merken will, schreibt eine Notiz.
+ */
+export interface Note {
+  id: string
+  authorId: string
+  title: string
+  body: string
+  /** Musterbezug — leer = allgemein. Gliedert die Liste wie ueberall sonst. */
+  aircraftType?: string
+  /** Angeheftet: steht in einer eigenen Gruppe ganz oben. */
+  pinned: boolean
+  createdAt: number
+  /** Zeitpunkt der letzten Aenderung — danach sortiert die Liste. */
+  updatedAt: number
+}
+
 export interface Contact {
   id: string
   department: string
@@ -170,7 +192,7 @@ export const PERM_KEYS: PermKey[] = ['grading_create', 'grading_view_all', 'info
 
 /** Module der App — steuert Kacheln UND Routen, damit ein gesperrtes Modul
  *  nicht über die Adresszeile erreichbar bleibt. */
-export type ModuleKey = 'grading' | 'lessons' | 'chat' | 'info' | 'feedback' | 'contacts'
+export type ModuleKey = 'grading' | 'lessons' | 'chat' | 'info' | 'feedback' | 'contacts' | 'notes'
 
 /** Rollen, deren Rechte der Superadmin konfiguriert (er selbst darf immer alles) */
 export type ConfigurableRole = 'group_admin' | 'training_admin'
@@ -228,6 +250,10 @@ export interface AppState {
   gradingRecords: GradingRecord[]
   lessonPlans: LessonPlan[]
   feedbackEntries: FeedbackEntry[]
+  /** Persoenliche Notizen aller Nutzer. Optional, damit ein gespeicherter
+   *  Altbestand ohne diese Liste gueltig bleibt — migrateState traegt sie
+   *  nach. Die Sicht filtert immer auf den eigenen Autor. */
+  notes?: Note[]
   /** je Nutzer: mit Stern markierte Instructor-Info-Einträge */
   starredInfo: Record<string, string[]>
   /** Lese-Bestätigungen: Eintrag-ID -> Nutzer-ID -> Zeitstempel */
