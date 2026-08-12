@@ -218,7 +218,8 @@
     "attach": "Attach photo or PDF",
     "scopeLabel": "Reference",
     "scopeGeneral": "General",
-    "scopeAircraft": "Aircraft type related"
+    "scopeAircraft": "Aircraft type related",
+    "safetyWarning": "⛔️ WRITE A SAFETY REPORT ⛔️"
   },
   "admin": {
     "title": "Admin Panel",

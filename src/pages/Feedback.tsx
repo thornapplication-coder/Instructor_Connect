@@ -25,6 +25,8 @@ export function Feedback() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   const categories = [...state.settings.feedbackCategories].sort((a, b) => a.localeCompare(b))
+  /** Sicherheitsrelevante Kategorie — am Wortbestandteil erkannt, siehe unten. */
+  const isSafety = category.toLowerCase().includes('safety')
   const recipients = [...state.settings.feedbackRecipients].sort((a, b) => a.localeCompare(b))
 
   const pickFile = (file: File | null) => {
@@ -136,6 +138,30 @@ export function Feedback() {
             ))}
           </select>
         </Field>
+
+        {/*
+         * Sicherheitsrelevantes gehoert NICHT in ein Feedback-Formular.
+         *
+         * Feedback landet bei einem Empfaenger im Haus und wird dort
+         * gelesen, wenn jemand Zeit hat — ein Safety Report geht in das
+         * Meldesystem der Organisation und loest dort einen Vorgang aus.
+         * Wer hier „Safety" waehlt, ist einen Klick davon entfernt, einen
+         * meldepflichtigen Sachverhalt im falschen Kanal abzulegen. Die
+         * Warnung erscheint deshalb sofort bei der Auswahl, nicht erst beim
+         * Absenden, und sie ist rot: Sie soll unterbrechen.
+         *
+         * Erkannt wird die Kategorie am Wortbestandteil, nicht am exakten
+         * Namen — die Liste ist im Admin-Panel frei bearbeitbar, und
+         * „Safety / Security" oder „SAFETY" muessen genauso greifen.
+         */}
+        {isSafety && (
+          <p
+            role="alert"
+            className="flex items-center justify-center gap-2 rounded-xl border-2 border-danger bg-danger/10 px-4 py-3 text-center text-[15px] font-bold uppercase tracking-wide text-danger"
+          >
+            {t('feedback.safetyWarning')}
+          </p>
+        )}
 
         {/* Musterbezug: betrifft die Rückmeldung ein bestimmtes Muster oder
             ist sie allgemein? Bei Musterbezug wird das Muster verlangt. */}
