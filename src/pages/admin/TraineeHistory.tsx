@@ -1,7 +1,7 @@
 import { ArrowLeft, ChevronRight, Minus, Search, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Card, inputCls } from '../../components/ui'
+import { Card, CardHeading, inputCls } from '../../components/ui'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { traineeHistories, type CompetencyTrack, type TraineeHistory as History } from '../../traineeHistory'
@@ -102,7 +102,7 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
       </Card>
 
       <Card className="space-y-2.5 p-4">
-        <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.course')}</p>
+        <CardHeading>{t('forms:admin.course')}</CardHeading>
         {/* Wiederkehrende Schwächen zuerst — sie sind der Grund, warum man
             diese Ansicht überhaupt öffnet. */}
         {[...history.competencies]
@@ -113,7 +113,7 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
       </Card>
 
       <Card className="space-y-1.5 p-4">
-        <p className="text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.sessionList')}</p>
+        <CardHeading>{t('forms:admin.sessionList')}</CardHeading>
         {history.sessions.map((s) => (
           <button
             key={s.recordId}

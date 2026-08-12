@@ -55,6 +55,12 @@ prüfen, nicht der Code anzupassen**, bis er zum Test passt.
   `forms:`-Schlüssel existiert, und de/en führen dieselben Schlüssel.
   Folge, bewusst in Kauf genommen: Auch die Bedienleisten des Grading-
   Bereichs im Admin-Panel (Filter, Reiter, Export-Knöpfe) sind englisch.
+- **Überschriften** kommen aus `SectionHeading` (gliedert die Seite,
+  Akzentmarke + Linie) und `CardHeading` (beschriftet den Inhalt einer
+  Karte). Beide in `text-ink`, nicht `text-dim`: Eine Überschrift ist die
+  Struktur des Textes, nicht sein Kleingedrucktes. Wer eine neue
+  Zwischenüberschrift braucht, nimmt eine der beiden — das Muster war
+  vorher an vierzig Stellen von Hand geschrieben und wich überall leicht ab.
 - **Kommentare** erklären das *Warum* (gern mit dem Befund, der dahintersteht),
   nicht das *Was*. Deutsch, wie der Bestand.
 - **Auslieferung:** Entwicklung im Feature-Branch, Merge per PR nach `main`;

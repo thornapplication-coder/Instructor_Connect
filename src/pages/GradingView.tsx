@@ -5,7 +5,7 @@ import { networkReachable } from '../net'
 import { useUnsavedWork } from '../editGuard'
 import { SignaturePad } from '../components/SignaturePad'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, Page, TopBar } from '../components/ui'
+import { Badge, Button, Card, CardHeading, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { useStore, userHasPerm } from '../store'
 import type { GradingRecord } from '../types'
@@ -260,7 +260,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
 
         {/* Kopfdaten */}
         <Card className="p-4">
-          <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:headerData')}</p>
+          <CardHeading className="mb-3">{t('forms:headerData')}</CardHeading>
           <dl className="grid gap-x-4 gap-y-2 text-[13.5px] sm:grid-cols-2">
             <div className="flex justify-between gap-3 border-b border-line/[0.06] pb-1.5">
               <dt className="text-dim">{t('forms:instructor')}</dt>
@@ -311,7 +311,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         {/* Teilnehmerliste (307A/307B) */}
         {record.attendance && record.attendance.length > 0 && (
           <Card className="p-4">
-            <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:attendance')}</p>
+            <CardHeading className="mb-2">{t('forms:attendance')}</CardHeading>
             {/* 307A trägt die Unterschrift jedes Teilnehmers, 307B (CBT/WBT/VCR)
                 findet ohne Anwesenheit statt — dort bürgt der Instruktor. */}
             <ol className="space-y-1 text-[13.5px]">
@@ -392,7 +392,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         {record.sessionStatus && (
           <Card className="p-4">
             {/* Ankreuzzeilen im Wortlaut des Originalformulars */}
-            <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-dim">Overall Result</p>
+            <CardHeading className="mb-2">Overall Result</CardHeading>
             <div className="space-y-1.5 text-[13.5px]">
               {record.trainees.map((tr, i) => (
                 <div key={i}>
@@ -427,7 +427,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         {/* Anhängende Formulare */}
         {linked.length > 0 && (
           <Card className="p-4">
-            <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:linkedForms')}</p>
+            <CardHeading className="mb-2">{t('forms:linkedForms')}</CardHeading>
             {linked.map((l) => (
               <div key={l.id} className="py-1 text-[13.5px]">
                 {/* Auf Papier muss der Verweis stehen bleiben — der Druckstil
@@ -449,7 +449,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
 
         {/* Unterschriften */}
         <Card className="p-4">
-          <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:signatures')}</p>
+          <CardHeading className="mb-3">{t('forms:signatures')}</CardHeading>
           {/* Wurde die Unterschrift des Piloten in Vertretung eingeholt, gehört
               das auf das Dokument — auch auf den Ausdruck. */}
           {record.lateSignatureBy && (

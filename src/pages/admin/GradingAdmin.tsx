@@ -1,7 +1,7 @@
 import { Eye, EyeOff, AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, Scale, SlidersHorizontal, CalendarRange, Trash2, TrendingDown, UserRound, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, Field, inputCls, selectCls } from '../../components/ui'
+import { Badge, Button, Card, CardHeading, Field, inputCls, selectCls } from '../../components/ui'
 import { csvNum, csvRow, downloadCsv } from '../../csv'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
@@ -942,7 +942,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
           </Card>
 
           <Card className="p-4">
-            <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.competencySets')}</p>
+            <CardHeading className="mb-3">{t('forms:admin.competencySets')}</CardHeading>
             {g.competencySets.map((set) => (
               <CompetencySetEditor
                 key={set.key}
@@ -956,7 +956,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
           </Card>
 
           <Card className="p-4">
-            <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.formTypes')}</p>
+            <CardHeading className="mb-3">{t('forms:admin.formTypes')}</CardHeading>
             <FormTypeEditor formTypes={g.formTypes} onChange={(formTypes) => updateGrading({ formTypes })} />
           </Card>
         </div>
@@ -1036,9 +1036,9 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               </p>
 
               <Card className="p-4">
-                <p className="mb-2 flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-dim">
+                <CardHeading className="mb-2 flex items-center gap-2">
                   <TrendingDown size={15} /> {t('forms:admin.trendFlags')}
-                </p>
+                </CardHeading>
                 {st.trendFlags.length === 0 && <p className="text-[13px] text-dim">{t('forms:admin.noTrendFlags')}</p>}
                 {st.trendFlags.map((f) => (
                   <div key={f.code} className="flex items-center justify-between gap-3 border-b border-line/[0.06] py-1.5 text-[13.5px] last:border-0">
@@ -1050,7 +1050,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               </Card>
 
               <Card className="p-4">
-                <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.calibration')}</p>
+                <CardHeading className="mb-3">{t('forms:admin.calibration')}</CardHeading>
                 <p className="mb-2 text-[12.5px] text-dim">
                   {t('forms:admin.overallAvg')}: <span className="font-semibold text-ink">{st.calibration.overall?.toFixed(2) ?? '–'}</span>
                 </p>
@@ -1077,7 +1077,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               </Card>
 
               <Card className="p-4">
-                <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.fleetMatrix')}</p>
+                <CardHeading className="mb-3">{t('forms:admin.fleetMatrix')}</CardHeading>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[12.5px]">
                     <thead>
@@ -1122,7 +1122,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
           ))}
 
           <Card className="p-4">
-            <p className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.export')}</p>
+            <CardHeading className="mb-3">{t('forms:admin.export')}</CardHeading>
             <div className="flex flex-wrap gap-2">
               {(['records', 'competencies', 'people'] as const).map((s) => (
                 <Button

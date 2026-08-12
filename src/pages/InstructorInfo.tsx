@@ -1,7 +1,7 @@
 import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
+import { Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
 import { infoEntryAppliesTo, infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
 import { formatDate, formatDateTime } from './Grading'
@@ -292,7 +292,7 @@ export function InstructorInfo() {
           return (
             <div key={entry.id}>
             {heading && (
-              <p className="mb-1.5 mt-3 px-1 text-[12px] font-semibold uppercase tracking-wide text-dim first:mt-0">{heading}</p>
+              <SectionHeading className="mb-2 mt-4 px-1 first:mt-0">{heading}</SectionHeading>
             )}
             <Card className={`p-3 ${expired ? 'opacity-60' : ''}`}>
               <div className="flex items-start gap-2.5">

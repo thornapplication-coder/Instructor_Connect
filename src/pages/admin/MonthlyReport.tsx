@@ -1,7 +1,7 @@
 import { CalendarRange, Download, Info } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Card, selectCls } from '../../components/ui'
+import { Card, CardHeading, selectCls } from '../../components/ui'
 import { csvNum, csvRow, downloadCsv } from '../../csv'
 import type { Flag } from '../../gradingStats'
 import {
@@ -82,7 +82,7 @@ function Distribution({ dist, t }: { dist: Figures['dist']; t: (k: string) => st
   const total = Object.values(dist).reduce((a, b) => a + b, 0)
   return (
     <div>
-      <p className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-dim">{t('forms:admin.distribution')}</p>
+      <CardHeading className="mb-2">{t('forms:admin.distribution')}</CardHeading>
       <div className="flex flex-wrap gap-1.5">
         {(['1', '2', '3', '4', '5', 'NO'] as const).map((k) => {
           const n = dist[k] ?? 0
