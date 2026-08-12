@@ -176,7 +176,11 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
    * gesichert und beim nächsten Öffnen angeboten. Unterschriften werden
    * bewusst NIE gesichert — sie müssen immer neu geleistet werden.
    */
-  const draftKey = `aaa-draft-${recordId ?? parentId ?? 'new'}-${formTypeId ?? ''}`
+  // Der Schluessel traegt den Nutzer: Auf einem im Schulungsbetrieb
+  // geteilten iPad bekam sonst der naechste Instruktor den Entwurf des
+  // vorigen angeboten — mit Pilotenname, Noten und Kommentaren. Fremde
+  // Bewertungsdaten landeten so im eigenen Blatt.
+  const draftKey = `aaa-draft-${currentUser!.id}-${recordId ?? parentId ?? 'new'}-${formTypeId ?? ''}`
   const dirty =
     !existing &&
     (Object.values(header).some((v) => v?.trim()) ||

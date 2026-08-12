@@ -79,8 +79,17 @@ self.addEventListener('message', (e) => {
 
 // Nur vollständige, fehlerfreie Antworten cachen — ein einzelner 404/503
 // würde sonst dauerhaft ausgeliefert und die App blockieren.
-function cacheable(r) {
-  return r && r.ok && r.status === 200 && r.type !== 'opaque'
+// Nur vollstaendige, fehlerfreie Antworten VOM EIGENEN Server cachen.
+// `redirected` und der Inhaltstyp gehoeren dazu: Eine Anmeldeseite im
+// Gaeste-WLAN (genau die Umgebung, fuer die net.ts eigens einen
+// Inhaltstyp-Test hat) beantwortet auch den Aufruf einer .js-Datei mit
+// 200/HTML. Weil Dateien cache-first ausgeliefert werden, bliebe diese
+// Seite bis zum naechsten Deployment im Cache — die App waere kaputt.
+function cacheable(r, url) {
+  if (!r || !r.ok || r.status !== 200 || r.type === 'opaque' || r.redirected) return false
+  const typ = (r.headers.get('content-type') || '').toLowerCase()
+  if (typ.includes('text/html') && !/\.html?$/.test(url.pathname)) return false
+  return true
 }
 
 self.addEventListener('fetch', (e) => {
@@ -98,7 +107,17 @@ self.addEventListener('fetch', (e) => {
     // dort nicht existiert, und die App startete offline nie wieder.
     // Der Precache aus der Installation ist als PAAR konsistent; er ist
     // der einzige richtige Offline-Rückfall.
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request).then((hit) => hit || caches.match('./'))))
+    // Mit ZEITGRENZE: Ohne sie haengt der Seitenaufruf im Hangar mit einem
+    // Balken Empfang am Netz-Timeout des Systems (zig Sekunden), bevor
+    // ueberhaupt in den Cache geschaut wird — die App wirkt tot, obwohl
+    // alles lokal vorliegt. Nach 2,5 s gewinnt der Cache.
+    const ausCache = () => caches.match(e.request).then((hit) => hit || caches.match('./'))
+    e.respondWith(
+      Promise.race([
+        fetch(e.request).catch(() => ausCache()),
+        new Promise((res) => setTimeout(() => res(ausCache().then((hit) => hit || fetch(e.request))), 2500)),
+      ]),
+    )
     return
   }
   // Assets sind inhaltsgehasht: Cache zuerst, Netz als Fallback
@@ -107,7 +126,7 @@ self.addEventListener('fetch', (e) => {
       (hit) =>
         hit ||
         fetch(e.request).then((r) => {
-          if (cacheable(r)) {
+          if (cacheable(r, url)) {
             const copy = r.clone()
             caches.open(CACHE).then((c) => c.put(e.request, copy))
           }

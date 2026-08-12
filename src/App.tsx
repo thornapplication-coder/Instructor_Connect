@@ -37,7 +37,11 @@ function Screen() {
   // die Kachel auszublenden reicht nicht.
   const moduleOfRoute = (r: string): ModuleKey | null => {
     if (r.startsWith('/chat')) return 'chat'
-    if (r.startsWith('/grading')) return 'grading'
+    // `/report` ist die alte Monatsbericht-Adresse und leitet ins Grading
+    // Tool um. Ohne diese Zeile griff die Modulsperre dort nicht: Die
+    // Grading-Ansicht rendert einen Durchgang lang samt Altbestaenden,
+    // bevor der Effekt umleitet.
+    if (r.startsWith('/grading') || r.startsWith('/report')) return 'grading'
     if (r.startsWith('/lessons')) return 'lessons'
     if (r.startsWith('/info')) return 'info'
     if (r.startsWith('/feedback')) return 'feedback'

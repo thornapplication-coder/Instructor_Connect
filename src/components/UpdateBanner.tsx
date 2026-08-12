@@ -30,6 +30,9 @@ export function UpdateBanner() {
   const [waiting, setWaiting] = useState<ServiceWorker | null>(null)
   // true, sobald die Übernahme angestoßen ist — dann darf neu geladen werden
   const tookOver = useRef(false)
+  // Erstinstallation: Vor der Registrierung gibt es keinen Controller — der
+  // erste `controllerchange` ist dann kein Update und darf nichts neu laden.
+  const erstinstallation = useRef(!navigator.serviceWorker?.controller)
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return
@@ -46,9 +49,26 @@ export function UpdateBanner() {
     const announce = (sw: ServiceWorker) => setWaiting(sw)
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      // Neu laden, sobald die neue Version übernommen hat — außer bei der
-      // Erstinstallation (dann gab es vorher keinen Controller).
-      if (tookOver.current) window.location.reload()
+      /*
+       * Neu laden, sobald die neue Version uebernommen hat — auch dann, wenn
+       * die Uebernahme aus einem ANDEREN Tab kam.
+       *
+       * Bisher lud nur der Tab neu, der sie angestossen hatte. Die uebrigen
+       * liefen mit altem Code unter dem neuen Worker weiter, dessen
+       * `activate` ihre Caches bereits geloescht hat — jede Datei, die sie
+       * spaeter nachfordern, ist auf dem Server laengst ersetzt. Ein solcher
+       * Tab ist ein Zombie.
+       *
+       * Bei der ERSTINSTALLATION (vorher gab es keinen Controller) wird
+       * nicht neu geladen, und offene Arbeit wird nicht weggeworfen: Dann
+       * bleibt der Streifen stehen und der Nutzer entscheidet.
+       */
+      if (tookOver.current) {
+        window.location.reload()
+        return
+      }
+      if (erstinstallation.current) return
+      if (!hasUnsavedWork()) window.location.reload()
     })
 
     navigator.serviceWorker

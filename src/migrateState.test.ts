@@ -128,12 +128,20 @@ describe('migrateState — Zusagen, die bisher niemand geprueft hat', () => {
     expect(migrateState(eigen).settings.documentHeader.approvalNumberUK).toBe('GBR.ATO.1234')
   })
 
-  it('steigt ohne documentHeader aus, statt zu stolpern', () => {
-    // Altbestand ohne Kopfdaten: die Migration darf nicht werfen.
+  it('stolpert nicht ueber fehlende Kopfdaten — ergaenzt sie aber, statt auszusteigen', () => {
+    /*
+     * Hier stand `expect(migrateState(st)).toBe(st)`: Ohne Kopfdaten sollte
+     * die Migration den Bestand unveraendert zurueckgeben. Diese Zusage wird
+     * bewusst aufgegeben. Sie hiess in der Praxis, dass ein Geraet ohne
+     * `documentHeader` auch KEINE `notes`, keine Schulungsarten und keine
+     * Kategorien bekam — alle Nachtraege liegen unter jenem Ausstieg. Der
+     * Bestand blieb unangetastet, die App war dafuer unbenutzbar.
+     * Geblieben ist die eigentliche Zusage: werfen darf sie nicht.
+     */
     const st = createSeedState()
     delete (st.settings as { documentHeader?: unknown }).documentHeader
     expect(() => migrateState(st)).not.toThrow()
-    expect(migrateState(st)).toBe(st)
+    expect(migrateState(st).settings.documentHeader?.approvalNumber).toBe('AT.ATO.106')
   })
 
   it('benennt den Demo-Platzhalter um, aber nur solange der alte Name steht', () => {
@@ -164,5 +172,43 @@ describe('migrateState — Schulungsarten der Lesson Plans', () => {
     const alt = createSeedState()
     alt.settings.lessonCategories = ['Nur das hier']
     expect(migrateState(alt).settings.lessonCategories).toEqual(['Nur das hier'])
+  })
+})
+
+describe('migrateState — fehlende Kopfdaten blockieren nichts mehr', () => {
+  /**
+   * Hier stand ein `if (!dh) return st` GANZ OBEN, und darunter liegen
+   * saemtliche Feld-Nachtraege. Ein Bestandsgeraet ohne `documentHeader`
+   * bekam damit auch keine `notes` — und jede Stelle, die
+   * `state.notes.length` liest, lief auf `undefined`.
+   */
+  it('traegt Notizen und Schulungsarten auch ohne documentHeader nach', () => {
+    const alt = createSeedState()
+    delete (alt.settings as { documentHeader?: unknown }).documentHeader
+    delete (alt as { notes?: unknown }).notes
+    delete (alt.settings as { lessonCategories?: string[] }).lessonCategories
+    const neu = migrateState(alt)
+    expect(neu.notes).toEqual([])
+    expect(neu.settings.lessonCategories).toContain('Type Rating')
+  })
+
+  it('ergaenzt die fehlenden Kopfdaten selbst', () => {
+    const alt = createSeedState()
+    delete (alt.settings as { documentHeader?: unknown }).documentHeader
+    const neu = migrateState(alt)
+    expect(neu.settings.documentHeader?.atoName).toBe('Aviation Academy Austria')
+    expect(neu.settings.documentHeader?.approvalNumber).toBe('AT.ATO.106')
+  })
+
+  it('macht aus einer fehlenden Formularliste eine leere', () => {
+    // Der Offline-Streifen zaehlt darauf den Ausgangskorb, ungeprueft.
+    const alt = createSeedState()
+    delete (alt as { gradingRecords?: unknown }).gradingRecords
+    expect(migrateState(alt).gradingRecords).toEqual([])
+  })
+
+  it('laesst einen Zustand ohne Einstellungen unveraendert, statt abzustuerzen', () => {
+    const kaputt = { users: [] } as unknown as ReturnType<typeof createSeedState>
+    expect(migrateState(kaputt)).toBe(kaputt)
   })
 })

@@ -67,6 +67,18 @@ function idbSet(key: string, value: string): Promise<void> {
   )
 }
 
+/** Alle Schluessel des Speichers — fuer Aufraeumen und Fuellstand. */
+function idbKeys(): Promise<string[]> {
+  return openDb().then(
+    (db) =>
+      new Promise((resolve, reject) => {
+        const rq = db.transaction(DB_STORE).objectStore(DB_STORE).getAllKeys()
+        rq.onsuccess = () => resolve((rq.result as IDBValidKey[]).map(String))
+        rq.onerror = () => reject(rq.error)
+      }),
+  )
+}
+
 function idbDel(key: string): Promise<void> {
   return openDb().then(
     (db) =>
@@ -150,26 +162,42 @@ export function readPreloadedState(): string | null {
   return preloaded
 }
 
-/** Zustand sichern. Fehler werden gemeldet statt verschluckt. */
-export function persistState(payload: string) {
+/**
+ * Zustand sichern. Fehler werden gemeldet statt verschluckt.
+ *
+ * Reihenfolge: erst SCHREIBEN, dann den anderen Tabs Bescheid geben. Vorher
+ * ging der Ruf voraus — lief die Ablage voll, galt der Stand in allen Tabs
+ * als gesichert (der empfangende Tab merkt sich den Stand als „schon
+ * geschrieben" und schreibt nicht selbst), lag aber nirgends.
+ *
+ * Rueckgabe: ob es geklappt hat. Der Aufrufer setzt bei `false` seinen
+ * Merker zurueck und versucht es erneut.
+ */
+export async function persistState(payload: string): Promise<boolean> {
   // Nach einem Lesefehler wird nichts geschrieben: Was nicht gelesen werden
   // konnte, darf nicht überschrieben werden.
   if (readFailed) {
     window.dispatchEvent(new CustomEvent(STORAGE_ERROR_EVENT))
-    return
+    return false
   }
-  broadcast(payload)
   if (idbBroken) {
     try {
       localStorage.setItem(STATE_KEY, payload)
     } catch {
       window.dispatchEvent(new CustomEvent(STORAGE_ERROR_EVENT))
+      return false
     }
-    return
+    broadcast(payload)
+    return true
   }
-  idbSet(STATE_KEY, payload).catch(() => {
+  try {
+    await idbSet(STATE_KEY, payload)
+  } catch {
     window.dispatchEvent(new CustomEvent(STORAGE_ERROR_EVENT))
-  })
+    return false
+  }
+  broadcast(payload)
+  return true
 }
 
 /**
@@ -182,7 +210,13 @@ export function persistState(payload: string) {
  * niemand die Ablage von Hand räumt.
  */
 export function backupPersistedState(raw: string, version: number | undefined): void {
-  const key = `${STATE_KEY}-backup-v${version ?? 'unknown'}`
+  /*
+   * Der Schluessel traegt auch den Zeitpunkt. Vorher enthielt er nur die
+   * Version — und die Folge v2 → v1 → v2 → v1 schrieb beim letzten Schritt
+   * die inzwischen neu aufgebaute v2-Ablage ueber `…-backup-v2` und loeschte
+   * damit die einzige Kopie der echten Daten.
+   */
+  const key = `${STATE_KEY}-backup-v${version ?? 'unknown'}-${Date.now()}`
   if (idbBroken) {
     try {
       localStorage.setItem(key, raw)
@@ -238,13 +272,42 @@ export function subscribeToOtherTabs(onState: (raw: string) => void): () => void
   return () => ch.removeEventListener('message', handler)
 }
 
+/** Alle Schluessel der Ablage — fuer Aufraeumen und Fuellstand. */
+async function alleSchluessel(): Promise<string[]> {
+  if (idbBroken) {
+    try {
+      return Object.keys(localStorage).filter((k) => k.startsWith(STATE_KEY))
+    } catch {
+      return []
+    }
+  }
+  try {
+    return await idbKeys()
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Zuruecksetzen raeumt AUCH die Sicherungen.
+ *
+ * Vorher blieb jede Versions-Sicherung liegen: fremde Notizen und endgueltig
+ * geloeschte Formulare ueberlebten das Zuruecksetzen unbegrenzt — unsichtbar,
+ * unzaehlbar, und niemand kam mehr heran.
+ */
 export function clearPersistedState() {
   try {
-    localStorage.removeItem(STATE_KEY)
+    Object.keys(localStorage)
+      .filter((k) => k === STATE_KEY || k.startsWith(`${STATE_KEY}-backup`))
+      .forEach((k) => localStorage.removeItem(k))
   } catch {
     /* ohne localStorage gibt es dort nichts zu verwerfen */
   }
-  if (!idbBroken) idbDel(STATE_KEY).catch(() => undefined)
+  if (!idbBroken) {
+    void alleSchluessel().then((keys) =>
+      keys.filter((k) => k === STATE_KEY || k.startsWith(`${STATE_KEY}-backup`)).forEach((k) => idbDel(k).catch(() => undefined)),
+    )
+  }
 }
 
 export interface StorageInfo {
@@ -262,11 +325,20 @@ export async function storageInfo(): Promise<StorageInfo | null> {
     const est = await navigator.storage?.estimate?.()
     const raw = idbBroken ? localStorage.getItem(STATE_KEY) : await idbGet(STATE_KEY)
     const stateBytes = raw ? new Blob([raw]).size : 0
-    if (!est?.quota) return { usage: stateBytes, quota: 0, stateBytes }
+    // Die Versions-Sicherungen zaehlen mit: Sie verdoppeln den Bedarf, und
+    // ohne sie schlug die 85-%-Warnung erst an, wenn es laengst zu spaet war.
+    const backupKeys = (await alleSchluessel()).filter((k) => k.startsWith(`${STATE_KEY}-backup`))
+    let backupBytes = 0
+    for (const k of backupKeys) {
+      const b = idbBroken ? localStorage.getItem(k) : await idbGet(k)
+      if (b) backupBytes += new Blob([b]).size
+    }
+    const eigen = stateBytes + backupBytes
+    if (!est?.quota) return { usage: eigen, quota: 0, stateBytes }
     // Die Browser-Schätzung hinkt frischen Schreibvorgängen hinterher —
     // gemessen: 3,9 MB gemeldet bei 14 MB tatsächlichem Bestand. Der eigene
     // Bestand ist die Untergrenze.
-    return { usage: Math.max(est.usage ?? 0, stateBytes), quota: est.quota, stateBytes }
+    return { usage: Math.max(est.usage ?? 0, eigen), quota: est.quota, stateBytes }
   } catch {
     return null
   }

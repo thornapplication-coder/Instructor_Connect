@@ -2,6 +2,7 @@ import { Lock, Plane } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Button, Card, inputCls, ThemeToggle } from '../components/ui'
+import { SANDBOX } from '../sandbox/flag'
 import { useStore } from '../store'
 import { APP_VERSION } from '../types'
 
@@ -157,6 +158,12 @@ export function Login() {
           </form>
         )}
 
+        {/* Schnellanmeldung NUR in der Sandbox. Sie war als einziger
+            Sandbox-Baustein nicht an das Flag gebunden: In einem Build mit
+            VITE_SANDBOX=false haette die Liste weiter dagestanden und per
+            Klick als Superadmin angemeldet — ohne Code, ohne Domainpruefung
+            der Anmeldestrecke. */}
+        {SANDBOX && (
         <div className="mt-8 rounded-2xl border border-amber-400/25 bg-amber-400/5 p-4">
           <p className="mb-2.5 text-[12px] font-semibold uppercase tracking-wide text-sand">{t('login.sandboxUsers')}</p>
           <div className="space-y-1">
@@ -178,6 +185,7 @@ export function Login() {
               ))}
           </div>
         </div>
+        )}
 
         <div className="mt-8 space-y-1 text-center text-[11px] text-dim">
           <p>{t('login.noSignup')}</p>
