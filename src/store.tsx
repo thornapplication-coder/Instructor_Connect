@@ -95,7 +95,7 @@ export interface Store {
   /** Eigene Notizen — fremde sind in dieser Liste gar nicht erst enthalten. */
   visibleNotes: Note[]
   /** Anlegen ODER aendern: ohne `id` entsteht eine neue Notiz. */
-  saveNote: (n: { id?: string; title: string; body: string; aircraftType: string }) => void
+  saveNote: (n: { id?: string; title: string; body: string }) => void
   deleteNote: (id: string) => void
   toggleNotePin: (id: string) => void
   addLessonPlan: (plan: { title: string; description: string; aircraftType: string; category: string; fileName: string }) => void
@@ -1016,7 +1016,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // aber verlassen darf man sich darauf nicht.
           const vorher = n.id ? alle.find((x) => x.id === n.id && x.authorId === s.currentUserId) : undefined
           if (n.id && !vorher) return null
-          const gesaeubert = { title: n.title.trim(), body: n.body.trim(), aircraftType: n.aircraftType.trim() }
+          const gesaeubert = { title: n.title.trim(), body: n.body.trim() }
           if (!gesaeubert.title) return null
           return {
             notes: vorher

@@ -10,19 +10,19 @@ import type { Note } from './types'
  * sieht sie nicht. Das ist die Voraussetzung dafür, dass jemand überhaupt
  * offen etwas notiert; eine Notiz, die mitgelesen wird, ist keine.
  *
+ * Bewusst OHNE Musterbezug: Der erste Entwurf hatte einen, weil ihn jede
+ * andere Liste der App führt. Für eine Merkliste ist er Ballast — man tippt
+ * drei Wörter und will sie ablegen, nicht einordnen. Wer die Zuordnung
+ * braucht, schreibt sie in den Titel.
+ *
  * Hier liegt nur die reine Logik: sortieren, suchen, gruppieren. Kein React,
  * kein Store — damit sie prüfbar bleibt.
  */
 
 /** Angeheftete Notizen stehen in einer eigenen Gruppe ganz oben. */
-export const PINNED = ' pinned'
-/** Notizen ohne Musterbezug — sie stehen am Ende, nicht vorn. */
-export const GENERAL = ''
-
-/** Musterbezug einer Notiz, sauber getrimmt. */
-export function aircraftOf(n: Note): string {
-  return n.aircraftType?.trim() ?? ''
-}
+export const PINNED = 'pinned'
+/** Alles Übrige. */
+export const OTHERS = 'others'
 
 /**
  * Reihenfolge innerhalb einer Gruppe: zuletzt geändert zuerst.
@@ -43,21 +43,20 @@ export function searchNotes(notes: Note[], query: string): Note[] {
 }
 
 /**
- * Gruppen für die Liste: erst „Angeheftet", dann je Muster alphabetisch,
- * zuletzt die Notizen ohne Musterbezug.
+ * Gruppen für die Liste: „Angeheftet" oben, darunter alles Übrige.
  *
- * Eine angeheftete Notiz erscheint NUR oben und nicht zusätzlich in ihrer
- * Muster-Gruppe — sonst stünde dieselbe Notiz zweimal in derselben Liste,
- * und man wüsste beim Löschen nicht, welche man erwischt.
+ * Eine angeheftete Notiz erscheint NUR oben und nicht zusätzlich weiter
+ * unten — sonst stünde dieselbe Notiz zweimal in derselben Liste, und man
+ * wüsste beim Löschen nicht, welche man erwischt. Leere Gruppen entfallen:
+ * Solange nichts angeheftet ist, braucht die Liste keine Überschrift.
  */
 export function groupNotes(notes: Note[]): { key: string; notes: Note[] }[] {
   const pinned = notes.filter((n) => n.pinned).sort(byRecent)
-  const rest = notes.filter((n) => !n.pinned)
-  const muster = [...new Set(rest.map(aircraftOf))].sort((a, b) =>
-    a === GENERAL ? 1 : b === GENERAL ? -1 : a.localeCompare(b),
-  )
-  const gruppen = muster.map((key) => ({ key, notes: rest.filter((n) => aircraftOf(n) === key).sort(byRecent) }))
-  return pinned.length > 0 ? [{ key: PINNED, notes: pinned }, ...gruppen] : gruppen
+  const rest = notes.filter((n) => !n.pinned).sort(byRecent)
+  return [
+    ...(pinned.length > 0 ? [{ key: PINNED, notes: pinned }] : []),
+    ...(rest.length > 0 ? [{ key: OTHERS, notes: rest }] : []),
+  ]
 }
 
 /**
@@ -73,9 +72,4 @@ export function notePreview(body: string, max = 120): string {
   const schnitt = eine.slice(0, max)
   const luecke = schnitt.lastIndexOf(' ')
   return `${(luecke > max * 0.6 ? schnitt.slice(0, luecke) : schnitt).trimEnd()}…`
-}
-
-/** Musterliste für die Filterleiste — nur Muster, zu denen es Notizen gibt. */
-export function aircraftTypesOf(notes: Note[]): string[] {
-  return [...new Set(notes.map(aircraftOf).filter(Boolean))].sort((a, b) => a.localeCompare(b))
 }

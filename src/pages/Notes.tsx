@@ -1,8 +1,8 @@
-import { NotebookPen, Pencil, Pin, PinOff, Plane, Plus, Search, Trash2 } from 'lucide-react'
+import { NotebookPen, Pencil, Pin, PinOff, Plus, Search, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
-import { aircraftTypesOf, groupNotes, notePreview, PINNED, searchNotes } from '../notes'
+import { Button, Card, Field, inputCls, Modal, Page, SectionHeading, TopBar } from '../components/ui'
+import { groupNotes, notePreview, PINNED, searchNotes } from '../notes'
 import { useStore } from '../store'
 import type { Note } from '../types'
 
@@ -25,10 +25,8 @@ function NoteEditor({ note, onClose }: { note?: Note; onClose: () => void }) {
   const { state, saveNote } = useStore()
   const [title, setTitle] = useState(note?.title ?? '')
   const [body, setBody] = useState(note?.body ?? '')
-  const [aircraftType, setAircraftType] = useState(note?.aircraftType ?? '')
 
-  const geaendert =
-    title !== (note?.title ?? '') || body !== (note?.body ?? '') || aircraftType !== (note?.aircraftType ?? '')
+  const geaendert = title !== (note?.title ?? '') || body !== (note?.body ?? '')
 
   return (
     <Modal
@@ -49,17 +47,6 @@ function NoteEditor({ note, onClose }: { note?: Note; onClose: () => void }) {
             rows={6}
           />
         </Field>
-        {/* Musterbezug: erste Zelle leer, Rest alphabetisch — wie ueberall (#16). */}
-        <Field label={t('notes.aircraftType')}>
-          <select value={aircraftType} onChange={(e) => setAircraftType(e.target.value)} className={selectCls}>
-            <option value="">{t('notes.general')}</option>
-            {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-        </Field>
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -67,7 +54,7 @@ function NoteEditor({ note, onClose }: { note?: Note; onClose: () => void }) {
           <Button
             disabled={!title.trim()}
             onClick={() => {
-              saveNote({ id: note?.id, title, body, aircraftType })
+              saveNote({ id: note?.id, title, body })
               onClose()
             }}
           >
@@ -83,7 +70,6 @@ export function Notes() {
   const { t, i18n } = useTranslation()
   const { visibleNotes, deleteNote, toggleNotePin } = useStore()
   const [query, setQuery] = useState('')
-  const [filter, setFilter] = useState('')
   /** null = Dialog zu, undefined = neue Notiz, Note = diese aendern */
   const [editor, setEditor] = useState<Note | undefined | null>(null)
 
@@ -94,18 +80,8 @@ export function Notes() {
       year: 'numeric',
     })
 
-  const musterTypen = useMemo(() => aircraftTypesOf(visibleNotes), [visibleNotes])
-  // Ein Filter auf ein Muster, zu dem es keine Notiz (mehr) gibt, wird
-  // ignoriert — sonst bliebe die Liste nach dem Loeschen der letzten Notiz
-  // dieses Musters ohne erkennbaren Grund leer.
-  const activeFilter = musterTypen.includes(filter) ? filter : ''
-  const gefiltert = useMemo(
-    () => searchNotes(visibleNotes, query).filter((n) => !activeFilter || (n.aircraftType ?? '') === activeFilter),
-    [visibleNotes, query, activeFilter],
-  )
+  const gefiltert = useMemo(() => searchNotes(visibleNotes, query), [visibleNotes, query])
   const gruppen = useMemo(() => groupNotes(gefiltert), [gefiltert])
-  const gruppenTitel = (key: string) =>
-    key === PINNED ? t('notes.pinned') : key === '' ? t('notes.general') : key
 
   return (
     <>
@@ -138,30 +114,6 @@ export function Notes() {
           />
         </label>
 
-        {musterTypen.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            <button
-              onClick={() => setFilter('')}
-              className={`min-h-11 shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
-                !activeFilter ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
-              }`}
-            >
-              {t('notes.allTypes')}
-            </button>
-            {musterTypen.map((a) => (
-              <button
-                key={a}
-                onClick={() => setFilter(activeFilter === a ? '' : a)}
-                className={`min-h-11 flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
-                  activeFilter === a ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
-                }`}
-              >
-                <Plane size={13} /> {a}
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* Suchergebnis ansagen — sichtbar aendert sich nur die Liste. */}
         <p role="status" className="sr-only">
           {t('notes.resultCount', { shown: gefiltert.length, total: visibleNotes.length })}
@@ -177,10 +129,15 @@ export function Notes() {
         )}
 
         {gruppen.map(({ key, notes }) => (
-          <section key={key || 'general'} className="space-y-3">
-            <SectionHeading icon={key === PINNED ? <Pin size={13} className="shrink-0 text-accent" /> : undefined}>
-              {gruppenTitel(key)}
-            </SectionHeading>
+          <section key={key} className="space-y-3">
+            {/* Ueberschrift nur, wenn es auch etwas zu unterscheiden gibt:
+                Eine einzelne Gruppe braucht keinen Titel ueber der ganzen
+                Liste — das waere eine Beschriftung ohne Gegenstueck. */}
+            {gruppen.length > 1 && (
+              <SectionHeading icon={key === PINNED ? <Pin size={13} className="shrink-0 text-accent" /> : undefined}>
+                {t(key === PINNED ? 'notes.pinned' : 'notes.others')}
+              </SectionHeading>
+            )}
             {notes.map((n) => (
               <Card key={n.id} className="p-4">
                 <div className="flex items-start gap-3">
@@ -191,7 +148,6 @@ export function Notes() {
                     <p className="text-[15px] font-semibold leading-snug">{n.title}</p>
                     {n.body && <p className="mt-1 text-[13.5px] leading-relaxed text-dim">{notePreview(n.body)}</p>}
                     <p className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-[11.5px] text-dim">
-                      {n.aircraftType && <span className="shrink-0 font-medium">{n.aircraftType} ·</span>}
                       {/* Geaendert steht vor Angelegt: Bei einer Merkliste
                           zaehlt, wann man zuletzt drangesessen ist. */}
                       <span className="shrink-0">{t('notes.updatedAt', { date: dateLabel(n.updatedAt) })}</span>
