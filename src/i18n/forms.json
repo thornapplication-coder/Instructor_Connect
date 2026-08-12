@@ -9,7 +9,7 @@
   "headerData": "Header data",
   "trainee": "Trainee",
   "personPilot": "Pilot / Student Name",
-  "personCai": "Candidate Instructor — name",
+  "personCai": "Candidate Instructor (CAI)",
   "traineeN": "Pilot {{n}}",
   "position": "Position",
   "addTrainee": "Add another pilot",
