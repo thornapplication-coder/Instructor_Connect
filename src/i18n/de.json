@@ -218,7 +218,8 @@
     "attach": "Foto oder PDF anhängen",
     "scopeLabel": "Bezug",
     "scopeGeneral": "Allgemein",
-    "scopeAircraft": "Musterbezogen"
+    "scopeAircraft": "Musterbezogen",
+    "safetyWarning": "⛔️ WRITE A SAFETY REPORT ⛔️"
   },
   "admin": {
     "title": "Admin Panel",
