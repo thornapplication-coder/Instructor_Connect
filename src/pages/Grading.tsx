@@ -169,12 +169,17 @@ function TrainingAdminGrading() {
         {/* Reiter: Abgeschlossen / Zu bearbeiten / Verlauf je Pilot.
             Der Verlauf traegt keinen Zaehler — er zaehlt Piloten, nicht
             Formulare, und stuende sonst irrefuehrend neben den beiden. */}
-        <div className="flex gap-2">
+        {/* Raster statt einer Reihe: Vier Reiter nebeneinander liessen am
+            Telefon je rund 80 px — „Completed forms" brach dort mitten im
+            Wort („Complet/ed"), weil die projektweite Umbruchregel bei
+            drohendem Ueberlauf greift. Zwei Spalten geben jedem Reiter die
+            Breite, die sein laengstes Wort braucht. */}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {(['completed', 'open', 'trainees', 'monthly'] as const).map((tb) => (
             <button
               key={tb}
               onClick={() => setTab(tb)}
-              className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
+              className={`min-h-11 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
                 tab === tb ? 'border-accent bg-accent/15 text-accent' : 'border-line/15 text-dim'
               }`}
             >
@@ -230,9 +235,20 @@ function TrainingAdminGrading() {
 
         {list.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('forms:empty')}</p>}
 
-        {/* Einfache, kompakte Liste */}
+        {/* Kompakte Liste, nach Schulungstag gebuendelt — juengster Tag
+            zuerst, wie in der Instruktorenansicht. In der Ablage stehen
+            Blaetter mehrerer Piloten desselben Durchgangs untereinander und
+            sahen ohne Grenze gleich aus; wo ein Tag endete, war nicht zu
+            sehen. Das Datum steht deshalb EINMAL ueber der Gruppe statt in
+            jeder Zeile — dort stand es ueberdies als Anlagedatum, waehrend
+            sortiert und gefiltert wird nach dem Schulungstag (#51). Die
+            Filter darueber bleiben unveraendert und greifen weiterhin
+            zuerst; gebuendelt wird nur, was sie uebrig lassen. */}
+        {byDay(list).map(([tag, blaetter]) => (
+        <div key={tag} className="space-y-1.5">
+        <SectionHeading sticky>{formatDate(gradingListDate(blaetter[0]))}</SectionHeading>
         <div className="divide-y divide-line/[0.06] overflow-hidden rounded-xl border border-line/10 bg-surface/60">
-          {list.map((r) => (
+          {blaetter.map((r) => (
             <div
               key={r.id}
               onClick={() => navigate(`/grading/${r.id}`)}
@@ -257,7 +273,6 @@ function TrainingAdminGrading() {
                   </span>
                   <span className="shrink-0">· {userName(r.instructorId)}</span>
                   <span className="shrink-0">· {r.header.aircraftType || '—'}</span>
-                  <span className="shrink-0">· {formatDate(r.createdAt)}</span>
                 </p>
               </div>
               {/* PDF-Download/Druck (öffnet die Ein-Seiten-Druckansicht) */}
@@ -279,6 +294,8 @@ function TrainingAdminGrading() {
             </div>
           ))}
         </div>
+        </div>
+        ))}
         </>
         )}
       </Page>
@@ -352,13 +369,13 @@ export function Grading() {
         {/* Umschalter Formulare / Verlauf je Pilot — nur mit vollem
             Archivzugriff, sonst zeigte der Verlauf bloß Lücken. */}
         {views.length > 1 && (
-          <div className="flex gap-2">
+          <div className={`grid grid-cols-2 gap-2 ${views.length === 3 ? 'sm:grid-cols-3' : 'sm:grid-cols-2'}`}>
             {views.map((v) => (
               <button
                 key={v}
                 onClick={() => setAdminView(v)}
                 aria-pressed={adminView === v}
-                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
+                className={`min-h-11 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
                   adminView === v ? 'border-accent bg-accent/15 text-accent' : 'border-line/15 text-dim'
                 }`}
               >

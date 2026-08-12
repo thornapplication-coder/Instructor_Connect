@@ -54,14 +54,19 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
 
   // Der Browser benennt das gedruckte PDF nach dem Dokumenttitel. Solange
   // dieses Formular offen ist, heißt das Dokument deshalb nach dem Schema
-  // Form_Titel_Instruktor_Datum_Event — z. B.
-  // "308A_Grading Sheet TR_Michael Holy_05.08.2026_FFS4".
+  // Form_Titel_Person_Instruktor_Datum_Event — z. B.
+  // "308A_Grading Sheet TR_Sophie Berger_Michael Holy_05.08.2026_FFS4".
   useEffect(() => {
     if (!record) return
     const typ = state.settings.grading.formTypes.find((f) => f.id === record.formTypeId)
+    // Der Name der geschulten Person gehoert in den Dateinamen: Abgelegt
+    // wird nach Pilot, nicht nach Instruktor — ohne ihn liegen zwoelf
+    // gleichnamige PDFs im selben Ordner.
+    const person = record.trainees.map((tr) => tr.traineeName || state.users.find((u) => u.id === tr.traineeId)?.name || '').filter(Boolean)
     const teile = [
       record.formTypeId,
       typ?.title ?? '',
+      (person.length > 0 ? person : [record.header.traineeName].filter(Boolean)).join(', '),
       state.users.find((u) => u.id === record.instructorId)?.name ?? '',
       record.header.date ? formatDate(record.header.date) : '',
       (record.header.event ?? '').replace(/\s+/g, ''),
@@ -123,6 +128,30 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
       : []
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
   const traineeLabel = (tr: { traineeName?: string; traineeId: string }) => tr.traineeName || userName(tr.traineeId)
+
+  /**
+   * Wer wurde geschult — auf dem DOKUMENT, nicht nur in der Bewertung.
+   *
+   * Die Grading Sheets (308A–H) fuehren ihre Person in `trainees`, nicht als
+   * Kopfdatenfeld. Auf dem Ausdruck stand sie damit erst weit unten als
+   * Ueberschrift ueber dem Notenraster: Der Kopf eines 308A nannte Muster,
+   * Datum und Instruktor — aber nicht den Piloten. Wer das Blatt aus der
+   * Ablage zieht oder das PDF ablegt, sucht genau diesen Namen zuerst.
+   * 306 und 310 haben ihn als eigenes Kopffeld (`traineeName`); dort waere
+   * eine zweite Zeile eine Dopplung, deshalb die Abfrage.
+   */
+  const personNames = record.trainees.map(traineeLabel).filter(Boolean)
+  const hasNameField = !!formType?.fields.some((f) => f.key === 'traineeName')
+  // 308G beurteilt keinen Piloten, sondern einen angehenden Instruktor. Die
+  // Benennung folgt dem Originalformular, das bereits „Candidate Instructor —
+  // position" fuehrt; ohne den Zusatz „name" staenden zwei Zeilen
+  // „Candidate Instructor" untereinander, eine mit der Qualifikation, eine
+  // mit der Person.
+  const personLabel = formType?.competencySet === 'instructor' ? t('forms:personCai') : t('forms:personPilot')
+  const showPersonRow = !hasNameField && personNames.length > 0
+  // Fuer Fuss und Dateiname: 306/310 tragen ihre Person im Kopffeld, die
+  // Grading Sheets in `trainees` — beide Wege muessen zum selben Namen fuehren.
+  const docPersons = personNames.length > 0 ? personNames : [record.header.traineeName].filter(Boolean)
 
   // Kopf-/Fußzeile des Ausdrucks kommt aus den Einstellungen, damit der
   // Superadmin ATO-Kennung und Formularstand ohne Deployment pflegen kann.
@@ -262,6 +291,14 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         <Card className="p-4">
           <CardHeading className="mb-3">{t('forms:headerData')}</CardHeading>
           <dl className="grid gap-x-4 gap-y-2 text-[13.5px] sm:grid-cols-2">
+            {/* Die geschulte Person steht an erster Stelle — sie ist die
+                Zuordnung des Nachweises, alles andere beschreibt den Termin. */}
+            {showPersonRow && (
+              <div className="flex justify-between gap-3 border-b border-line/[0.06] pb-1.5">
+                <dt className="text-dim">{personLabel}</dt>
+                <dd className="text-right font-medium">{personNames.join(', ')}</dd>
+              </div>
+            )}
             <div className="flex justify-between gap-3 border-b border-line/[0.06] pb-1.5">
               <dt className="text-dim">{t('forms:instructor')}</dt>
               <dd className="text-right font-medium">{userName(record.instructorId)}</dd>
@@ -572,6 +609,10 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           {[
             doc.atoName,
             `${record.formTypeId} — ${formType?.title ?? ''}`,
+            // Auf einem mehrseitigen Ausdruck traegt sonst nur Blatt 1 den
+            // Namen; ein einzeln herausgeloestes Blatt 2 waere niemandem
+            // mehr zuzuordnen.
+            docPersons.join(', '),
             doc.formRevision,
             `ID ${record.id}`,
             record.status === 'signed'
