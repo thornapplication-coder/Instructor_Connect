@@ -22,9 +22,19 @@ Twilio oder Kosten. Der Anwendungszustand wird im Browser gespeichert und
 - **Who to call** — Kontaktverzeichnis mit Suche sowie `tel:`- und
   `mailto:`-Links, gruppiert nach Abteilung.
 - **Feedback** — Formular mit Kategorien und wählbarem Empfänger; nicht anonym.
+  Wird die Kategorie „Safety" gewählt, erscheint sofort der rote Hinweis, dass
+  ein Safety Report zu schreiben ist — das Feedback-Modul ist kein Meldeweg.
+- **Notes** — persönliche Merkliste. Jede Notiz gehört ausschließlich ihrem
+  Verfasser; kein Admin und kein Superadmin sieht sie, und sie geht in keinen
+  Export. Der Training Admin hat das Modul nicht. Bewusst ohne Musterbezug: Man
+  tippt drei Wörter und legt sie ab, statt sie einzuordnen.
 - **Admin Panel** — Benutzer, Rechte-Matrix, Grading-Konfiguration, Gruppen,
   Feedback, Einstellungen, Impressum und Changelog. Der Superadmin sieht alles,
   ein Gruppenadmin nur seine eigenen Gruppen und deren Rückmeldungen.
+
+Der Monatsbericht ist ein Reiter im Grading Tool, keine eigene Kachel — zwei
+Wege zur selben Auswertung hießen, sie an zwei Stellen zu pflegen. Alte
+Lesezeichen auf `#/report` landen dort.
 
 ## Rollen
 
@@ -41,29 +51,59 @@ Nachrichten und Unterschriften zuordenbar bleiben.
 ## Anmeldung
 
 Ausschließlich per E-Mail-Adresse, die der Admin im Panel anlegt — sie ist die
-einzige Anmeldekennung und muss eindeutig sein. Wahlweise direkt oder über
-einen sechsstelligen Code, der bis Mitternacht gilt und nach fünf
-Fehlversuchen verbraucht ist. Erlaubte Domains sind in den Einstellungen
-hinterlegt.
+einzige Anmeldekennung und muss eindeutig sein. Der Weg im Betrieb ist der
+sechsstellige Code: Er gilt bis Mitternacht und ist nach fünf Fehlversuchen
+verbraucht. Erlaubte Domains sind in den Einstellungen hinterlegt.
+
+Die Anmeldung ohne Code — die Namensliste auf dem Anmeldebildschirm — gibt es
+**nur in der Sandbox**. Sie hängt am Flag `VITE_SANDBOX`, ebenso wie die
+Store-Aktion dahinter; in einem Produktivbuild führt beides ins Leere.
+
+Sitzung und Aktiv-Status werden im laufenden Betrieb geprüft, nicht nur beim
+Start: Eine offene App bleibt nicht über Mitternacht hinaus angemeldet, und
+wer im Admin-Panel deaktiviert wird, ist beim nächsten Takt abgemeldet.
+
+**Benutzer aus einer Tabelle:** Für den Erstaufbau lädt der Superadmin unter
+Benutzer eine Vorlage herunter (`.xlsx` mit Auswahllisten oder CSV), füllt sie
+aus und lädt sie wieder hoch. Vor dem Anlegen zeigt die App jede Zeile mit
+Status; angelegt werden nur die fehlerfreien. Geprüft wird gegen Domainliste,
+Bestand, Musterliste und Rollen-Schreibweisen — eine Zeile, die hier grün ist,
+kann sich anschließend auch wirklich anmelden.
 
 ## Druck und PDF
 
 Formulare drucken auf A4 mit 6 mm Rand; der Maßstab ist so gewählt, dass auch
-ein Blatt mit neun kommentierten Kompetenzen auf eine Seite passt. Kopf- und
-Fußzeile tragen Organisation, Genehmigungsnummer, Formularstand und
-Dokumentkennung — pflegbar im Admin Panel unter Einstellungen. Breite
+ein Blatt mit neun kommentierten Kompetenzen auf eine Seite passt. Breite
 Auswertungen drucken im Querformat, Tabellenköpfe wiederholen sich auf
 Folgeseiten.
 
-Die Seitenzahl setzt der Druckstandard über die Rand-Boxen. Nachgemessen am
-PDF-Export: „Page n of m" steht auf **jeder** Seite. (Eine frühere Fassung
-dieses Abschnitts behauptete, Chrome und Edge ignorierten die Rand-Boxen —
-für den PDF-Weg trifft das nicht mehr zu.)
+**Der Dokumentkopf wiederholt sich auf jedem Blatt.** Er trägt ATO-Name,
+Zulassungsnummer, Formularnummer samt Titel, den Namen der geschulten Person
+und den Formularstand. Vorher standen Kopf und Fuß je einmal — der Kopf auf
+Blatt 1, der Fuß auf dem letzten; ein 307A mit zwanzig Teilnehmern ergab
+Folgeblätter ohne jede Zuordnung. Umgesetzt über die Tabellenrollen des
+Druckstandards (`display: table-header-group`), weil das als einziger Weg in
+Chrome **und** Safari/iPad zuverlässig wiederholt.
 
-Die Kopfzeile mit ATO, Formularnummer und Datensatz-ID steht dagegen nur auf
-**einer** Seite, nicht auf allen — bei mehrseitigen Formularen ist ein
-einzelnes Blatt damit nicht zuordenbar. Offener Punkt, siehe
-`docs/audit-2026-08.md`.
+Der Fuß mit Datensatz-ID, Stand und Status schließt das Dokument auf dem
+letzten Blatt ab — Fußgruppen wiederholt Chrome nicht verlässlich, deshalb
+trägt der Kopf die blattweise Zuordnung.
+
+Seitenzahlen liefert der Druckdialog des Browsers, wenn dort „Kopf- und
+Fußzeilen" eingeschaltet sind; die App steuert das nicht und kann es ohne
+zusätzliche PDF-Bibliothek auch nicht.
+
+Was auf dem Dokument steht, ist beim Unterschreiben **eingefroren**:
+ATO-Name, Zulassungsnummer, Formularstand und Formulartitel wandern in den
+Datensatz und sind ab Abdruck-Fassung 3 Teil des Fingerabdrucks. Vorher las
+der Ausdruck sie zur Druckzeit aus den Einstellungen — ein altes Formular
+druckte nach einer Änderung im Panel eine andere Zulassungsnummer, und der
+Fingerabdruck meldete trotzdem „unverändert".
+
+Der Dateiname des PDF folgt dem Schema
+`Form_Titel_Person_Instruktor_Datum_Event`. Unter dem Notenraster steht der
+Notenmaßstab: Gedruckt sind es nackte Ziffern plus Farbe, und die fällt in
+Schwarzweiß weg.
 
 ## Verwaltung
 
@@ -73,11 +113,19 @@ verlinken, die Zurück-Taste geht eine Ebene hoch statt aus dem Panel heraus.
 Eine Adresse, die der Rolle nicht offensteht, führt in die Übersicht zurück
 und wird auch in der Adresszeile zurückgesetzt.
 
-Wer welche Bereiche sieht: Superadmin alle acht; Admin die Bereiche Gruppen
-und Feedback; der Training Admin arbeitet nicht im Panel, sondern in der
-Formularablage des Grading Tools. Ab 1024 px Breite ist das Panel bedienbar,
-darunter erscheint ein Hinweis — dieselbe Grenze gilt für den Einstieg auf der
-Startseite.
+Wer welche Bereiche sieht: Superadmin alle acht (Benutzer, Rechte, Grading,
+Gruppen, Feedback, Einstellungen, Impressum, Changelog); Admin die Bereiche
+Gruppen und Feedback; der Training Admin arbeitet nicht im Panel, sondern in
+der Formularablage des Grading Tools. Ab 1024 px Breite ist das Panel
+bedienbar, darunter erscheint ein Hinweis — dieselbe Grenze gilt für den
+Einstieg auf der Startseite.
+
+Die **Ablage des Training Admins** hat vier Reiter (abgeschlossen, zu
+bearbeiten, Verlauf je Pilot, Monatsbericht) und vier Filter (Zeitraum,
+Pilot, Muster, Instruktor). Was die Filter übrig lassen, steht nach
+Schulungstag gebündelt — jüngster Tag zuerst, das Datum einmal über der
+Gruppe statt in jeder Zeile. Gelöscht wird dort nichts: Ausbuchen bleibt dem
+Superadmin vorbehalten (ORA.GEN.220).
 
 Gruppen löschen geht an zwei Stellen: im Panel unter Gruppen und direkt im
 Chat unter Gruppen-Info. Beide fragen vorher nach und nennen, wie viele
@@ -100,7 +148,18 @@ den Offline-Zustand und die Zahl der wartenden Formulare.
 Sobald wieder Empfang da ist, geht der Ausgangskorb selbsttätig raus. Geprüft
 wird dafür nicht nur das `online`-Ereignis, sondern auch das Sichtbarwerden
 der App: wer das Gerät im Flugmodus einsteckt und später aufweckt, bekommt
-sonst kein `online`-Ereignis zu sehen.
+sonst kein `online`-Ereignis zu sehen. Maßgeblich ist eine echte
+Erreichbarkeitsprobe gegen den eigenen Origin, nicht `navigator.onLine` — das
+meldet auch im WLAN ohne Internet „online".
+
+Zwei Vorkehrungen halten den Start im Funkloch kurz und den Cache sauber: Ein
+Seitenaufruf wartet höchstens 2,5 Sekunden auf das Netz und nimmt dann den
+Cache; und eine Anmeldeseite eines Gäste-WLANs (200 mit HTML statt der
+angeforderten Datei) landet nicht im Cache — sonst bliebe sie dort bis zum
+nächsten Deployment stehen.
+
+Nachgemessen wird das nicht nur im Code: Kaltstart ohne Netz, Notiz schreiben,
+neu laden, Formular offline unterschreiben (`queued`), Netz zurück (`sent`).
 
 ## Standardisierungsbericht
 
@@ -140,6 +199,37 @@ Die vier Regeln der gemeinsamen Datenbasis, jede mit Grund:
 
 Beide Ansichten nennen diesen Ausschnitt sichtbar über der Tabelle.
 
+## Daten und Datenschutz
+
+Der gesamte Anwendungszustand liegt im Browser des Geräts (IndexedDB,
+Datenbank `instructor-connect`) — es gibt in dieser Fassung keinen Server, der
+Inhalte speichert, und keine Analyse-, Tracking- oder Werbedienste. Ausgehende
+Verbindungen gehen ausschließlich an den eigenen Origin.
+
+Was gespeichert wird: Benutzerstammdaten (Name, dienstliche E-Mail, Telefon,
+Rolle, zugewiesene Muster), Grading-Formulare samt Noten, Kommentaren und
+Unterschriftsbildern, Chat-Nachrichten, Instructor-Info-Einträge samt
+Lese-Bestätigungen, Rückmeldungen, Kontakte und persönliche Notizen.
+
+Drei Festlegungen sind für den Datenschutz wesentlich:
+
+- **Notizen sind privat.** Sie gehören ausschließlich ihrem Verfasser; die
+  Store-Ansicht reicht fremde Notizen gar nicht erst heraus, und kein Export
+  enthält sie.
+- **Unterschriften werden nie gespeichert oder wiederverwendet.** Sie werden
+  jedes Mal live auf dem Gerät geleistet und gehören zu genau einem Dokument;
+  ein Fingerabdruck bindet sie an dessen Inhalt.
+- **Konten werden deaktiviert statt gelöscht**, damit unterschriebene
+  Formulare zuordenbar bleiben. Ein Löschwunsch nach Art. 17 DSGVO betrifft
+  deshalb Chat, Notizen und Stammdaten; die Ausbildungsnachweise selbst
+  unterliegen der aufsichtsrechtlichen Aufbewahrung (ORA.GEN.220).
+
+Auf dem Gerät zwischengespeicherte Inhalte sind unverschlüsselt — ein
+verlorenes, ungesperrtes Gerät gibt sie preis. Gerätesperre und Abmelden auf
+fremden Geräten sind Teil des Schutzkonzepts, nicht Kür. Der vollständige
+Text steht im Impressum der App (Abschnitt „Datenschutz"), zweisprachig und
+im Admin Panel pflegbar.
+
 ## Datensicherung
 
 Noch nicht aktiv — die Sandbox hält ihren Zustand im Browser. Sobald die
@@ -157,13 +247,27 @@ täglich um 03:00 Wiener Zeit, 30 Tagessicherungen, dazu die Sicherung vom
 - Der Mailversand ist simuliert und gelingt; ein Seed-Formular zeigt bewusst
   den Fehlerfall. Ohne Netz wandert er in den Ausgangskorb — das Verhalten
   lässt sich mit dem Offline-Schalter der Entwicklerwerkzeuge vorführen
+- Die Schnellanmeldung über die Namensliste gibt es ausschließlich hier
+
+Der Versand gilt als gelungen, sobald der eigene Origin erreichbar ist — eine
+echte Zustellbestätigung kann es ohne Backend nicht geben. Das ist die
+bewusste Grenze der Sandbox und mit der Datenbank aufzulösen.
 
 ## Barrierefreiheit
 
-Alle antippbaren Flächen messen mindestens 44 × 44 px. Texte erreichen in
-beiden Themes mindestens WCAG AA; Ampel- und Statusfarben kommen aus der
-Theme-Datei und wechseln samt Schriftfarbe mit dem Modus. Dialoge schließen
-mit Escape, halten den Tastaturfokus und geben ihn beim Schließen zurück.
+Alle antippbaren Flächen messen mindestens 44 × 44 px, die Schrift am
+Bildschirm mindestens 12 px (im Druck bleibt sie kleiner, dort ist der Satz
+auf eine Seite kalibriert). Texte erreichen in beiden Themes mindestens
+WCAG AA; der aktive Zustand eines Umschalters ist Text auf der Akzentfläche
+statt Akzentschrift auf Akzentfläche — letzteres lag bei 3,86:1.
+
+Zustände werden angesagt, nicht nur gefärbt: `aria-pressed` an jedem
+Umschalter, benannte Gruppen um die Notenknöpfe (sonst las eine Sprachausgabe
+je Kompetenz neunmal „1, 2, 3, 4, 5, NO" ohne Bezug), Namen an allen Filtern
+und Icon-Knöpfen. Nach jedem Seiten- und Schrittwechsel wandert der Fokus auf
+die Überschrift der neuen Ansicht, statt auf `<body>` zu fallen. Dialoge
+schließen mit Escape, halten den Tastaturfokus und geben ihn beim Schließen
+zurück.
 
 ## Veröffentlichung
 
@@ -192,8 +296,17 @@ npm run build   # Produktions-Build (relativer Basispfad, AC_BASE optional)
 npm run preview # Produktions-Build lokal ausliefern
 ```
 
+```bash
+npm test        # Vitest mit Abdeckungsschwelle je Datei
+```
+
+Neue Logik in `src/*.ts` kommt mit Tests — die Schwelle in `vitest.config.ts`
+erfasst alle Logik-Module, eine ungetestete neue Datei lässt `npm test`
+scheitern. Die CI führt Tests, Typprüfung und Build bei jedem Pull Request aus.
+
 Sprache über den DE/EN-Schalter (react-i18next); das Grading-Modul bleibt
-bewusst durchgehend englisch. Theme-Farben zentral in `src/index.css`,
+bewusst durchgehend englisch — seine Texte liegen im Namensraum `forms`, den es
+nur auf Englisch gibt. Theme-Farben zentral in `src/index.css`,
 Hell-/Dunkelmodus umschaltbar. Die fachlichen Regeln des Grading-Moduls
 liegen in `src/gradingRules.ts`, damit Store und Ansichten dieselbe Logik
 nutzen.

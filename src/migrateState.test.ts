@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSeedState } from './sandbox/seed'
 import { migrateState } from './migrateState'
+import { imprintHash, IMPRINT_LEGACY_HASHES } from './sandbox/imprintDefaults'
 
 /**
  * Die Migration holt Bestandsgeraete auf den aktuellen Stand, ohne dass
@@ -9,6 +10,7 @@ import { migrateState } from './migrateState'
  */
 
 const HIST = ['gr-hist1', 'gr-hist2', 'gr-hist3']
+
 const idsOf = (st: ReturnType<typeof createSeedState>) => st.gradingRecords.map((r) => r.id)
 
 /** Ein Bestandsgeraet kennt die Nachtrags-Marke noch nicht — genau das ist
@@ -210,5 +212,46 @@ describe('migrateState — fehlende Kopfdaten blockieren nichts mehr', () => {
   it('laesst einen Zustand ohne Einstellungen unveraendert, statt abzustuerzen', () => {
     const kaputt = { users: [] } as unknown as ReturnType<typeof createSeedState>
     expect(migrateState(kaputt)).toBe(kaputt)
+  })
+})
+
+describe('migrateState — Impressum', () => {
+  /**
+   * Der Text steht in den EINSTELLUNGEN; eine geaenderte Vorgabe erreicht
+   * Bestandsgeraete sonst nie. Ersetzt werden darf aber nur, was noch
+   * unveraendert die alte Vorgabe ist — sonst ueberschreibt ein Update den
+   * selbst geschriebenen Text des Superadmins. Erkannt wird das an der
+   * Pruefsumme der vorigen Vorgabe (IMPRINT_LEGACY_HASHES).
+   */
+  it('rechnet die Pruefsumme stabil — sonst faende die Migration den Altstand nie', () => {
+    // Aendert jemand das Verfahren, passt keine der hinterlegten Pruefsummen
+    // mehr, und der Nachtrag liefe stillschweigend ins Leere.
+    expect(imprintHash('Instructor Connect')).toBe(imprintHash('Instructor Connect'))
+    expect(imprintHash('a')).toBe(177604)
+    expect(imprintHash('b')).not.toBe(imprintHash('a'))
+  })
+
+  it('haelt die aktuelle Vorgabe von der Altstands-Liste fern', () => {
+    // Stuende sie darin, ersetzte sich der Text bei jedem Start selbst.
+    const st = createSeedState()
+    expect(IMPRINT_LEGACY_HASHES).not.toContain(imprintHash(st.settings.imprint.de))
+    expect(IMPRINT_LEGACY_HASHES).not.toContain(imprintHash(st.settings.imprint.en))
+  })
+
+  it('laesst einen selbst geschriebenen Text unangetastet', () => {
+    const alt = createSeedState()
+    alt.settings.imprint = { de: 'Eigener Text', en: 'Own text' }
+    expect(migrateState(alt).settings.imprint).toEqual({ de: 'Eigener Text', en: 'Own text' })
+  })
+
+  it('laesst die aktuelle Vorgabe unveraendert — sie ist ja schon die neue', () => {
+    const st = createSeedState()
+    expect(migrateState(st).settings.imprint.de).toBe(st.settings.imprint.de)
+  })
+
+  it('nennt in beiden Sprachen einen Datenschutz-Abschnitt', () => {
+    const st = createSeedState()
+    expect(st.settings.imprint.de).toContain('# 6. Datenschutz')
+    expect(st.settings.imprint.en).toContain('# 6. Data protection')
   })
 })
