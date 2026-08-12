@@ -317,7 +317,30 @@
     "feedbackEditNote": "Notiz bearbeiten",
     "feedbackNotePlaceholder": "Was wurde gemacht?",
     "feedbackNoteLabel": "Follow-up-Notiz",
-    "lessonCategories": "Schulungsarten der Lesson Plans"
+    "lessonCategories": "Schulungsarten der Lesson Plans",
+    "import": {
+      "button": "Benutzer importieren",
+      "title": "Benutzer aus einer Tabelle anlegen",
+      "intro": "Vorlage herunterladen, in Excel ausfüllen, als „CSV UTF-8“ speichern und hier hochladen. Vor dem Anlegen siehst du jede Zeile. Passwörter gibt es keine: Angemeldet wird sich mit der E-Mail-Adresse und einem 6-stelligen Code — die Adresse entscheidet also, und ihre Domain muss freigegeben sein.",
+      "template": "Vorlage herunterladen (CSV)",
+      "file": "Datei",
+      "line": "Zeile",
+      "status": "Status",
+      "ok": "Wird angelegt",
+      "headerError": "Die Kopfzeile passt nicht. Sie muss mindestens Name, Email und Role enthalten — bitte die Vorlage verwenden.",
+      "summary": "{{ok}} von {{total}} Zeilen können angelegt werden.",
+      "run": "{{count}} Benutzer anlegen",
+      "created": "{{count}} Benutzer angelegt.",
+      "p_name": "Name fehlt",
+      "p_email": "E-Mail fehlt",
+      "p_emailFormat": "E-Mail nicht gültig",
+      "p_emailDomain": "Domain nicht freigegeben — diese Person könnte sich nie anmelden",
+      "p_emailTaken": "E-Mail ist bereits vergeben",
+      "p_emailDuplicate": "E-Mail kommt zweimal in der Datei vor",
+      "p_role": "Rolle unbekannt (superadmin, admin, training admin, member)",
+      "pAircraft": "Unbekanntes Muster verworfen: {{list}}",
+      "templateXlsx": "Vorlage herunterladen (Excel)"
+    }
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",

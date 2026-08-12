@@ -1,9 +1,11 @@
-import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, ClipboardList, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Users, UsersRound, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, ClipboardList, Download, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Upload, Users, UsersRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, CardHeading, ChipMultiSelect, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { storageInfo, type StorageInfo } from '../persist'
+import { downloadCsv } from '../csv'
+import { buildImportTemplate, isImportable, parseUserImport, type ImportResult, type ImportRow } from '../userImport'
 import { useStore } from '../store'
 import { GradingAdmin } from './admin/GradingAdmin'
 import { formatDateTime } from './Grading'
@@ -55,10 +57,161 @@ function StringListEditor({ label, values, onChange }: { label: string; values: 
   )
 }
 
+/**
+ * Nutzer aus einer Tabelle anlegen.
+ *
+ * Drei Schritte, bewusst in dieser Reihenfolge: Vorlage holen, Datei waehlen,
+ * VORSCHAU pruefen. Erst danach wird angelegt. Ein Massenimport, der ohne
+ * Vorschau schreibt, legt beim ersten Tippfehler hundertfuenfzig halbe Nutzer
+ * an — und die wieder einzeln aufzuraeumen dauert laenger als das Anlegen.
+ */
+function UserImportModal({ onClose }: { onClose: () => void }) {
+  const { t } = useTranslation()
+  const { state, importUsers } = useStore()
+  const [result, setResult] = useState<ImportResult | null>(null)
+  const [fileName, setFileName] = useState('')
+  const [done, setDone] = useState<number | null>(null)
+
+  const domain = state.settings.allowedDomains[0] ?? 'aviationacademy.at'
+  const uebernehmbar = (result?.rows ?? []).filter(isImportable)
+
+  const problemText = (r: ImportRow) =>
+    r.problems
+      .map((p) => (p === 'aircraft' ? t('admin.import.pAircraft', { list: r.unknownAircraft.join(', ') }) : t(`admin.import.p_${p}`)))
+      .join(' · ')
+
+  return (
+    <Modal title={t('admin.import.title')} onClose={onClose}>
+      <div className="space-y-3.5">
+        <p className="text-[13px] leading-relaxed text-dim">{t('admin.import.intro')}</p>
+
+        {/* Zwei Wege zur selben Vorlage: Die Excel-Datei bringt Anleitung und
+            Auswahllisten mit, die CSV-Fassung entsteht aus den tatsaechlich
+            eingerichteten Mustern und der ersten freigegebenen Domain. */}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="ghost" className="flex items-center gap-1.5" onClick={() => window.open(`${import.meta.env.BASE_URL}Instructor-Connect-Benutzer-Vorlage.xlsx`, '_blank')}>
+            <Download size={15} /> {t('admin.import.templateXlsx')}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => downloadCsv('instructor-connect-users-template.csv', buildImportTemplate(state.settings.aircraftTypes, domain))}
+            className="flex items-center gap-1.5"
+          >
+            <Download size={15} /> {t('admin.import.template')}
+          </Button>
+        </div>
+
+        <Field label={t('admin.import.file')}>
+          <input
+            type="file"
+            accept=".csv,text/csv"
+            onChange={async (e) => {
+              const datei = e.target.files?.[0]
+              if (!datei) return
+              setFileName(datei.name)
+              setDone(null)
+              setResult(
+                parseUserImport(await datei.text(), {
+                  existing: state.users,
+                  allowedDomains: state.settings.allowedDomains,
+                  aircraftTypes: state.settings.aircraftTypes,
+                }),
+              )
+            }}
+            className="w-full rounded-xl border border-dashed border-line/25 px-3 py-2.5 text-[13px] text-dim file:mr-3 file:rounded-lg file:border-0 file:bg-raised file:px-3 file:py-1.5 file:text-[13px] file:text-accent"
+          />
+          {fileName && <p className="mt-1.5 text-[12.5px] text-dim">{fileName}</p>}
+        </Field>
+
+        {result?.headerError && (
+          <p role="alert" className="rounded-xl bg-danger/10 p-3 text-[13px] leading-relaxed text-danger">
+            {t('admin.import.headerError')}
+          </p>
+        )}
+
+        {result && !result.headerError && (
+          <>
+            <p className="text-[13px] font-medium">
+              {t('admin.import.summary', { ok: uebernehmbar.length, total: result.rows.length })}
+            </p>
+            {/* Vorschau als echte Tabelle: Jede Zeile zeigt, ob sie durchgeht
+                und woran es sonst liegt — mit der Zeilennummer aus Excel. */}
+            <div className="max-h-72 overflow-auto rounded-xl border border-line/15">
+              <table className="w-full border-collapse text-[12.5px]">
+                <thead className="sticky top-0 bg-surface">
+                  <tr className="border-b border-line/15 text-left text-dim">
+                    <th scope="col" className="px-2 py-1.5 font-semibold">{t('admin.import.line')}</th>
+                    <th scope="col" className="px-2 py-1.5 font-semibold">{t('admin.name')}</th>
+                    <th scope="col" className="px-2 py-1.5 font-semibold">{t('admin.role')}</th>
+                    <th scope="col" className="px-2 py-1.5 font-semibold">{t('admin.import.status')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.rows.map((r) => {
+                    const ok = isImportable(r)
+                    return (
+                      <tr key={r.line} className="border-b border-line/[0.06] last:border-0 align-top">
+                        <td className="px-2 py-1.5 tabular-nums text-dim">{r.line}</td>
+                        <td className="px-2 py-1.5">
+                          <span className="font-medium">{r.name || '—'}</span>
+                          <span className="block text-dim">{r.email || '—'}</span>
+                        </td>
+                        <td className="px-2 py-1.5">{r.role ? t(`roles.${r.role}`) : '—'}</td>
+                        <td className={`px-2 py-1.5 ${ok ? 'text-ok' : 'text-danger'}`}>
+                          {r.problems.length === 0 ? t('admin.import.ok') : problemText(r)}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+
+        {done !== null && (
+          <p role="status" className="rounded-xl bg-ok/10 p-3 text-[13px] text-ok">
+            {t('admin.import.created', { count: done })}
+          </p>
+        )}
+
+        <div className="flex justify-end gap-2 pt-1">
+          <Button variant="ghost" onClick={onClose}>
+            {t('common.close')}
+          </Button>
+          <Button
+            disabled={uebernehmbar.length === 0 || done !== null}
+            onClick={() => {
+              setDone(
+                importUsers(
+                  uebernehmbar.map((r) => ({
+                    name: r.name,
+                    email: r.email,
+                    phone: r.phone,
+                    role: r.role!,
+                    aircraftTypes: r.aircraftTypes,
+                    canGrade: r.canGrade,
+                    isTrainee: r.isTrainee,
+                    canEditDirectory: r.canEditDirectory,
+                    active: r.active,
+                  })),
+                ),
+              )
+            }}
+          >
+            {t('admin.import.run', { count: uebernehmbar.length })}
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
 function UsersTab() {
   const { t } = useTranslation()
   const { state, updateUser, addUser, setGroupMembers } = useStore()
   const [showNew, setShowNew] = useState(false)
+  const [showImport, setShowImport] = useState(false)
   // Bei rund 130 Instruktoren ist die Liste kompakt und aufklappbar:
   // sichtbar bleiben Name, E-Mail und Rolle — Details erst auf Klick.
   const [openId, setOpenId] = useState<string | null>(null)
@@ -92,6 +245,10 @@ function UsersTab() {
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => setShowNew(true)} className="flex items-center gap-1.5">
           <Plus size={15} /> {t('admin.addUser')}
+        </Button>
+        {/* Massenanlage: bei einer ganzen ATO legt niemand einzeln an. */}
+        <Button variant="ghost" onClick={() => setShowImport(true)} className="flex items-center gap-1.5">
+          <Upload size={15} /> {t('admin.import.button')}
         </Button>
         <input
           value={query}
@@ -259,6 +416,7 @@ function UsersTab() {
         </Card>
         </div>
       ))}
+      {showImport && <UserImportModal onClose={() => setShowImport(false)} />}
       {showNew && (
         <Modal
           title={t('admin.addUser')}

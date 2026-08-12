@@ -317,7 +317,30 @@
     "feedbackEditNote": "Edit note",
     "feedbackNotePlaceholder": "What was done?",
     "feedbackNoteLabel": "Follow-up note",
-    "lessonCategories": "Lesson plan training types"
+    "lessonCategories": "Lesson plan training types",
+    "import": {
+      "button": "Import users",
+      "title": "Import users from a table",
+      "intro": "Download the template, fill it in with Excel, save it as “CSV UTF-8” and upload it here. You will see every row before anything is created. There are no passwords: people sign in with their e-mail address and a 6-digit code, so the address decides — it must use an allowed domain.",
+      "template": "Download template (CSV)",
+      "file": "File",
+      "line": "Row",
+      "status": "Status",
+      "ok": "Will be created",
+      "headerError": "The header row does not match. It must contain at least Name, Email and Role — use the template.",
+      "summary": "{{ok}} of {{total}} rows can be created.",
+      "run": "Create {{count}} users",
+      "created": "{{count}} users created.",
+      "p_name": "Name missing",
+      "p_email": "E-mail missing",
+      "p_emailFormat": "E-mail not valid",
+      "p_emailDomain": "Domain not allowed — this person could never sign in",
+      "p_emailTaken": "E-mail already in use",
+      "p_emailDuplicate": "E-mail appears twice in the file",
+      "p_role": "Role unknown (superadmin, admin, training admin, member)",
+      "pAircraft": "Unknown aircraft type ignored: {{list}}",
+      "templateXlsx": "Download template (Excel)"
+    }
   },
   "imprint": {
     "title": "Legal notice & terms of use",

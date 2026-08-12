@@ -90,6 +90,8 @@ export interface Store {
   updateGrading: (patch: Partial<GradingSettings>) => void
   /** Lesson Plans, die der aktuelle Nutzer sehen darf */
   visibleLessonPlans: LessonPlan[]
+  /** Nutzer aus einer Tabelle anlegen. Liefert die Anzahl der angelegten. */
+  importUsers: (rows: { name: string; email: string; phone: string; role: Role; aircraftTypes: string[]; canGrade: boolean; isTrainee: boolean; canEditDirectory: boolean; active: boolean }[]) => number
   /** Eigene Notizen — fremde sind in dieser Liste gar nicht erst enthalten. */
   visibleNotes: Note[]
   /** Anlegen ODER aendern: ohne `id` entsteht eine neue Notiz. */
@@ -974,6 +976,37 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           lessonPlans: [...s.lessonPlans, { ...plan, id: uid('lp'), uploadedBy: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs }],
         })),
       deleteLessonPlan: (id) => patch((s) => ({ lessonPlans: s.lessonPlans.filter((p) => p.id !== id) })),
+      importUsers: (rows) => {
+        // Doppelte Adressen werden hier NOCH einmal abgewiesen: Die Vorschau
+        // prueft gegen den Bestand, aber zwischen Vorschau und Klick kann in
+        // einem zweiten Tab jemand denselben Nutzer angelegt haben.
+        let angelegt = 0
+        patch((s) => {
+          const vergeben = new Set(s.users.map((u) => u.email.trim().toLowerCase()))
+          const neue = rows
+            .filter((r) => {
+              const mail = r.email.trim().toLowerCase()
+              if (!mail || vergeben.has(mail)) return false
+              vergeben.add(mail)
+              return true
+            })
+            .map((r) => ({
+              id: uid('u'),
+              name: r.name.trim(),
+              email: r.email.trim().toLowerCase(),
+              phone: r.phone.trim(),
+              role: r.role,
+              canEditDirectory: r.canEditDirectory,
+              canGrade: r.canGrade,
+              isTrainee: r.isTrainee,
+              aircraftTypes: r.aircraftTypes,
+              active: r.active,
+            }))
+          angelegt = neue.length
+          return neue.length > 0 ? { users: [...s.users, ...neue] } : null
+        })
+        return angelegt
+      },
       visibleNotes,
       saveNote: (n) =>
         patch((s) => {
@@ -1047,13 +1080,13 @@ export function isAdminUser(user: { role: Role } | null | undefined): boolean {
 export function userMayModule(settings: Settings, user: User | null | undefined, module: ModuleKey): boolean {
   if (!user) return false
   if (module === 'grading') return userHasPerm(settings, user, 'grading_create') || userHasPerm(settings, user, 'grading_view_all')
-  // Notizen sind persoenlich und keine Datenfreigabe — niemand wird davon
-  // ausgeschlossen, auch der Training Admin nicht.
-  if (module === 'notes') return true
   if (user.role !== 'training_admin') return true
   if (module === 'info') return userHasPerm(settings, user, 'info_manage')
   if (module === 'lessons') return userHasPerm(settings, user, 'lessons_manage')
   if (module === 'contacts') return userHasPerm(settings, user, 'contacts_manage')
+  // Notizen bekommt der Training Admin bewusst nicht: Seine Rolle ist die
+  // lesende Sicht auf die Formularablage, keine Instruktorentaetigkeit — er
+  // hat nichts, wofuer er sich etwas fuer die naechste Session merken muesste.
   return false
 }
 
