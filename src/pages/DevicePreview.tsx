@@ -44,7 +44,7 @@ export function DevicePreview() {
             key={key}
             onClick={() => setDevice(key)}
             className={`min-h-11 flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
-              device === key ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim hover:text-ink'
+              device === key ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim hover:text-ink'
             }`}
           >
             {key === 'iphone' ? <Smartphone size={14} /> : <Tablet size={14} />} {DEVICES[key].label}

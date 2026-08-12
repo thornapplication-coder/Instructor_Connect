@@ -147,7 +147,7 @@ export function LessonPlans() {
             <button
               onClick={() => setFilter('')}
               className={`min-h-11 shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
-                !activeFilter ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
+                !activeFilter ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
               }`}
             >
               {t('lessons.allTypes')}
@@ -157,7 +157,7 @@ export function LessonPlans() {
                 key={a}
                 onClick={() => setFilter(activeFilter === a ? '' : a)}
                 className={`min-h-11 flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
-                  activeFilter === a ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
+                  activeFilter === a ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
                 }`}
               >
                 <Plane size={13} /> {a}
@@ -183,7 +183,7 @@ export function LessonPlans() {
                     <div className="min-w-0 flex-1">
                       <p className="text-[15px] font-semibold leading-snug">{p.title}</p>
                       {p.description && <p className="mt-0.5 text-[13px] text-dim">{p.description}</p>}
-                      <p className="mt-1 text-[11.5px] text-dim">
+                      <p className="mt-1 text-[12px] text-dim">
                         {[p.fileName, dateLabel(p.createdAt), t('info.by', { name: userName(p.uploadedBy) })].filter(Boolean).join(' · ')}
                       </p>
                       <div className="mt-2.5 flex flex-wrap gap-2">

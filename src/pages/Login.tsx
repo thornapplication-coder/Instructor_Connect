@@ -187,7 +187,7 @@ export function Login() {
         </div>
         )}
 
-        <div className="mt-8 space-y-1 text-center text-[11px] text-dim">
+        <div className="mt-8 space-y-1 text-center text-[12px] text-dim">
           <p>{t('login.noSignup')}</p>
           <p className="flex items-center justify-center gap-1">
             <Lock size={11} /> {t('login.encryption')}

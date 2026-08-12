@@ -30,7 +30,19 @@ export function useRoute(): string {
       const next = window.location.hash.slice(1) || '/'
       // Nur bei echtem Seitenwechsel — ein reiner Parameterwechsel innerhalb
       // derselben Ansicht (z. B. ?print=1) soll nicht springen.
-      if (next.split('?')[0] !== route.split('?')[0]) scrollToTop()
+      if (next.split('?')[0] !== route.split('?')[0]) {
+        scrollToTop()
+        // Fokus mitnehmen: Er fiel bei jedem Seitenwechsel auf <body>.
+        // Tastaturnutzer fingen dadurch wieder ganz oben an, und
+        // Sprachausgaben meldeten den Wechsel gar nicht. Die Ueberschrift
+        // der neuen Seite ist der richtige Einstiegspunkt; sie ist nur
+        // programmatisch fokussierbar (tabIndex -1), taucht also nicht in
+        // der Tab-Reihenfolge auf.
+        requestAnimationFrame(() => {
+          const ziel = document.querySelector<HTMLElement>('[data-page-heading]')
+          ziel?.focus()
+        })
+      }
       setRoute(next)
     }
     window.addEventListener('hashchange', onHash)

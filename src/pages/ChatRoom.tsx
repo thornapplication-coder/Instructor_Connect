@@ -23,7 +23,7 @@ function AttachmentChip({ a }: { a: Attachment }) {
     <span className="mt-2 flex items-center gap-2 rounded-xl bg-line/10 px-3 py-2 text-[13px]">
       <Icon size={16} className="shrink-0 text-accent" />
       <span className="min-w-0 truncate">{a.name}</span>
-      <span className="shrink-0 text-[11px] text-dim">{a.sizeMB.toFixed(1)} MB</span>
+      <span className="shrink-0 text-[12px] text-dim">{a.sizeMB.toFixed(1)} MB</span>
     </span>
   )
 }
@@ -50,7 +50,7 @@ function MessageBubble({ msg, isOwn, authorName, bold, canDelete, onDelete, lng 
         <p className={`mb-0.5 text-[12px] font-semibold ${isOwn ? 'text-dim' : 'text-accent'}`}>{authorName}</p>
         <p className={`whitespace-pre-wrap text-[14.5px] leading-relaxed ${bold ? 'font-bold' : ''}`}>{msg.text}</p>
         {msg.attachment && <AttachmentChip a={msg.attachment} />}
-        <p className="mt-1 text-right text-[10.5px] text-dim">{timeLabel(msg.createdAt, lng)}</p>
+        <p className="mt-1 text-right text-[12px] text-dim">{timeLabel(msg.createdAt, lng)}</p>
         {canDelete && (
           <button
             onClick={onDelete}
@@ -114,12 +114,12 @@ function PollCard({ poll }: { poll: Poll }) {
           {t('chat.poll')} · {author?.name}
         </span>
         {closed && (
-          <span className="ml-auto rounded-full bg-line/10 px-2 py-0.5 text-[10.5px] font-medium">{t('chat.closed')}</span>
+          <span className="ml-auto rounded-full bg-line/10 px-2 py-0.5 text-[12px] font-medium">{t('chat.closed')}</span>
         )}
       </div>
       <p className="mb-1 text-[15px] font-semibold leading-snug">{poll.question}</p>
       {poll.validUntil && (
-        <p className={`mb-3 text-[11.5px] ${expired ? 'text-danger' : 'text-dim'}`}>
+        <p className={`mb-3 text-[12px] ${expired ? 'text-danger' : 'text-dim'}`}>
           {t('chat.pollValidUntil')}: {formatUtc(poll.validUntil)}
         </p>
       )}
@@ -151,7 +151,7 @@ function PollCard({ poll }: { poll: Poll }) {
           )
         })}
       </div>
-      <div className="mt-3 flex items-center justify-between text-[11.5px] text-dim">
+      <div className="mt-3 flex items-center justify-between text-[12px] text-dim">
         {/* role=status: eine abgegebene oder geänderte Stimme wird angesagt */}
         <span role="status">
           {t('chat.votes', { count: totalVotes })} · {t('chat.changeHint')}
@@ -225,7 +225,11 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
                   onChange={(e) => setOptions(options.map((o, j) => (j === i ? e.target.value : o)))}
                 />
                 {options.length > 2 && (
-                  <button onClick={() => setOptions(options.filter((_, j) => j !== i))} className="text-dim hover:text-danger">
+                  <button
+                    onClick={() => setOptions(options.filter((_, j) => j !== i))}
+                    aria-label={`${t('chat.option')} ${i + 1} — ${t('common.delete')}`}
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
+                  >
                     <X size={16} />
                   </button>
                 )}
@@ -245,7 +249,7 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
             <input type="date" className={inputCls} value={validDate} onChange={(e) => setValidDate(e.target.value)} />
             <input type="time" className={inputCls} value={validTime} onChange={(e) => setValidTime(e.target.value)} />
           </div>
-          <p className="mt-1.5 text-[11.5px] leading-relaxed text-dim">{t('chat.pollValidHint')}</p>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-dim">{t('chat.pollValidHint')}</p>
         </Field>
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
@@ -361,7 +365,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
                 key={g.id}
                 onClick={() => navigate(`/chat/${g.id}`)}
                 className={`min-h-11 relative shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
-                  g.id === groupId ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim hover:text-ink'
+                  g.id === groupId ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim hover:text-ink'
                 }`}
               >
                 {g.name}
@@ -414,7 +418,11 @@ export function ChatRoom({ groupId }: { groupId: string }) {
             <div className="mb-2 flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-[13px]">
               <Paperclip size={14} className="text-accent" />
               <span className="min-w-0 flex-1 truncate">{pendingAttachment.name}</span>
-              <button onClick={() => setPendingAttachment(undefined)} className="text-dim hover:text-danger">
+              <button
+                onClick={() => setPendingAttachment(undefined)}
+                aria-label={`${pendingAttachment.name} — ${t('common.delete')}`}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
+              >
                 <X size={14} />
               </button>
             </div>

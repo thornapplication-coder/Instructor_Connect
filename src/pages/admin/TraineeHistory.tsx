@@ -47,7 +47,7 @@ function CompetencyRow({ c, t }: { c: CompetencyTrack; t: T }) {
         <span className="text-[13.5px] font-semibold">{c.code}</span>
         <span className="min-w-0 flex-1 truncate text-[13px] text-dim">{c.title}</span>
         {c.recurringWeak && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-warm/15 px-2.5 py-0.5 text-[11.5px] font-semibold text-warm">
+          <span className="inline-flex items-center gap-1 rounded-full bg-warm/15 px-2.5 py-0.5 text-[12px] font-semibold text-warm">
             <TriangleAlert size={12} /> {t('forms:admin.recurringWeak')}
           </span>
         )}
@@ -130,7 +130,7 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
               </span>
             </span>
             {s.overall === 'not_competent' && (
-              <span className="shrink-0 rounded-full bg-danger/15 px-2.5 py-0.5 text-[11.5px] font-semibold text-danger">
+              <span className="shrink-0 rounded-full bg-danger/15 px-2.5 py-0.5 text-[12px] font-semibold text-danger">
                 {t('forms:notCompetent')}
               </span>
             )}
@@ -198,12 +198,12 @@ export function TraineeHistory({ records }: { records: GradingRecord[] }) {
                         </span>
                       </span>
                       {weak > 0 && (
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warm/15 px-2.5 py-0.5 text-[11.5px] font-semibold text-warm">
+                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warm/15 px-2.5 py-0.5 text-[12px] font-semibold text-warm">
                           <TriangleAlert size={12} /> {weak}
                         </span>
                       )}
                       {h.notCompetentCount > 0 && (
-                        <span className="shrink-0 rounded-full bg-danger/15 px-2.5 py-0.5 text-[11.5px] font-semibold text-danger">
+                        <span className="shrink-0 rounded-full bg-danger/15 px-2.5 py-0.5 text-[12px] font-semibold text-danger">
                           {h.notCompetentCount}
                         </span>
                       )}

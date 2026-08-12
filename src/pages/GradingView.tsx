@@ -223,7 +223,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             Export-Stempel — ohne diese Angaben lässt sich ein Ausdruck weder
             der ATO noch einem Formularstand zuordnen. */}
         <div className="print-head border-b-2 border-line/60 pb-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide">
+          <p className="text-[12px] font-semibold uppercase tracking-wide">
             {doc.atoName}
             {doc.atoName && approval ? ' · ' : ''}
             {/* Die ATO-Kennung darf nicht mitten im Wert umbrechen — auf dem
@@ -241,7 +241,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               {personLabel}: {docPersons.join(', ')}
             </p>
           )}
-          <p className="mt-1 flex justify-between gap-4 text-[11px] text-dim">
+          <p className="mt-1 flex justify-between gap-4 text-[12px] text-dim">
             <span>{t('forms:exportStamp', { date: formatDateTime(Date.now() + state.timeOffsetMs), name: currentUser!.name })}</span>
             <span className="zusammen">{doc.formRevision}</span>
           </p>
@@ -262,7 +262,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             >
               <Printer size={16} /> {t('forms:printNow')}
             </Button>
-            <p className="text-[11.5px] leading-relaxed text-dim">{t('forms:printShareFallback')}</p>
+            <p className="text-[12px] leading-relaxed text-dim">{t('forms:printShareFallback')}</p>
           </div>
         )}
 
@@ -374,7 +374,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                   {f.label}
                   {/* Fußnoten des Originalformulars (z. B. PRG*) gehören auf den
                       Nachweis, nicht nur in die Eingabemaske. */}
-                  {f.hint && <span className="block text-[11px] leading-snug text-dim">{f.hint}</span>}
+                  {f.hint && <span className="block text-[12px] leading-snug text-dim">{f.hint}</span>}
                 </dt>
                 <dd className="text-right font-medium">
                   {f.type === 'date' && record.header[f.key] ? formatDate(record.header[f.key]) : record.header[f.key] || '–'}
@@ -431,7 +431,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               ))}
             </ol>
             {record.formTypeId === '307B' && (
-              <p className="mt-2 text-[11.5px] leading-relaxed text-dim">{t('forms:attendance307B')}</p>
+              <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('forms:attendance307B')}</p>
             )}
           </Card>
         )}
@@ -451,7 +451,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 <span className="text-[12px] text-dim">{[tr.position, tr.seat].filter(Boolean).join(' · ')}</span>
                 {tr.overall && (
                   <span
-                    className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${
+                    className={`rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${
                       tr.overall === 'competent' ? 'bg-emerald-700 text-white' : 'bg-red-600 text-white'
                     }`}
                   >
@@ -538,7 +538,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 Eine dritte Fußnote gab es zur Skill-Test-Reife; sie nannte
                 Formular 311, das es nicht gibt, und ist entfallen. */}
             {pilotFootnotes && (
-              <div className="mt-3 space-y-1 text-[11.5px] leading-relaxed text-dim">
+              <div className="mt-3 space-y-1 text-[12px] leading-relaxed text-dim">
                 <p>{t('forms:footnote1')}</p>
                 <p>{t('forms:footnote2')}</p>
               </div>
@@ -612,7 +612,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             </p>
           )}
           {record.contentHash && (
-            <p className={`mt-1 text-[11.5px] ${hashState === 'bad' ? 'font-semibold text-danger' : 'text-dim'}`}>
+            <p className={`mt-1 text-[12px] ${hashState === 'bad' ? 'font-semibold text-danger' : 'text-dim'}`}>
               {t('forms:fingerprint', { hash: shortFingerprint(record.contentHash) })}
               {hashState === 'ok' && ` — ${t('forms:fingerprintOk')}`}
               {hashState === 'bad' && ` — ${t('forms:fingerprintBad')}`}

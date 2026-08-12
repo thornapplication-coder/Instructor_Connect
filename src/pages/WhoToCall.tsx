@@ -118,7 +118,7 @@ export function WhoToCall() {
           <button
             onClick={() => setFilter('')}
             className={`min-h-11 shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
-              !filter ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
+              !filter ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
             }`}
           >
             {t('contacts.allDepartments')}
@@ -128,7 +128,7 @@ export function WhoToCall() {
               key={d}
               onClick={() => setFilter(filter === d ? '' : d)}
               className={`min-h-11 shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
-                filter === d ? 'border-accent bg-accent/15 font-semibold text-accent' : 'border-line/15 text-dim'
+                filter === d ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
               }`}
             >
               {d}

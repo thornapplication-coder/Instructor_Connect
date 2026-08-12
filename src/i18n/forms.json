@@ -235,6 +235,7 @@
   "trainingAdminNote": "Training Admin access: you can view and download all completed and open forms. Creating or removing forms is not possible.",
   "errEitherOr": "Please choose either “{{a}}” or “{{b}}”.",
   "ta": {
+    "periodLabel": "Period",
     "completed": "Completed forms",
     "open": "To be processed",
     "deleteConfirm": "Delete this form permanently? Attached follow-up forms are deleted with it.",

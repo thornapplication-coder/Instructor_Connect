@@ -179,8 +179,9 @@ function TrainingAdminGrading() {
             <button
               key={tb}
               onClick={() => setTab(tb)}
+              aria-pressed={tab === tb}
               className={`min-h-11 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
-                tab === tb ? 'border-accent bg-accent/15 text-accent' : 'border-line/15 text-dim'
+                tab === tb ? 'border-accent bg-accent/15 text-ink' : 'border-line/15 text-dim'
               }`}
             >
               {tb === 'trainees' || tb === 'monthly'
@@ -198,16 +199,18 @@ function TrainingAdminGrading() {
             der Verlauf bringt seine eigene Suche mit. */}
         {tab !== 'trainees' && tab !== 'monthly' && (
         <>
-        {/* Filter: Zeitraum, Student, Aircraft Type, Instruktor */}
+        {/* Filter: Zeitraum, Student, Aircraft Type, Instruktor.
+            `aria-label` an jedem Feld: Angesagt wurde sonst nur der aktuelle
+            Wert („Alle Muster"), nicht, wofuer er gilt. */}
         <div className="flex flex-wrap gap-2">
-          <select value={period} onChange={(e) => setPeriod(e.target.value)} className={selCls}>
+          <select value={period} onChange={(e) => setPeriod(e.target.value)} aria-label={t('forms:ta.periodLabel')} className={selCls}>
             {PERIODS.map((x) => (
               <option key={x.key} value={x.key}>
                 {t(`forms:ta.period.${x.key}`)}
               </option>
             ))}
           </select>
-          <select value={fTrainee} onChange={(e) => setFTrainee(e.target.value)} className={selCls}>
+          <select value={fTrainee} onChange={(e) => setFTrainee(e.target.value)} aria-label={t('forms:admin.allTrainees')} className={selCls}>
             <option value="">{t('forms:admin.allTrainees')}</option>
             {traineeOptions.map((n) => (
               <option key={n} value={n}>
@@ -215,7 +218,7 @@ function TrainingAdminGrading() {
               </option>
             ))}
           </select>
-          <select value={fAircraft} onChange={(e) => setFAircraft(e.target.value)} className={selCls}>
+          <select value={fAircraft} onChange={(e) => setFAircraft(e.target.value)} aria-label={t('forms:admin.allAircraft')} className={selCls}>
             <option value="">{t('forms:admin.allAircraft')}</option>
             {aircraftOptions.map((a) => (
               <option key={a} value={a}>
@@ -223,7 +226,7 @@ function TrainingAdminGrading() {
               </option>
             ))}
           </select>
-          <select value={fInstructor} onChange={(e) => setFInstructor(e.target.value)} className={selCls}>
+          <select value={fInstructor} onChange={(e) => setFInstructor(e.target.value)} aria-label={t('forms:admin.allInstructors')} className={selCls}>
             <option value="">{t('forms:admin.allInstructors')}</option>
             {instructorOptions.map((o) => (
               <option key={o.id} value={o.id}>
@@ -249,18 +252,16 @@ function TrainingAdminGrading() {
         <SectionHeading sticky>{formatDate(gradingListDate(blaetter[0]))}</SectionHeading>
         <div className="divide-y divide-line/[0.06] overflow-hidden rounded-xl border border-line/10 bg-surface/60">
           {blaetter.map((r) => (
-            <div
+            /* Card statt `div role="button"`: In einer Knopf-Zeile mit einem
+               weiteren Knopf darin (PDF) zieht Vorlesesoftware den ganzen
+               Zeileninhalt zum Namen des aeusseren Knopfes zusammen, und der
+               innere verschwindet aus dem Baum. `Card` loest das ueber einen
+               ausgedehnten Link (siehe ui.tsx). */
+            <Card
               key={r.id}
               onClick={() => navigate(`/grading/${r.id}`)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault()
-                  navigate(`/grading/${r.id}`)
-                }
-              }}
-              className="flex cursor-pointer items-center gap-3 px-3 py-2.5 transition hover:bg-line/5"
+              label={`${r.formTypeId} · ${traineesOf(r, all).map(traineeLabel).join(', ') || t('forms:openForm')} · ${formatDate(gradingListDate(r))}`}
+              className="flex items-center gap-3 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none transition hover:bg-line/5"
             >
               <TrafficDot color={trafficLight(r, state.gradingRecords)} />
               <div className="min-w-0 flex-1">
@@ -283,7 +284,8 @@ function TrainingAdminGrading() {
                     navigate(`/grading/${r.id}?print=1`)
                   }}
                   title={t('forms:downloadPdf')}
-                  className="flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-accent/10 hover:text-accent"
+                  aria-label={t('forms:downloadPdf')}
+                  className="relative z-10 flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-accent/10 hover:text-accent"
                 >
                   <FileDown size={16} />
                 </button>
@@ -291,7 +293,7 @@ function TrainingAdminGrading() {
               {/* Kein Löschen: die Ablage des Training Admins ist nur-lesend.
                   Ausbuchen eines Ausbildungsnachweises bleibt dem Superadmin
                   im Admin-Panel vorbehalten (ORA.GEN.220 Aufbewahrung). */}
-            </div>
+            </Card>
           ))}
         </div>
         </div>
@@ -376,7 +378,7 @@ export function Grading() {
                 onClick={() => setAdminView(v)}
                 aria-pressed={adminView === v}
                 className={`min-h-11 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
-                  adminView === v ? 'border-accent bg-accent/15 text-accent' : 'border-line/15 text-dim'
+                  adminView === v ? 'border-accent bg-accent/15 text-ink' : 'border-line/15 text-dim'
                 }`}
               >
                 {t(`forms:admin.${v}`)}
@@ -397,11 +399,12 @@ export function Grading() {
         <>
         {/* Ampel-Legende — antippen filtert die Liste. Mobil sauber
             untereinander, ab Tablet als symmetrisches 2×2-Raster. */}
-        <div className="flex flex-col gap-0.5 rounded-xl border border-line/10 bg-surface/60 p-1.5 text-[12px] text-dim sm:grid sm:grid-cols-2 sm:gap-1">
+        <div role="group" aria-label={t('forms:traffic.all')} className="flex flex-col gap-0.5 rounded-xl border border-line/10 bg-surface/60 p-1.5 text-[12px] text-dim sm:grid sm:grid-cols-2 sm:gap-1">
           <button
             onClick={() => setTrafficFilter('')}
+            aria-pressed={trafficFilter === ''}
             className={`min-h-11 flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition ${
-              trafficFilter === '' ? 'bg-accent/15 font-semibold text-accent' : 'hover:bg-line/5'
+              trafficFilter === '' ? 'bg-accent/15 font-semibold text-ink' : 'hover:bg-line/5'
             }`}
           >
             <span className="inline-block h-3 w-3 shrink-0 rounded-full border-2 border-line/40" />
@@ -411,8 +414,9 @@ export function Grading() {
             <button
               key={c}
               onClick={() => setTrafficFilter(trafficFilter === c ? '' : c)}
+              aria-pressed={trafficFilter === c}
               className={`min-h-11 flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition ${
-                trafficFilter === c ? 'bg-accent/15 font-semibold text-accent' : 'hover:bg-line/5'
+                trafficFilter === c ? 'bg-accent/15 font-semibold text-ink' : 'hover:bg-line/5'
               }`}
             >
               <TrafficDot color={c} />
@@ -422,7 +426,7 @@ export function Grading() {
         </div>
 
         {/* Aufbewahrung in der Instruktoren-Ansicht: 1 Woche */}
-        {isMember && <p className="px-1 text-[11.5px] leading-relaxed text-dim">{t('forms:retentionHint')}</p>}
+        {isMember && <p className="px-1 text-[12px] leading-relaxed text-dim">{t('forms:retentionHint')}</p>}
 
         {list.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('forms:empty')}</p>}
 
@@ -484,13 +488,13 @@ export function Grading() {
                     )}
                     {notCompetent && <Badge tone="warm">{t('forms:notCompetent')}</Badge>}
                     {r.mailStatus === 'failed' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[11px] font-medium text-danger">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[12px] font-medium text-danger">
                         <AlertTriangle size={11} /> {t('forms:mail.failed')}
                       </span>
                     )}
                     {/* Pflicht-Folgeformular noch nicht ausgefüllt */}
                     {missing.map((id) => (
-                      <span key={id} className="inline-flex items-center gap-1 rounded-full bg-wait px-2.5 py-0.5 text-[11px] font-semibold text-waitInk">
+                      <span key={id} className="inline-flex items-center gap-1 rounded-full bg-wait px-2.5 py-0.5 text-[12px] font-semibold text-waitInk">
                         <AlertTriangle size={11} />{' '}
                         {/* Angelegt, aber unsigniert: dann fehlt nur noch die
                             Unterschrift — das ist etwas anderes als „gar nicht da". */}

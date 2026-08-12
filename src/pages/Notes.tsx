@@ -147,7 +147,7 @@ export function Notes() {
                   <div className="min-w-0 flex-1">
                     <p className="text-[15px] font-semibold leading-snug">{n.title}</p>
                     {n.body && <p className="mt-1 text-[13.5px] leading-relaxed text-dim">{notePreview(n.body)}</p>}
-                    <p className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-[11.5px] text-dim">
+                    <p className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-[12px] text-dim">
                       {/* Geaendert steht vor Angelegt: Bei einer Merkliste
                           zaehlt, wann man zuletzt drangesessen ist. */}
                       <span className="shrink-0">{t('notes.updatedAt', { date: dateLabel(n.updatedAt) })}</span>

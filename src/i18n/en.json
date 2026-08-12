@@ -277,6 +277,7 @@
     },
     "lastGroupBlocked": "Every user must belong to at least one group — otherwise they lose access to chats and group-scoped Instructor Info. Assign a different group first.",
     "aircraftTypesGlobal": "Aircraft types (all forms and lesson plans)",
+    "sortBy": "Sort by",
     "searchUsers": "Search name or email …",
     "autoSaving": "Saving …",
     "autoSaveHint": "All changes in the Admin Panel are saved immediately — there is no save button.",
