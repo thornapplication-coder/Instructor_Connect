@@ -165,9 +165,6 @@
     "edit": "Edit note",
     "title": "Title",
     "body": "Note",
-    "aircraftType": "Aircraft type",
-    "general": "General",
-    "allTypes": "All types",
     "pinned": "Pinned",
     "pin": "Pin to top",
     "unpin": "Unpin",
@@ -178,7 +175,8 @@
     "resultCount": "{{shown}} of {{total}} notes match the search",
     "deleteConfirm": "Delete the note “{{title}}”? This cannot be undone.",
     "intro": "Your personal notes — nobody else can see them, not even an admin. They are a memory aid, not a record: they are not attached to any form and are never part of an export.",
-    "heading": "Notes"
+    "heading": "Notes",
+    "others": "Other notes"
   },
   "contacts": {
     "call": "Call",

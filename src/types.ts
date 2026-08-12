@@ -160,8 +160,6 @@ export interface Note {
   authorId: string
   title: string
   body: string
-  /** Musterbezug — leer = allgemein. Gliedert die Liste wie ueberall sonst. */
-  aircraftType?: string
   /** Angeheftet: steht in einer eigenen Gruppe ganz oben. */
   pinned: boolean
   createdAt: number

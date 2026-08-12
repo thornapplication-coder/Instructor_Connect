@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aircraftOf, aircraftTypesOf, byRecent, GENERAL, groupNotes, notePreview, PINNED, searchNotes } from './notes'
+import { byRecent, groupNotes, notePreview, OTHERS, PINNED, searchNotes } from './notes'
 import type { Note } from './types'
 
 /**
@@ -53,46 +53,40 @@ describe('Suche', () => {
 
 describe('Gruppen', () => {
   it('stellt Angeheftetes ganz nach oben — in eine eigene Gruppe', () => {
-    const g = groupNotes([n({ id: 'a', aircraftType: 'CL30' }), n({ id: 'p', pinned: true, aircraftType: 'CL30' })])
-    expect(g[0].key).toBe(PINNED)
+    const g = groupNotes([n({ id: 'a' }), n({ id: 'p', pinned: true })])
+    expect(g.map((x) => x.key)).toEqual([PINNED, OTHERS])
     expect(g[0].notes.map((x) => x.id)).toEqual(['p'])
+    expect(g[1].notes.map((x) => x.id)).toEqual(['a'])
   })
 
   /**
    * Sonst stuende dieselbe Notiz zweimal in derselben Liste, und beim
    * Loeschen wuesste man nicht, welche man erwischt.
    */
-  it('zeigt eine angeheftete Notiz NICHT zusaetzlich in ihrer Muster-Gruppe', () => {
-    const g = groupNotes([n({ id: 'p', pinned: true, aircraftType: 'CL30' })])
+  it('zeigt eine angeheftete Notiz NICHT zusaetzlich weiter unten', () => {
+    const g = groupNotes([n({ id: 'p', pinned: true })])
     expect(g).toHaveLength(1)
     expect(g[0].key).toBe(PINNED)
   })
 
-  it('ordnet die Muster alphabetisch und stellt „allgemein" ans Ende', () => {
-    const g = groupNotes([
-      n({ id: 'x', aircraftType: '' }),
-      n({ id: 'y', aircraftType: 'C560 XLS+' }),
-      n({ id: 'z', aircraftType: 'CL30' }),
-    ])
-    expect(g.map((x) => x.key)).toEqual(['C560 XLS+', 'CL30', GENERAL])
-  })
-
   it('laesst die Gruppe „Angeheftet" weg, solange nichts angeheftet ist', () => {
-    expect(groupNotes([n({ id: 'a' })]).map((x) => x.key)).toEqual([GENERAL])
+    expect(groupNotes([n({ id: 'a' })]).map((x) => x.key)).toEqual([OTHERS])
   })
 
   it('sortiert auch innerhalb einer Gruppe nach der letzten Aenderung', () => {
     const g = groupNotes([
-      n({ id: 'alt', aircraftType: 'CL30', updatedAt: Date.UTC(2026, 7, 1) }),
-      n({ id: 'neu', aircraftType: 'CL30', updatedAt: Date.UTC(2026, 7, 9) }),
+      n({ id: 'alt', updatedAt: Date.UTC(2026, 7, 1) }),
+      n({ id: 'neu', updatedAt: Date.UTC(2026, 7, 9) }),
     ])
     expect(g[0].notes.map((x) => x.id)).toEqual(['neu', 'alt'])
   })
 
-  it('behandelt Leerraum im Musterbezug wie „allgemein"', () => {
-    expect(aircraftOf(n({ id: 'a', aircraftType: '   ' }))).toBe('')
-    expect(aircraftOf(n({ id: 'b' }))).toBe('')
-    expect(groupNotes([n({ id: 'a', aircraftType: '  ' })]).map((x) => x.key)).toEqual([GENERAL])
+  it('sortiert auch die angehefteten untereinander nach der letzten Aenderung', () => {
+    const g = groupNotes([
+      n({ id: 'p1', pinned: true, updatedAt: Date.UTC(2026, 7, 1) }),
+      n({ id: 'p2', pinned: true, updatedAt: Date.UTC(2026, 7, 9) }),
+    ])
+    expect(g[0].notes.map((x) => x.id)).toEqual(['p2', 'p1'])
   })
 
   it('gibt bei leerer Liste keine Gruppen zurueck', () => {
@@ -121,17 +115,5 @@ describe('Kurzfassung fuer die Liste', () => {
 
   it('schneidet hart, wenn ein einzelnes Wort laenger ist als die Grenze', () => {
     expect(notePreview('Donaudampfschifffahrtsgesellschaftskapitaen', 10)).toBe('Donaudampf…')
-  })
-})
-
-describe('Musterliste der Filterleiste', () => {
-  it('nennt jedes Muster genau einmal, alphabetisch, ohne „allgemein"', () => {
-    const liste = [
-      n({ id: 'a', aircraftType: 'CL30' }),
-      n({ id: 'b', aircraftType: 'C560 XLS+' }),
-      n({ id: 'c', aircraftType: 'CL30' }),
-      n({ id: 'd' }),
-    ]
-    expect(aircraftTypesOf(liste)).toEqual(['C560 XLS+', 'CL30'])
   })
 })
