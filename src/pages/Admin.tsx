@@ -1068,6 +1068,34 @@ function SettingsTab() {
           onChange={(v) => updateSettings({ lessonCategories: v })}
         />
       </Card>
+      {/* Die Vorlage liegt zusaetzlich hier, nicht nur im Import-Dialog:
+          Wer sie an die Personalabteilung schickt, will sie holen koennen,
+          ohne einen Import zu beginnen. */}
+      <Card className="space-y-3 p-4">
+        <CardHeading>{t('admin.import.templateSection')}</CardHeading>
+        <p className="text-[13px] leading-relaxed text-dim">{t('admin.import.templateHint')}</p>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="ghost"
+            className="flex items-center gap-1.5"
+            onClick={() => window.open(`${import.meta.env.BASE_URL}Instructor-Connect-Benutzer-Vorlage.xlsx`, '_blank')}
+          >
+            <Download size={15} /> {t('admin.import.templateXlsx')}
+          </Button>
+          <Button
+            variant="ghost"
+            className="flex items-center gap-1.5"
+            onClick={() =>
+              downloadCsv(
+                'instructor-connect-users-template.csv',
+                buildImportTemplate(s.aircraftTypes, s.allowedDomains[0] ?? 'aviationacademy.at'),
+              )
+            }
+          >
+            <Download size={15} /> {t('admin.import.template')}
+          </Button>
+        </div>
+      </Card>
       <Card className="p-4">
         <StringListEditor label={t('admin.categories')} values={s.feedbackCategories} onChange={(v) => updateSettings({ feedbackCategories: v })} />
       </Card>

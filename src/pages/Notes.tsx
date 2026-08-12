@@ -110,7 +110,7 @@ export function Notes() {
   return (
     <>
       <TopBar
-        title={t('notes.title_plural')}
+        title={t('notes.heading')}
         back="/"
         right={
           <button
@@ -167,17 +167,11 @@ export function Notes() {
           {t('notes.resultCount', { shown: gefiltert.length, total: visibleNotes.length })}
         </p>
 
-        {visibleNotes.length === 0 && (
-          <div className="flex flex-col items-center gap-3 pt-10 text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent">
-              <NotebookPen size={26} />
-            </span>
-            <p className="text-sm text-dim">{t('notes.empty')}</p>
-            <Button onClick={() => setEditor(undefined)}>
-              <Plus size={15} /> {t('notes.new')}
-            </Button>
-          </div>
-        )}
+        {/* Leere Liste wie ueberall sonst in der App: ein Satz, sonst nichts.
+            Ein zweiter „Neue Notiz"-Knopf mitten auf der Seite stand in
+            Konkurrenz zu dem in der Kopfzeile — derselbe Vorgang darf nicht
+            zweimal danebenstehen. */}
+        {visibleNotes.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('notes.empty')}</p>}
         {visibleNotes.length > 0 && gefiltert.length === 0 && (
           <p className="pt-6 text-center text-sm text-dim">{t('notes.noMatch')}</p>
         )}
