@@ -1,5 +1,6 @@
 import { AlertTriangle, CheckCircle2, Clock, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Kurze Bestaetigung nach einer Aktion.
@@ -47,6 +48,7 @@ export function toast(text: string, tone: ToastTone = 'ok'): void {
 const DAUER_MS = 3500
 
 export function ToastHost() {
+  const { t } = useTranslation()
   const [liste, setListe] = useState<ToastEintrag[]>([])
 
   useEffect(() => {
@@ -62,8 +64,6 @@ export function ToastHost() {
     }
   }, [])
 
-  if (liste.length === 0) return null
-
   const flaeche: Record<ToastTone, string> = {
     ok: 'bg-ok text-okInk',
     wait: 'bg-wait text-waitInk',
@@ -72,11 +72,19 @@ export function ToastHost() {
   const Symbol = { ok: CheckCircle2, wait: Clock, bad: AlertTriangle }
 
   return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="above-sandbox pointer-events-none fixed inset-x-0 z-40 flex flex-col items-center gap-tight px-4"
-    >
+    /*
+      Die Live-Region steht IMMER im Baum, auch leer.
+
+      Vorher stand hier `if (liste.length === 0) return null` — Region und
+      Text kamen damit im selben Schritt in den DOM, und genau das lesen
+      NVDA, JAWS und VoiceOver nicht vor: Eine Live-Region muss vorher da
+      sein, damit die Aenderung an ihr auffaellt. Die Komponente erfuellte
+      also die Zusage nicht, die in ihrem eigenen Kopf steht.
+
+      Die Positionierung liegt jetzt beim gemeinsamen Stapel in App.tsx —
+      ohne eigenes `fixed` verdeckt sie den Offline-Streifen nicht mehr.
+    */
+    <div role="status" aria-live="polite" className="flex w-full flex-col items-center gap-tight empty:hidden">
       {liste.map((e) => {
         const Icon = Symbol[e.tone]
         return (
@@ -90,7 +98,7 @@ export function ToastHost() {
                 aber sie sitzt genau dort, wo die naechste Aktion liegen kann. */}
             <button
               onClick={() => setListe((alt) => alt.filter((x) => x.id !== e.id))}
-              aria-label="OK"
+              aria-label={t('common.close')}
               className="-mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg opacity-80 transition hover:opacity-100"
             >
               <X size={15} />

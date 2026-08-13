@@ -474,7 +474,7 @@ export function Badge({ children, tone = 'accent', strong = false }: { children:
     ok: 'bg-ok/15 text-ok',
     wait: 'bg-wait/15 text-wait',
     bad: 'bg-bad/15 text-bad',
-    dim: 'bg-line/8 text-dim',
+    dim: 'bg-line/10 text-dim',
   }
   /* Die Ink-Toene wechseln mit dem Theme mit — auf der hellen Ampelflaeche
      steht Weiss, auf der dunklen fast Schwarz. */

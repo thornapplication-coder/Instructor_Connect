@@ -81,6 +81,35 @@ describe('Schriftskala', () => {
   })
 })
 
+/**
+ * Klassen, die es gar nicht gibt.
+ *
+ * `bg-line/8` sah aus wie eine gueltige Angabe und erzeugte im gebauten CSS
+ * genau nichts: Tailwind kennt als Opazitaetsstufe nur die Werte seiner
+ * Skala (5, 10, 20, …) oder eckige Klammern. Die Folge war unsichtbar und
+ * langlebig — `Badge tone="dim"`, der haeufigste Ton der einzigen Pille der
+ * App, stand monatelang ohne Flaeche da, und niemandem fiel auf, dass dort
+ * eine Flaeche fehlt statt bewusst zu fehlen.
+ *
+ * Derselbe Fehler steckte in `border-line/12`. Er faellt nur auf, wenn man
+ * ihn mechanisch sucht.
+ */
+describe('Opazitaetsstufen', () => {
+  // Die Stufen aus Tailwinds Standardskala. Alles andere braucht eckige
+  // Klammern — und eine Begruendung, warum es die Stufe nicht tut.
+  const ERLAUBT = new Set(['0', '5', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55', '60', '65', '70', '75', '80', '85', '90', '95', '100'])
+
+  it('benutzt keine Stufe, die Tailwind nicht kennt', () => {
+    const treffer: string[] = []
+    for (const [pfad, inhalt] of dateien) {
+      for (const m of (inhalt as string).matchAll(/\b(?:bg|text|border|ring|divide|from|to|via)-[a-zA-Z]+\/([0-9]+)\b/g)) {
+        if (!ERLAUBT.has(m[1])) treffer.push(`${pfad}  ${m[0]}`)
+      }
+    }
+    expect(treffer).toEqual([])
+  })
+})
+
 describe('Abstandsskala', () => {
   it('haelt genau die vier Stufen bereit', () => {
     expect(config.theme.extend.spacing).toEqual({ tight: '6px', stack: '12px', section: '20px', major: '32px' })

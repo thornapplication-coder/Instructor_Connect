@@ -234,6 +234,49 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
   const historyRef = useRef<string[]>([])
   /** Vollbild: quer, rund 2,5-fache Flaeche. */
   const [gross, setGross] = useState(false)
+  const grossRef = useRef<HTMLDivElement>(null)
+  /** Wo der Fokus herkam — dorthin geht er beim Schliessen zurueck. */
+  const oeffnerRef = useRef<Element | null>(null)
+
+  /*
+   * Escape schliesst, der Fokus bleibt drin und kehrt zurueck — dieselbe
+   * Zusage wie bei `Modal`. Zusaetzlich wird der Seitenhintergrund am
+   * Scrollen gehindert: Auf dem Telefon liess sich sonst unter dem Vollbild
+   * das Formular verschieben, und nach dem Schliessen stand man woanders.
+   */
+  useEffect(() => {
+    if (!gross) return
+    oeffnerRef.current = document.activeElement
+    const vorher = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const aufTaste = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        setGross(false)
+        return
+      }
+      if (e.key !== 'Tab') return
+      const ziele = [...(grossRef.current?.querySelectorAll<HTMLElement>('button, [href], input, textarea, select, canvas[tabindex]') ?? [])].filter(
+        (el) => !el.hasAttribute('disabled') && el.offsetParent !== null,
+      )
+      if (ziele.length === 0) return
+      const erstes = ziele[0]
+      const letztes = ziele[ziele.length - 1]
+      if (e.shiftKey && document.activeElement === erstes) {
+        e.preventDefault()
+        letztes.focus()
+      } else if (!e.shiftKey && document.activeElement === letztes) {
+        e.preventDefault()
+        erstes.focus()
+      }
+    }
+    document.addEventListener('keydown', aufTaste)
+    return () => {
+      document.removeEventListener('keydown', aufTaste)
+      document.body.style.overflow = vorher
+      ;(oeffnerRef.current as HTMLElement | null)?.focus?.()
+    }
+  }, [gross])
   const [typedName, setTypedName] = useState('')
   const switchMode = (m: 'draw' | 'type') => {
     if (m === mode) return
@@ -304,7 +347,21 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
           das, was später im Dokument und auf dem Ausdruck steht. Im
           Tipp-Modus bleibt der Canvas im Baum (die Zeichenlogik hängt an
           ihm), wird aber ausgeblendet. */}
+      {/*
+        Vollbild ist ein Dialog — und muss sich auch wie einer verhalten.
+
+        Bis zuletzt war es nur eine Flaeche mit `fixed inset-0 z-50`: ohne
+        Rolle, ohne Escape, ohne Fokusfang. Der Tabulator wanderte in die
+        verdeckten Bedienelemente des Formulars dahinter, Escape tat nichts,
+        und „Clear" wie der Umschalter Zeichnen/Tippen lagen in der Kopfzeile
+        — also HINTER dem Overlay. Ein verrutschter Strich liess sich dort nur
+        noch einzeln ueber „Zurueck" abbauen. Das widersprach der eigenen
+        Zusage im README, dass jeder Dialog dieser App mit Escape schliesst
+        und den Fokus haelt.
+      */}
       <div
+        {...(gross ? { role: 'dialog' as const, 'aria-modal': true, 'aria-label': label } : {})}
+        ref={grossRef}
         className={
           gross
             ? 'fixed inset-0 z-50 flex flex-col gap-2 bg-bg p-3'
@@ -314,14 +371,31 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
         }
       >
         {gross && (
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="min-w-0 truncate text-lead font-semibold">{label}</p>
-            <button
-              onClick={() => setGross(false)}
-              className="min-h-11 shrink-0 rounded-xl bg-accent px-4 text-body font-semibold text-bg"
-            >
-              {t('forms:signDone')}
-            </button>
+            <span className="ml-auto flex shrink-0 items-center gap-3">
+              {/* Dieselben zwei Bedienelemente wie in der Kopfzeile — im
+                  Vollbild waren sie schlicht nicht erreichbar. */}
+              {value && (
+                <button onClick={clear} className="flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap text-micro text-dim hover:text-danger">
+                  <Eraser size={12} /> {t('forms:clearSignature')}
+                </button>
+              )}
+              <button
+                onClick={() => switchMode(mode === 'draw' ? 'type' : 'draw')}
+                aria-pressed={mode === 'type'}
+                className="flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap text-micro text-dim underline-offset-2 hover:text-accent hover:underline"
+              >
+                {mode === 'draw' ? <Keyboard size={12} /> : <PenLine size={12} />}
+                {mode === 'draw' ? t('forms:typeInstead') : t('forms:drawInstead')}
+              </button>
+              <button
+                onClick={() => setGross(false)}
+                className="min-h-11 shrink-0 rounded-xl bg-accent px-4 text-body font-semibold text-bg"
+              >
+                {t('forms:signDone')}
+              </button>
+            </span>
           </div>
         )}
       <canvas

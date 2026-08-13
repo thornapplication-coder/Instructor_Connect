@@ -46,8 +46,13 @@ export function adminStatus({ gradingRecords, feedbackEntries, darfGrading }: St
     const gescheitert = gradingRecords.filter((r) => r.mailStatus === 'failed').length
     if (gescheitert) punkte.push({ key: 'failedMails', count: gescheitert, tone: 'bad', to: '/admin/grading/dashboard' })
 
+    /* Gelb, nicht rot: `trafficLight` gibt fuer dasselbe Blatt 'yellow'
+       zurueck (gradingRules.ts). Rot hier und gelb in der Liste waeren zwei
+       Aussagen ueber eine Tatsache — und die Statuszeile soll den Blick
+       lenken, nicht ihn gegen die Liste stellen. Ein Fehler ist ein
+       gescheiterter Versand; ein fehlendes Folgeformular ist unfertig. */
     const offeneFolgen = gradingRecords.filter((r) => missingFollowUps(r, gradingRecords).length > 0).length
-    if (offeneFolgen) punkte.push({ key: 'openFollowUps', count: offeneFolgen, tone: 'bad', to: '/admin/grading/dashboard' })
+    if (offeneFolgen) punkte.push({ key: 'openFollowUps', count: offeneFolgen, tone: 'wait', to: '/admin/grading/dashboard' })
 
     const ohneUnterschrift = gradingRecords.filter((r) => r.status !== 'signed').length
     if (ohneUnterschrift) punkte.push({ key: 'openSignatures', count: ohneUnterschrift, tone: 'wait', to: '/admin/grading/dashboard' })

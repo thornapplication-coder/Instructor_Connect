@@ -381,7 +381,8 @@
       "noChange": "Nothing to change — the selection is already set that way",
       "skippedSelf": "Your own account was skipped — otherwise you would lock yourself out.",
       "skippedLastSuper": "The last active superadmin was skipped — otherwise nobody could reach the admin area.",
-      "roleNote": "Role stays a single-user decision: a slip there would hit every selected account at once."
+      "roleNote": "Role stays a single-user decision: a slip there would hit every selected account at once.",
+      "skippedHidden": "{{count}} users were skipped — they were not in the list shown."
     }
   },
   "imprint": {

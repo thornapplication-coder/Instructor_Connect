@@ -103,6 +103,17 @@ grün.
 - **Am Desktop** begrenzt `Page` die Breite (1152 px, `wide` 1280 px). Wo die
   Breite etwas zu tragen hat, füllt sie `CardGrid` mit zwei Spalten; bei einer
   einzelnen Karte bleibt es einspaltig, sonst stünde daneben eine leere Hälfte.
+- **Alles am unteren Bildschirmrand** (Bestätigung, Offline-Streifen,
+  Speicherwarnung, Update-Hinweis) liegt in EINEM Stapel in `App.tsx`, nicht
+  je einzeln auf `fixed above-sandbox`. Zweimal ist derselbe Fehler passiert:
+  erst verdeckte der Offline-Streifen die Formularleiste, dann die
+  Bestätigung den Offline-Streifen. Was gleichzeitig sichtbar sein kann,
+  gehört untereinander.
+- **Zwei Prüfungen für dieselbe Sache laufen auseinander.** Die
+  Fortschrittsleiste des Formulars und die Absendeprüfung waren getrennt —
+  die Leiste meldete „Alles erledigt", das Absenden verweigerte. Jetzt leitet
+  sich `validate()` aus `openItems` ab. Wer eine neue Bedingung einbaut, baut
+  sie in die Liste, nicht daneben.
 - **Bestätigungen** kommen aus `toast(text, tone)` (`src/components/Toast.tsx`),
   nicht aus einem Dialog: Eine Rückmeldung darf den nächsten Handgriff nicht
   aufhalten. Der Streifen trägt `role="status"`, damit Sprachausgaben ihn

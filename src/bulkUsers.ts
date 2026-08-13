@@ -35,7 +35,7 @@ export type BulkAktion =
   | { art: 'aircraft'; wert: 'add' | 'remove'; typ: string }
 
 /** Warum ein Nutzer aus einer Sammelaktion herausfaellt. */
-export type Uebersprungen = 'selbst' | 'letzterSuperadmin'
+export type Uebersprungen = 'selbst' | 'letzterSuperadmin' | 'nichtSichtbar'
 
 export type BulkPlan = {
   /** Je Nutzer nur die Felder, die sich tatsaechlich aendern. */
@@ -52,9 +52,26 @@ function letzterAktiverSuperadmin(users: User[], u: User): boolean {
   return users.filter((x) => x.role === SUPERADMIN && x.active).length <= 1
 }
 
-export function planBulk(users: User[], ids: string[], aktion: BulkAktion, eigeneId: string): BulkPlan {
+/**
+ * @param alle       Gesamtbestand — ausschliesslich fuer die Aussperr-Pruefung.
+ *                   Wer der letzte aktive Superadmin ist, entscheidet sich am
+ *                   ganzen Bestand, nicht an dem, was gerade gefiltert ist.
+ * @param sichtbar   Was auf dem Bildschirm steht. NUR hierauf wirkt die Aktion.
+ * @param ids        Die Auswahl.
+ *
+ * Die Trennung von `alle` und `sichtbar` ist der Kern und keine Formsache:
+ * Die Auswahl ist eine Liste von Kennungen und ueberlebt jeden Filterwechsel.
+ * Wer 100 Member auswaehlt, dann auf „Superadmin" filtert und „Deaktivieren"
+ * drueckt, sperrte damit 100 Instruktoren aus, von denen in dem Moment keiner
+ * sichtbar war — die Rueckfrage nennt nur eine Zahl, keine Namen. Deshalb
+ * faellt hier alles heraus, was nicht auf dem Bildschirm steht, und wird als
+ * `nichtSichtbar` benannt statt still ausgefuehrt.
+ */
+export function planBulk(alle: User[], sichtbar: User[], ids: string[], aktion: BulkAktion, eigeneId: string): BulkPlan {
   const plan: BulkPlan = { patches: [], uebersprungen: [] }
-  const gewaehlt = users.filter((u) => ids.includes(u.id))
+  const sichtbareIds = new Set(sichtbar.map((u) => u.id))
+  ids.filter((id) => !sichtbareIds.has(id)).forEach((id) => plan.uebersprungen.push({ id, grund: 'nichtSichtbar' }))
+  const gewaehlt = sichtbar.filter((u) => ids.includes(u.id))
 
   for (const u of gewaehlt) {
     if (aktion.art === 'active' && aktion.wert === false) {
@@ -64,7 +81,7 @@ export function planBulk(users: User[], ids: string[], aktion: BulkAktion, eigen
         plan.uebersprungen.push({ id: u.id, grund: 'selbst' })
         continue
       }
-      if (letzterAktiverSuperadmin(users, u)) {
+      if (letzterAktiverSuperadmin(alle, u)) {
         plan.uebersprungen.push({ id: u.id, grund: 'letzterSuperadmin' })
         continue
       }

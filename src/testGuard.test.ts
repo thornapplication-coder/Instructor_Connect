@@ -28,6 +28,19 @@ const module = import.meta.glob('./*.ts', { query: '?raw', import: 'default', ea
 const dateien = Object.keys(module).map((p) => p.replace('./', ''))
 
 /**
+ * Reine Logik in `.tsx`-Dateien.
+ *
+ * Beide Wachen globten auf `.ts` — wer eine Rechenfunktion in eine
+ * Seitendatei schrieb, war damit von der Regel befreit, ohne es zu merken.
+ * Gefunden wurden `kurzeZeit` (ChatList) und `readDrafts` (Grading): reine
+ * Funktionen, exportiert, ohne Test. Die Dateiendung ist kein Grund.
+ *
+ * Wandern soll solche Logik nach `src/*.ts`; bis dahin steht sie hier
+ * namentlich, damit sie nicht in Vergessenheit geraet.
+ */
+const LOGIK_IN_TSX: Record<string, string> = {}
+
+/**
  * Wer hier steht, braucht keinen Test — und der Grund steht daneben.
  * Eine Zeile hinzuzufügen ist eine bewusste Entscheidung, kein Versehen.
  */
@@ -53,6 +66,12 @@ describe('Jede Logik hat ihren Test', () => {
         return !dateien.includes(`${basis}.test.ts`) && !dateien.includes(`${basis}.dom.test.ts`)
       })
     expect(ohne).toEqual([])
+  })
+
+  it('duldet keine unbelegte Ausnahme fuer Logik in .tsx', () => {
+    // Die Liste ist absichtlich leer: Wer Logik in eine Seitendatei schreibt,
+    // zieht sie nach src/*.ts um, statt hier einen Eintrag anzulegen.
+    expect(Object.keys(LOGIK_IN_TSX)).toEqual([])
   })
 
   it('haelt die Ausnahmeliste sauber — kein Eintrag fuer eine geloeschte Datei', () => {
