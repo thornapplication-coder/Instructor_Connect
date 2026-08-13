@@ -61,6 +61,8 @@ export interface Store {
   addUser: (user: { name: string; email: string; phone: string; role: Role; groupIds: string[] }) => void
   /** Info-Einträge, die der aktuelle Nutzer sehen darf (Gruppen-Sichtbarkeit) */
   visibleInfoEntries: AppState['infoEntries']
+  /** Wie viele gueltige Eintraege wartet der aktuelle Nutzer noch zu bestaetigen? */
+  openAcks: number
   updateUser: (id: string, patch: Partial<User>) => void
   addGroup: (name: string, purpose: string, aircraftType?: string) => void
   setGroupAircraft: (id: string, aircraftType: string) => void
@@ -396,6 +398,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     0,
   )
   const hasNewInfo = !!state.currentUserId && latestForeignInfo > seenOfCurrent.info
+  /**
+   * Offene Lese-Bestaetigungen des aktuellen Nutzers.
+   *
+   * Der „Neu"-Punkt auf der Info-Kachel haengt an GESEHEN und verschwand
+   * deshalb drei Sekunden nach dem ersten Oeffnen — ausgerechnet die einzige
+   * Pflicht des Moduls war danach unsichtbar. Diese Zahl haengt an
+   * BESTAETIGT und bleibt stehen, bis sie erledigt ist.
+   */
+  const openAcks = useMemo(() => {
+    if (!state.currentUserId) return 0
+    const jetzt = now()
+    return visibleInfoEntries.filter(
+      (e) =>
+        e.requiresAck &&
+        infoIsPublished(e, jetzt) &&
+        !infoIsExpired(e, jetzt) &&
+        infoEntryAppliesTo(e, state.currentUserId!, state.groups) &&
+        !state.infoAcks[e.id]?.[state.currentUserId!],
+    ).length
+  }, [visibleInfoEntries, state.infoAcks, state.currentUserId, state.groups, now])
   const hasNewContacts = !!state.currentUserId && state.contactsChangedAt > seenOfCurrent.contacts
 
   // Instruktoren sehen ihre eigenen Formulare eine Woche lang, Admins alles
@@ -709,6 +731,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
       starredInfoIds: new Set(state.currentUserId ? state.starredInfo[state.currentUserId] ?? [] : []),
       visibleInfoEntries,
+      openAcks,
       // Bestätigen erst möglich, wenn der Eintrag auch gilt
       acknowledgeInfo: (id) =>
         patch((s) => {

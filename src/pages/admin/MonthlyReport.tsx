@@ -1,5 +1,5 @@
 import { CalendarRange, Download, Info } from 'lucide-react'
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardHeading, selectCls } from '../../components/ui'
 import { csvNum, csvRow, downloadCsv } from '../../csv'
@@ -145,8 +145,18 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
   const { state, currentUser, can } = useStore()
 
   const mayPickInstructor = can('grading_view_all')
-  const [instructorId, setInstructorId] = useState(currentUser!.id)
-  const who = mayPickInstructor ? instructorId : currentUser!.id
+  /*
+   * Vorbelegung: der eigene Bericht — aber nur, wenn es ihn geben kann.
+   *
+   * `useState(currentUser.id)` allein log: Ein Training Admin bewertet nicht
+   * (`canGrade: false`), steht deshalb gar nicht in `instructorOptions` — das
+   * Auswahlfeld zeigte dann den ERSTEN fremden Namen an, waehrend der Bericht
+   * weiter fuer ihn selbst rechnete und „keine Bewertungen" meldete. Man las
+   * einen Namen mit Daten und ein leeres Ergebnis. Dasselbe traf den
+   * Superadmin, der selbst nicht bewertet.
+   */
+  const [instructorId, setInstructorId] = useState('')
+  const who = mayPickInstructor ? instructorId || currentUser!.id : currentUser!.id
 
   const ownMonths = useMemo(() => monthsWithData(records, who), [records, who])
   // Wer fuer andere auswerten darf, hat oft selbst keine Bewertungen. Dann
@@ -179,6 +189,22 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
         .sort((a, b) => a.name.localeCompare(b.name)),
     [state.users, records],
   )
+
+  /*
+   * Steht der aktuelle Nutzer nicht zur Wahl (oder hat er in keinem Monat
+   * Daten), auf den ersten Instruktor MIT Daten wechseln — sonst zeigt das
+   * Feld einen anderen Namen, als der Bericht rechnet.
+   */
+  useEffect(() => {
+    if (!mayPickInstructor || instructorId) return
+    const eigenerHatDaten = records.some((r) => r.instructorId === currentUser!.id)
+    if (eigenerHatDaten && instructorOptions.some((o) => o.id === currentUser!.id)) {
+      setInstructorId(currentUser!.id)
+      return
+    }
+    const ersterMitDaten = instructorOptions.find((o) => records.some((r) => r.instructorId === o.id))
+    if (ersterMitDaten) setInstructorId(ersterMitDaten.id)
+  }, [mayPickInstructor, instructorId, instructorOptions, records, currentUser])
 
   const monthLabel = (m: MonthKey) =>
     // Der Monatsname gehoert zum Berichtstext und bleibt deshalb englisch.

@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
 import { infoEntryAppliesTo, infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
+import type { InfoEntry } from '../types'
 import { formatDate, formatDateTime } from './Grading'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
@@ -198,6 +199,12 @@ export function InstructorInfo() {
     .filter((e) => [e.title, e.description, e.body ?? '', e.category, e.fileName ?? ''].join(' ').toLowerCase().includes(query.toLowerCase()))
     .filter((e) => !categoryFilter || e.category === categoryFilter)
     .sort((a, b) => {
+      /* Offene Kenntnisnahmen ganz nach oben — vor Muster und Stern. Sie sind
+         die einzige Pflicht des Moduls und konnten bisher unter markierten
+         Eintraegen und hinter dem Musterabschnitt liegen. */
+      const offen = (e: InfoEntry) => (e.requiresAck && !state.infoAcks[e.id]?.[currentUser!.id] ? 0 : 1)
+      const ackDiff = offen(a) - offen(b)
+      if (ackDiff !== 0) return ackDiff
       const acDiff = (aircraftOf(a) || 'zzz').localeCompare(aircraftOf(b) || 'zzz')
       if (acDiff !== 0) return acDiff
       const starDiff = Number(starredInfoIds.has(b.id)) - Number(starredInfoIds.has(a.id))
@@ -275,7 +282,26 @@ export function InstructorInfo() {
           ))}
         </div>
 
-        {entries.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('info.empty')}</p>}
+        {/* „Keine Eintraege gefunden" erschien auch, wenn nur die Suche oder der
+            Kategoriefilter alles verdeckte — der Nutzer glaubte, sein Bestand
+            sei weg. Muster aus Who-to-call und Notes. */}
+        {entries.length === 0 &&
+          (query.trim() || categoryFilter ? (
+            <div className="space-y-3 pt-6 text-center">
+              <p className="text-sm text-dim">{t('info.noMatch')}</p>
+              <button
+                onClick={() => {
+                  setQuery('')
+                  setCategoryFilter('')
+                }}
+                className="min-h-11 rounded-xl border border-line/15 px-4 text-[13.5px] transition hover:border-accent/50 hover:text-accent"
+              >
+                {t('info.showAll')}
+              </button>
+            </div>
+          ) : (
+            <p className="pt-6 text-center text-sm text-dim">{t('info.empty')}</p>
+          ))}
 
         {entries.map((entry, i) => {
           const open = openId === entry.id

@@ -236,7 +236,29 @@ function TrainingAdminGrading() {
           </select>
         </div>
 
-        {list.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('forms:empty')}</p>}
+        {/* „No forms yet" erschien auch dann, wenn nur die Filter alles
+            verdeckten — bei einer Ablage mit Aufbewahrungspflicht ein echter
+            Schreck. Jetzt sagt der Text, was los ist, und bietet den Weg
+            zurueck an. */}
+        {list.length === 0 &&
+          (period !== 'all' || fTrainee || fAircraft || fInstructor ? (
+            <div className="space-y-3 pt-6 text-center">
+              <p className="text-sm text-dim">{t('forms:noMatch')}</p>
+              <button
+                onClick={() => {
+                  setPeriod('all')
+                  setFTrainee('')
+                  setFAircraft('')
+                  setFInstructor('')
+                }}
+                className="min-h-11 rounded-xl border border-line/15 px-4 text-[13.5px] transition hover:border-accent/50 hover:text-accent"
+              >
+                {t('forms:showAll')}
+              </button>
+            </div>
+          ) : (
+            <p className="pt-6 text-center text-sm text-dim">{t('forms:empty')}</p>
+          ))}
 
         {/* Kompakte Liste, nach Schulungstag gebuendelt — juengster Tag
             zuerst, wie in der Instruktorenansicht. In der Ablage stehen
@@ -428,7 +450,20 @@ export function Grading() {
         {/* Aufbewahrung in der Instruktoren-Ansicht: 1 Woche */}
         {isMember && <p className="px-1 text-[12px] leading-relaxed text-dim">{t('forms:retentionHint')}</p>}
 
-        {list.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('forms:empty')}</p>}
+        {list.length === 0 &&
+          (trafficFilter ? (
+            <div className="space-y-3 pt-6 text-center">
+              <p className="text-sm text-dim">{t('forms:noMatch')}</p>
+              <button
+                onClick={() => setTrafficFilter('')}
+                className="min-h-11 rounded-xl border border-line/15 px-4 text-[13.5px] transition hover:border-accent/50 hover:text-accent"
+              >
+                {t('forms:showAll')}
+              </button>
+            </div>
+          ) : (
+            <p className="pt-6 text-center text-sm text-dim">{t('forms:empty')}</p>
+          ))}
 
         {/* Nach Schulungstag gruppiert, jüngster Tag zuerst. Die Liste war
             zwar schon so sortiert, aber ohne sichtbare Grenze: Bei einem

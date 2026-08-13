@@ -2,7 +2,7 @@ import { BookOpenCheck, LogOut, NotebookPen, MessageSquareText, MessagesSquare, 
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
-import { Avatar, Modal, NewDot, ThemeToggle } from '../components/ui'
+import { Avatar, CountBadge, Modal, ThemeToggle } from '../components/ui'
 import { navigate } from '../router'
 import { isAdminUser, useStore } from '../store'
 import { useIsDesktop } from '../useIsDesktop'
@@ -33,7 +33,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
   useEffect(() => {
     if (unknownRoute) navigate('/')
   }, [unknownRoute])
-  const { state, currentUser, logout, unreadGroups, hasNewInfo, hasNewContacts, visibleGradingRecords, can, moduleAllowed } = useStore()
+  const { state, currentUser, logout, unreadGroups, hasNewInfo, hasNewContacts, openAcks, visibleGradingRecords, can, moduleAllowed } = useStore()
   const isDesktop = useIsDesktop()
   const [showInstall, setShowInstall] = useState(false)
   // Öffnet das iOS-Share-Sheet (dort: „Zum Home-Bildschirm") — sonst Anleitung
@@ -56,16 +56,29 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
 
   // Typisiert über die TILES-Routen: eine umbenannte oder neue Kachel ohne
   // Eintrag hier ist ein Compile-Fehler, kein still fehlender Punkt.
-  const hasNews: Record<(typeof TILES)[number]['to'], boolean> = {
-    '/grading': false, // Grading trägt stattdessen den Ampel-Punkt
-    '/lessons': false,
-    '/chat': unreadGroups.size > 0,
-    '/feedback': false, // bewusst ohne Punkt — Feedback ist eine Einbahnstraße
-    '/info': hasNewInfo,
+  /*
+   * Zahl statt Punkt — und in Akzentfarbe, nicht in Ampelgruen.
+   *
+   * Der gruene Punkt hiess bei Grading „alles erledigt" und bei Chat/Info
+   * „ungelesen": dieselbe Farbe, dieselbe Stelle, gegenteilige Aussage. Die
+   * Ampel bleibt beim Grading, alles Ungelesene traegt eine blaue Marke.
+   * Wo eine Zahl Sinn ergibt, steht sie da (Gruppen mit Ungelesenem, offene
+   * Kenntnisnahmen); wo nicht, steht die 1 fuer „da ist etwas".
+   *
+   * Offene Kenntnisnahmen zaehlen VOR den neuen Eintraegen: Sie sind die
+   * einzige Pflicht des Moduls und verschwanden bisher, sobald die Liste
+   * einmal offen war.
+   */
+  const news: Record<(typeof TILES)[number]['to'], number> = {
+    '/grading': 0, // Grading trägt stattdessen den Ampel-Punkt
+    '/lessons': 0,
+    '/chat': unreadGroups.size,
+    '/feedback': 0, // bewusst ohne Marke — Feedback ist eine Einbahnstraße
+    '/info': openAcks > 0 ? openAcks : hasNewInfo ? 1 : 0,
     // Änderungen am Verzeichnis wurden berechnet, aber nie angezeigt
-    '/contacts': hasNewContacts,
-    // Notizen schreibt man sich selbst — ein „Neu"-Punkt waere sinnlos.
-    '/notes': false,
+    '/contacts': hasNewContacts ? 1 : 0,
+    // Notizen schreibt man sich selbst — eine „Neu"-Marke waere sinnlos.
+    '/notes': 0,
   }
 
   // Die Kacheln folgen der Rechte-Matrix: was der Superadmin einer Rolle
@@ -165,7 +178,11 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
                 // Dieselbe Form-Codierung wie in der Formularliste
                 <TrafficDot color={gradingTraffic} size={15} className="pointer-events-none absolute right-3 top-3 z-10" />
               ) : (
-                hasNews[to] && <NewDot className="right-3.5 top-3.5" />
+                <CountBadge
+                  count={news[to]}
+                  label={to === '/info' && openAcks > 0 ? t('home.openAcks') : t('common.new')}
+                  className="right-2.5 top-2.5"
+                />
               )}
               {/* Kachelgröße bleibt — Symbol und Beschriftung wachsen ab Tablet
                   deutlich mit, damit sie am iPad und Desktop gut lesbar sind. */}

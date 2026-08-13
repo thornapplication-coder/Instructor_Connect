@@ -341,6 +341,29 @@ export function Avatar({ name, size = 36 }: { name: string; size?: number }) {
   )
 }
 
+/**
+ * Zaehler-Marke fuer Kacheln — Akzentfarbe, mit Zahl.
+ *
+ * Auf der Startseite bedeutete ein gruener Punkt zwei entgegengesetzte Dinge:
+ * bei Grading die Ampel („alles unterschrieben und versendet"), bei Chat und
+ * Info „ungelesen" — gleiche Farbe, gleiche Groesse, gleiche Position. Die
+ * Ampel bleibt gruen/gelb/rot und exklusiv beim Grading; alles Ungelesene
+ * traegt jetzt diese blaue Marke mit Zahl. Zwei Codierungen, zwei
+ * Bedeutungen, kein Verwechseln.
+ */
+export function CountBadge({ count, label, className = '' }: { count: number; label: string; className?: string }) {
+  if (count <= 0) return null
+  return (
+    <span
+      role="img"
+      aria-label={`${count} ${label}`}
+      className={`pointer-events-none absolute z-10 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-1 text-[12px] font-bold leading-none text-bg ring-2 ring-bg ${className}`}
+    >
+      {count > 99 ? '99+' : count}
+    </span>
+  )
+}
+
 /** Grüner „Neu“-Punkt; Position über className, Größe über size (px) steuern. */
 export function NewDot({ className = '', size = 12 }: { className?: string; size?: number }) {
   const { t } = useTranslation()

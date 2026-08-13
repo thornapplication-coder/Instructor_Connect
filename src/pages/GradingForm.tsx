@@ -190,11 +190,19 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
       Object.values(freeText).some((v) => v?.trim()) ||
       attendance.some((a) => a.name.trim()))
 
-  // Beim ersten Rendern einen vorhandenen Entwurf anbieten
-  const draftLoaded = useRef(false)
+  /*
+   * Entwurf anbieten — je Formulartyp, nicht nur einmal.
+   *
+   * `draftLoaded` war ein einfaches Ja/Nein: Wer beim Wiederkommen zuerst
+   * den falschen Typ waehlte und dann auf den richtigen zurueckging, hatte
+   * die einzige Gelegenheit verbraucht — der Entwurf lag danach unerreichbar
+   * im Speicher. Gemerkt wird jetzt, FUER WELCHEN Schluessel bereits
+   * geladen wurde; jeder Typwechsel schaut erneut nach.
+   */
+  const draftLoaded = useRef('')
   useEffect(() => {
-    if (draftLoaded.current || existing || !formTypeId) return
-    draftLoaded.current = true
+    if (draftLoaded.current === draftKey || existing || !formTypeId) return
+    draftLoaded.current = draftKey
     try {
       const raw = localStorage.getItem(draftKey)
       if (!raw) return

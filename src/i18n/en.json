@@ -63,6 +63,7 @@
     "sandboxCode": "Sandbox: your code is {{code}} — in production it arrives by email."
   },
   "home": {
+    "openAcks": "open read confirmations",
     "hello": "Hello, {{name}}",
     "admin": "Admin Panel",
     "installHint": "iPhone/iPad: add this app to your home screen to receive notifications.",
@@ -129,6 +130,8 @@
     "deleteBlocked": "Not possible: {{names}} would be left without any group. Add them to another group first."
   },
   "info": {
+    "noMatch": "No entry matches the search or filter.",
+    "showAll": "Show all",
     "searchPlaceholder": "Search entries …",
     "newEntry": "New entry",
     "empty": "No entries found.",
