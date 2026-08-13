@@ -9,7 +9,7 @@ import { APP_VERSION } from '../types'
 function LanguageToggle() {
   const { i18n } = useTranslation()
   return (
-    <div className="flex overflow-hidden rounded-lg border border-line/15 text-[12px]">
+    <div className="flex overflow-hidden rounded-lg border border-line/15 text-micro">
       {(['de', 'en'] as const).map((lng) => (
         <button
           key={lng}
@@ -59,11 +59,11 @@ export function Login() {
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-raised shadow-tile">
             <Plane size={30} className="text-accent" />
           </div>
-          <p className="text-sm text-dim">{t('login.welcome')}</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight">
+          <p className="text-body text-dim">{t('login.welcome')}</p>
+          <h1 className="mt-1 text-hero font-bold tracking-tight">
             Instructor <span className="text-accent">Connect</span>
           </h1>
-          <p className="mt-2 text-sm text-dim">{t('login.subtitle')}</p>
+          <p className="mt-2 text-body text-dim">{t('login.subtitle')}</p>
         </div>
 
         {step === 'email' ? (
@@ -72,12 +72,12 @@ export function Login() {
               e.preventDefault()
               submit()
             }}
-            className="space-y-3"
+            className="space-y-stack"
           >
             {/* Feld in einer Card — hebt sich vom Seitenhintergrund ab, wie überall sonst in der App. */}
             <Card className="p-4">
               <label className="block">
-                <span className="mb-1.5 block text-[13px] font-medium text-dim">{t('login.identifier')}</span>
+                <span className="mb-1.5 block text-small font-medium text-dim">{t('login.identifier')}</span>
                 <input
                   type="email"
                   inputMode="email"
@@ -91,7 +91,7 @@ export function Login() {
                 />
               </label>
               {error === 'email' && (
-                <p id="login-email-error" role="alert" className="mt-2 text-[13px] text-danger">
+                <p id="login-email-error" role="alert" className="mt-2 text-small text-danger">
                   {t('login.error')}
                 </p>
               )}
@@ -99,7 +99,7 @@ export function Login() {
             <Button type="submit" className="w-full py-3">
               {t('login.button')}
             </Button>
-            <p className="text-center text-[12px] text-dim">{t('login.otpHint')}</p>
+            <p className="text-center text-micro text-dim">{t('login.otpHint')}</p>
           </form>
         ) : (
           <form
@@ -107,19 +107,19 @@ export function Login() {
               e.preventDefault()
               confirm()
             }}
-            className="space-y-3"
+            className="space-y-stack"
           >
-            <p className="text-[13px] leading-relaxed text-dim">{t('login.codeSentTo', { email: identifier.trim() })}</p>
+            <p className="text-small leading-relaxed text-dim">{t('login.codeSentTo', { email: identifier.trim() })}</p>
             {/* Sandbox: kein Mailversand — der Code wird hier angezeigt */}
             {state.pendingLogin && (
-              <p className="rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-[12.5px] text-sand">
+              <p className="rounded-xl border border-amber-400/25 bg-amber-400/5 p-3 text-micro text-sand">
                 {t('login.sandboxCode', { code: state.pendingLogin.code })}
               </p>
             )}
             {/* Feld in einer Card — hebt sich vom Seitenhintergrund ab, wie überall sonst in der App. */}
             <Card className="p-4">
               <label className="block">
-                <span className="mb-1.5 block text-[13px] font-medium text-dim">{t('login.codeLabel')}</span>
+                <span className="mb-1.5 block text-small font-medium text-dim">{t('login.codeLabel')}</span>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -129,14 +129,14 @@ export function Login() {
                   value={code}
                   onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
                   placeholder="••••••"
-                  className={`${inputCls} text-center text-[20px] tracking-[0.4em]`}
+                  className={`${inputCls} text-center text-title tracking-[0.4em]`}
                   aria-invalid={error === 'code' || undefined}
                   aria-describedby={error === 'code' ? 'login-code-error' : undefined}
                   autoFocus
                 />
               </label>
               {error === 'code' && (
-                <p id="login-code-error" role="alert" className="mt-2 text-[13px] text-danger">
+                <p id="login-code-error" role="alert" className="mt-2 text-small text-danger">
                   {t('login.codeError')}
                 </p>
               )}
@@ -144,14 +144,14 @@ export function Login() {
             <Button type="submit" disabled={code.length !== 6} className="w-full py-3">
               {t('login.verify')}
             </Button>
-            <p className="text-center text-[12px] leading-relaxed text-dim">{t('login.codeHint')}</p>
+            <p className="text-center text-micro leading-relaxed text-dim">{t('login.codeHint')}</p>
             <button
               type="button"
               onClick={() => {
                 setStep('email')
                 setError('')
               }}
-              className="mx-auto block text-[12.5px] text-dim underline underline-offset-2 hover:text-ink"
+              className="mx-auto block text-micro text-dim underline underline-offset-2 hover:text-ink"
             >
               {t('login.changeEmail')}
             </button>
@@ -165,8 +165,8 @@ export function Login() {
             der Anmeldestrecke. */}
         {SANDBOX && (
         <div className="mt-8 rounded-2xl border border-amber-400/25 bg-amber-400/5 p-4">
-          <p className="mb-2.5 text-[12px] font-semibold uppercase tracking-wide text-sand">{t('login.sandboxUsers')}</p>
-          <div className="space-y-1">
+          <p className="mb-2.5 text-micro font-semibold uppercase tracking-wide text-sand">{t('login.sandboxUsers')}</p>
+          <div className="space-y-tight">
             {(['superadmin', 'group_admin', 'training_admin', 'member'] as const)
               .map((role) => state.users.find((u) => u.active && u.role === role))
               .filter((u): u is NonNullable<typeof u> => !!u)
@@ -178,8 +178,8 @@ export function Login() {
                 >
                   <Avatar name={u.name} size={30} />
                   <span className="min-w-0">
-                    <span className="block truncate text-[14px] font-medium">{u.name}</span>
-                    <span className="block text-[12px] text-dim">{t(`roles.${u.role}`)}</span>
+                    <span className="block truncate text-body font-medium">{u.name}</span>
+                    <span className="block text-micro text-dim">{t(`roles.${u.role}`)}</span>
                   </span>
                 </button>
               ))}
@@ -187,7 +187,7 @@ export function Login() {
         </div>
         )}
 
-        <div className="mt-8 space-y-1 text-center text-[12px] text-dim">
+        <div className="mt-8 space-y-tight text-center text-micro text-dim">
           <p>{t('login.noSignup')}</p>
           <p className="flex items-center justify-center gap-1">
             <Lock size={11} /> {t('login.encryption')}

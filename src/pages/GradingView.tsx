@@ -223,35 +223,35 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             Export-Stempel — ohne diese Angaben lässt sich ein Ausdruck weder
             der ATO noch einem Formularstand zuordnen. */}
         <div className="print-head border-b-2 border-line/60 pb-2">
-          <p className="text-[12px] font-semibold uppercase tracking-wide">
+          <p className="text-micro font-semibold uppercase tracking-wide">
             {doc.atoName}
             {doc.atoName && approval ? ' · ' : ''}
             {/* Die ATO-Kennung darf nicht mitten im Wert umbrechen — auf dem
                 Ausdruck ist sie die Zuordnung zur Zulassung. */}
             {approval && <span className="zusammen">{approval}</span>}
           </p>
-          <h1 className="text-2xl font-bold tracking-tight">
+          <h1 className="text-display font-bold tracking-tight">
             {record.formTypeId} — {formTitel}
           </h1>
           {/* Die Person gehoert in den KOPF, weil sich nur der auf jedem Blatt
               wiederholt (Chrome druckt Fussgruppen nur auf dem letzten Blatt).
               Damit traegt auch Blatt 3 eines langen Nachweises den Namen. */}
           {docPersons.length > 0 && (
-            <p className="text-[12px] font-semibold">
+            <p className="text-micro font-semibold">
               {personLabel}: {docPersons.join(', ')}
             </p>
           )}
-          <p className="mt-1 flex justify-between gap-4 text-[12px] text-dim">
+          <p className="mt-1 flex justify-between gap-4 text-micro text-dim">
             <span>{t('forms:exportStamp', { date: formatDateTime(Date.now() + state.timeOffsetMs), name: currentUser!.name })}</span>
             <span className="zusammen">{doc.formRevision}</span>
           </p>
         </div>
 
-        <div className="print-body space-y-4">
+        <div className="print-body space-y-section">
         {/* iPad/iPhone: Druckdialog braucht einen Fingertipp */}
         {printHint && (
-          <div className="space-y-3 rounded-xl border border-accent/40 bg-accent/10 p-3.5 print:hidden">
-            <p className="text-[13px] leading-relaxed">{t('forms:printHintBody')}</p>
+          <div className="space-y-stack rounded-xl border border-accent/40 bg-accent/10 p-3.5 print:hidden">
+            <p className="text-small leading-relaxed">{t('forms:printHintBody')}</p>
             <Button
               onClick={() => {
                 setPrintHint(false)
@@ -262,7 +262,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             >
               <Printer size={16} /> {t('forms:printNow')}
             </Button>
-            <p className="text-[12px] leading-relaxed text-dim">{t('forms:printShareFallback')}</p>
+            <p className="text-micro leading-relaxed text-dim">{t('forms:printShareFallback')}</p>
           </div>
         )}
 
@@ -274,15 +274,19 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               <CheckCircle2 size={11} className="mr-1" /> {t('forms:status.signed')}
             </Badge>
           ) : (
-            <Badge tone="warm">
+            <Badge tone="wait">
               <Clock size={11} className="mr-1" /> {t('forms:status.awaiting_signature')}
             </Badge>
           )}
-          <Badge tone={record.mailStatus === 'sent' ? 'accent' : 'dim'}>{t(`forms:mail.${record.mailStatus}`)}</Badge>
+          {/* Versandstand folgt derselben Skala wie alles andere: verschickt ist
+              erledigt, in der Warteschlange wartet, fehlgeschlagen ist kaputt. */}
+          <Badge tone={record.mailStatus === 'sent' ? 'ok' : record.mailStatus === 'failed' ? 'bad' : record.mailStatus === 'queued' ? 'wait' : 'dim'}>
+            {t(`forms:mail.${record.mailStatus}`)}
+          </Badge>
         </div>
 
         {record.mailStatus === 'failed' && (
-          <div className="space-y-3 rounded-xl border border-danger/30 bg-danger/10 p-3.5 text-[13px] print:hidden">
+          <div className="space-y-stack rounded-xl border border-danger/30 bg-danger/10 p-3.5 text-small print:hidden">
             <div className="flex items-start gap-2.5">
               <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
               <div>
@@ -299,8 +303,8 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
 
         {/* Pflicht-Folgeformular fehlt noch: deutlich sichtbar + direkt ausfüllbar */}
         {missing.length > 0 && (
-          <div className="space-y-3 rounded-xl border border-wait/50 bg-wait/10 p-3.5 print:hidden">
-            <div className="flex items-start gap-2.5 text-[13px]">
+          <div className="space-y-stack rounded-xl border border-wait/50 bg-wait/10 p-3.5 print:hidden">
+            <div className="flex items-start gap-2.5 text-small">
               <AlertTriangle size={16} className="mt-0.5 shrink-0 text-wait" />
               <p className="font-semibold">{t('forms:followUpWarn')}</p>
             </div>
@@ -323,7 +327,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         )}
 
         {record.status === 'signed' && (
-          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[12.5px] leading-relaxed text-dim print:hidden">{t('forms:readOnlyNote')}</p>
+          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-micro leading-relaxed text-dim print:hidden">{t('forms:readOnlyNote')}</p>
         )}
 
         {/* Rueckverweis auf das Ausgangsblatt — im DRUCK. Die Rueckrichtung
@@ -332,7 +336,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             welcher Session es gehoert. Aus der Ablage gezogen war es damit
             ein Blatt ohne Vorgang. */}
         {parentRec && (
-          <p className="hidden text-[10px] text-dim print:block">
+          <p className="hidden text-fine text-dim print:block">
             {t('forms:followUpTo', {
               form: `${parentRec.formTypeId} — ${parentRec.docSnapshot?.formTitle || grading.formTypes.find((f) => f.id === parentRec.formTypeId)?.title || ''}`,
               date: formatDate(parentRec.header.date || parentRec.createdAt),
@@ -344,7 +348,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         {/* Folgeformulare (306/310): das auslösende Grading Sheet geht beim
             Versand automatisch mit */}
         {parentRec && (
-          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[12.5px] leading-relaxed text-dim print:hidden">
+          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-micro leading-relaxed text-dim print:hidden">
             {t('forms:mailAttachment', { form: `${parentRec.formTypeId} — ${grading.formTypes.find((f) => f.id === parentRec.formTypeId)?.title ?? ''}` })}{' '}
             <button onClick={() => navigate(`/grading/${parentRec.id}`)} className="font-medium text-accent hover:underline">
               {t('forms:openParent')}
@@ -355,7 +359,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         {/* Kopfdaten */}
         <Card className="p-4">
           <CardHeading className="mb-3">{t('forms:headerData')}</CardHeading>
-          <dl className="grid gap-x-4 gap-y-2 text-[13.5px] sm:grid-cols-2">
+          <dl className="grid gap-x-4 gap-y-2 text-small sm:grid-cols-2">
             {/* Die geschulte Person steht an erster Stelle — sie ist die
                 Zuordnung des Nachweises, alles andere beschreibt den Termin. */}
             {showPersonRow && (
@@ -374,7 +378,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                   {f.label}
                   {/* Fußnoten des Originalformulars (z. B. PRG*) gehören auf den
                       Nachweis, nicht nur in die Eingabemaske. */}
-                  {f.hint && <span className="block text-[12px] leading-snug text-dim">{f.hint}</span>}
+                  {f.hint && <span className="block text-micro leading-snug text-dim">{f.hint}</span>}
                 </dt>
                 <dd className="text-right font-medium">
                   {f.type === 'date' && record.header[f.key] ? formatDate(record.header[f.key]) : record.header[f.key] || '–'}
@@ -400,11 +404,11 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
 
         {/* Freitext (306/310) */}
         {formType && formType.freeTextSections.length > 0 && (
-          <Card className="space-y-3 p-4">
+          <Card className="space-y-stack p-4">
             {formType.freeTextSections.map((sec) => (
               <div key={sec}>
-                <p className="mb-1 text-[13px] font-semibold text-dim">{sec}</p>
-                <p className="whitespace-pre-wrap rounded-lg bg-bg/40 p-3 text-[13.5px] leading-relaxed">{record.freeText[sec] || '–'}</p>
+                <p className="mb-1 text-small font-semibold text-dim">{sec}</p>
+                <p className="whitespace-pre-wrap rounded-lg bg-bg/40 p-3 text-small leading-relaxed">{record.freeText[sec] || '–'}</p>
               </div>
             ))}
           </Card>
@@ -416,7 +420,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             <CardHeading className="mb-2">{t('forms:attendance')}</CardHeading>
             {/* 307A trägt die Unterschrift jedes Teilnehmers, 307B (CBT/WBT/VCR)
                 findet ohne Anwesenheit statt — dort bürgt der Instruktor. */}
-            <ol className="space-y-1 text-[13.5px]">
+            <ol className="space-y-tight text-small">
               {record.attendance.map((a, i) => (
                 <li key={i} className="flex items-center gap-2 border-b border-line/[0.06] py-1 last:border-0">
                   <span className="w-5 shrink-0 text-dim">{i + 1}.</span>
@@ -425,13 +429,13 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                     (a.signature ? (
                       <img src={a.signature} alt="" className="h-10 w-32 shrink-0 rounded border border-line/15 bg-white object-contain" />
                     ) : (
-                      <span className="shrink-0 text-[12px] text-dim">{t('forms:missingSignature')}</span>
+                      <span className="shrink-0 text-micro text-dim">{t('forms:missingSignature')}</span>
                     ))}
                 </li>
               ))}
             </ol>
             {record.formTypeId === '307B' && (
-              <p className="mt-2 text-[12px] leading-relaxed text-dim">{t('forms:attendance307B')}</p>
+              <p className="mt-2 text-micro leading-relaxed text-dim">{t('forms:attendance307B')}</p>
             )}
           </Card>
         )}
@@ -446,34 +450,35 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 „Competent" stand auf zwei Zeilen. Passt beides nicht
                 nebeneinander, rueckt das Ergebnis geschlossen darunter. */}
             <div className="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-              <p className="min-w-0 text-[15px] font-semibold">{traineeLabel(tr)}</p>
+              <p className="min-w-0 text-lead font-semibold">{traineeLabel(tr)}</p>
               <span className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap">
-                <span className="text-[12px] text-dim">{[tr.position, tr.seat].filter(Boolean).join(' · ')}</span>
+                <span className="text-micro text-dim">{[tr.position, tr.seat].filter(Boolean).join(' · ')}</span>
+                {/* Volle Flaeche statt Toenung: Dieses Ergebnis ist die
+                    Aussage des Blattes und muss sie auch auf Papier tragen.
+                    Die Farbe kommt aus derselben Skala wie ueberall sonst —
+                    vorher standen hier zwei Palettenwerte (emerald-700,
+                    red-600), die in der Liste nirgends vorkamen. */}
                 {tr.overall && (
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${
-                      tr.overall === 'competent' ? 'bg-emerald-700 text-white' : 'bg-red-600 text-white'
-                    }`}
-                  >
+                  <Badge tone={tr.overall === 'competent' ? 'ok' : 'bad'} strong>
                     {t(`forms:${tr.overall}`)}
-                  </span>
+                  </Badge>
                 )}
               </span>
             </div>
 
-            <div className="space-y-1.5 sm:grid sm:grid-cols-2 sm:gap-x-6 sm:space-y-0 print:grid print:grid-cols-2 print:gap-x-4 print:space-y-0">
+            <div className="space-y-tight sm:grid sm:grid-cols-2 sm:gap-x-6 sm:space-y-0 print:grid print:grid-cols-2 print:gap-x-4 print:space-y-0">
               {competencies.map((c) => {
                 const g = tr.grades.find((x) => x.code === c.code)
                 return (
                   <div key={c.code} className="flex items-start gap-2.5 border-b border-line/[0.06] pb-1.5 last:border-0">
-                    <span className={`flex h-7 w-9 shrink-0 items-center justify-center rounded-md text-[13px] font-bold ${gradeColor(g?.grade ?? null)}`}>
+                    <span className={`flex h-7 w-9 shrink-0 items-center justify-center rounded-md text-small font-bold ${gradeColor(g?.grade ?? null)}`}>
                       {g?.grade ?? '–'}
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13.5px] font-medium">
+                      <p className="text-small font-medium">
                         {hideCodes ? c.title : <>{c.code} <span className="font-normal text-dim">· {c.title}</span></>}
                       </p>
-                      {g?.comment && <p className="mt-0.5 text-[12.5px] text-dim">{g.comment}</p>}
+                      {g?.comment && <p className="mt-0.5 text-micro text-dim">{g.comment}</p>}
                     </div>
                   </div>
                 )
@@ -485,7 +490,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 Farbe weg, und ein Pruefer kann das Blatt nicht aus sich
                 heraus lesen. Am Bildschirm waere die Zeile Ballast (dort
                 erklaert die Eingabemaske die Noten), deshalb nur im Druck. */}
-            <p className="mt-2 hidden text-[9.5px] leading-snug text-dim print:block">{t('forms:gradeScale')}</p>
+            <p className="mt-2 hidden text-fine leading-snug text-dim print:block">{t('forms:gradeScale')}</p>
 
             <div className="mt-3 grid gap-3 sm:grid-cols-3 print:grid-cols-3">
               {[
@@ -495,8 +500,8 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               ].map(([key, val]) =>
                 val ? (
                   <div key={key}>
-                    <p className="text-[12.5px] font-semibold text-dim">{t(`forms:${key}`)}</p>
-                    <p className="whitespace-pre-wrap text-[13.5px] leading-relaxed">{val}</p>
+                    <p className="text-micro font-semibold text-dim">{t(`forms:${key}`)}</p>
+                    <p className="whitespace-pre-wrap text-small leading-relaxed">{val}</p>
                   </div>
                 ) : null,
               )}
@@ -508,7 +513,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           <Card className="p-4">
             {/* Ankreuzzeilen im Wortlaut des Originalformulars */}
             <CardHeading className="mb-2">Overall Result</CardHeading>
-            <div className="space-y-1.5 text-[13.5px]">
+            <div className="space-y-tight text-small">
               {/* Maßgeblich ist `isNotCompetent`, nicht das rohe Feld: Eine 1 oder
                   zwei Zweien machen einen Piloten rechnerisch „Not Competent"
                   (gradingRules), unabhaengig davon, was im Feld steht. Vorher
@@ -538,7 +543,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                 Eine dritte Fußnote gab es zur Skill-Test-Reife; sie nannte
                 Formular 311, das es nicht gibt, und ist entfallen. */}
             {pilotFootnotes && (
-              <div className="mt-3 space-y-1 text-[12px] leading-relaxed text-dim">
+              <div className="mt-3 space-y-tight text-micro leading-relaxed text-dim">
                 <p>{t('forms:footnote1')}</p>
                 <p>{t('forms:footnote2')}</p>
               </div>
@@ -551,7 +556,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           <Card className="p-4">
             <CardHeading className="mb-2">{t('forms:linkedForms')}</CardHeading>
             {linked.map((l) => (
-              <div key={l.id} className="py-1 text-[13.5px]">
+              <div key={l.id} className="py-1 text-small">
                 {/* Auf Papier muss der Verweis stehen bleiben — der Druckstil
                     blendet Schaltflächen aus, deshalb hier Text plus Knopf. */}
                 <span className="hidden print:inline">
@@ -575,7 +580,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           {/* Wurde die Unterschrift des Piloten in Vertretung eingeholt, gehört
               das auf das Dokument — auch auf den Ausdruck. */}
           {record.lateSignatureBy && (
-            <p className="mb-3 rounded-lg border border-warm/30 bg-warm/5 px-3 py-2 text-[12px] leading-relaxed">
+            <p className="mb-3 rounded-lg border border-warm/30 bg-warm/5 px-3 py-2 text-micro leading-relaxed">
               {t('forms:deputisedNote', {
                 name: state.users.find((u) => u.id === record.lateSignatureBy)?.name ?? record.lateSignatureBy,
               })}
@@ -589,7 +594,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               .filter(([, sig]) => sig !== null || !record.attendance)
               .map(([label, sig]) => (
               <div key={label as string}>
-                <p className="mb-1 text-[12.5px] text-dim">{label}</p>
+                <p className="mb-1 text-micro text-dim">{label}</p>
                 {sig ? (
                   <img
                     src={sig as string}
@@ -597,22 +602,22 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                     className="h-24 w-full rounded-lg border border-line/15 bg-white object-contain"
                   />
                 ) : (
-                  <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-line/25 text-[12.5px] text-dim">
+                  <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-line/25 text-micro text-dim">
                     {t('forms:missingSignature')}
                   </div>
                 )}
               </div>
             ))}
           </div>
-          {record.signedAt && <p className="mt-3 text-[12px] text-dim">{t('forms:signedAt', { date: formatDateTime(record.signedAt) })}</p>}
+          {record.signedAt && <p className="mt-3 text-micro text-dim">{t('forms:signedAt', { date: formatDateTime(record.signedAt) })}</p>}
           {record.instructorSignedAt && record.countersignedAt && (
-            <p className="text-[12px] text-dim">
+            <p className="text-micro text-dim">
               {t('forms:instrSignedAt', { date: formatDateTime(record.instructorSignedAt) })} ·{' '}
               {t('forms:counterSignedAt', { date: formatDateTime(record.countersignedAt) })}
             </p>
           )}
           {record.contentHash && (
-            <p className={`mt-1 text-[12px] ${hashState === 'bad' ? 'font-semibold text-danger' : 'text-dim'}`}>
+            <p className={`mt-1 text-micro ${hashState === 'bad' ? 'font-semibold text-danger' : 'text-dim'}`}>
               {t('forms:fingerprint', { hash: shortFingerprint(record.contentHash) })}
               {hashState === 'ok' && ` — ${t('forms:fingerprintOk')}`}
               {hashState === 'bad' && ` — ${t('forms:fingerprintBad')}`}
@@ -629,7 +634,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               immer unvollständig — dann darf ein Vollzugriffsberechtigter
               vertreten. Wer es war, steht danach auf dem Dokument. */}
           {record.status === 'awaiting_signature' && !record.signatureTrainee && (mayCountersign || mayDeputise) && (
-            <div className="mt-4 space-y-3 rounded-xl border border-warm/25 bg-warm/5 p-3.5 print:hidden">
+            <div className="mt-4 space-y-stack rounded-xl border border-warm/25 bg-warm/5 p-3.5 print:hidden">
               <SignaturePad
                 value={lateSignature}
                 onChange={setLateSignature}
@@ -670,7 +675,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         </Card>
 
         {isAdmin && (
-          <p className="text-center text-[12px] text-dim print:mt-1 print:text-left print:text-[10px]">
+          <p className="text-center text-micro text-dim print:mt-1 print:text-left print:text-fine">
             {t('forms:recipients')}:{' '}
             {[
               ...new Set([
@@ -697,7 +702,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             auf dem LETZTEN Blatt — Chrome wiederholt Fussgruppen im Druck
             nicht zuverlaessig, Kopfgruppen schon. Die Zuordnung jedes
             einzelnen Blattes traegt deshalb der Kopf. */}
-        <p className="print-foot border-t border-line/40 pt-1.5 text-[10px] text-dim">
+        <p className="print-foot border-t border-line/40 pt-1.5 text-fine text-dim">
           {[
             doc.atoName,
             `${record.formTypeId} — ${formTitel}`,

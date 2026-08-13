@@ -157,14 +157,14 @@ function TrainingAdminGrading() {
     return true
   })
 
-  const selCls = 'rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]'
+  const selCls = 'rounded-xl border border-field bg-bg/60 px-3 py-2 text-small'
   return (
     <>
       {/* Filterergebnis für Sprachausgaben — die Liste ändert sich sonst lautlos */}
       <p role="status" className="sr-only">{t('forms:admin.resultCount', { shown: list.length, total: all.length })}</p>
       <TopBar title="Grading Tool" back="/" />
-      <Page wide className="space-y-3">
-        <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('forms:trainingAdminNote')}</p>
+      <Page wide className="space-y-stack">
+        <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small text-dim">{t('forms:trainingAdminNote')}</p>
 
         {/* Reiter: Abgeschlossen / Zu bearbeiten / Verlauf je Pilot.
             Der Verlauf traegt keinen Zaehler — er zaehlt Piloten, nicht
@@ -180,7 +180,7 @@ function TrainingAdminGrading() {
               key={tb}
               onClick={() => setTab(tb)}
               aria-pressed={tab === tb}
-              className={`min-h-11 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
+              className={`min-h-11 rounded-xl border px-3 py-2.5 text-small font-semibold transition ${
                 tab === tb ? 'border-accent bg-accent/15 text-ink' : 'border-line/15 text-dim'
               }`}
             >
@@ -242,8 +242,8 @@ function TrainingAdminGrading() {
             zurueck an. */}
         {list.length === 0 &&
           (period !== 'all' || fTrainee || fAircraft || fInstructor ? (
-            <div className="space-y-3 pt-6 text-center">
-              <p className="text-sm text-dim">{t('forms:noMatch')}</p>
+            <div className="space-y-stack pt-6 text-center">
+              <p className="text-body text-dim">{t('forms:noMatch')}</p>
               <button
                 onClick={() => {
                   setPeriod('all')
@@ -251,13 +251,13 @@ function TrainingAdminGrading() {
                   setFAircraft('')
                   setFInstructor('')
                 }}
-                className="min-h-11 rounded-xl border border-line/15 px-4 text-[13.5px] transition hover:border-accent/50 hover:text-accent"
+                className="min-h-11 rounded-xl border border-line/15 px-4 text-small transition hover:border-accent/50 hover:text-accent"
               >
                 {t('forms:showAll')}
               </button>
             </div>
           ) : (
-            <p className="pt-6 text-center text-sm text-dim">{t('forms:empty')}</p>
+            <p className="pt-6 text-center text-body text-dim">{t('forms:empty')}</p>
           ))}
 
         {/* Kompakte Liste, nach Schulungstag gebuendelt — juengster Tag
@@ -270,7 +270,7 @@ function TrainingAdminGrading() {
             Filter darueber bleiben unveraendert und greifen weiterhin
             zuerst; gebuendelt wird nur, was sie uebrig lassen. */}
         {byDay(list).map(([tag, blaetter]) => (
-        <div key={tag} className="space-y-1.5">
+        <div key={tag} className="space-y-tight">
         <SectionHeading sticky>{formatDate(gradingListDate(blaetter[0]))}</SectionHeading>
         <div className="divide-y divide-line/[0.06] overflow-hidden rounded-xl border border-line/10 bg-surface/60">
           {blaetter.map((r) => (
@@ -287,10 +287,10 @@ function TrainingAdminGrading() {
             >
               <TrafficDot color={trafficLight(r, state.gradingRecords)} />
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13.5px] font-semibold">
+                <p className="truncate text-small font-semibold">
                   {r.formTypeId} · {formTitle(r.formTypeId)}
                 </p>
-                <p className="flex flex-wrap items-baseline gap-x-1.5 text-[12px] text-dim">
+                <p className="flex flex-wrap items-baseline gap-x-1.5 text-micro text-dim">
                   <span className="min-w-0 max-w-full truncate">
                     {traineesOf(r, all).map(traineeLabel).join(', ') || t('forms:noTrainee')}
                   </span>
@@ -411,17 +411,17 @@ export function Grading() {
           mayGrade ? (
             <button
               onClick={() => navigate('/grading/new')}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
+              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
             >
               <Plus size={15} /> {t('forms:newForm')}
             </button>
           ) : undefined
         }
       />
-      <Page className="space-y-3">
-        {!mayGrade && !isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('forms:noPermission')}</p>}
+      <Page className="space-y-stack">
+        {!mayGrade && !isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small text-dim">{t('forms:noPermission')}</p>}
         {/* Training Admin: reiner Lese-/Download-Zugriff auf alle Formulare */}
-        {isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('forms:trainingAdminNote')}</p>}
+        {isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small text-dim">{t('forms:trainingAdminNote')}</p>}
 
         {/* Umschalter Formulare / Verlauf je Pilot — nur mit vollem
             Archivzugriff, sonst zeigte der Verlauf bloß Lücken. */}
@@ -432,7 +432,7 @@ export function Grading() {
                 key={v}
                 onClick={() => setAdminView(v)}
                 aria-pressed={adminView === v}
-                className={`min-h-11 rounded-xl border px-3 py-2.5 text-[13.5px] font-semibold transition ${
+                className={`min-h-11 rounded-xl border px-3 py-2.5 text-small font-semibold transition ${
                   adminView === v ? 'border-accent bg-accent/15 text-ink' : 'border-line/15 text-dim'
                 }`}
               >
@@ -445,7 +445,7 @@ export function Grading() {
         {maySeeHistory && adminView === 'trainees' && <TraineeHistory records={state.gradingRecords} />}
         {adminView === 'monthly' && (
           <>
-            <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] text-dim">{t('forms:admin.monthlyIntro')}</p>
+            <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small text-dim">{t('forms:admin.monthlyIntro')}</p>
             <MonthlyReport records={state.gradingRecords} />
           </>
         )}
@@ -460,17 +460,17 @@ export function Grading() {
           <Card key={d.key} className="flex items-center gap-3 border-accent/30 p-4">
             <FilePen size={18} className="shrink-0 text-accent" />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-semibold">
+              <p className="truncate text-body font-semibold">
                 {t('forms:draftOpen')} · {d.formTypeId}
                 {d.wer ? ` · ${d.wer}` : ''}
               </p>
               {d.gesamt > 0 && (
-                <p className="text-[12px] text-dim">{t('forms:gradedOf', { done: d.noten, total: d.gesamt })}</p>
+                <p className="text-micro text-dim">{t('forms:gradedOf', { done: d.noten, total: d.gesamt })}</p>
               )}
             </div>
             <button
               onClick={() => navigate(`/grading/new?type=${d.formTypeId}`)}
-              className="min-h-11 shrink-0 rounded-xl border border-accent/40 px-3 text-[13px] font-semibold text-accent transition hover:bg-accent/10"
+              className="min-h-11 shrink-0 rounded-xl border border-accent/40 px-3 text-small font-semibold text-accent transition hover:bg-accent/10"
             >
               {t('forms:draftContinue')}
             </button>
@@ -491,7 +491,7 @@ export function Grading() {
 
         {/* Ampel-Legende — antippen filtert die Liste. Mobil sauber
             untereinander, ab Tablet als symmetrisches 2×2-Raster. */}
-        <div role="group" aria-label={t('forms:traffic.all')} className="flex flex-col gap-0.5 rounded-xl border border-line/10 bg-surface/60 p-1.5 text-[12px] text-dim sm:grid sm:grid-cols-2 sm:gap-1">
+        <div role="group" aria-label={t('forms:traffic.all')} className="flex flex-col gap-0.5 rounded-xl border border-line/10 bg-surface/60 p-1.5 text-micro text-dim sm:grid sm:grid-cols-2 sm:gap-1">
           <button
             onClick={() => setTrafficFilter('')}
             aria-pressed={trafficFilter === ''}
@@ -518,21 +518,21 @@ export function Grading() {
         </div>
 
         {/* Aufbewahrung in der Instruktoren-Ansicht: 1 Woche */}
-        {isMember && <p className="px-1 text-[12px] leading-relaxed text-dim">{t('forms:retentionHint')}</p>}
+        {isMember && <p className="px-1 text-micro leading-relaxed text-dim">{t('forms:retentionHint')}</p>}
 
         {list.length === 0 &&
           (trafficFilter ? (
-            <div className="space-y-3 pt-6 text-center">
-              <p className="text-sm text-dim">{t('forms:noMatch')}</p>
+            <div className="space-y-stack pt-6 text-center">
+              <p className="text-body text-dim">{t('forms:noMatch')}</p>
               <button
                 onClick={() => setTrafficFilter('')}
-                className="min-h-11 rounded-xl border border-line/15 px-4 text-[13.5px] transition hover:border-accent/50 hover:text-accent"
+                className="min-h-11 rounded-xl border border-line/15 px-4 text-small transition hover:border-accent/50 hover:text-accent"
               >
                 {t('forms:showAll')}
               </button>
             </div>
           ) : (
-            <p className="pt-6 text-center text-sm text-dim">{t('forms:empty')}</p>
+            <p className="pt-6 text-center text-body text-dim">{t('forms:empty')}</p>
           ))}
 
         {/* Nach Schulungstag gruppiert, jüngster Tag zuerst. Die Liste war
@@ -543,8 +543,12 @@ export function Grading() {
             Zeile — in der Zeile stand es überdies als Anlagedatum, während
             sortiert wurde nach dem Schulungstag (#51). */}
         {byDay(list).map(([tag, blaetter]) => (
-          <div key={tag} className="space-y-2.5">
+          <div key={tag} className="space-y-stack">
             <SectionHeading sticky>{formatDate(gradingListDate(blaetter[0]))}</SectionHeading>
+            {/* Bewusst KEIN zweispaltiges Raster: Die Liste ist nach Tagen
+                gegliedert, und ein Tag traegt meist ein einziges Blatt. Zwei
+                Spalten liessen dann neben jeder Zeile eine leere Haelfte —
+                die Breite waere wieder aufgespannt statt genutzt. */}
             {blaetter.map((r) => {
           const notCompetent = r.trainees.some((tr) => tr.overall === 'not_competent')
           const missing = missingFollowUps(r, state.gradingRecords)
@@ -557,8 +561,20 @@ export function Grading() {
               className="p-4"
             >
               <div className="flex items-start gap-3">
-                {/* Status-Icon spiegelt die Ampel: grün ✓, gelb ?, rot ✕ */}
-                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised">
+                {/* Die Ampel dieser Zeile — und zwar nur hier.
+                    Bis zuletzt stand sie zweimal in derselben Zeile: links
+                    dieses Icon-Feld, rechts neben den Knoepfen noch einmal
+                    derselbe Wert als TrafficDot. Zwei Anzeigen fuer eine
+                    Aussage kosten Blickwege und lassen offen, ob sie
+                    dasselbe meinen. Das Icon-Feld bleibt, weil es die
+                    Ampel zusaetzlich in der Form codiert (Haken, Fragezeichen,
+                    Kreuz) — die Farbe allein traegt sie nicht.
+                    Die Ansage haengt jetzt hier, wo vorher der Punkt sie trug. */}
+                <span
+                  role="img"
+                  aria-label={t(`forms:traffic.${light}`)}
+                  className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised"
+                >
                   {light === 'green' ? (
                     <CheckCircle2 size={22} className="text-ok" />
                   ) : light === 'red' ? (
@@ -568,10 +584,10 @@ export function Grading() {
                   )}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-semibold leading-snug">
+                  <p className="text-lead font-semibold leading-snug">
                     {r.formTypeId} · {formTitle(r.formTypeId)}
                   </p>
-                  <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-[13px] text-dim">
+                  <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-small text-dim">
                     <span className="min-w-0 max-w-full truncate">
                       {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('forms:noTrainee')}
                     </span>
@@ -585,35 +601,34 @@ export function Grading() {
                         <CheckCircle2 size={11} className="mr-1" /> {t('forms:status.signed')}
                       </Badge>
                     ) : r.status === 'awaiting_signature' ? (
-                      <Badge tone="warm">
+                      <Badge tone="wait">
                         <Clock size={11} className="mr-1" /> {t('forms:status.awaiting_signature')}
                       </Badge>
                     ) : (
                       <Badge tone="dim">{t('forms:status.draft')}</Badge>
                     )}
-                    {notCompetent && <Badge tone="warm">{t('forms:notCompetent')}</Badge>}
+                    {notCompetent && <Badge tone="bad">{t('forms:notCompetent')}</Badge>}
                     {r.mailStatus === 'failed' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[12px] font-medium text-danger">
-                        <AlertTriangle size={11} /> {t('forms:mail.failed')}
-                      </span>
+                      <Badge tone="bad">
+                        <AlertTriangle size={11} className="mr-1" /> {t('forms:mail.failed')}
+                      </Badge>
                     )}
                     {/* Pflicht-Folgeformular noch nicht ausgefüllt */}
                     {missing.map((id) => (
-                      <span key={id} className="inline-flex items-center gap-1 rounded-full bg-wait px-2.5 py-0.5 text-[12px] font-semibold text-waitInk">
-                        <AlertTriangle size={11} />{' '}
+                      <Badge key={id} tone="wait" strong>
+                        <AlertTriangle size={11} className="mr-1" />{' '}
                         {/* Angelegt, aber unsigniert: dann fehlt nur noch die
                             Unterschrift — das ist etwas anderes als „gar nicht da". */}
                         {followUpStarted(r, state.gradingRecords, id)
                           ? t('forms:unsignedForm', { id })
                           : t('forms:missingForm', { id })}
-                      </span>
+                      </Badge>
                     ))}
                     {r.parentId && <Badge tone="dim">{t('forms:linked')}</Badge>}
                   </div>
                 </div>
-                {/* Ampel + Aktionen in EINER Reihe */}
+                {/* Aktionen in EINER Reihe */}
                 <div className="pointer-events-auto relative z-10 mt-0.5 flex shrink-0 items-center gap-1">
-                  <TrafficDot color={light} className="mr-1" />
                   {/* Komplett ausgefüllte Formulare als PDF herunterladen —
                       öffnet die Ein-Seiten-Druckansicht mit PDF-Dialog */}
                   {r.status === 'signed' && (

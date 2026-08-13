@@ -76,11 +76,11 @@ export function Feedback() {
             gar nichts, der Absendeknopf war einfach verschwunden. */}
         <Page className="flex flex-col items-center justify-center pt-16 text-center">
           <CheckCircle2 size={52} className="mb-4 text-accent" />
-          <h2 role="status" className="text-xl font-bold">
+          <h2 role="status" className="text-title font-bold">
             {t('feedback.sentTitle')}
           </h2>
-          <p className="mt-1.5 max-w-sm text-[14px] text-dim">{t('feedback.sentBody')}</p>
-          <Card className="mt-6 w-full max-w-sm p-4 text-left text-[13px]">
+          <p className="mt-1.5 max-w-sm text-body text-dim">{t('feedback.sentBody')}</p>
+          <Card className="mt-6 w-full max-w-sm p-4 text-left text-small">
             {/* Die Kategorie fehlte in der Bestätigung, obwohl sie die
                 Zuordnung im Admin-Panel bestimmt. */}
             <p className="mb-1 font-semibold text-dim">{t('feedback.category')}</p>
@@ -88,7 +88,7 @@ export function Feedback() {
             <p className="mb-1 font-semibold text-dim">{t('feedback.recipients')}</p>
             <p className="truncate">{recipient}</p>
             {urgent && (
-              <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-danger/15 px-2.5 py-1 text-[12px] font-semibold text-danger">
+              <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-danger/15 px-2.5 py-1 text-micro font-semibold text-danger">
                 <AlertTriangle size={12} /> {t('feedback.urgent')}
               </p>
             )}
@@ -117,12 +117,12 @@ export function Feedback() {
   return (
     <>
       <TopBar title={t('feedback.title')} back="/" />
-      <Page className="space-y-4">
-        <p className="text-[14px] text-dim">{t('feedback.intro')}</p>
+      <Page className="space-y-section">
+        <p className="text-body text-dim">{t('feedback.intro')}</p>
 
         {/* Felder in einer Card — sie heben sich vom Seitenhintergrund ab,
             wie überall sonst in der App. */}
-        <Card className="space-y-4 p-4">
+        <Card className="space-y-section p-4">
         <Field label={t('feedback.recipient') + ' *'}>
           <select
             id="feedback-recipient"
@@ -173,7 +173,7 @@ export function Feedback() {
         {isSafety && (
           <p
             role="alert"
-            className="flex items-center justify-center gap-2 rounded-xl border-2 border-danger bg-danger/10 px-4 py-3 text-center text-[15px] font-bold uppercase tracking-wide text-danger"
+            className="flex items-center justify-center gap-2 rounded-xl border-2 border-danger bg-danger/10 px-4 py-3 text-center text-lead font-bold uppercase tracking-wide text-danger"
           >
             {t('feedback.safetyWarning')}
           </p>
@@ -191,7 +191,7 @@ export function Feedback() {
                   setScope(sc)
                   if (sc === 'general') setAircraftType('')
                 }}
-                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-[13.5px] transition ${
+                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-small transition ${
                   scope === sc ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-line/15 text-dim'
                 }`}
               >
@@ -216,13 +216,13 @@ export function Feedback() {
         {/* Urgent-Kennzeichnung */}
         <button
           onClick={() => setUrgent(!urgent)}
-          className={`flex w-full items-center gap-2.5 rounded-xl border px-3.5 py-3 text-left text-[14px] font-semibold transition ${
+          className={`flex w-full items-center gap-2.5 rounded-xl border px-3.5 py-3 text-left text-body font-semibold transition ${
             urgent ? 'border-danger bg-danger/15 text-danger' : 'border-line/15 text-dim hover:border-danger/40'
           }`}
         >
           <AlertTriangle size={17} />
           {t('feedback.urgent')}
-          <span className="ml-auto text-[12px] font-normal">{urgent ? t('feedback.urgentOn') : t('feedback.urgentOff')}</span>
+          <span className="ml-auto text-micro font-normal">{urgent ? t('feedback.urgentOn') : t('feedback.urgentOff')}</span>
         </button>
 
         <Field label={t('feedback.message') + ' *'}>
@@ -245,10 +245,10 @@ export function Feedback() {
             onChange={(e) => pickFile(e.target.files?.[0] ?? null)}
           />
           {attachment ? (
-            <div className="flex items-center gap-2.5 rounded-xl border border-line/15 px-3.5 py-2.5 text-[13.5px]">
+            <div className="flex items-center gap-2.5 rounded-xl border border-line/15 px-3.5 py-2.5 text-small">
               <Paperclip size={15} className="shrink-0 text-accent" />
               <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
-              <span className="shrink-0 text-[12px] text-dim">{attachment.sizeMB} MB</span>
+              <span className="shrink-0 text-micro text-dim">{attachment.sizeMB} MB</span>
               <button
                 onClick={() => { setAttachment(undefined); if (fileRef.current) fileRef.current.value = '' }}
                 aria-label={`${t('common.delete')}: ${attachment.name}`}
@@ -260,7 +260,7 @@ export function Feedback() {
           ) : (
             <button
               onClick={() => fileRef.current?.click()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line/25 px-3.5 py-3 text-[13.5px] text-dim transition hover:border-accent/50 hover:text-accent"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line/25 px-3.5 py-3 text-small text-dim transition hover:border-accent/50 hover:text-accent"
             >
               <Paperclip size={15} /> {t('feedback.attach')}
             </button>
@@ -272,12 +272,12 @@ export function Feedback() {
             akustisch nichts und optisch eine Meldung, die je nach
             Scrollstand ausserhalb des Bilds lag. */}
         {error && (
-          <p role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-[13px] text-danger">
+          <p role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-small text-danger">
             {t('feedback.errorEmpty')}
           </p>
         )}
 
-        <div className="flex items-start gap-2.5 rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[12.5px] text-dim">
+        <div className="flex items-start gap-2.5 rounded-xl border border-line/10 bg-surface/60 p-3.5 text-micro text-dim">
           <Info size={15} className="mt-0.5 shrink-0 text-accent" />
           <p>{t('feedback.identity', { name: currentUser!.name, email: currentUser!.email })}</p>
         </div>

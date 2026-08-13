@@ -1,7 +1,7 @@
 import { ArrowLeft, ChevronRight, Minus, Search, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Card, CardHeading, inputCls } from '../../components/ui'
+import { Badge, Card, CardHeading, inputCls } from '../../components/ui'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { traineeHistories, type CompetencyTrack, type TraineeHistory as History } from '../../traineeHistory'
@@ -27,14 +27,14 @@ type T = ReturnType<typeof useTranslation>['t']
 
 function TrendBadge({ trend, t }: { trend: CompetencyTrack['trend']; t: T }) {
   if (trend === null)
-    return <span className="text-[12px] text-dim">{t('forms:admin.trendNone')}</span>
+    return <span className="text-micro text-dim">{t('forms:admin.trendNone')}</span>
   const map = {
     up: { Icon: TrendingUp, cls: 'text-ok', label: t('forms:admin.trendUp') },
     down: { Icon: TrendingDown, cls: 'text-danger', label: t('forms:admin.trendDown') },
     flat: { Icon: Minus, cls: 'text-dim', label: t('forms:admin.trendFlat') },
   }[trend]
   return (
-    <span className={`inline-flex items-center gap-1 text-[12px] font-medium ${map.cls}`}>
+    <span className={`inline-flex items-center gap-1 text-micro font-medium ${map.cls}`}>
       <map.Icon size={14} /> {map.label}
     </span>
   )
@@ -44,12 +44,12 @@ function CompetencyRow({ c, t }: { c: CompetencyTrack; t: T }) {
   return (
     <div className={`rounded-xl border p-3 ${c.recurringWeak ? 'border-warm/40 bg-warm/5' : 'border-line/10'}`}>
       <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="text-[13.5px] font-semibold">{c.code}</span>
-        <span className="min-w-0 flex-1 truncate text-[13px] text-dim">{c.title}</span>
+        <span className="text-small font-semibold">{c.code}</span>
+        <span className="min-w-0 flex-1 truncate text-small text-dim">{c.title}</span>
         {c.recurringWeak && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-warm/15 px-2.5 py-0.5 text-[12px] font-semibold text-warm">
-            <TriangleAlert size={12} /> {t('forms:admin.recurringWeak')}
-          </span>
+          <Badge tone="wait">
+            <TriangleAlert size={12} className="mr-1" /> {t('forms:admin.recurringWeak')}
+          </Badge>
         )}
       </div>
       {/* Noten in zeitlicher Folge — die Reihe IST die Aussage */}
@@ -58,12 +58,12 @@ function CompetencyRow({ c, t }: { c: CompetencyTrack; t: T }) {
           <span
             key={i}
             title={formatDate(v.date)}
-            className={`flex h-7 w-8 items-center justify-center rounded-md text-[13px] font-bold ${gradeColor(v.grade)}`}
+            className={`flex h-7 w-8 items-center justify-center rounded-md text-small font-bold ${gradeColor(v.grade)}`}
           >
             {v.grade}
           </span>
         ))}
-        <span className="ml-1 text-[12.5px] text-dim">
+        <span className="ml-1 text-micro text-dim">
           {t('forms:admin.average')} {c.mean === null ? '–' : c.mean.toFixed(2)}
         </span>
         <span className="ml-auto">
@@ -80,14 +80,14 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
   const weak = history.competencies.filter((c) => c.recurringWeak).length
 
   return (
-    <div className="space-y-4">
-      <button onClick={onBack} className="flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink">
+    <div className="space-y-section">
+      <button onClick={onBack} className="flex items-center gap-1.5 text-small font-medium text-dim transition hover:text-ink">
         <ArrowLeft size={15} /> {t('forms:admin.backToTrainees')}
       </button>
 
-      <Card className="space-y-1 p-4">
-        <h3 className="text-[17px] font-bold">{history.name}</h3>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-dim">
+      <Card className="space-y-tight p-4">
+        <h3 className="text-head font-bold">{history.name}</h3>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-dim">
           <span>{t('forms:admin.sessionsCount', { count: history.sessions.length })}</span>
           <span>{t('forms:admin.lastSession', { date: formatDate(history.lastDate) })}</span>
           {weak > 0 && (
@@ -101,7 +101,7 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
         </div>
       </Card>
 
-      <Card className="space-y-2.5 p-4">
+      <Card className="space-y-stack p-4">
         <CardHeading>{t('forms:admin.course')}</CardHeading>
         {/* Wiederkehrende Schwächen zuerst — sie sind der Grund, warum man
             diese Ansicht überhaupt öffnet. */}
@@ -112,7 +112,7 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
           ))}
       </Card>
 
-      <Card className="space-y-1.5 p-4">
+      <Card className="space-y-tight p-4">
         <CardHeading>{t('forms:admin.sessionList')}</CardHeading>
         {history.sessions.map((s) => (
           <button
@@ -121,17 +121,17 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
             className="flex min-h-11 w-full items-center gap-2.5 rounded-xl px-2 py-2 text-left transition hover:bg-line/5"
           >
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14px] font-medium">
+              <span className="block truncate text-body font-medium">
                 {s.formTypeId} · {formatDate(s.date)}
               </span>
-              <span className="block truncate text-[12px] text-dim">
+              <span className="block truncate text-micro text-dim">
                 {nameOf(s.instructorId)}
                 {s.aircraftType ? ` · ${s.aircraftType}` : ''}
               </span>
             </span>
             {s.overall === 'not_competent' && (
-              <span className="shrink-0 rounded-full bg-danger/15 px-2.5 py-0.5 text-[12px] font-semibold text-danger">
-                {t('forms:notCompetent')}
+              <span className="shrink-0">
+                <Badge tone="bad">{t('forms:notCompetent')}</Badge>
               </span>
             )}
             <ChevronRight size={16} className="shrink-0 text-dim" />
@@ -163,11 +163,11 @@ export function TraineeHistory({ records }: { records: GradingRecord[] }) {
   if (open) return <Detail history={open} onBack={() => setOpenKey(null)} t={t} />
 
   return (
-    <div className="space-y-3">
-      <p className="text-[13px] leading-relaxed text-dim">{t('forms:admin.traineesHint')}</p>
+    <div className="space-y-stack">
+      <p className="text-small leading-relaxed text-dim">{t('forms:admin.traineesHint')}</p>
 
       {histories.length === 0 ? (
-        <Card className="p-4 text-[13.5px] text-dim">{t('forms:admin.noTrainees')}</Card>
+        <Card className="p-4 text-small text-dim">{t('forms:admin.noTrainees')}</Card>
       ) : (
         <>
           <label className="relative block">
@@ -182,29 +182,31 @@ export function TraineeHistory({ records }: { records: GradingRecord[] }) {
           </label>
 
           {shown.length === 0 ? (
-            <Card className="p-4 text-[13.5px] text-dim">{t('forms:admin.noMatch')}</Card>
+            <Card className="p-4 text-small text-dim">{t('forms:admin.noMatch')}</Card>
           ) : (
-            <div className="space-y-2">
+            <div className="space-y-stack">
               {shown.map((h) => {
                 const weak = h.competencies.filter((c) => c.recurringWeak).length
                 return (
                   <Card key={h.key} className="p-0" onClick={() => setOpenKey(h.key)}>
                     <div className="flex min-h-11 items-center gap-2.5 px-3.5 py-3">
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[14.5px] font-semibold">{h.name}</span>
-                        <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[12px] text-dim">
+                        <span className="block truncate text-body font-semibold">{h.name}</span>
+                        <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-micro text-dim">
                           <span>{t('forms:admin.sessionsCount', { count: h.sessions.length })}</span>
                           <span>{t('forms:admin.lastSession', { date: formatDate(h.lastDate) })}</span>
                         </span>
                       </span>
                       {weak > 0 && (
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warm/15 px-2.5 py-0.5 text-[12px] font-semibold text-warm">
-                          <TriangleAlert size={12} /> {weak}
+                        <span className="shrink-0">
+                          <Badge tone="wait">
+                            <TriangleAlert size={12} className="mr-1" /> {weak}
+                          </Badge>
                         </span>
                       )}
                       {h.notCompetentCount > 0 && (
-                        <span className="shrink-0 rounded-full bg-danger/15 px-2.5 py-0.5 text-[12px] font-semibold text-danger">
-                          {h.notCompetentCount}
+                        <span className="shrink-0">
+                          <Badge tone="bad">{h.notCompetentCount}</Badge>
                         </span>
                       )}
                       <ChevronRight size={16} className="shrink-0 text-dim" />

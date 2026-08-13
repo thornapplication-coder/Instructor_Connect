@@ -21,7 +21,7 @@ export function SandboxBar() {
 
   return (
     <div className="safe-bottom sticky bottom-0 z-30 min-h-11 border-t border-amber-400/30 bg-[#2b2410]/95 text-amber-200 backdrop-blur">
-      <div className="mx-auto flex h-full max-w-3xl xl:max-w-none items-center gap-3 overflow-x-auto whitespace-nowrap px-3 text-[12px]">
+      <div className="mx-auto flex h-full max-w-3xl xl:max-w-6xl items-center gap-3 overflow-x-auto whitespace-nowrap px-3 text-micro">
         <span className="flex shrink-0 items-center gap-1.5 font-semibold uppercase tracking-wide" title={t('sandbox.banner')}>
           <FlaskConical size={14} /> Sandbox
         </span>

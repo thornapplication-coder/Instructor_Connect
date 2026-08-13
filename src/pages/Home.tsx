@@ -97,7 +97,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="safe-top-6 mx-auto flex w-full max-w-3xl items-center justify-between px-5 xl:max-w-none xl:px-10">
+      <header className="safe-top-6 mx-auto flex w-full max-w-3xl items-center justify-between px-5 xl:max-w-6xl xl:px-10">
         {/* Die Begrüßung gibt nach, die Bedienelemente nicht.
             Ohne `min-w-0`/`truncate` drückte ein längerer Vorname die rechte
             Gruppe zusammen — gemessen am iPhone: „Hello, Christian" umbrach
@@ -110,11 +110,11 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
                 bei 375 px nicht neben Aktualisieren, Thema und DE/EN und
                 wurde zu „Hello, Chri…" abgeschnitten — dann lieber den Namen
                 ganz zeigen. Ab Tablet ist Platz für die Begrüßung. */}
-            <p className="truncate text-[15px] font-semibold leading-tight">
+            <p className="truncate text-lead font-semibold leading-tight">
               <span className="sm:hidden">{firstName}</span>
               <span className="hidden sm:inline">{t('home.hello', { name: firstName })}</span>
             </p>
-            <p className="truncate text-[12px] text-dim">{t(`roles.${currentUser!.role}`)}</p>
+            <p className="truncate text-micro text-dim">{t(`roles.${currentUser!.role}`)}</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
@@ -128,7 +128,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
             <RefreshCw size={17} />
           </button>
           <ThemeToggle />
-          <div className="flex shrink-0 overflow-hidden rounded-lg border border-line/15 text-[12px]">
+          <div className="flex shrink-0 overflow-hidden rounded-lg border border-line/15 text-micro">
             {(['de', 'en'] as const).map((lng) => (
               <button
                 key={lng}
@@ -147,7 +147,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
           sobald der Inhalt höher ist als das Fenster — zentrierter Überlauf
           ragt in beide Richtungen, und der obere Teil ist nicht erreichbar.
           Deshalb dort von oben ausrichten. */}
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 short:justify-start short:py-3 md:max-w-4xl xl:max-w-none xl:px-10">
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 short:justify-start short:py-3 md:max-w-4xl xl:max-w-6xl xl:px-10">
         {/* Bildmarke und Titel mittig über den Kacheln. Im flachen Fenster
             (Handy quer) rückt der Schriftzug neben die Bildmarke, damit die
             Kacheln ohne Scrollen erreichbar bleiben. */}
@@ -157,17 +157,20 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
                 (flaches Fenster / ab Tablet) ohne mehrfaches Rendern. */}
             <Plane className="h-11 w-11 text-accent short:h-6 short:w-6 md:h-[52px] md:w-[52px]" />
           </span>
-          <h1 className="text-center text-4xl font-bold tracking-tight short:text-2xl md:text-5xl">
+          <h1 className="text-center text-mega font-bold tracking-tight short:text-display md:text-giant">
             Instructor <span className="text-accent">Connect</span>
           </h1>
         </div>
 
         {/* 2 Spalten am Handy, 3 ab Tablet — große, gut greifbare Kacheln */}
+        {/* Vier Spalten am Desktop: Sechs Spalten liessen die siebte Kachel
+            als Waise in einer eigenen Reihe stehen, und jede Kachel wurde
+            ueber 400 px gross. Vier Spalten ergeben 4 + 3. */}
         {/* Vier Spalten im Querformat: Mit sieben Kacheln ergaben drei Spalten
             drei Reihen, und die Seite lief um rund 90 px über — die letzte
             Kachel und die Fußzeile lagen unter der Falz. Vier Spalten sind
             zwei Reihen. */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-6 short:grid-cols-4 short:gap-2.5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-4 short:grid-cols-4 short:gap-2.5">
           {tiles.map(({ to, label, icon: Icon }) => (
             <button
               key={to}
@@ -191,7 +194,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
                 <Icon size={40} className="hidden sm:block lg:hidden short:hidden" />
                 <Icon size={48} className="hidden lg:block short:hidden" />
               </span>
-              <span className="px-2 text-center text-[14px] font-semibold leading-tight sm:text-[17px] lg:text-[19px] short:px-0 short:text-left short:text-[13px]">{label}</span>
+              <span className="px-2 text-center text-body font-semibold leading-tight sm:text-head lg:text-title short:px-0 short:text-left short:text-small">{label}</span>
             </button>
           ))}
         </div>
@@ -201,7 +204,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
         {isAdminUser(currentUser) && isDesktop && (
           <button
             onClick={() => navigate('/admin')}
-            className="min-h-11 mx-auto mt-8 flex items-center gap-2 rounded-full border border-line/10 px-4 py-2 text-[13px] text-dim transition hover:border-accent/40 hover:text-ink"
+            className="min-h-11 mx-auto mt-8 flex items-center gap-2 rounded-full border border-line/10 px-4 py-2 text-small text-dim transition hover:border-accent/40 hover:text-ink"
           >
             <ShieldCheck size={15} className="text-accent" /> {t('home.admin')}
           </button>
@@ -210,14 +213,14 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
         {/* Antippen öffnet das Share-Sheet (iOS: „Zum Home-Bildschirm") */}
         <button
           onClick={openInstall}
-          className="mx-auto mt-6 flex min-h-11 max-w-xs items-center gap-2 text-center text-[12px] leading-snug text-dim underline-offset-2 transition hover:text-ink hover:underline short:hidden md:mt-8"
+          className="mx-auto mt-6 flex min-h-11 max-w-xs items-center gap-2 text-center text-micro leading-snug text-dim underline-offset-2 transition hover:text-ink hover:underline short:hidden md:mt-8"
         >
           <Share size={13} className="shrink-0" /> {t('home.installHint')}
         </button>
 
         {showInstall && (
           <Modal title={t('home.installTitle')} onClose={() => setShowInstall(false)}>
-            <ol className="list-decimal space-y-2 pl-5 text-[13.5px] leading-relaxed">
+            <ol className="list-decimal space-y-stack pl-5 text-small leading-relaxed">
               <li>{t('home.installStep1')}</li>
               <li>{t('home.installStep2')}</li>
               <li>{t('home.installStep3')}</li>
@@ -226,8 +229,8 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
         )}
       </main>
 
-      <footer className="space-y-2 pb-4 text-center short:space-y-1 short:pb-2">
-        <div className="flex items-center justify-center gap-4 text-[12.5px]">
+      <footer className="space-y-stack pb-4 text-center short:space-y-tight short:pb-2">
+        <div className="flex items-center justify-center gap-4 text-micro">
           <button onClick={() => navigate('/imprint')} className="inline-flex min-h-11 items-center text-dim underline-offset-2 hover:text-ink hover:underline">
             {t('common.imprint')}
           </button>
@@ -235,7 +238,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
             <LogOut size={12} /> {t('common.logout')}
           </button>
         </div>
-        <p className="text-[12px] text-dim short:hidden">Instructor Connect v{APP_VERSION}</p>
+        <p className="text-micro text-dim short:hidden">Instructor Connect v{APP_VERSION}</p>
       </footer>
     </div>
   )

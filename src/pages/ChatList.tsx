@@ -39,7 +39,7 @@ export function ChatList() {
           isAdminUser(currentUser) ? (
             <button
               onClick={() => setShowNew(true)}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
+              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
             >
               <Plus size={15} /> {t('admin.addGroup')}
             </button>
@@ -48,8 +48,8 @@ export function ChatList() {
       />
       <Page>
         <SectionHeading className="mb-3">{t('chat.yourGroups')}</SectionHeading>
-        {myGroups.length === 0 && <p className="text-sm text-dim">{t('chat.noGroups')}</p>}
-        <div className="space-y-3">
+        {myGroups.length === 0 && <p className="text-body text-dim">{t('chat.noGroups')}</p>}
+        <div className="space-y-stack">
           {myGroups.map((g, i) => {
             // Zwischenüberschrift je Muster — nur wenn mehrere Abschnitte existieren
             const sectionOf = (x: typeof g) => x.aircraftType || ''
@@ -71,20 +71,20 @@ export function ChatList() {
                 <Avatar name={g.name} size={44} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="min-w-0 flex-1 truncate text-[15px] font-semibold">{g.name}</p>
+                    <p className="min-w-0 flex-1 truncate text-lead font-semibold">{g.name}</p>
                     {/* Muster der Gruppe — die Themen unterscheiden sich je Typ.
                         Der Chip darf schrumpfen und kürzen: mit shrink-0 nahm
                         ein langer Mustername dem Gruppennamen den gesamten
                         Platz, und in der Liste war kein einziger Name mehr
                         lesbar. max-w begrenzt ihn auf ein Drittel der Zeile. */}
                     {g.aircraftType && (
-                      <span className="max-w-[33%] shrink truncate rounded-full bg-raised px-2 py-0.5 text-[12px] font-medium text-accent">
+                      <span className="max-w-[33%] shrink truncate rounded-full bg-accent/15 px-2.5 py-0.5 text-micro font-medium text-ink">
                         {g.aircraftType}
                       </span>
                     )}
                     {g.muted && <BellOff size={13} className="shrink-0 text-dim" />}
                   </div>
-                  <p className="truncate text-[13px] text-dim">
+                  <p className="truncate text-small text-dim">
                     {/* Ein gelöschter Autor ergab „undefined:", ein reiner
                         Anhang eine leere Zeile — beides sah nach Fehler aus. */}
                     {last
@@ -103,7 +103,7 @@ export function ChatList() {
                     nirgends. Die Aufbewahrung erklaert die Chat-Info, wo sie
                     ohnehin ausfuehrlich steht.
                   */}
-                  <span className="whitespace-nowrap text-[12px] text-dim">{last ? kurzeZeit(last.createdAt, i18n.language, now()) : ''}</span>
+                  <span className="whitespace-nowrap text-micro text-dim">{last ? kurzeZeit(last.createdAt, i18n.language, now()) : ''}</span>
                   <ChevronRight size={16} className="text-dim" />
                 </div>
               </Card>
@@ -113,7 +113,7 @@ export function ChatList() {
         </div>
         {showNew && (
           <Modal title={t('admin.addGroup')} onClose={() => setShowNew(false)}>
-            <div className="space-y-3.5">
+            <div className="space-y-stack">
               <Field label={t('admin.groupName')}>
                 <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
               </Field>

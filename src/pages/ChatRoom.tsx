@@ -1,7 +1,7 @@
 import { BarChart3, Ban, FileText, Image as ImageIcon, Info, Paperclip, Plus, SendHorizonal, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Field, inputCls, Modal, NewDot, TopBar } from '../components/ui'
+import { Badge, Button, Field, inputCls, Modal, NewDot, TopBar } from '../components/ui'
 import i18n from '../i18n'
 import { useUnsavedWork } from '../editGuard'
 import { navigate } from '../router'
@@ -20,10 +20,10 @@ function timeLabel(ts: number, lng: string) {
 function AttachmentChip({ a }: { a: Attachment }) {
   const Icon = a.kind === 'image' ? ImageIcon : FileText
   return (
-    <span className="mt-2 flex items-center gap-2 rounded-xl bg-line/10 px-3 py-2 text-[13px]">
+    <span className="mt-2 flex items-center gap-2 rounded-xl bg-line/10 px-3 py-2 text-small">
       <Icon size={16} className="shrink-0 text-accent" />
       <span className="min-w-0 truncate">{a.name}</span>
-      <span className="shrink-0 text-[12px] text-dim">{a.sizeMB.toFixed(1)} MB</span>
+      <span className="shrink-0 text-micro text-dim">{a.sizeMB.toFixed(1)} MB</span>
     </span>
   )
 }
@@ -47,10 +47,10 @@ function MessageBubble({ msg, isOwn, authorName, bold, canDelete, onDelete, lng 
       >
         {/* Der Absender steht über JEDER Nachricht — auch über den eigenen,
             damit in Gruppen immer klar ist, wer geschrieben hat. */}
-        <p className={`mb-0.5 text-[12px] font-semibold ${isOwn ? 'text-dim' : 'text-accent'}`}>{authorName}</p>
-        <p className={`whitespace-pre-wrap text-[14.5px] leading-relaxed ${bold ? 'font-bold' : ''}`}>{msg.text}</p>
+        <p className={`mb-0.5 text-micro font-semibold ${isOwn ? 'text-dim' : 'text-accent'}`}>{authorName}</p>
+        <p className={`whitespace-pre-wrap text-body leading-relaxed ${bold ? 'font-bold' : ''}`}>{msg.text}</p>
         {msg.attachment && <AttachmentChip a={msg.attachment} />}
-        <p className="mt-1 text-right text-[12px] text-dim">{timeLabel(msg.createdAt, lng)}</p>
+        <p className="mt-1 text-right text-micro text-dim">{timeLabel(msg.createdAt, lng)}</p>
         {canDelete && (
           <button
             onClick={onDelete}
@@ -108,22 +108,22 @@ function PollCard({ poll }: { poll: Poll }) {
 
   return (
     <div className="mx-auto w-full max-w-md rounded-2xl border border-accent/20 bg-surface p-4 shadow-soft">
-      <div className="mb-1 flex items-center gap-2 text-[12px] text-dim">
+      <div className="mb-1 flex items-center gap-2 text-micro text-dim">
         <BarChart3 size={14} className="text-accent" />
         <span>
           {t('chat.poll')} · {author?.name}
         </span>
         {closed && (
-          <span className="ml-auto rounded-full bg-line/10 px-2 py-0.5 text-[12px] font-medium">{t('chat.closed')}</span>
+          <span className="ml-auto"><Badge tone="dim">{t('chat.closed')}</Badge></span>
         )}
       </div>
-      <p className="mb-1 text-[15px] font-semibold leading-snug">{poll.question}</p>
+      <p className="mb-1 text-lead font-semibold leading-snug">{poll.question}</p>
       {poll.validUntil && (
-        <p className={`mb-3 text-[12px] ${expired ? 'text-danger' : 'text-dim'}`}>
+        <p className={`mb-3 text-micro ${expired ? 'text-danger' : 'text-dim'}`}>
           {t('chat.pollValidUntil')}: {formatUtc(poll.validUntil)}
         </p>
       )}
-      <div className="space-y-2">
+      <div className="space-y-stack">
         {options.map((opt, i) => {
           const count = Object.values(poll.votes).filter((v) => v === i).length
           const pct = totalVotes ? Math.round((count / totalVotes) * 100) : 0
@@ -141,9 +141,9 @@ function PollCard({ poll }: { poll: Poll }) {
                 className="absolute inset-y-0 left-0 bg-accent/15 transition-all"
                 style={{ width: `${pct}%` }}
               />
-              <span className="relative flex items-center justify-between gap-2 text-[14px]">
+              <span className="relative flex items-center justify-between gap-2 text-body">
                 <span className={chosen ? 'font-semibold text-accent' : ''}>{opt}</span>
-                <span className="shrink-0 text-[12px] text-dim">
+                <span className="shrink-0 text-micro text-dim">
                   {count} · {pct}%
                 </span>
               </span>
@@ -151,7 +151,7 @@ function PollCard({ poll }: { poll: Poll }) {
           )
         })}
       </div>
-      <div className="mt-3 flex items-center justify-between text-[12px] text-dim">
+      <div className="mt-3 flex items-center justify-between text-micro text-dim">
         {/* role=status: eine abgegebene oder geänderte Stimme wird angesagt */}
         <span role="status">
           {t('chat.votes', { count: totalVotes })} · {t('chat.changeHint')}
@@ -194,7 +194,7 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
       onClose={onClose}
       confirmDiscard={question.trim() || options.some((o) => o.trim()) || validDate ? t('common.discardConfirm') : undefined}
     >
-      <div className="space-y-4">
+      <div className="space-y-section">
         <Field label={t('chat.pollQuestion')}>
           <input className={inputCls} value={question} onChange={(e) => setQuestion(e.target.value)} autoFocus />
         </Field>
@@ -205,7 +205,7 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
                 key={tp}
                 aria-pressed={type === tp}
                 onClick={() => setType(tp)}
-                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-sm transition ${
+                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-body transition ${
                   type === tp ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-line/10 text-dim'
                 }`}
               >
@@ -215,7 +215,7 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
           </div>
         </Field>
         {type === 'multi' && (
-          <div className="space-y-2">
+          <div className="space-y-stack">
             {options.map((opt, i) => (
               <div key={i} className="flex gap-2">
                 <input
@@ -237,7 +237,7 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
             ))}
             <button
               onClick={() => setOptions([...options, ''])}
-              className="flex items-center gap-1 text-[13px] font-medium text-accent hover:underline"
+              className="flex items-center gap-1 text-small font-medium text-accent hover:underline"
             >
               <Plus size={14} /> {t('chat.addOption')}
             </button>
@@ -249,7 +249,7 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
             <input type="date" className={inputCls} value={validDate} onChange={(e) => setValidDate(e.target.value)} />
             <input type="time" className={inputCls} value={validTime} onChange={(e) => setValidTime(e.target.value)} />
           </div>
-          <p className="mt-1.5 text-[12px] leading-relaxed text-dim">{t('chat.pollValidHint')}</p>
+          <p className="mt-1.5 text-micro leading-relaxed text-dim">{t('chat.pollValidHint')}</p>
         </Field>
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
@@ -364,7 +364,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
               <button
                 key={g.id}
                 onClick={() => navigate(`/chat/${g.id}`)}
-                className={`min-h-11 relative shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
+                className={`min-h-11 relative shrink-0 rounded-full border px-3.5 py-1.5 text-small transition ${
                   g.id === groupId ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim hover:text-ink'
                 }`}
               >
@@ -376,8 +376,8 @@ export function ChatRoom({ groupId }: { groupId: string }) {
         </nav>
       )}
 
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-3 px-4 py-4">
-        {timeline.length === 0 && <p className="pt-10 text-center text-sm text-dim">{t('chat.noMessages')}</p>}
+      <main className="mx-auto w-full max-w-3xl flex-1 space-y-stack px-4 py-4">
+        {timeline.length === 0 && <p className="pt-10 text-center text-body text-dim">{t('chat.noMessages')}</p>}
         {timeline.map((item) =>
           item.msg ? (
             <MessageBubble
@@ -408,14 +408,14 @@ export function ChatRoom({ groupId }: { groupId: string }) {
       <div className="above-sandbox-sticky sticky z-20 border-t border-line/10 bg-bg/90 px-3 py-2.5 backdrop-blur">
         {/* Vom Admin gesperrt: mitlesen ja, senden nein */}
         {currentUser!.chatBlocked ? (
-          <div className="mx-auto flex max-w-3xl items-center gap-2.5 rounded-xl border border-danger/25 bg-danger/10 px-3.5 py-3 text-[13px] text-danger">
+          <div className="mx-auto flex max-w-3xl items-center gap-2.5 rounded-xl border border-danger/25 bg-danger/10 px-3.5 py-3 text-small text-danger">
             <Ban size={16} className="shrink-0" />
             {t('chat.blockedNote')}
           </div>
         ) : (
         <div className="mx-auto max-w-3xl">
           {pendingAttachment && (
-            <div className="mb-2 flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-[13px]">
+            <div className="mb-2 flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-small">
               <Paperclip size={14} className="text-accent" />
               <span className="min-w-0 flex-1 truncate">{pendingAttachment.name}</span>
               <button
@@ -450,7 +450,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && send()}
               placeholder={t('chat.inputPlaceholder')}
-              className="min-w-0 flex-1 rounded-full border border-line/10 bg-surface px-4 py-2.5 text-[15px] outline-none transition focus:border-accent/60"
+              className="min-w-0 flex-1 rounded-full border border-line/10 bg-surface px-4 py-2.5 text-lead outline-none transition focus:border-accent/60"
             />
             <button
               onClick={send}

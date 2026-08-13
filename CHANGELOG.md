@@ -32,7 +32,7 @@ Erstversion (Sandbox-Modus, ohne Backend):
 - Anmeldung ausschließlich per E-Mail, wahlweise über einen Code
 - Offline-Modus (PWA) mit Update-Banner, Druck-Layout
 
-## 1.3.0 — 2026-08-09
+## 1.1.1 — 2026-08-09
 
 - Gruppen lassen sich jetzt auch im Chat löschen (Gruppen-Info), nicht nur im
   Admin Panel. Ist ein Mitglied nur in dieser einen Gruppe, wird das Löschen
@@ -136,3 +136,38 @@ Bedienung:
 - Barrierefreiheit: Namen an Filtern und Icon-Knöpfen, Notenknöpfe als benannte
   Gruppe mit angesagtem Zustand, Kontrast des aktiven Zustands, Fokus nach
   Ansichtswechsel, Schrift am Bildschirm mindestens 12 px
+
+## 1.4.0 — 2026-08-13
+
+Drei Pakete aus der UX-Bewertung.
+
+Startseite und Listen:
+
+- Ungelesenes trägt eine blaue Zählmarke mit Zahl; der grüne Punkt bleibt
+  allein der Ampel des Grading Tools vorbehalten. Vorher bedeutete dieselbe
+  Farbe an derselben Stelle zwei entgegengesetzte Dinge.
+- Leere Listen unterscheiden „hier ist nichts" von „der Filter zeigt nichts"
+  und bieten im zweiten Fall an, alles zu zeigen
+- Chatliste nennt den Zeitpunkt der letzten Nachricht statt der Aufbewahrungsfrist
+- Offene Lese-Bestätigungen stehen in der Instructor Info oben
+
+Formular:
+
+- Kopfdaten kommen vorbelegt (Datum, einziges Muster, Gerät, Qualifikation,
+  Sitz aus dem letzten eigenen Blatt)
+- Angefangene Entwürfe stehen als Karte über der Liste
+- Kompaktere Kompetenzblöcke, Kommentarfeld erst auf Klick
+- Feste Leiste unten nennt Notenstand und offene Punkte und springt zur
+  nächsten offenen Stelle
+- Unterschriftsfeld höher, mit Rückgängig und Vollbild
+
+Optik:
+
+- Statusmarken app-weit aus einer Komponente mit fünf Tönen; „Not Competent"
+  sah in Liste, Akte und Detailansicht dreimal verschieden aus
+- Die Ampel steht nur noch einmal je Zeile
+- Am Desktop begrenzte Seitenbreite (1152 px, breite Seiten 1280 px) statt
+  Inhalt über die volle Fensterbreite; Karten füllen die Breite in zwei
+  Spalten. Sieben Startseiten-Kacheln in vier Spalten statt sechs.
+- Schrift- und Abstandsskala festgeschrieben: elf Schriftstufen und vier
+  Abstandsstufen ersetzen 448 Einzelwerte im Markup; ein Test hält sie frei

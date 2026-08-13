@@ -1,7 +1,7 @@
 import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { Badge, Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
 import { infoEntryAppliesTo, infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
 import type { InfoEntry } from '../types'
@@ -34,7 +34,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       confirmDiscard={title.trim() || body.trim() || category ? t('common.discardConfirm') : undefined}
     >
-      <div className="space-y-4">
+      <div className="space-y-section">
         <Field label={t('info.typeLabel')} group>
           <div className="flex gap-2">
             {(['text', 'pdf'] as const).map((tp) => (
@@ -42,7 +42,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
                 key={tp}
                 aria-pressed={type === tp}
                 onClick={() => setType(tp)}
-                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-sm transition ${
+                className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-body transition ${
                   type === tp ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-line/10 text-dim'
                 }`}
               >
@@ -95,9 +95,9 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
             <input type="date" className={inputCls} value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
           </Field>
         </div>
-        <p className="-mt-2 text-[12px] leading-relaxed text-dim">{t('info.ufnHint')}</p>
+        <p className="-mt-2 text-micro leading-relaxed text-dim">{t('info.ufnHint')}</p>
         {/* Lese-Bestätigung: jeder Nutzer des Moduls muss aktiv „gelesen“ bestätigen */}
-        <label className="flex items-center gap-2 text-[13.5px]">
+        <label className="flex items-center gap-2 text-small">
           <input type="checkbox" checked={requiresAck} onChange={(e) => setRequiresAck(e.target.checked)} className="h-6 w-6 shrink-0 accent-accent" />
           {t('info.requiresAck')}
         </label>
@@ -106,7 +106,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
             <textarea className={`${inputCls} min-h-28`} value={body} onChange={(e) => setBody(e.target.value)} />
           </Field>
         ) : (
-          <div className="rounded-xl border border-dashed border-line/20 p-4 text-center text-[13px] text-dim">
+          <div className="rounded-xl border border-dashed border-line/20 p-4 text-center text-small text-dim">
             sample.pdf · {t('chat.attachedDemo')}
           </div>
         )}
@@ -240,14 +240,14 @@ export function InstructorInfo() {
           mayEdit ? (
             <button
               onClick={() => setShowNew(true)}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
+              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
             >
               <Plus size={15} /> {t('info.newEntry')}
             </button>
           ) : undefined
         }
       />
-      <Page className="space-y-2.5">
+      <Page className="space-y-stack">
         <div className="relative">
           <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-dim" />
           <input
@@ -263,7 +263,7 @@ export function InstructorInfo() {
         <div className="flex gap-1.5 overflow-x-auto pb-1">
           <button
             onClick={() => setCategoryFilter('')}
-            className={`min-h-11 shrink-0 rounded-full border px-4 py-1.5 text-[12.5px] transition ${
+            className={`min-h-11 shrink-0 rounded-full border px-4 py-1.5 text-micro transition ${
               categoryFilter === '' ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
             }`}
           >
@@ -273,7 +273,7 @@ export function InstructorInfo() {
             <button
               key={c}
               onClick={() => setCategoryFilter(categoryFilter === c ? '' : c)}
-              className={`min-h-11 shrink-0 rounded-full border px-4 py-1.5 text-[12.5px] transition ${
+              className={`min-h-11 shrink-0 rounded-full border px-4 py-1.5 text-micro transition ${
                 categoryFilter === c ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
               }`}
             >
@@ -287,20 +287,20 @@ export function InstructorInfo() {
             sei weg. Muster aus Who-to-call und Notes. */}
         {entries.length === 0 &&
           (query.trim() || categoryFilter ? (
-            <div className="space-y-3 pt-6 text-center">
-              <p className="text-sm text-dim">{t('info.noMatch')}</p>
+            <div className="space-y-stack pt-6 text-center">
+              <p className="text-body text-dim">{t('info.noMatch')}</p>
               <button
                 onClick={() => {
                   setQuery('')
                   setCategoryFilter('')
                 }}
-                className="min-h-11 rounded-xl border border-line/15 px-4 text-[13.5px] transition hover:border-accent/50 hover:text-accent"
+                className="min-h-11 rounded-xl border border-line/15 px-4 text-small transition hover:border-accent/50 hover:text-accent"
               >
                 {t('info.showAll')}
               </button>
             </div>
           ) : (
-            <p className="pt-6 text-center text-sm text-dim">{t('info.empty')}</p>
+            <p className="pt-6 text-center text-body text-dim">{t('info.empty')}</p>
           ))}
 
         {entries.map((entry, i) => {
@@ -328,12 +328,12 @@ export function InstructorInfo() {
                     {entry.type === 'pdf' ? <FileText size={19} /> : <ScrollText size={19} />}
                   </span>
                   {isNew && (
-                    <span className="rounded-md bg-emerald-700 px-1.5 py-0.5 text-[12px] font-bold tracking-wider text-white">NEW</span>
+                    <span className="rounded-md bg-emerald-700 px-1.5 py-0.5 text-micro font-bold tracking-wider text-white">NEW</span>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start gap-2">
-                    <p className="min-w-0 flex-1 text-[15px] font-semibold leading-snug">{entry.title}</p>
+                    <p className="min-w-0 flex-1 text-lead font-semibold leading-snug">{entry.title}</p>
                     {/* Stern: persönliche Wichtig-Markierung des Nutzers */}
                     <button
                       onClick={() => toggleStarInfo(entry.id)}
@@ -343,20 +343,20 @@ export function InstructorInfo() {
                       <Star size={17} fill={starred ? 'currentColor' : 'none'} />
                     </button>
                   </div>
-                  {entry.description && <p className="mt-0.5 text-[13px] text-dim">{entry.description}</p>}
+                  {entry.description && <p className="mt-0.5 text-small text-dim">{entry.description}</p>}
                   {/* Bewusst ohne Erstellungsdatum und Autor in der Übersicht */}
-                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px] text-dim">
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-micro text-dim">
                     <span className="rounded bg-raised px-1.5 py-0.5 font-medium text-dim">{entry.category}</span>
                   </p>
-                  <p className={`mt-1 text-[12px] ${expired ? 'text-danger' : 'text-dim'}`}>
+                  <p className={`mt-1 text-micro ${expired ? 'text-danger' : 'text-dim'}`}>
                     {t('info.validity')}: {validityLabel(entry)}
                     {expired && ` · ${t('info.expired')}`}
                   </p>
                   {/* Für Verwalter sichtbar: der Eintrag gilt erst später und
                       ist für die Zielgruppen noch nicht sichtbar */}
                   {scheduled && (
-                    <p className="mt-1 inline-flex items-center rounded-full bg-wait px-2 py-0.5 text-[12px] font-semibold text-waitInk">
-                      {t('info.scheduled')}
+                    <p className="mt-1">
+                      <Badge tone="wait" strong>{t('info.scheduled')}</Badge>
                     </p>
                   )}
 
@@ -373,16 +373,16 @@ export function InstructorInfo() {
                       targets.some((u) => u.id === currentUser!.id) && !isScheduled(entry) && !infoIsExpired(entry, now())
                     const done = targets.filter((u) => acks[u.id]).length
                     return (
-                      <div className="mt-2 space-y-1.5">
+                      <div className="mt-2 space-y-tight">
                         {myAck ? (
-                          <p className="flex items-center gap-1.5 text-[12.5px] font-medium text-ok">
+                          <p className="flex items-center gap-1.5 text-micro font-medium text-ok">
                             <CheckCircle2 size={14} /> {t('info.ackedAt', { date: formatDateTime(myAck) })}
                           </p>
                         ) : (
                           amTarget && (
                             <button
                               onClick={() => acknowledgeInfo(entry.id)}
-                              className="min-h-11 flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[13px] font-semibold text-bg transition hover:brightness-110"
+                              className="min-h-11 flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-small font-semibold text-bg transition hover:brightness-110"
                             >
                               <CheckCircle2 size={15} /> {t('info.ackButton')}
                             </button>
@@ -393,20 +393,20 @@ export function InstructorInfo() {
                             <div className="flex flex-wrap items-center gap-3">
                               <button
                                 onClick={() => setAckOpenId(ackOpenId === entry.id ? null : entry.id)}
-                                className="flex min-h-11 items-center gap-1 text-[12px] text-dim hover:text-accent"
+                                className="flex min-h-11 items-center gap-1 text-micro text-dim hover:text-accent"
                               >
                                 {t('info.ackStatus', { done, total: targets.length })}
                                 <ChevronDown size={12} className={ackOpenId === entry.id ? 'rotate-180' : ''} />
                               </button>
                               <button
                                 onClick={() => exportAckList(entry)}
-                                className="flex min-h-11 items-center gap-1 text-[12px] text-dim hover:text-accent"
+                                className="flex min-h-11 items-center gap-1 text-micro text-dim hover:text-accent"
                               >
                                 <FileDown size={12} /> {t('info.exportAck')}
                               </button>
                             </div>
                             {ackOpenId === entry.id && (
-                              <ul className="mt-1.5 space-y-1 rounded-lg bg-bg/50 p-2.5 text-[12px]">
+                              <ul className="mt-1.5 space-y-tight rounded-lg bg-bg/50 p-2.5 text-micro">
                                 {targets.map((u) => (
                                   <li key={u.id} className="flex items-center justify-between gap-2">
                                     <span>{u.name}</span>
@@ -432,14 +432,14 @@ export function InstructorInfo() {
                           href={SAMPLE_PDF}
                           target="_blank"
                           rel="noreferrer"
-                          className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
+                          className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-small hover:border-accent/50 hover:text-accent"
                         >
                           <Eye size={14} /> {t('info.view')}
                         </a>
                         <a
                           href={SAMPLE_PDF}
                           download={entry.fileName}
-                          className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
+                          className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-small hover:border-accent/50 hover:text-accent"
                         >
                           <Download size={14} /> {t('info.download')}
                         </a>
@@ -447,7 +447,7 @@ export function InstructorInfo() {
                     ) : (
                       <button
                         onClick={() => setOpenId(open ? null : entry.id)}
-                        className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] hover:border-accent/50 hover:text-accent"
+                        className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-small hover:border-accent/50 hover:text-accent"
                       >
                         <Eye size={14} /> {open ? t('common.close') : t('info.view')}
                       </button>
@@ -455,14 +455,14 @@ export function InstructorInfo() {
                     {mayEdit && (
                       <button
                         onClick={() => window.confirm(t('info.confirmDelete')) && deleteInfoEntry(entry.id)}
-                        className="min-h-11 flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-[13px] text-danger hover:bg-danger/10"
+                        className="min-h-11 flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-small text-danger hover:bg-danger/10"
                       >
                         <Trash2 size={14} /> {t('common.delete')}
                       </button>
                     )}
                   </div>
                   {open && entry.body && (
-                    <p className="mt-3 whitespace-pre-wrap rounded-xl bg-bg/50 p-3.5 text-[13.5px] leading-relaxed">{entry.body}</p>
+                    <p className="mt-3 whitespace-pre-wrap rounded-xl bg-bg/50 p-3.5 text-small leading-relaxed">{entry.body}</p>
                   )}
                 </div>
               </div>
@@ -471,7 +471,7 @@ export function InstructorInfo() {
           )
         })}
 
-        <p className="pt-2 text-center text-[12px] text-dim">{t('info.permanentNote')}</p>
+        <p className="pt-2 text-center text-micro text-dim">{t('info.permanentNote')}</p>
       </Page>
       {showNew && <NewEntryModal onClose={() => setShowNew(false)} />}
     </>

@@ -1,5 +1,5 @@
 import { ArrowLeft, Home as HomeIcon, Moon, Sun, X } from 'lucide-react'
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { Children, useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { navigate } from '../router'
 
@@ -68,7 +68,7 @@ export function TopBar({
   const { t } = useTranslation()
   return (
     <header className="safe-top sticky top-0 z-20 border-b border-line/10 bg-bg/85 backdrop-blur">
-      <div className={`mx-auto flex h-14 items-center gap-2 px-3 xl:max-w-none xl:px-8 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>
+      <div className={`mx-auto flex h-14 items-center gap-2 px-3 xl:px-8 ${wide ? 'max-w-5xl xl:max-w-7xl' : 'max-w-3xl xl:max-w-6xl'}`}>
         {back !== undefined && (
           <button
             onClick={() => {
@@ -86,7 +86,7 @@ export function TopBar({
             auf <body> — Tastaturnutzer fingen wieder ganz oben an, und
             Sprachausgaben meldeten den Wechsel gar nicht. In der
             Tab-Reihenfolge taucht die Ueberschrift dadurch nicht auf. */}
-        <h1 data-page-heading tabIndex={-1} className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight outline-none">
+        <h1 data-page-heading tabIndex={-1} className="min-w-0 flex-1 truncate text-head font-semibold tracking-tight outline-none">
           {title}
         </h1>
         {/* Der Titel gibt nach, die Aktion rechts nicht: Ein langer Titel
@@ -108,8 +108,34 @@ export function TopBar({
   )
 }
 
+/**
+ * Seitenrahmen.
+ *
+ * Am Desktop lief der Inhalt vorher bis an beide Fensterraender
+ * (`xl:max-w-none`). Auf einem 2560er Schirm hiess das: eine Formularzeile
+ * 2500 px breit, ihr Inhalt in den ersten 400 px, die zugehoerigen Knoepfe
+ * zwei Meter weiter rechts. Genutzt wurde die Breite damit nicht, nur
+ * aufgespannt. Jetzt begrenzt der Rahmen auf 1152 px (breite Seiten:
+ * 1280 px) — und die Breite wird dort, wo sie etwas traegt, ueber
+ * `CardGrid` in zwei Spalten ausgefuellt statt in eine lange Zeile gezogen.
+ */
 export function Page({ children, className = '', wide = false }: { children: ReactNode; className?: string; wide?: boolean }) {
-  return <main className={`mx-auto w-full flex-1 px-4 pb-24 pt-4 xl:max-w-none xl:px-8 ${wide ? 'max-w-5xl' : 'max-w-3xl'} ${className}`}>{children}</main>
+  return <main className={`mx-auto w-full flex-1 px-4 pb-24 pt-4 xl:px-8 ${wide ? 'max-w-5xl xl:max-w-7xl' : 'max-w-3xl xl:max-w-6xl'} ${className}`}>{children}</main>
+}
+
+/**
+ * Kartenliste, die am Desktop zweispaltig wird.
+ *
+ * Tritt an die Stelle des senkrechten Stapels ueberall dort, wo die Liste aus kompakten Karten
+ * besteht (Notizen, Kontakte, Chats, Lehrplaene, Formularzeilen). Bis zum
+ * Tablet bleibt es eine Spalte — die Karten brauchen die volle Breite.
+ */
+export function CardGrid({ children, className = '' }: { children: ReactNode; className?: string }) {
+  // Eine einzelne Karte bleibt einspaltig. Sonst stuende neben ihr eine
+  // leere Haelfte — die Breite waere wieder aufgespannt statt genutzt, und
+  // genau das sollte das Raster abstellen.
+  const einzeln = Children.count(children) < 2
+  return <div className={`${einzeln ? 'space-y-stack' : 'grid grid-cols-1 gap-3 xl:grid-cols-2'} ${className}`}>{children}</div>
 }
 
 /**
@@ -153,7 +179,7 @@ export function SectionHeading({
 }) {
   return (
     <h2
-      className={`flex items-center gap-2.5 text-[12.5px] font-bold uppercase tracking-[0.09em] text-ink ${
+      className={`flex items-center gap-2.5 text-micro font-bold uppercase tracking-[0.09em] text-ink ${
         sticky ? 'below-topbar sticky z-[5] -mx-1 bg-bg/90 px-1 py-2 backdrop-blur' : ''
       } ${className}`}
     >
@@ -170,7 +196,7 @@ export function SectionHeading({
 }
 
 export function CardHeading({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <h3 className={`text-[12.5px] font-bold uppercase tracking-[0.08em] text-ink ${className}`}>{children}</h3>
+  return <h3 className={`text-micro font-bold uppercase tracking-[0.08em] text-ink ${className}`}>{children}</h3>
 }
 
 /**
@@ -280,7 +306,7 @@ export function Button({
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`min-h-11 rounded-xl px-4 py-2.5 text-sm transition disabled:opacity-40 ${styles} ${className}`}
+      className={`min-h-11 rounded-xl px-4 py-2.5 text-body transition disabled:opacity-40 ${styles} ${className}`}
     >
       {children}
     </button>
@@ -291,10 +317,10 @@ export function Button({
  *  Klassenliste an vierzehn Stellen wortgleich im Code und wich an zwei
  *  Stellen davon ab. */
 export const selectCls =
-  'w-full rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-[14px] text-ink outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+  'w-full rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-body text-ink outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
 export const inputCls =
-  'w-full rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+  'w-full rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-lead text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
 /**
  * Beschriftetes Feld.
@@ -325,7 +351,7 @@ export function Field({
   if (group) {
     return (
       <div id={anchorId} className="block scroll-mt-24" role="group" aria-labelledby={id}>
-        <span id={id} className="mb-1.5 block text-[13px] font-medium text-dim">
+        <span id={id} className="mb-1.5 block text-small font-medium text-dim">
           {label}
         </span>
         {children}
@@ -334,7 +360,7 @@ export function Field({
   }
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[13px] font-medium text-dim">{label}</span>
+      <span className="mb-1.5 block text-small font-medium text-dim">{label}</span>
       {children}
     </label>
   )
@@ -372,7 +398,7 @@ export function CountBadge({ count, label, className = '' }: { count: number; la
     <span
       role="img"
       aria-label={`${count} ${label}`}
-      className={`pointer-events-none absolute z-10 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-1 text-[12px] font-bold leading-none text-bg ring-2 ring-bg ${className}`}
+      className={`pointer-events-none absolute z-10 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-1 text-micro font-bold leading-none text-bg ring-2 ring-bg ${className}`}
     >
       {count > 99 ? '99+' : count}
     </span>
@@ -408,7 +434,7 @@ export function ChipMultiSelect({ options, selected, onChange }: {
           <button
             key={o.id}
             onClick={() => onChange(on ? selected.filter((x) => x !== o.id) : [...selected, o.id])}
-            className={`min-h-11 rounded-full border px-3 py-1.5 text-[12.5px] transition ${
+            className={`min-h-11 rounded-full border px-3 py-1.5 text-micro transition ${
               on ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
             }`}
           >
@@ -420,17 +446,52 @@ export function ChipMultiSelect({ options, selected, onChange }: {
   )
 }
 
-export function Badge({ children, tone = 'accent' }: { children: ReactNode; tone?: 'accent' | 'warm' | 'dim' }) {
-  const tones = {
-    /* Akzentfarbe auf 15-%-Flaeche ergab gemessene 3,86:1 — unter den
-       geforderten 4,5:1 fuer normalen Text. Die Flaeche traegt den Akzent,
-       die Schrift bleibt Text (12,4:1). Dasselbe gilt fuer den aktiven
-       Zustand jedes Umschalters in der App. */
+export type BadgeTone = 'accent' | 'ok' | 'wait' | 'bad' | 'dim'
+
+/**
+ * Statusmarke — die einzige Pille der App.
+ *
+ * Vorher stand dasselbe Signal in drei Gestalten nebeneinander: „Not
+ * Competent" war in der Liste warm-braun, in der Akte rot getoent und in der
+ * Detailansicht ein volles `bg-red-600`. Wer die drei Ansichten
+ * hintereinander sah, musste jedes Mal neu lesen, statt die Farbe zu
+ * erkennen. Deshalb gibt es hier fuenf Toene mit je EINER Bedeutung —
+ * `ok` erledigt, `wait` wartet oder mahnt, `bad` durchgefallen oder kaputt,
+ * `accent` neutrale Einordnung (Muster, Rolle), `dim` ruhiger Nebenzustand.
+ *
+ * `strong` waehlt die volle Flaeche statt der 15-%-Toenung. Das ist keine
+ * zweite Farbwelt, sondern dieselbe Skala lauter — gebraucht dort, wo die
+ * Marke gegen viel Text bestehen muss (fehlendes Pflichtformular, Ergebnis
+ * im Kopf der Akte).
+ */
+export function Badge({ children, tone = 'accent', strong = false }: { children: ReactNode; tone?: BadgeTone; strong?: boolean }) {
+  /* Akzentfarbe auf 15-%-Flaeche ergab gemessene 3,86:1 — unter den
+     geforderten 4,5:1 fuer normalen Text. Die Flaeche traegt den Akzent,
+     die Schrift bleibt Text (12,4:1). Dasselbe gilt fuer den aktiven
+     Zustand jedes Umschalters in der App. */
+  const soft: Record<BadgeTone, string> = {
     accent: 'bg-accent/15 text-ink',
-    warm: 'bg-warm/15 text-warm',
+    ok: 'bg-ok/15 text-ok',
+    wait: 'bg-wait/15 text-wait',
+    bad: 'bg-bad/15 text-bad',
     dim: 'bg-line/8 text-dim',
-  }[tone]
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium ${tones}`}>{children}</span>
+  }
+  /* Die Ink-Toene wechseln mit dem Theme mit — auf der hellen Ampelflaeche
+     steht Weiss, auf der dunklen fast Schwarz. */
+  const full: Record<BadgeTone, string> = {
+    accent: 'bg-accent text-bg',
+    ok: 'bg-ok text-okInk',
+    wait: 'bg-wait text-waitInk',
+    bad: 'bg-bad text-badInk',
+    dim: 'bg-raised text-ink',
+  }
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-micro font-medium ${(strong ? full : soft)[tone]} ${strong ? 'font-semibold' : ''}`}
+    >
+      {children}
+    </span>
+  )
 }
 
 /**
@@ -546,7 +607,7 @@ export function Modal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start gap-3">
-          <h2 className="min-w-0 flex-1 text-lg font-semibold">{title}</h2>
+          <h2 className="min-w-0 flex-1 text-head font-semibold">{title}</h2>
           <button
             onClick={close}
             aria-label={t('common.close')}
