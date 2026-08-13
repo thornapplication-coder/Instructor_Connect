@@ -1,13 +1,28 @@
-import { BellOff, ChevronRight, Clock, Plus } from 'lucide-react'
+import { BellOff, ChevronRight, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Button, Card, Field, inputCls, Modal, NewDot, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { isAdminUser, useStore } from '../store'
 
+/**
+ * Zeit der letzten Nachricht, so kurz wie moeglich: heute die Uhrzeit,
+ * innerhalb der Woche der Wochentag, davor das Datum. Genau die Abstufung,
+ * die man aus jeder Nachrichten-App kennt — sie kostet in der Liste eine
+ * Zeile Platz und beantwortet trotzdem „wann war da zuletzt was".
+ */
+export function kurzeZeit(ts: number, lng: string, jetzt: number): string {
+  const locale = lng === 'de' ? 'de-AT' : 'en-GB'
+  const tagMs = 24 * 3600_000
+  const heute = new Date(jetzt).setHours(0, 0, 0, 0)
+  if (ts >= heute) return new Date(ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
+  if (ts >= heute - 6 * tagMs) return new Date(ts).toLocaleDateString(locale, { weekday: 'short' })
+  return new Date(ts).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })
+}
+
 export function ChatList() {
-  const { t } = useTranslation()
-  const { state, currentUser, effectiveRetention, visibleMessages, myGroups, unreadGroups, addGroup } = useStore()
+  const { t, i18n } = useTranslation()
+  const { state, currentUser, visibleMessages, myGroups, unreadGroups, addGroup, now } = useStore()
   // Admins und Superadmin dürfen direkt aus dem Chat neue Gruppen anlegen
   const [showNew, setShowNew] = useState(false)
   const [name, setName] = useState('')
@@ -80,9 +95,15 @@ export function ChatList() {
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
-                  <span className="flex items-center gap-1 text-[12px] text-dim">
-                    <Clock size={11} /> {t(`retention.${effectiveRetention(g)}`)}
-                  </span>
+                  {/*
+                    Rechts steht die Zeit der LETZTEN NACHRICHT, nicht die
+                    Loeschfrist. An dieser Stelle zeigt jede Messaging-App die
+                    Zeit — „🕐 7 Tage" wurde deshalb als „vor 7 Tagen, nichts
+                    los" gelesen, und welche Gruppe gerade lebt, stand
+                    nirgends. Die Aufbewahrung erklaert die Chat-Info, wo sie
+                    ohnehin ausfuehrlich steht.
+                  */}
+                  <span className="whitespace-nowrap text-[12px] text-dim">{last ? kurzeZeit(last.createdAt, i18n.language, now()) : ''}</span>
                   <ChevronRight size={16} className="text-dim" />
                 </div>
               </Card>

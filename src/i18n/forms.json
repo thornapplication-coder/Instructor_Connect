@@ -1,6 +1,8 @@
 {
   "newForm": "New form",
-  "empty": "No forms yet.",
+  "empty": "No forms yet — create one with “New form” after the session.",
+  "noMatch": "No form matches the current filter.",
+  "showAll": "Show all",
   "noTrainee": "no trainee",
   "noPermission": "You are not enabled to fill in grading forms. An admin can change this in user management.",
   "notCompetent": "Not Competent",

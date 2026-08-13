@@ -63,6 +63,7 @@
     "sandboxCode": "Sandbox: dein Code lautet {{code}} — produktiv kommt er per E-Mail."
   },
   "home": {
+    "openAcks": "offene Kenntnisnahmen",
     "hello": "Hallo, {{name}}",
     "admin": "Admin Panel",
     "installHint": "iPhone/iPad: App zum Home-Bildschirm hinzufügen, um Benachrichtigungen zu erhalten.",
@@ -129,6 +130,8 @@
     "deleteBlocked": "Nicht möglich: {{names}} bliebe ohne Gruppe zurück. Erst einer anderen Gruppe hinzufügen."
   },
   "info": {
+    "noMatch": "Kein Eintrag passt zu Suche oder Filter.",
+    "showAll": "Alle anzeigen",
     "searchPlaceholder": "Einträge durchsuchen …",
     "newEntry": "Neuer Eintrag",
     "empty": "Keine Einträge gefunden.",

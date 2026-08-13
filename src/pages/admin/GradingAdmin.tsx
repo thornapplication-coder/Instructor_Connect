@@ -544,7 +544,8 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
       ...traineesOf(r, records).map(traineeLabel),
       ...Object.values(r.header),
       r.header.date ? formatDate(r.header.date) : '',
-      dateLabel(r.createdAt),
+      // Gesucht wird nach dem Tag, der auch in der Zeile steht.
+      dateLabel(gradingListDate(r)),
     ]
       .join(' ')
       .toLowerCase()
@@ -756,7 +757,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
             <Card
               key={r.id}
               onClick={() => navigate(`/grading/${r.id}`)}
-              label={`${r.formTypeId} · ${traineesOf(r, records).map(traineeLabel).join(', ') || t('forms:openForm')} · ${dateLabel(r.createdAt)}`}
+              label={`${r.formTypeId} · ${traineesOf(r, records).map(traineeLabel).join(', ') || t('forms:openForm')} · ${dateLabel(gradingListDate(r))}`}
               className="flex items-center gap-3 p-4"
             >
               <Clock size={16} className="shrink-0 text-warm" />
@@ -892,7 +893,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
             <Card
               key={r.id}
               onClick={() => navigate(`/grading/${r.id}`)}
-              label={`${r.formTypeId} · ${traineesOf(r, records).map(traineeLabel).join(', ') || t('forms:openForm')} · ${dateLabel(r.createdAt)}`}
+              label={`${r.formTypeId} · ${traineesOf(r, records).map(traineeLabel).join(', ') || t('forms:openForm')} · ${dateLabel(gradingListDate(r))}`}
               className="flex items-center gap-3 p-4"
             >
               <TrafficDot color={trafficLight(r, records)} />
@@ -903,7 +904,12 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 <p className="flex flex-wrap items-baseline gap-x-1.5 text-[12.5px] text-dim">
                   <span className="min-w-0 max-w-full truncate">{userName(r.instructorId)}</span>
                   <span className="shrink-0">· {r.header.aircraftType}</span>
-                  <span className="shrink-0">· {dateLabel(r.createdAt)}</span>
+                  {/* Schulungstag, nicht Anlagedatum: Sortiert wird nach dem
+                      Schulungstag (gradingListComparator) — die Spalte zeigte
+                      etwas anderes als die Reihenfolge, und ein nachgetragenes
+                      Blatt stand an der Juli-Position mit August-Datum (#51).
+                      Fuer die beiden anderen Listen war das laengst korrigiert. */}
+                  <span className="shrink-0">· {dateLabel(gradingListDate(r))}</span>
                 </p>
               </div>
               {r.trainees.some((tr) => tr.overall === 'not_competent') && <Badge tone="warm">{t('forms:notCompetent')}</Badge>}
