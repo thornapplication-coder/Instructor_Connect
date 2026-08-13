@@ -97,7 +97,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="safe-top-6 mx-auto flex w-full max-w-3xl items-center justify-between px-5 xl:max-w-none xl:px-10">
+      <header className="safe-top-6 mx-auto flex w-full max-w-3xl items-center justify-between px-5 xl:max-w-6xl xl:px-10">
         {/* Die Begrüßung gibt nach, die Bedienelemente nicht.
             Ohne `min-w-0`/`truncate` drückte ein längerer Vorname die rechte
             Gruppe zusammen — gemessen am iPhone: „Hello, Christian" umbrach
@@ -147,7 +147,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
           sobald der Inhalt höher ist als das Fenster — zentrierter Überlauf
           ragt in beide Richtungen, und der obere Teil ist nicht erreichbar.
           Deshalb dort von oben ausrichten. */}
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 short:justify-start short:py-3 md:max-w-4xl xl:max-w-none xl:px-10">
+      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 short:justify-start short:py-3 md:max-w-4xl xl:max-w-6xl xl:px-10">
         {/* Bildmarke und Titel mittig über den Kacheln. Im flachen Fenster
             (Handy quer) rückt der Schriftzug neben die Bildmarke, damit die
             Kacheln ohne Scrollen erreichbar bleiben. */}
@@ -163,11 +163,14 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
         </div>
 
         {/* 2 Spalten am Handy, 3 ab Tablet — große, gut greifbare Kacheln */}
+        {/* Vier Spalten am Desktop: Sechs Spalten liessen die siebte Kachel
+            als Waise in einer eigenen Reihe stehen, und jede Kachel wurde
+            ueber 400 px gross. Vier Spalten ergeben 4 + 3. */}
         {/* Vier Spalten im Querformat: Mit sieben Kacheln ergaben drei Spalten
             drei Reihen, und die Seite lief um rund 90 px über — die letzte
             Kachel und die Fußzeile lagen unter der Falz. Vier Spalten sind
             zwei Reihen. */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-6 short:grid-cols-4 short:gap-2.5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-4 short:grid-cols-4 short:gap-2.5">
           {tiles.map(({ to, label, icon: Icon }) => (
             <button
               key={to}

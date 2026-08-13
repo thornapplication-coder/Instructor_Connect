@@ -1,7 +1,7 @@
 import { Mail, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Button, Card, Field, inputCls, Modal, Page, SectionHeading, TopBar } from '../components/ui'
+import { Avatar, Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, TopBar } from '../components/ui'
 import { useStore } from '../store'
 import type { Contact } from '../types'
 
@@ -145,7 +145,7 @@ export function WhoToCall() {
         {grouped.map(({ department, contacts }) => (
           <section key={department}>
             <SectionHeading className="mb-2.5">{department}</SectionHeading>
-            <div className="space-y-3">
+            <CardGrid>
               {contacts.map((c) => (
                 <Card key={c.id} className="p-4">
                   <div className="flex items-center gap-3">
@@ -198,7 +198,7 @@ export function WhoToCall() {
                   </p>
                 </Card>
               ))}
-            </div>
+            </CardGrid>
           </section>
         ))}
       </Page>

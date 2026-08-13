@@ -1,7 +1,7 @@
 import { NotebookPen, Pencil, Pin, Plus, Search, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, Field, inputCls, Modal, Page, SectionHeading, TopBar } from '../components/ui'
+import { Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, TopBar } from '../components/ui'
 import { groupNotes, notePreview, PINNED, searchNotes } from '../notes'
 import { useStore } from '../store'
 import type { Note } from '../types'
@@ -138,6 +138,7 @@ export function Notes() {
                 {t(key === PINNED ? 'notes.pinned' : 'notes.others')}
               </SectionHeading>
             )}
+            <CardGrid>
             {notes.map((n) => (
               <Card key={n.id} className="p-4">
                 <div className="flex items-start gap-3">
@@ -198,6 +199,7 @@ export function Notes() {
                 </div>
               </Card>
             ))}
+            </CardGrid>
           </section>
         ))}
       </Page>

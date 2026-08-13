@@ -545,6 +545,10 @@ export function Grading() {
         {byDay(list).map(([tag, blaetter]) => (
           <div key={tag} className="space-y-2.5">
             <SectionHeading sticky>{formatDate(gradingListDate(blaetter[0]))}</SectionHeading>
+            {/* Bewusst KEIN zweispaltiges Raster: Die Liste ist nach Tagen
+                gegliedert, und ein Tag traegt meist ein einziges Blatt. Zwei
+                Spalten liessen dann neben jeder Zeile eine leere Haelfte —
+                die Breite waere wieder aufgespannt statt genutzt. */}
             {blaetter.map((r) => {
           const notCompetent = r.trainees.some((tr) => tr.overall === 'not_competent')
           const missing = missingFollowUps(r, state.gradingRecords)

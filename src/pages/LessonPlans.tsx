@@ -1,7 +1,7 @@
 import { Download, Eye, FileText, Plane, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { useStore } from '../store'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
@@ -174,6 +174,7 @@ export function LessonPlans() {
             {groups.map(({ category, plans }) => (
             <div key={category || '—'} className="space-y-3">
               <h3 className="ml-3.5 text-[12.5px] font-semibold text-ink">{category || t('lessons.noCategory')}</h3>
+              <CardGrid>
               {plans.map((p) => (
                 <Card key={p.id} className="p-4">
                   <div className="flex items-start gap-3">
@@ -223,6 +224,7 @@ export function LessonPlans() {
                   </div>
                 </Card>
               ))}
+              </CardGrid>
             </div>
             ))}
           </section>

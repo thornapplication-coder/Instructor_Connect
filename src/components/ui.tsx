@@ -1,5 +1,5 @@
 import { ArrowLeft, Home as HomeIcon, Moon, Sun, X } from 'lucide-react'
-import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { Children, useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { navigate } from '../router'
 
@@ -68,7 +68,7 @@ export function TopBar({
   const { t } = useTranslation()
   return (
     <header className="safe-top sticky top-0 z-20 border-b border-line/10 bg-bg/85 backdrop-blur">
-      <div className={`mx-auto flex h-14 items-center gap-2 px-3 xl:max-w-none xl:px-8 ${wide ? 'max-w-5xl' : 'max-w-3xl'}`}>
+      <div className={`mx-auto flex h-14 items-center gap-2 px-3 xl:px-8 ${wide ? 'max-w-5xl xl:max-w-7xl' : 'max-w-3xl xl:max-w-6xl'}`}>
         {back !== undefined && (
           <button
             onClick={() => {
@@ -108,8 +108,34 @@ export function TopBar({
   )
 }
 
+/**
+ * Seitenrahmen.
+ *
+ * Am Desktop lief der Inhalt vorher bis an beide Fensterraender
+ * (`xl:max-w-none`). Auf einem 2560er Schirm hiess das: eine Formularzeile
+ * 2500 px breit, ihr Inhalt in den ersten 400 px, die zugehoerigen Knoepfe
+ * zwei Meter weiter rechts. Genutzt wurde die Breite damit nicht, nur
+ * aufgespannt. Jetzt begrenzt der Rahmen auf 1152 px (breite Seiten:
+ * 1280 px) — und die Breite wird dort, wo sie etwas traegt, ueber
+ * `CardGrid` in zwei Spalten ausgefuellt statt in eine lange Zeile gezogen.
+ */
 export function Page({ children, className = '', wide = false }: { children: ReactNode; className?: string; wide?: boolean }) {
-  return <main className={`mx-auto w-full flex-1 px-4 pb-24 pt-4 xl:max-w-none xl:px-8 ${wide ? 'max-w-5xl' : 'max-w-3xl'} ${className}`}>{children}</main>
+  return <main className={`mx-auto w-full flex-1 px-4 pb-24 pt-4 xl:px-8 ${wide ? 'max-w-5xl xl:max-w-7xl' : 'max-w-3xl xl:max-w-6xl'} ${className}`}>{children}</main>
+}
+
+/**
+ * Kartenliste, die am Desktop zweispaltig wird.
+ *
+ * Ersetzt `space-y-3` ueberall dort, wo die Liste aus kompakten Karten
+ * besteht (Notizen, Kontakte, Chats, Lehrplaene, Formularzeilen). Bis zum
+ * Tablet bleibt es eine Spalte — die Karten brauchen die volle Breite.
+ */
+export function CardGrid({ children, className = '' }: { children: ReactNode; className?: string }) {
+  // Eine einzelne Karte bleibt einspaltig. Sonst stuende neben ihr eine
+  // leere Haelfte — die Breite waere wieder aufgespannt statt genutzt, und
+  // genau das sollte das Raster abstellen.
+  const einzeln = Children.count(children) < 2
+  return <div className={`${einzeln ? 'space-y-3' : 'grid grid-cols-1 gap-3 xl:grid-cols-2'} ${className}`}>{children}</div>
 }
 
 /**
