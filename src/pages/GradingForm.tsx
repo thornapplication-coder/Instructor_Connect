@@ -157,6 +157,10 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   // Ablauf: 1 Kopfdaten (Student/Instructor) -> 2 Grading + Session-Daten -> Unterschrift
   const [step, setStep] = useState(existing ? 2 : 1)
   const [openBehaviour, setOpenBehaviour] = useState<string | null>(null)
+  /** Kompetenz, deren freiwilliges Kommentarfeld gerade geoeffnet ist. */
+  const [openComment, setOpenComment] = useState<string | null>(null)
+  /** Liste der offenen Punkte in der Abschlussleiste aufgeklappt? */
+  const [offenOffen, setOffenOffen] = useState(false)
   const [showFollowUp, setShowFollowUp] = useState(false)
   const [followUps, setFollowUps] = useState<FormTypeId[]>([])
   const [error, setError] = useState('')
@@ -170,6 +174,60 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
   // Clientseitige Sperre analog Admin.tsx; serverseitig gilt später RLS.
   const mayGrade = can('grading_create')
+
+  /*
+   * Vorbelegung der Kopfdaten.
+   *
+   * Gemessen wurden ZWOELF Tipps, bevor die erste Note vergeben werden
+   * konnte — bei vier Sessions am Tag viermal dieselbe Eingabe. Dabei ist
+   * das meiste bekannt: Das Datum ist heute; wer nur EIN Muster fliegt, hat
+   * keine Wahl; Qualifikation, Sitz und Training Device sind dieselben wie
+   * beim letzten eigenen Blatt.
+   *
+   * Gefuellt wird nur, was leer ist, nur Felder, die der gewaehlte
+   * Formulartyp ueberhaupt fuehrt, und bei Auswahlfeldern nur Werte, die
+   * dort auch zur Wahl stehen. Alles bleibt aenderbar — es ist ein
+   * Vorschlag, keine Vorgabe. Ein Entwurf gewinnt: Er wird zuerst geladen,
+   * und diese Ergaenzung fasst nur noch die verbliebenen Luecken an.
+   */
+  const letztesEigene = useMemo(
+    () =>
+      [...state.gradingRecords]
+        .filter((r) => r.instructorId === currentUser!.id && r.trainees.length > 0)
+        .sort((a, b) => b.createdAt - a.createdAt)[0],
+    [state.gradingRecords, currentUser],
+  )
+  useEffect(() => {
+    if (existing || !formType) return
+    const heute = new Date(Date.now() + state.timeOffsetMs).toISOString().slice(0, 10)
+    const eigeneMuster = currentUser!.aircraftTypes ?? []
+    setHeader((h) => {
+      const next = { ...h }
+      let geaendert = false
+      /** Katalogfeld: nur fuellen, wenn der Typ es fuehrt und der Wert dort zur Wahl steht. */
+      const setzen = (key: string, wert: string | undefined) => {
+        if (!wert || next[key]) return
+        const feld = formType.fields.find((f) => f.key === key)
+        if (!feld) return
+        if (feld.options && !feld.options.includes(wert)) return
+        next[key] = wert
+        geaendert = true
+      }
+      /** Qualifikation und Sitz stehen NICHT im Katalog — sie haben eine
+       *  eigene Knopfgruppe im Formular, mit fester Auswahl. */
+      const setzenFrei = (key: string, wert: string | undefined, erlaubt: string[]) => {
+        if (!wert || next[key] || !erlaubt.includes(wert)) return
+        next[key] = wert
+        geaendert = true
+      }
+      setzen('date', heute)
+      if (eigeneMuster.length === 1) setzen('aircraftType', eigeneMuster[0])
+      setzen('trainingDevice', letztesEigene?.header.trainingDevice)
+      setzenFrei('instructorQual', letztesEigene?.header.instructorQual, ['TKI', 'SFI', 'TRI'])
+      setzenFrei('instructorSeat', letztesEigene?.header.instructorSeat, ['Left', 'Right', 'Rear'])
+      return geaendert ? next : h
+    })
+  }, [formType, existing, letztesEigene, currentUser, state.timeOffsetMs])
 
   /**
    * Entwurfssicherung. Eine halbe Stunde Bewertung war bisher mit einer
@@ -339,6 +397,60 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   /** Schlüssel des zuerst beanstandeten Feldes — der Fokus springt dorthin,
    *  statt die Meldung weit entfernt von der Ursache stehen zu lassen. */
   const errorKeyRef = useRef<string | null>(null)
+
+  /**
+   * ALLE offenen Punkte des Bewertungsschritts, jeder mit Sprungziel.
+   *
+   * `validate()` liefert immer nur den ERSTEN — und die Meldung stand
+   * gemessene 3.900 px von der Stelle entfernt, an der etwas fehlte, ohne
+   * Sprungziel und ohne zu sagen, welche Kompetenz gemeint ist. Nach dem
+   * Beheben erschien der naechste Punkt: serielles Aufdecken ueber sechs
+   * Bildschirme. Diese Liste zeigt den Stand vollstaendig und fuehrt hin.
+   */
+  const openItems = useMemo(() => {
+    if (!formType || step !== 2) return []
+    const out: { id: string; text: string }[] = []
+    trainees.forEach((tr, i) => {
+      const wer = tr.traineeName?.trim() || t('forms:traineeN', { n: i + 1 })
+      competencies.forEach((c) => {
+        const g = tr.grades.find((x) => x.code === c.code)
+        if (g?.grade === null || g?.grade === undefined) out.push({ id: `komp-${i}-${c.code}`, text: `${wer} · ${c.code} — ${t('forms:gradeMissing')}` })
+        else if ((g.grade === 1 || g.grade === 2) && !g.comment.trim())
+          out.push({ id: `komp-${i}-${c.code}`, text: `${wer} · ${c.code} — ${t('forms:commentRequired')}` })
+      })
+      if (competencies.length > 0) {
+        if (!tr.positiveComment.trim() || !tr.developmentComment.trim() || !tr.summaryComment.trim())
+          out.push({ id: `zusammen-${i}`, text: `${wer} — ${t('forms:summaryMissing')}` })
+        if (!tr.overall) out.push({ id: `overall-${i}`, text: `${wer} — ${t('forms:overall')}` })
+      }
+    })
+    if (competencies.length > 0 && !sessionStatus) out.push({ id: 'session', text: t('forms:errSession') })
+    postFields.forEach((f) => {
+      if (f.required && !header[f.key]?.trim()) out.push({ id: 'sessiondaten', text: `${f.label} — ${t('forms:gradeMissing')}` })
+    })
+    if (!sigInstructor) out.push({ id: 'unterschriften', text: t('forms:errSignature') })
+    return out
+  }, [formType, step, trainees, competencies, sessionStatus, postFields, header, sigInstructor, t])
+
+  /** Fortschritt: wie viele Noten sind gesetzt? */
+  const gradedCount = trainees.reduce((n, tr) => n + tr.grades.filter((g) => g.grade !== null).length, 0)
+  const gradesTotal = trainees.length * competencies.length
+
+  /* Solange die Abschlussleiste steht, ruecken die uebrigen fixierten
+     Streifen (Offline, Update) darueber — siehe index.css. */
+  useEffect(() => {
+    const an = !!formType && step === 2
+    document.body.classList.toggle('hat-formularleiste', an)
+    return () => document.body.classList.remove('hat-formularleiste')
+  }, [formType, step])
+
+  const springeZu = (id: string) => {
+    const el = document.getElementById(id)
+    if (!el) return
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const ziel = el.querySelector<HTMLElement>('button, input, textarea, select') ?? el
+    ziel.focus({ preventScroll: true })
+  }
 
   /** Schritt 1: Kopfdaten inkl. Student/Instructor */
   const validateHeader = (): string => {
@@ -993,16 +1105,24 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                       const key = `${i}-${c.code}`
                       const commentRequired = g?.grade === 1 || g?.grade === 2
                       return (
-                        <div key={c.code} className="rounded-xl border border-line/10 p-3">
-                          <div className="mb-2 flex items-start gap-2">
+                        /*
+                          Kompakter: Titelzeile mit OB-Knopf, darunter EINE Reihe
+                          Noten, das Kommentarfeld nur, wenn es gebraucht wird.
+                          Gemessen passten vorher 2,95 Kompetenzen auf einen
+                          Bildschirm — neun Kompetenzen waren 2.117 px reines
+                          Bewerten, bei zwei Piloten 11,3 Bildschirme am Stueck.
+                        */
+                        <div key={c.code} id={`komp-${i}-${c.code}`} className="scroll-mt-24 rounded-xl border border-line/10 p-2.5">
+                          <div className="mb-1.5 flex items-start gap-2">
                             <div className="min-w-0 flex-1">
-                              <p className="text-[14px] font-semibold">
+                              <p className="text-[14px] font-semibold leading-snug">
                                 {hideCodes ? c.title : <>{c.code} <span className="font-normal text-dim">· {c.title}</span></>}
                               </p>
                             </div>
                             <button
                               onClick={() => setOpenBehaviour(openBehaviour === key ? null : key)}
                               title={t('forms:behaviours')}
+                              aria-expanded={openBehaviour === key}
                               className="min-h-11 flex shrink-0 items-center gap-1 rounded-lg border border-line/15 px-2 py-1 text-[12px] text-dim hover:text-accent"
                             >
                               <Info size={12} /> OB <ChevronDown size={11} className={openBehaviour === key ? 'rotate-180' : ''} />
@@ -1020,14 +1140,16 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                               neunmal identisch, ohne Bezug und ohne die Angabe,
                               welche Note gesetzt ist (die steckte allein in
                               Fuellfarbe und Ring). */}
-                          <div role="group" aria-label={`${c.code} · ${c.title}`} className="flex flex-wrap gap-1.5">
+                          {/* Eine Reihe statt zwei: sechs Knoepfe zu je 52 px
+                              passen in die Inhaltsbreite von 324 px. */}
+                          <div role="group" aria-label={`${c.code} · ${c.title}`} className="grid grid-cols-6 gap-1.5">
                             {GRADES.map((val) => (
                               <button
                                 key={String(val)}
                                 onClick={() => setGrade(i, c.code, val)}
                                 aria-pressed={g?.grade === val}
                                 aria-label={`${c.code} · ${c.title}: ${val}`}
-                                className={`min-h-11 min-w-[52px] rounded-lg px-3 py-2.5 text-[14px] font-semibold transition ${
+                                className={`min-h-11 rounded-lg px-1 py-2.5 text-[14px] font-semibold transition ${
                                   g?.grade === val ? gradeColor(val) + ' ring-2 ring-accent' : 'bg-line/[0.06] text-dim hover:bg-line/10'
                                 }`}
                               >
@@ -1035,6 +1157,12 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                               </button>
                             ))}
                           </div>
+                          {/* Das Kommentarfeld stand bei JEDER Kompetenz offen —
+                              9 × 45 px, rund 11 % der Seitenhoehe, obwohl es nur
+                              bei 1 und 2 Pflicht ist. Jetzt erscheint es, wenn es
+                              gebraucht wird oder schon Text traegt; sonst genuegt
+                              ein leiser Knopf. */}
+                          {(commentRequired || (g?.comment ?? '').length > 0 || openComment === key) && (
                           <input
                             value={g?.comment ?? ''}
                             onChange={(e) => setGradeComment(i, c.code, e.target.value)}
@@ -1044,14 +1172,24 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                             // Das Feld heisst je nach Zustand anders.
                             aria-label={`${t('forms:commentOptional')} — ${c.code}`}
                             aria-required={commentRequired}
-                            className={`${inputCls} mt-2 text-[13px] ${commentRequired && !g?.comment.trim() ? 'border-danger/60' : ''}`}
+                            className={`${inputCls} mt-1.5 text-[13px] ${commentRequired && !g?.comment.trim() ? 'border-danger/60' : ''}`}
                           />
+                          )}
+                          {!commentRequired && !(g?.comment ?? '').length && openComment !== key && (
+                            <button
+                              onClick={() => setOpenComment(key)}
+                              className="mt-1.5 text-[12px] text-dim underline-offset-2 hover:text-accent hover:underline"
+                            >
+                              + {t('forms:commentOptional')}
+                            </button>
+                          )}
                         </div>
                       )
                     })}
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-3">
+                  {/* Sprungziel der Abschlussleiste */}
+                  <div id={`zusammen-${i}`} className="grid scroll-mt-24 gap-3 sm:grid-cols-3">
                     <Field label={t('forms:positive') + ' *'}>
                       <textarea value={tr.positiveComment} onChange={(e) => setTrainee(i, { positiveComment: e.target.value })} className={`${inputCls} min-h-24`} />
                     </Field>
@@ -1063,7 +1201,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                     </Field>
                   </div>
 
-                  <Field label={t('forms:overall') + ' *'} group>
+                  <Field label={t('forms:overall') + ' *'} group id={`overall-${i}`}>
                     <div className="flex gap-2">
                       {(['competent', 'not_competent'] as OverallResult[]).map((o) => (
                         <button
@@ -1092,7 +1230,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             {competencies.length > 0 && (
               <>
                 <Card className="p-4">
-                  <Field label={t('forms:sessionStatus') + ' *'} group>
+                  <Field label={t('forms:sessionStatus') + ' *'} group id="session">
                     <div className="flex gap-2">
                       {(['completed', 'not_completed'] as SessionStatus[]).map((sst) => (
                         <button
@@ -1114,7 +1252,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
             {/* 4b. Session-Daten — werden immer erst NACH dem Grading erfasst */}
             {postFields.length > 0 && (
-              <Card className="space-y-3 p-4">
+              <Card id="sessiondaten" className="scroll-mt-24 space-y-3 p-4">
                 <CardHeading>{t('forms:sessionData')}</CardHeading>
                 <p className="text-[12px] leading-relaxed text-dim">{t('forms:sessionDataHint')}</p>
                 <div className="grid gap-3 sm:grid-cols-2">{postFields.map(renderField)}</div>
@@ -1170,7 +1308,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             {/* 5. Unterschriften — immer live zu leisten, nie gespeichert/übernommen.
                 Bei mehreren Studenten unterschreibt JEDER einzeln; pro Student
                 entsteht beim Abschluss ein eigenes Formular. */}
-            <Card className="space-y-4 p-4">
+            <Card id="unterschriften" className="scroll-mt-24 space-y-4 p-4">
               <CardHeading>{t('forms:signatures')}</CardHeading>
               <div className="grid gap-4 sm:grid-cols-2">
                 <SignaturePad value={sigInstructor} onChange={setSigInstructor} label={t('forms:sigInstructor')} />
@@ -1248,29 +1386,66 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
               <p className="text-[12px] leading-relaxed text-dim">{t('forms:extraRecipientsHint')}</p>
             </Card>
 
-            {/* 7. Senden — erst möglich, wenn alles vollständig ausgefüllt ist */}
-            {(() => {
-              const liveError = validate()
-              return (
-                <>
-                  {liveError && (
-                    <p className="rounded-xl border border-warm/25 bg-warm/5 p-3.5 text-[12.5px] leading-relaxed text-dim">
-                      {t('forms:sendBlocked')} {liveError}
-                    </p>
-                  )}
-                  <Button
-                    disabled={!!liveError || submitting}
-                    className="flex w-full items-center justify-center gap-2 py-3 disabled:cursor-not-allowed disabled:opacity-45"
-                    onClick={submit}
-                  >
-                    <Send size={16} /> {t('forms:finish')}
-                  </Button>
-                </>
-              )
-            })()}
+            {/* 7. Senden — der Knopf sitzt in der Abschlussleiste unten. Hier
+                bleibt nur der Abstand, damit die Leiste nichts verdeckt. */}
+            <div className="h-24" />
           </>
         )}
       </Page>
+
+      {/*
+        Abschlussleiste — sie steht IMMER im Bild.
+        Vorher lag der Senden-Knopf am Seitenende: inaktiv, ohne Begruendung
+        in Reichweite, und die Fehlermeldung nannte immer nur den ersten
+        offenen Punkt — gemessene 3.900 px von der Stelle entfernt, an der er
+        fehlte. Jetzt steht der Fortschritt dauerhaft da, die Liste nennt
+        ALLE offenen Punkte, und jeder Eintrag springt hin.
+      */}
+      {formType && step === 2 && (
+        <div className="formularleiste above-sandbox fixed inset-x-0 z-30 border-t border-line/10 bg-bg/95 px-3 pb-3 pt-2 backdrop-blur print:hidden">
+          <div className="mx-auto flex max-w-3xl flex-col gap-2">
+            {offenOffen && openItems.length > 0 && (
+              <ul className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-line/10 bg-surface/60 p-2">
+                {openItems.map((o) => (
+                  <li key={o.id + o.text}>
+                    <button
+                      onClick={() => {
+                        setOffenOffen(false)
+                        springeZu(o.id)
+                      }}
+                      className="min-h-11 w-full rounded-lg px-2 text-left text-[13px] text-dim transition hover:bg-line/5 hover:text-accent"
+                    >
+                      {o.text}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setOffenOffen((v) => !v)}
+                disabled={openItems.length === 0}
+                aria-expanded={offenOffen}
+                className="min-h-11 min-w-0 flex-1 rounded-xl border border-line/15 px-3 text-left text-[13px] transition disabled:opacity-60"
+              >
+                <span className="block truncate font-semibold">
+                  {gradesTotal > 0 ? t('forms:gradedOf', { done: gradedCount, total: gradesTotal }) : ''}
+                </span>
+                <span className={`block truncate text-[12px] ${openItems.length ? 'text-wait' : 'text-ok'}`}>
+                  {openItems.length ? t('forms:openItems', { count: openItems.length }) : t('forms:allDone')}
+                </span>
+              </button>
+              <Button
+                disabled={openItems.length > 0 || submitting}
+                className="flex shrink-0 items-center justify-center gap-2 px-4 py-3 disabled:cursor-not-allowed disabled:opacity-45"
+                onClick={submit}
+              >
+                <Send size={16} /> {t('forms:finish')}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showFollowUp && (
         <Modal title={t('forms:followUpTitle')} onClose={() => setShowFollowUp(false)}>

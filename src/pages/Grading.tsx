@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, Clock, FileDown, HelpCircle, Plus, Trash2, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, FileDown, FilePen, HelpCircle, Plus, Trash2, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Card, Page, SectionHeading, TopBar } from '../components/ui'
@@ -327,10 +327,43 @@ function TrainingAdminGrading() {
   )
 }
 
+/**
+ * Offene Entwuerfe des angemeldeten Nutzers.
+ *
+ * Ein Entwurf lag bisher unsichtbar in `localStorage`: Nach Neuladen landete
+ * man auf der leeren Typauswahl, und die Liste zeigte nichts — im Zweifel
+ * begann eine halbe Stunde Bewertung von vorn. Gelesen wird derselbe
+ * Schluessel, den das Formular schreibt (`aaa-draft-<user>-new-<typ>`).
+ */
+function readDrafts(userId: string): { key: string; formTypeId: string; wer: string; noten: number; gesamt: number }[] {
+  try {
+    const prefix = `aaa-draft-${userId}-new-`
+    return Object.keys(localStorage)
+      .filter((k) => k.startsWith(prefix))
+      .map((k) => {
+        const d = JSON.parse(localStorage.getItem(k) ?? '{}') as {
+          trainees?: { traineeName?: string; grades?: { grade: number | 'NO' | null }[] }[]
+          header?: Record<string, string>
+        }
+        const trainees = d.trainees ?? []
+        return {
+          key: k,
+          formTypeId: k.slice(prefix.length),
+          wer: trainees.map((x) => x.traineeName?.trim()).filter(Boolean).join(', ') || d.header?.traineeName || '',
+          noten: trainees.reduce((n, x) => n + (x.grades ?? []).filter((g) => g.grade !== null).length, 0),
+          gesamt: trainees.reduce((n, x) => n + (x.grades ?? []).length, 0),
+        }
+      })
+  } catch {
+    return []
+  }
+}
+
 export function Grading() {
   // Das Grading-Modul ist immer vollständig englisch
   const { t } = useTranslation()
   const { state, currentUser, visibleGradingRecords, hideGradingRecord, can } = useStore()
+  const [drafts, setDrafts] = useState(() => readDrafts(currentUser!.id))
 
   const formTitle = (id: string) => state.settings.grading.formTypes.find((f) => f.id === id)?.title ?? id
   const traineeLabel = (tr: { traineeName?: string; traineeId: string }) =>
@@ -419,6 +452,43 @@ export function Grading() {
 
         {adminView === 'records' && (
         <>
+        {/* Angefangene Entwuerfe zuoberst: Sie lagen unsichtbar im Speicher,
+            und nach einem Neuladen begann eine halbe Stunde Bewertung von
+            vorn. Der Fortschritt steht dabei, damit man weiss, was einen
+            erwartet. */}
+        {drafts.map((d) => (
+          <Card key={d.key} className="flex items-center gap-3 border-accent/30 p-4">
+            <FilePen size={18} className="shrink-0 text-accent" />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[14px] font-semibold">
+                {t('forms:draftOpen')} · {d.formTypeId}
+                {d.wer ? ` · ${d.wer}` : ''}
+              </p>
+              {d.gesamt > 0 && (
+                <p className="text-[12px] text-dim">{t('forms:gradedOf', { done: d.noten, total: d.gesamt })}</p>
+              )}
+            </div>
+            <button
+              onClick={() => navigate(`/grading/new?type=${d.formTypeId}`)}
+              className="min-h-11 shrink-0 rounded-xl border border-accent/40 px-3 text-[13px] font-semibold text-accent transition hover:bg-accent/10"
+            >
+              {t('forms:draftContinue')}
+            </button>
+            <button
+              onClick={() => {
+                if (!window.confirm(t('forms:draftDiscardConfirm'))) return
+                localStorage.removeItem(d.key)
+                setDrafts(readDrafts(currentUser!.id))
+              }}
+              aria-label={t('forms:draftDiscard')}
+              title={t('forms:draftDiscard')}
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
+            >
+              <Trash2 size={16} />
+            </button>
+          </Card>
+        ))}
+
         {/* Ampel-Legende — antippen filtert die Liste. Mobil sauber
             untereinander, ab Tablet als symmetrisches 2×2-Raster. */}
         <div role="group" aria-label={t('forms:traffic.all')} className="flex flex-col gap-0.5 rounded-xl border border-line/10 bg-surface/60 p-1.5 text-[12px] text-dim sm:grid sm:grid-cols-2 sm:gap-1">

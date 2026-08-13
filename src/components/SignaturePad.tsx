@@ -101,7 +101,16 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
         const v = valueRef.current
         if (v) {
           const img = new Image()
-          img.onload = () => ctx.drawImage(img, 0, 0, rect.width, rect.height)
+          // Seitenverhaeltnis halten: Beim Wechsel in die Vollbildflaeche (und
+          // beim Drehen des Geraets) zog ein glattes Aufziehen die bereits
+          // geleistete Unterschrift in die Breite — auf einem Nachweis ist
+          // eine verzerrte Unterschrift keine Kleinigkeit.
+          img.onload = () => {
+            const f = Math.min(rect.width / img.naturalWidth, rect.height / img.naturalHeight)
+            const w = img.naturalWidth * f
+            const h = img.naturalHeight * f
+            ctx.drawImage(img, (rect.width - w) / 2, (rect.height - h) / 2, w, h)
+          }
           img.src = v
         }
         return ctx
@@ -116,6 +125,13 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
 
     const down = (e: PointerEvent) => {
       e.preventDefault()
+      // Stand VOR diesem Strich merken — nur so laesst sich ein einzelner
+      // Strich zuruecknehmen. Bisher gab es nur „alles loeschen": Ein
+      // Verrutschen kostete die ganze Unterschrift, und der Pilot musste neu
+      // ansetzen. Leerer Stand wird als '' gemerkt, damit „zurueck" bis zum
+      // wirklich leeren Blatt fuehrt und nicht zu einem weissen Bild, das die
+      // App fuer eine Unterschrift haelt.
+      historyRef.current.push(valueRef.current ?? '')
       try {
         canvas.setPointerCapture(e.pointerId)
       } catch {
@@ -184,12 +200,40 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
     ctx.restore()
   }, [value])
 
-  const clear = () => onChange(null)
+  const clear = () => {
+    historyRef.current = []
+    onChange(null)
+  }
+
+  /** Letzten Strich zuruecknehmen — zeichnet den gemerkten Stand neu. */
+  const undo = () => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const prev = historyRef.current.pop() || ''
+    const ctx = canvas.getContext('2d')!
+    const rect = canvas.getBoundingClientRect()
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    if (prev) {
+      const img = new Image()
+      img.onload = () => {
+        const f = Math.min(rect.width / img.naturalWidth, rect.height / img.naturalHeight)
+        const w = img.naturalWidth * f
+        const h = img.naturalHeight * f
+        ctx.drawImage(img, (rect.width - w) / 2, (rect.height - h) / 2, w, h)
+      }
+      img.src = prev
+    }
+    onChange(prev || null)
+  }
 
   // Zeichnen ist der Normalfall; Tippen die gleichwertige Alternative ohne
   // Zeigegerät. Der Wechsel verwirft eine bereits geleistete Unterschrift —
   // sie wäre im anderen Modus nicht mehr die eigene Eingabe.
   const [mode, setMode] = useState<'draw' | 'type'>('draw')
+  /** Staende vor jedem Strich — fuer „letzten Strich zurueck". */
+  const historyRef = useRef<string[]>([])
+  /** Vollbild: quer, rund 2,5-fache Flaeche. */
+  const [gross, setGross] = useState(false)
   const [typedName, setTypedName] = useState('')
   const switchMode = (m: 'draw' | 'type') => {
     if (m === mode) return
@@ -260,8 +304,28 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
           das, was später im Dokument und auf dem Ausdruck steht. Im
           Tipp-Modus bleibt der Canvas im Baum (die Zeichenlogik hängt an
           ihm), wird aber ausgeblendet. */}
+      <div
+        className={
+          gross
+            ? 'fixed inset-0 z-50 flex flex-col gap-2 bg-bg p-3'
+            : mode === 'type'
+              ? 'hidden'
+              : 'block'
+        }
+      >
+        {gross && (
+          <div className="flex items-center justify-between gap-2">
+            <p className="min-w-0 truncate text-[15px] font-semibold">{label}</p>
+            <button
+              onClick={() => setGross(false)}
+              className="min-h-11 shrink-0 rounded-xl bg-accent px-4 text-[14px] font-semibold text-bg"
+            >
+              {t('forms:signDone')}
+            </button>
+          </div>
+        )}
       <canvas
-        hidden={mode === 'type'}
+        hidden={mode === 'type' && !gross}
         ref={canvasRef}
         style={
           {
@@ -274,9 +338,25 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
             color: INK,
           } as React.CSSProperties
         }
-        className="h-28 w-full rounded-xl border border-dashed"
+        className={gross ? 'w-full flex-1 rounded-xl border border-dashed' : 'h-36 w-full rounded-xl border border-dashed'}
       />
-      {!value && mode === 'draw' && <p className="mt-1 text-[12px] text-dim">{t('forms:signHint')}</p>}
+      {/* Vollbild und „Strich zurueck" direkt an der Flaeche: 112 px hochkant
+          waren zu wenig, um auf einem Telefon lesbar zu unterschreiben, und
+          „Clear" war die einzige Korrektur. */}
+      <div className="mt-1 flex items-center gap-3">
+        {!gross && (
+          <button onClick={() => setGross(true)} className="min-h-11 text-[12px] text-dim underline-offset-2 hover:text-accent hover:underline">
+            {t('forms:signFullscreen')}
+          </button>
+        )}
+        {historyRef.current.length > 0 && value && (
+          <button onClick={undo} className="min-h-11 text-[12px] text-dim underline-offset-2 hover:text-accent hover:underline">
+            {t('forms:signUndo')}
+          </button>
+        )}
+        {!value && mode === 'draw' && <p className="text-[12px] text-dim">{t('forms:signHint')}</p>}
+      </div>
+      </div>
     </div>
   )
 }
