@@ -58,38 +58,54 @@ export function formatDateTime(ts: number): string {
 }
 
 /**
- * Ampelsymbole: Form UND Farbe unterscheiden die Zustände.
+ * Ampelsymbol: Form UND Farbe unterscheiden die Zustände.
  *
- * Reine Farbcodierung reichte nicht — im Hellmodus waren das dunkle Orange
- * und das dunkle Rot als kleine Punkte kaum auseinanderzuhalten, und für
- * rot-grün-blinde Nutzer (rund 8 % der Männer) gar nicht. Kreis, Dreieck und
- * Quadrat sind auch bei 12 px eindeutig, unabhängig von der Farbwahrnehmung.
+ * Reine Farbcodierung reicht nicht — im Hellmodus sind das dunkle Orange und
+ * das dunkle Rot als kleine Marken kaum auseinanderzuhalten, und für
+ * rot-grün-blinde Nutzer (rund 8 % der Männer) gar nicht.
  *
- * Die Füllungen sind bewusst kräftig; den geforderten Kontrast gegen den
- * Hintergrund liefert die dunkle Kontur, nicht die Fläche.
+ * Bis zuletzt gab es dafür ZWEI Formensysteme nebeneinander: Kreis, Dreieck
+ * und Quadrat als kleine Marke — und Haken, Fragezeichen und Kreuz im
+ * Icon-Feld der Formularliste. Dieselbe Ampel, zwei Gestalten, und die
+ * Legende über der Liste zeigte die eine, während die Zeilen darunter die
+ * andere trugen. Wer die Legende las, konnte sie auf die Liste nicht
+ * anwenden.
+ *
+ * Also eine Gestalt für die ganze App: Haken, Fragezeichen, Kreuz. Sie sind
+ * eindeutig unterscheidbar, sagen ihre Bedeutung von selbst (ein Dreieck tut
+ * das nicht) und tragen dieselben Ampelfarben wie alles andere — die aus dem
+ * Theme, nicht fest verdrahtet.
  */
-const TRAFFIC_SHAPE: Record<TrafficColor, { fill: string; edge: string; path: JSX.Element; label: string }> = {
-  green: { fill: '#10B981', edge: '#065F46', path: <circle cx="8" cy="8" r="6.1" />, label: 'ok' },
-  yellow: { fill: '#F59E0B', edge: '#7C2D12', path: <path d="M8 1.5 L14.7 13.6 H1.3 Z" strokeLinejoin="round" />, label: 'open' },
-  red: { fill: '#DC2626', edge: '#7F1D1D', path: <rect x="2" y="2" width="12" height="12" rx="1.8" />, label: 'failed' },
+const TRAFFIC_ICON: Record<TrafficColor, { icon: typeof CheckCircle2; ink: string }> = {
+  green: { icon: CheckCircle2, ink: 'text-ok' },
+  yellow: { icon: HelpCircle, ink: 'text-wait' },
+  red: { icon: XCircle, ink: 'text-bad' },
 }
 
-export function TrafficDot({ color, className = '', size = 13 }: { color: TrafficColor; className?: string; size?: number }) {
-  const s = TRAFFIC_SHAPE[color]
+/** `stumm` für Stellen, an denen die Umgebung die Ansage schon trägt. */
+export function TrafficIcon({
+  color,
+  className = '',
+  size = 16,
+  stumm = false,
+}: {
+  color: TrafficColor
+  className?: string
+  size?: number
+  stumm?: boolean
+}) {
+  const { t } = useTranslation()
+  const { icon: Icon, ink } = TRAFFIC_ICON[color]
   return (
-    <svg
-      viewBox="0 0 16 16"
-      width={size}
-      height={size}
-      role="img"
-      aria-label={s.label}
-      className={`shrink-0 ${className}`}
-      fill={s.fill}
-      stroke={s.edge}
-      strokeWidth="1.5"
-    >
-      {s.path}
-    </svg>
+    <Icon
+      size={size}
+      // Ohne Rolle verwerfen die meisten Sprachausgaben das Label eines
+      // <svg> — der Zustand wäre dann rein visuell codiert.
+      role={stumm ? undefined : 'img'}
+      aria-hidden={stumm || undefined}
+      aria-label={stumm ? undefined : t(`forms:traffic.${color}`)}
+      className={`shrink-0 ${ink} ${className}`}
+    />
   )
 }
 
@@ -387,7 +403,7 @@ function TrainingAdminGrading() {
               label={`${r.formTypeId} · ${traineesOf(r, all).map(traineeLabel).join(', ') || t('forms:openForm')} · ${formatDate(gradingListDate(r))}`}
               className="flex items-center gap-3 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none transition hover:bg-line/5"
             >
-              <TrafficDot color={trafficLight(r, state.gradingRecords)} />
+              <TrafficIcon color={trafficLight(r, state.gradingRecords)} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-small font-semibold">
                   {r.formTypeId} · {formTitle(r.formTypeId)}
@@ -613,7 +629,7 @@ export function Grading() {
                 trafficFilter === c ? 'bg-accent/15 font-semibold text-ink' : 'hover:bg-line/5'
               }`}
             >
-              <TrafficDot color={c} />
+              <TrafficIcon color={c} stumm />
               {t(`forms:traffic.${c}`)}
             </button>
           ))}
@@ -666,24 +682,14 @@ export function Grading() {
                 {/* Die Ampel dieser Zeile — und zwar nur hier.
                     Bis zuletzt stand sie zweimal in derselben Zeile: links
                     dieses Icon-Feld, rechts neben den Knoepfen noch einmal
-                    derselbe Wert als TrafficDot. Zwei Anzeigen fuer eine
+                    derselbe Wert als TrafficIcon. Zwei Anzeigen fuer eine
                     Aussage kosten Blickwege und lassen offen, ob sie
                     dasselbe meinen. Das Icon-Feld bleibt, weil es die
                     Ampel zusaetzlich in der Form codiert (Haken, Fragezeichen,
                     Kreuz) — die Farbe allein traegt sie nicht.
                     Die Ansage haengt jetzt hier, wo vorher der Punkt sie trug. */}
-                <span
-                  role="img"
-                  aria-label={t(`forms:traffic.${light}`)}
-                  className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised"
-                >
-                  {light === 'green' ? (
-                    <CheckCircle2 size={22} className="text-ok" />
-                  ) : light === 'red' ? (
-                    <XCircle size={22} className="text-bad" />
-                  ) : (
-                    <HelpCircle size={22} className="text-wait" />
-                  )}
+                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised">
+                  <TrafficIcon color={light} size={22} />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="text-lead font-semibold leading-snug">

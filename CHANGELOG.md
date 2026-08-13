@@ -198,3 +198,8 @@ Verwaltung und Rückmeldung:
   mehrere Konten auf einmal. Gemeldet wird, was sich wirklich ändert; das
   eigene Konto und der letzte aktive Superadmin werden ausgelassen und
   benannt. Die Rolle bleibt Einzelentscheidung.
+- Die Ampel hat nur noch eine Gestalt: Haken, Fragezeichen, Kreuz — in der
+  Legende, in jeder Listenzeile, auf der Kachel und in der Akte. Vorher zeigte
+  die Legende Kreis/Dreieck/Quadrat, die Zeilen darunter aber Haken/
+  Fragezeichen/Kreuz; die Legende ließ sich auf die Liste nicht anwenden. Die
+  Farben kommen jetzt aus dem Theme und sind damit auch im Dunkelmodus klar.

@@ -10,7 +10,7 @@ import { useStore } from '../../store'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType, GradingRecord } from '../../types'
 import { gradingListDate } from '../../gradingRules'
-import { formatDate, formatDateTime, missingFollowUps, TrafficDot, traineesOf, trafficLight, type TrafficColor } from '../Grading'
+import { formatDate, formatDateTime, missingFollowUps, TrafficIcon, traineesOf, trafficLight, type TrafficColor } from '../Grading'
 import { StandardisationReport } from './StandardisationReport'
 import { TraineeHistory } from './TraineeHistory'
 import { MonthlyReport } from './MonthlyReport'
@@ -650,9 +650,9 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
         <div className="space-y-stack">
           {/* Ampel-Legende */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-line/10 bg-surface/60 px-3.5 py-2.5 text-micro text-dim">
-            <span className="inline-flex items-center gap-1.5"><TrafficDot color="green" /> {t('forms:traffic.green')}</span>
-            <span className="inline-flex items-center gap-1.5"><TrafficDot color="yellow" /> {t('forms:traffic.yellow')}</span>
-            <span className="inline-flex items-center gap-1.5"><TrafficDot color="red" /> {t('forms:traffic.red')}</span>
+            <span className="inline-flex items-center gap-1.5"><TrafficIcon color="green" stumm /> {t('forms:traffic.green')}</span>
+            <span className="inline-flex items-center gap-1.5"><TrafficIcon color="yellow" stumm /> {t('forms:traffic.yellow')}</span>
+            <span className="inline-flex items-center gap-1.5"><TrafficIcon color="red" stumm /> {t('forms:traffic.red')}</span>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {[
@@ -790,7 +790,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                   trafficFilter === c ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15'
                 }`}
               >
-                <TrafficDot color={c} /> {t(`forms:traffic.${c}`)}
+                <TrafficIcon color={c} stumm /> {t(`forms:traffic.${c}`)}
               </button>
             ))}
             {/* Ausblenden ist je Nutzer — hier sieht der Admin, was irgendwo
@@ -830,7 +830,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               label={`${r.formTypeId} · ${traineesOf(r, records).map(traineeLabel).join(', ') || t('forms:openForm')} · ${dateLabel(gradingListDate(r))}`}
               className="flex items-center gap-3 p-4"
             >
-              <TrafficDot color={trafficLight(r, records)} />
+              <TrafficIcon color={trafficLight(r, records)} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-body font-semibold">
                   {r.formTypeId} · {traineesOf(r, records).map(traineeLabel).join(', ') || '—'}

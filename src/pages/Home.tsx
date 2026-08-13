@@ -7,7 +7,7 @@ import { navigate } from '../router'
 import { isAdminUser, useStore } from '../store'
 import { useIsDesktop } from '../useIsDesktop'
 import { APP_VERSION } from '../types'
-import { TrafficDot, trafficLight, type TrafficColor } from './Grading'
+import { TrafficIcon, trafficLight, type TrafficColor } from './Grading'
 
 /* Kachel-Beschriftungen bleiben laut Spez. §5 in beiden Sprachen Englisch. */
 // Reihenfolge der Kacheln = Reihenfolge auf der Startseite.
@@ -179,7 +179,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
             >
               {to === '/grading' && gradingTraffic ? (
                 // Dieselbe Form-Codierung wie in der Formularliste
-                <TrafficDot color={gradingTraffic} size={15} className="pointer-events-none absolute right-3 top-3 z-10" />
+                <TrafficIcon color={gradingTraffic} size={15} className="pointer-events-none absolute right-3 top-3 z-10" />
               ) : (
                 <CountBadge
                   count={news[to]}

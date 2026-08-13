@@ -10,7 +10,7 @@ import { navigate } from '../router'
 import { useStore, userHasPerm } from '../store'
 import type { GradingRecord } from '../types'
 import { isNotCompetent, traineesOf } from '../gradingRules'
-import { formatDate, formatDateTime, gradeColor, missingFollowUps, TrafficDot, trafficLight } from './Grading'
+import { formatDate, formatDateTime, gradeColor, missingFollowUps, TrafficIcon, trafficLight } from './Grading'
 
 /**
  * Abgeschicktes Formular: read-only nach beidseitiger Signatur (Spez. 5.5).
@@ -268,7 +268,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
 
         {/* Status ist Bedienoberfläche — auf Papier steht der Stand im Kopf */}
         <div className="flex flex-wrap items-center gap-2 print:hidden">
-          <TrafficDot color={trafficLight(record, state.gradingRecords)} />
+          <TrafficIcon color={trafficLight(record, state.gradingRecords)} />
           {record.status === 'signed' ? (
             <Badge tone="dim">
               <CheckCircle2 size={11} className="mr-1" /> {t('forms:status.signed')}
