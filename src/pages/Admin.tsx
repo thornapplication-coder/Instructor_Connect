@@ -242,7 +242,7 @@ function UsersTab() {
   const [fGroup, setFGroup] = useState('')
   // Sortierung: alphabetisch nach Name oder nach Funktion (Superadmin zuerst)
   const [sortMode, setSortMode] = useState<'name' | 'role'>('name')
-  const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'member' as Role, groupIds: [] as string[] })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'member' as Role, groupIds: [] as string[], aircraftTypes: [] as string[] })
   /* Sammelbearbeitung: Bei rund 130 Instruktoren war jede wiederkehrende
      Aenderung Handarbeit — ein neues Muster in der Flotte hiess, es bei
      zwanzig Leuten einzeln anzuhaken. */
@@ -629,18 +629,36 @@ function UsersTab() {
               />
               <p className="mt-1.5 text-micro leading-relaxed text-dim">{t('admin.userGroupsHint')}</p>
             </Field>
+            {/* Pflicht wie die Gruppe, und fuer JEDE Rolle — auch fuer Admins.
+                Vorher legte der Dialog jeden Nutzer ohne Muster an; die
+                Zuordnung liess sich nur nachtraeglich in der aufgeklappten
+                Zeile setzen, und wer das vergass, sah keinen einzigen Lesson
+                Plan. Ein Admin ohne Muster ist genauso wenig zustaendig wie
+                ein Instruktor ohne Muster. */}
+            <Field label={t('admin.aircraftTypes') + ' *'}>
+              <ChipMultiSelect
+                options={[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => ({ id: a, label: a }))}
+                selected={form.aircraftTypes}
+                onChange={(aircraftTypes) => setForm({ ...form, aircraftTypes })}
+              />
+              <p className="mt-1.5 text-micro leading-relaxed text-dim">{t('admin.aircraftTypesHint')}</p>
+            </Field>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setShowNew(false)}>
                 {t('common.cancel')}
               </Button>
               <Button
                 disabled={
-                  !form.name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) || form.groupIds.length === 0 || emailTaken
+                  !form.name.trim() ||
+                  !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) ||
+                  form.groupIds.length === 0 ||
+                  form.aircraftTypes.length === 0 ||
+                  emailTaken
                 }
                 onClick={() => {
                   addUser(form)
                   setShowNew(false)
-                  setForm({ name: '', email: '', phone: '', role: 'member', groupIds: [] })
+                  setForm({ name: '', email: '', phone: '', role: 'member', groupIds: [], aircraftTypes: [] })
                 }}
               >
                 {t('common.save')}

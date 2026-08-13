@@ -79,6 +79,15 @@ grün.
   Struktur des Textes, nicht sein Kleingedrucktes. Wer eine neue
   Zwischenüberschrift braucht, nimmt eine der beiden — das Muster war
   vorher an vierzig Stellen von Hand geschrieben und wich überall leicht ab.
+- **Musterbezogene Sichtbarkeit** läuft über `src/aircraftScope.ts` — eine
+  Regel für Lesson Plans, Instructor Info und Chats. Zwei Festlegungen hängen
+  daran: **ohne Muster heißt „für alle"** (ein allgemeiner Eintrag ist eine
+  Aussage, kein fehlender Wert), und **auch Verwalter sind zugeordnet** — wer
+  ein Muster verwalten will, muss ihm zugeordnet sein. Die **Nachweise**
+  (Ablage, Statistik, Behördenexport) bleiben bewusst rollenbasiert: Die
+  Aufbewahrungspflicht gilt für den ganzen Bestand, nicht für den eigenen
+  Teil davon. Wer eine neue Ansicht baut, entscheidet zuerst, in welche der
+  beiden Gruppen sie gehört.
 - **Statusmarken** kommen aus `Badge` (`src/components/ui.tsx`) — fünf Töne
   mit je *einer* Bedeutung: `ok` erledigt, `wait` wartet oder mahnt, `bad`
   durchgefallen oder kaputt, `accent` neutrale Einordnung, `dim` ruhiger

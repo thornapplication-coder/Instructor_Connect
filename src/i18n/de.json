@@ -383,7 +383,8 @@
       "skippedLastSuper": "Der letzte aktive Superadmin wurde ausgelassen — sonst käme niemand mehr in die Verwaltung.",
       "roleNote": "Die Rolle bleibt Einzelentscheidung: Ein Fehlgriff dabei trifft sonst alle Ausgewählten auf einmal.",
       "skippedHidden": "{{count}} Benutzer wurden ausgelassen — sie standen nicht in der angezeigten Liste."
-    }
+    },
+    "aircraftTypesHint": "Steuert, welche Lesson Plans die Person sieht. Mindestens ein Muster — auch bei Admins."
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",

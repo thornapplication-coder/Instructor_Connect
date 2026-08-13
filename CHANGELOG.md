@@ -232,3 +232,31 @@ aufgefallen waren:
 Kleiner: Entwürfe von Folgeformularen tauchen wieder in der Entwurfsliste auf
 · fehlendes Pflichtformular ist in der Statuszeile gelb wie in der Liste ·
 zwei weitere Klassen ohne CSS entfernt.
+
+## 1.5.0 — 2026-08-13
+
+Sichtbarkeit folgt dem Aircraft Type.
+
+Bisher filterte genau ein Bereich nach Muster: die Lesson Plans. Instructor
+Info lief über Gruppen, der Chat über Mitgliedschaft — dass beides
+musterbezogen wirkte, lag nur daran, dass die Gruppen meist nach Mustern
+geschnitten sind. Eine gemischte Gruppe zeigte CL30-Leuten C560-Inhalte.
+
+- **Lesson Plans, Instructor Info und Chats** folgen jetzt derselben Regel
+  (`src/aircraftScope.ts`). Sie gilt auch für Verwalter: Wer ein Muster
+  betreut, muss ihm zugeordnet sein.
+- **Ohne Musterangabe heißt „betrifft alle"** — allgemeine Info-Einträge und
+  musterübergreifende Gruppen bleiben für jeden sichtbar.
+- **Die Zuordnung ist beim Anlegen Pflicht**, als Mehrfachauswahl, für jede
+  Rolle einschließlich Admin und Superadmin. Vorher legte der Dialog jeden
+  Nutzer ohne Muster an; nachtragen ging nur in der aufgeklappten Zeile, und
+  wer das vergaß, sah keinen einzigen Lesson Plan. Die Regel steht auch im
+  Store, nicht nur im Dialog.
+- **Bestehende Konten ohne Zuordnung bekommen alle Muster.** Der Umstieg
+  nimmt niemandem etwas weg; einschränken ist danach eine bewusste
+  Entscheidung.
+- Der Musterbereich gilt auch beim direkten Aufruf einer Chat-Adresse — sonst
+  wäre die Filterung Kosmetik.
+
+Nicht betroffen: Formularablage, Statistik und Behördenexport bleiben
+rollenbasiert (ORA.GEN.220).

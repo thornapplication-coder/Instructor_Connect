@@ -255,3 +255,33 @@ describe('migrateState — Impressum', () => {
     expect(st.settings.imprint.en).toContain('# 6. Data protection')
   })
 })
+
+describe('Musterzuordnung nachtragen', () => {
+  /** Ein Bestandsgeraet mit genau einem Nutzer, dessen Zuordnung wir setzen. */
+  const mitNutzer = (aircraftTypes: string[], alleMuster: string[]) => {
+    const st = bestand()
+    st.settings = { ...st.settings, aircraftTypes: alleMuster }
+    st.users = [{ ...st.users[0], aircraftTypes }]
+    return st
+  }
+
+  it('gibt einem Konto ohne Zuordnung ALLE Muster, nicht keines', () => {
+    /* Seit die Sichtbarkeit von Lesson Plans, Info und Chats am Aircraft Type
+       haengt, saehe ein Konto ohne Zuordnung von alldem nichts. Der Umstieg
+       darf niemandem etwas wegnehmen, was er gestern noch sah — deshalb alle
+       Muster und nicht keines. Wer einschraenken will, tut das danach
+       bewusst im Admin-Panel. */
+    expect(migrateState(mitNutzer([], ['C560 XLS+', 'CL30'])).users[0].aircraftTypes).toEqual(['C560 XLS+', 'CL30'])
+  })
+
+  it('laesst eine vorhandene Zuordnung unangetastet', () => {
+    // Eine bewusste Einschraenkung darf die Migration nicht wieder aufmachen.
+    expect(migrateState(mitNutzer(['CL30'], ['C560 XLS+', 'CL30'])).users[0].aircraftTypes).toEqual(['CL30'])
+  })
+
+  it('kommt ohne hinterlegte Muster zurecht', () => {
+    // Eine ATO, die noch keine Flotte gepflegt hat: nichts nachzutragen,
+    // aber auch kein Absturz.
+    expect(migrateState(mitNutzer([], [])).users[0].aircraftTypes).toEqual([])
+  })
+})
