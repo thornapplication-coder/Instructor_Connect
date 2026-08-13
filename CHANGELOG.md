@@ -182,3 +182,19 @@ Ablage (Training Admin):
 - Der Behördenexport liegt jetzt als geprüfte Funktion in
   `src/gradingExport.ts` statt als Closure im Admin-Panel — eine Quelle für
   beide Ansichten
+
+Verwaltung und Rückmeldung:
+
+- Über den Kacheln des Admin-Panels steht, was gerade wartet: gescheiterte
+  Versendungen, fehlende Pflichtformulare, offene Unterschriften und
+  unbearbeitete Rückmeldungen. Jeder Punkt springt dorthin, wo er zu
+  erledigen ist; wartet nichts, steht auch das da.
+- Kurze Bestätigungen nach jeder endgültigen Aktion (Formular abgeschlossen,
+  Notiz gelöscht, Auszug heruntergeladen …). Beim Grading-Formular
+  unterscheiden sie die drei Ausgänge, die vorher gleich aussahen:
+  unterschrieben und versendet, im Ausgangskorb, oder noch etwas offen.
+- Sammelbearbeitung von Benutzern: aktiv/inaktiv, Bewertungsrecht,
+  Trainee-Kennzeichen, Verzeichnisrecht, Chat-Sperre und Musterzuweisung für
+  mehrere Konten auf einmal. Gemeldet wird, was sich wirklich ändert; das
+  eigene Konto und der letzte aktive Superadmin werden ausgelassen und
+  benannt. Die Rolle bleibt Einzelentscheidung.

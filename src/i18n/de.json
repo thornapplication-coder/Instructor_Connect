@@ -357,6 +357,31 @@
       "openFeedback_one": "{{count}} Rückmeldung unbearbeitet",
       "openFeedback_other": "{{count}} Rückmeldungen unbearbeitet",
       "clear": "Nichts offen — alles erledigt"
+    },
+    "bulk": {
+      "select": "Auswählen",
+      "selectAll": "Alle angezeigten auswählen",
+      "clear": "Auswahl aufheben",
+      "selected_one": "{{count}} ausgewählt",
+      "selected_other": "{{count}} ausgewählt",
+      "activate": "Aktivieren",
+      "deactivate": "Deaktivieren",
+      "canGradeOn": "Bewerten erlauben",
+      "canGradeOff": "Bewerten entziehen",
+      "isTraineeOn": "Als Trainee führen",
+      "isTraineeOff": "Nicht mehr als Trainee führen",
+      "directoryOn": "Verzeichnis bearbeiten erlauben",
+      "directoryOff": "Verzeichnis bearbeiten entziehen",
+      "chatBlockOn": "Chat sperren",
+      "chatBlockOff": "Chat entsperren",
+      "aircraftAdd": "Muster zuweisen",
+      "aircraftRemove": "Muster entfernen",
+      "aircraftPick": "Muster wählen",
+      "confirm": "{{action}} — für {{count}} Benutzer ausführen?",
+      "noChange": "Nichts zu ändern — die Auswahl ist bereits so eingestellt",
+      "skippedSelf": "Das eigene Konto wurde ausgelassen — sonst wärst du selbst ausgesperrt.",
+      "skippedLastSuper": "Der letzte aktive Superadmin wurde ausgelassen — sonst käme niemand mehr in die Verwaltung.",
+      "roleNote": "Die Rolle bleibt Einzelentscheidung: Ein Fehlgriff dabei trifft sonst alle Ausgewählten auf einmal."
     }
   },
   "imprint": {

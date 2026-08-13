@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, CardHeading, ChipMultiSelect, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { adminStatus } from '../adminStatus'
+import { planBulk, type BulkAktion } from '../bulkUsers'
 import { toast } from '../components/Toast'
 import { storageInfo, type StorageInfo } from '../persist'
 import { downloadCsv } from '../csv'
@@ -212,9 +213,23 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
   )
 }
 
+/** Die Schalter der Sammelbearbeitung — bewusst ohne Rolle (siehe bulkUsers.ts). */
+const BULK_SCHALTER: { key: string; aktion: BulkAktion }[] = [
+  { key: 'activate', aktion: { art: 'active', wert: true } },
+  { key: 'deactivate', aktion: { art: 'active', wert: false } },
+  { key: 'canGradeOn', aktion: { art: 'canGrade', wert: true } },
+  { key: 'canGradeOff', aktion: { art: 'canGrade', wert: false } },
+  { key: 'isTraineeOn', aktion: { art: 'isTrainee', wert: true } },
+  { key: 'isTraineeOff', aktion: { art: 'isTrainee', wert: false } },
+  { key: 'directoryOn', aktion: { art: 'canEditDirectory', wert: true } },
+  { key: 'directoryOff', aktion: { art: 'canEditDirectory', wert: false } },
+  { key: 'chatBlockOn', aktion: { art: 'chatBlocked', wert: true } },
+  { key: 'chatBlockOff', aktion: { art: 'chatBlocked', wert: false } },
+]
+
 function UsersTab() {
   const { t } = useTranslation()
-  const { state, updateUser, addUser, setGroupMembers } = useStore()
+  const { state, currentUser, updateUser, addUser, setGroupMembers } = useStore()
   const [showNew, setShowNew] = useState(false)
   const [showImport, setShowImport] = useState(false)
   // Bei rund 130 Instruktoren ist die Liste kompakt und aufklappbar:
@@ -228,6 +243,11 @@ function UsersTab() {
   // Sortierung: alphabetisch nach Name oder nach Funktion (Superadmin zuerst)
   const [sortMode, setSortMode] = useState<'name' | 'role'>('name')
   const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'member' as Role, groupIds: [] as string[] })
+  /* Sammelbearbeitung: Bei rund 130 Instruktoren war jede wiederkehrende
+     Aenderung Handarbeit — ein neues Muster in der Flotte hiess, es bei
+     zwanzig Leuten einzeln anzuhaken. */
+  const [gewaehlt, setGewaehlt] = useState<string[]>([])
+  const [bulkMuster, setBulkMuster] = useState('')
   const emailTaken =
     !!form.email.trim() && state.users.some((u) => u.email.trim().toLowerCase() === form.email.trim().toLowerCase())
 
@@ -244,6 +264,29 @@ function UsersTab() {
     if (fGroup && !sortedGroups.find((g) => g.id === fGroup)?.memberIds.includes(u.id)) return false
     return true
   })
+
+  /**
+   * Eine Sammelaktion ausfuehren.
+   *
+   * Geplant wird in src/bulkUsers.ts, damit zwei Zusagen pruefbar sind: Der
+   * gemeldete Zaehler nennt, was sich WIRKLICH aendert (nicht die Groesse der
+   * Auswahl), und niemand kann sich selbst oder den letzten aktiven
+   * Superadmin aussperren. Was uebersprungen wurde, wird benannt — stilles
+   * Verweigern waere so schlecht wie stilles Ausfuehren.
+   */
+  const bulkAusfuehren = (bezeichnung: string, aktion: BulkAktion) => {
+    const plan = planBulk(state.users, gewaehlt, aktion, currentUser!.id)
+    if (plan.patches.length === 0 && plan.uebersprungen.length === 0) {
+      toast(t('admin.bulk.noChange'), 'wait')
+      return
+    }
+    if (plan.patches.length > 0 && !window.confirm(t('admin.bulk.confirm', { action: bezeichnung, count: plan.patches.length }))) return
+    plan.patches.forEach(({ id, patch }) => updateUser(id, patch))
+    if (plan.uebersprungen.some((x) => x.grund === 'selbst')) window.alert(t('admin.bulk.skippedSelf'))
+    if (plan.uebersprungen.some((x) => x.grund === 'letzterSuperadmin')) window.alert(t('admin.bulk.skippedLastSuper'))
+    if (plan.patches.length > 0) toast(t('toast.bulkApplied', { count: plan.patches.length }))
+    setGewaehlt([])
+  }
 
   return (
     <div className="space-y-stack">
@@ -294,6 +337,79 @@ function UsersTab() {
         </span>
       </div>
       <p className="px-1 text-micro leading-relaxed text-dim">{t('admin.deactivateHint')}</p>
+
+      {/* Auswahl und Sammelaktionen. Die Leiste erscheint erst mit der ersten
+          Auswahl — solange nichts gewaehlt ist, waere sie eine Reihe toter
+          Knoepfe ueber der Liste. */}
+      <div className="flex flex-wrap items-center gap-3 px-1">
+        <label className="flex items-center gap-2 text-small text-dim">
+          <input
+            type="checkbox"
+            checked={users.length > 0 && users.every((u) => gewaehlt.includes(u.id))}
+            // Teilauswahl sichtbar machen: „einige" ist ein eigener Zustand,
+            // sonst behauptet ein leeres Kaestchen „nichts gewaehlt".
+            ref={(el) => {
+              if (el) el.indeterminate = gewaehlt.length > 0 && !users.every((u) => gewaehlt.includes(u.id))
+            }}
+            onChange={(e) => setGewaehlt(e.target.checked ? users.map((u) => u.id) : [])}
+            className="h-6 w-6 shrink-0 accent-accent"
+          />
+          {t('admin.bulk.selectAll')}
+        </label>
+        {gewaehlt.length > 0 && (
+          <>
+            <Badge tone="accent">{t('admin.bulk.selected', { count: gewaehlt.length })}</Badge>
+            <button onClick={() => setGewaehlt([])} className="min-h-11 text-small text-dim underline-offset-2 hover:text-ink hover:underline">
+              {t('admin.bulk.clear')}
+            </button>
+          </>
+        )}
+      </div>
+
+      {gewaehlt.length > 0 && (
+        <Card className="space-y-stack border-accent/30 p-3.5">
+          <div className="flex flex-wrap gap-2">
+            {BULK_SCHALTER.map(({ key, aktion }) => (
+              <Button key={key} variant="ghost" onClick={() => bulkAusfuehren(t(`admin.bulk.${key}`), aktion)} className="text-small">
+                {t(`admin.bulk.${key}`)}
+              </Button>
+            ))}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={bulkMuster}
+              onChange={(e) => setBulkMuster(e.target.value)}
+              aria-label={t('admin.bulk.aircraftPick')}
+              className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-small"
+            >
+              <option value="">{t('admin.bulk.aircraftPick')}</option>
+              {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+            <Button
+              variant="ghost"
+              disabled={!bulkMuster}
+              onClick={() => bulkAusfuehren(`${t('admin.bulk.aircraftAdd')} (${bulkMuster})`, { art: 'aircraft', wert: 'add', typ: bulkMuster })}
+              className="text-small"
+            >
+              {t('admin.bulk.aircraftAdd')}
+            </Button>
+            <Button
+              variant="ghost"
+              disabled={!bulkMuster}
+              onClick={() => bulkAusfuehren(`${t('admin.bulk.aircraftRemove')} (${bulkMuster})`, { art: 'aircraft', wert: 'remove', typ: bulkMuster })}
+              className="text-small"
+            >
+              {t('admin.bulk.aircraftRemove')}
+            </Button>
+          </div>
+          {/* Warum die Rolle fehlt, steht dort, wo man sie suchen wuerde. */}
+          <p className="text-micro leading-relaxed text-dim">{t('admin.bulk.roleNote')}</p>
+        </Card>
+      )}
       {users.length === 0 && <p className="pt-4 text-center text-body text-dim">{t('admin.noUsersMatch')}</p>}
       {users.map((u, i) => (
         <div key={u.id}>
@@ -301,8 +417,19 @@ function UsersTab() {
           <SectionHeading className="mb-2 mt-4 px-1 first:mt-0">{t(`roles.${u.role}`)}</SectionHeading>
         )}
         <Card className={`p-3 ${u.active ? '' : 'opacity-55'}`}>
-          {/* Kopfzeile: immer sichtbar, ganze Zeile klappt auf */}
-          <button onClick={() => setOpenId(openId === u.id ? null : u.id)} className="flex w-full items-center gap-3 text-left">
+          {/* Kopfzeile: immer sichtbar, ganze Zeile klappt auf.
+              Das Auswahlkaestchen steht NEBEN dem aufklappenden Knopf, nicht
+              darin — ein Kaestchen in einem Knopf laesst sich weder
+              zuverlaessig antippen noch per Tastatur getrennt erreichen. */}
+          <div className="flex items-center gap-3">
+          <input
+            type="checkbox"
+            checked={gewaehlt.includes(u.id)}
+            onChange={(e) => setGewaehlt((alt) => (e.target.checked ? [...alt, u.id] : alt.filter((x) => x !== u.id)))}
+            aria-label={`${t('admin.bulk.select')}: ${u.name}`}
+            className="h-6 w-6 shrink-0 accent-accent"
+          />
+          <button onClick={() => setOpenId(openId === u.id ? null : u.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
             <Avatar name={u.name} size={34} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-body font-semibold">{u.name}</p>
@@ -312,6 +439,7 @@ function UsersTab() {
             {!u.active && <Badge tone="dim">{t('admin.inactive')}</Badge>}
             <ChevronDown size={16} className={`shrink-0 text-dim transition ${openId === u.id ? 'rotate-180' : ''}`} />
           </button>
+          </div>
           <div className={openId === u.id ? '' : 'hidden'}>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-small">
             <select

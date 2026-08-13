@@ -357,6 +357,31 @@
       "openFeedback_one": "{{count}} feedback unhandled",
       "openFeedback_other": "{{count}} feedback entries unhandled",
       "clear": "Nothing open — all done"
+    },
+    "bulk": {
+      "select": "Select",
+      "selectAll": "Select all shown",
+      "clear": "Clear selection",
+      "selected_one": "{{count}} selected",
+      "selected_other": "{{count}} selected",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "canGradeOn": "Allow grading",
+      "canGradeOff": "Revoke grading",
+      "isTraineeOn": "Mark as trainee",
+      "isTraineeOff": "Unmark as trainee",
+      "directoryOn": "Allow directory editing",
+      "directoryOff": "Revoke directory editing",
+      "chatBlockOn": "Block chat",
+      "chatBlockOff": "Unblock chat",
+      "aircraftAdd": "Assign aircraft type",
+      "aircraftRemove": "Remove aircraft type",
+      "aircraftPick": "Choose aircraft type",
+      "confirm": "{{action}} — apply to {{count}} users?",
+      "noChange": "Nothing to change — the selection is already set that way",
+      "skippedSelf": "Your own account was skipped — otherwise you would lock yourself out.",
+      "skippedLastSuper": "The last active superadmin was skipped — otherwise nobody could reach the admin area.",
+      "roleNote": "Role stays a single-user decision: a slip there would hit every selected account at once."
     }
   },
   "imprint": {
