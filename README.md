@@ -13,7 +13,7 @@ Twilio oder Kosten. Der Anwendungszustand wird im Browser gespeichert und
   Auswertung mit Trendflags, Instruktoren-Kalibrierung, Flottenmatrix und
   CSV-Export.
 - **Lesson Plan** — Unterlagen je Muster; sichtbar sind die Muster, die dem
-  Nutzer zugewiesen sind.
+  Nutzer zugewiesen sind (siehe „Musterbezogene Sichtbarkeit").
 - **Chat** — Gruppenchats mit Umfragen (Ja/Nein und Mehrfachauswahl), fetten
   Admin-Nachrichten, Anhängen (Sandbox-Attrappe) und Chat-Info-Ansicht inkl.
   Aufbewahrungsdauer.
@@ -28,9 +28,11 @@ Twilio oder Kosten. Der Anwendungszustand wird im Browser gespeichert und
   Verfasser; kein Admin und kein Superadmin sieht sie, und sie geht in keinen
   Export. Der Training Admin hat das Modul nicht. Bewusst ohne Musterbezug: Man
   tippt drei Wörter und legt sie ab, statt sie einzuordnen.
-- **Admin Panel** — Benutzer, Rechte-Matrix, Grading-Konfiguration, Gruppen,
+- **Admin Panel** — Benutzer, Rechte-Matrix, Grading-Konfiguration, Chats,
   Feedback, Einstellungen, Impressum und Changelog. Der Superadmin sieht alles,
-  ein Gruppenadmin nur seine eigenen Gruppen und deren Rückmeldungen.
+  ein Gruppenadmin nur seine eigenen Gruppen und deren Rückmeldungen. Die
+  Kachel heißt **Chats**, weil das Modul dahinter der Chat ist; „Gruppen" las
+  sich wie eine Benutzerverwaltung.
 
 Der Monatsbericht ist ein Reiter im Grading Tool, keine eigene Kachel — zwei
 Wege zur selben Auswertung hießen, sie an zwei Stellen zu pflegen. Alte
@@ -47,6 +49,47 @@ Lesezeichen auf `#/report` landen dort.
 
 Konten werden **deaktiviert statt gelöscht**, damit unterschriebene Formulare,
 Nachrichten und Unterschriften zuordenbar bleiben.
+
+## Musterbezogene Sichtbarkeit
+
+Wer welchem Aircraft Type zugeordnet ist, entscheidet, was er inhaltlich
+sieht — **Lesson Plans, Instructor Info und Chats**. Die Regel steht an einer
+Stelle (`src/aircraftScope.ts`) und nicht in jeder Ansicht einzeln.
+
+| Rolle | Sieht |
+|---|---|
+| **Member** | nur die eigenen Muster |
+| **Group Admin** | nur die eigenen Muster — auch beim Pflegen von Lesson Plans und Info-Einträgen |
+| **Training Admin** | alles |
+| **Superadmin** | alles |
+
+Vorher filterte davon genau **ein** Bereich: die Lesson Plans. Instructor Info
+lief über Zielgruppen, der Chat über Mitgliedschaft; dass beides musterbezogen
+*wirkte*, lag nur daran, dass die Gruppen im Bestand meist nach Mustern
+geschnitten sind. Das ist Gewohnheit, keine Regel — eine gemischte Gruppe
+zeigte CL30-Leuten C560-Inhalte, und über den Gruppen-Link ging das an der
+Mitgliedschaft vorbei.
+
+Drei Festlegungen gehören dazu:
+
+- **Ohne Musterangabe heißt „betrifft alle".** Ein allgemeiner Info-Eintrag
+  oder eine musterübergreifende Gruppe ist eine Aussage, kein fehlender Wert.
+  Andersherum verschwände der gesamte allgemeine Bestand auf einen Schlag,
+  still, und niemand wüsste warum.
+- **Superadmin und Training Admin stehen außerhalb.** Beide haben Aufgaben,
+  die den ganzen Betrieb betreffen; wer sie ans eigene Muster bindet, macht
+  genau die Rollen blind, die den Überblick brauchen. Ihre Module hängen
+  davon unberührt weiter an der Rechte-Matrix.
+- **Die Nachweise sind ausgenommen.** Formularablage, Statistik und
+  Behördenexport bleiben rollenbasiert: Die Aufbewahrungspflicht
+  (ORA.GEN.220) gilt für den ganzen Bestand, nicht für den eigenen Teil davon.
+
+Die Zuordnung ist eine Mehrfachauswahl und beim Anlegen dort Pflicht, wo sie
+etwas bewirkt — bei Member und Group Admin. Für die beiden freien Rollen wäre
+sie ein totes Pflichtfeld: Man klickt irgendetwas an, und der nächste liest
+daraus eine Zuständigkeit, die es nicht gibt. Bestehende Konten ohne
+Zuordnung bekommen bei der Migration **alle** Muster; der Umstieg darf
+niemandem etwas wegnehmen, was er gestern noch sah.
 
 ## Anmeldung
 
@@ -114,8 +157,8 @@ Eine Adresse, die der Rolle nicht offensteht, führt in die Übersicht zurück
 und wird auch in der Adresszeile zurückgesetzt.
 
 Wer welche Bereiche sieht: Superadmin alle acht (Benutzer, Rechte, Grading,
-Gruppen, Feedback, Einstellungen, Impressum, Changelog); Admin die Bereiche
-Gruppen und Feedback; der Training Admin arbeitet nicht im Panel, sondern in
+Chats, Feedback, Einstellungen, Impressum, Changelog); Admin die Bereiche
+Chats und Feedback; der Training Admin arbeitet nicht im Panel, sondern in
 der Formularablage des Grading Tools. Ab 1024 px Breite ist das Panel
 bedienbar, darunter erscheint ein Hinweis — dieselbe Grenze gilt für den
 Einstieg auf der Startseite.
@@ -127,7 +170,7 @@ Schulungstag gebündelt — jüngster Tag zuerst, das Datum einmal über der
 Gruppe statt in jeder Zeile. Gelöscht wird dort nichts: Ausbuchen bleibt dem
 Superadmin vorbehalten (ORA.GEN.220).
 
-Gruppen löschen geht an zwei Stellen: im Panel unter Gruppen und direkt im
+Gruppen löschen geht an zwei Stellen: im Panel unter Chats und direkt im
 Chat unter Gruppen-Info. Beide fragen vorher nach und nennen, wie viele
 Nachrichten mitgelöscht werden. Bliebe ein Mitglied dadurch ohne jede Gruppe
 zurück — es verlöre den Chat-Zugang und die Sichtbarkeit der Instructor Info —,
@@ -282,7 +325,8 @@ also ab). Er hat bewusst **keine** Pages-Rechte — ein Pull Request aus einem
 fremden Fork darf nie veröffentlichen.
 
 Der Auslieferungsstand ist reproduzierbar: Zwei Builds derselben Quellen
-ergeben byte-gleiche Dateien, geprüft über alle 66. Das ist keine Kosmetik —
+ergeben byte-gleiche Dateien; die CI vergleicht die Prüfsummen des gesamten
+`dist`-Verzeichnisses aus zwei Läufen. Das ist keine Kosmetik —
 weicht auch nur `sw.js` ab, hält der Browser den Service Worker für neu und
 lädt den Instruktoren die Seite grundlos neu, ohne dass sich etwas geändert
 hat. Der Prüf-Workflow baut deshalb zweimal und vergleicht.
@@ -297,12 +341,30 @@ npm run preview # Produktions-Build lokal ausliefern
 ```
 
 ```bash
-npm test        # Vitest mit Abdeckungsschwelle je Datei
+npm test        # beide Ebenen samt Abdeckungsschwelle je Datei
 ```
 
-Neue Logik in `src/*.ts` kommt mit Tests — die Schwelle in `vitest.config.ts`
-erfasst alle Logik-Module, eine ungetestete neue Datei lässt `npm test`
-scheitern. Die CI führt Tests, Typprüfung und Build bei jedem Pull Request aus.
+Neue Logik in `src/*.ts` kommt mit Tests. Zwei Wachen sichern das, und sie
+gehören zusammen: `src/testGuard.test.ts` verlangt zu jedem Logik-Modul eine
+Testdatei, die Abdeckungsschwelle in `vitest.config.ts` (90 % Zeilen, 85 %
+Zweige, je Datei) verlangt, dass diese Tests auch etwas abdecken.
+
+Hier stand lange, die Schwelle allein fange eine ungetestete neue Datei ab.
+**Das stimmte nicht.** Nachgemessen: neue Datei mit ungetesteter Logik
+angelegt, `npm test` blieb grün. Der v8-Provider misst, was ausgeführt wurde —
+eine Datei, die kein Test importiert, taucht in der Auswertung gar nicht erst
+auf. Erst die erste Wache schließt die Lücke.
+
+Die Tests laufen in zwei Projekten: **Ebene 1** (`*.test.ts`, Umgebung `node`)
+für reine Logik, **Ebene 2** (`*.dom.test.ts` und `*.test.tsx`, Umgebung
+`jsdom` mit `fake-indexeddb` und React Testing Library) für alles, was eine
+Browser-Umgebung braucht. Die Trennung ist Absicht: Liefe Ebene 1 ebenfalls
+unter `jsdom`, könnte ein Logik-Modul unbemerkt vom DOM abhängig werden und
+der Lauf bliebe grün.
+
+Die CI führt Tests, Typprüfung und Build bei jedem Pull Request aus — die
+Tests zuerst, damit eine gebrochene Regel den Lauf beendet, bevor irgendetwas
+gebaut wird.
 
 Sprache über den DE/EN-Schalter (react-i18next); das Grading-Modul bleibt
 bewusst durchgehend englisch — seine Texte liegen im Namensraum `forms`, den es

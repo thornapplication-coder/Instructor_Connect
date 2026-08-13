@@ -253,9 +253,8 @@ geschnitten sind. Eine gemischte Gruppe zeigte CL30-Leuten C560-Inhalte.
 - **Die Zuordnung ist beim Anlegen Pflicht**, als Mehrfachauswahl, für
   Mitglied und Admin — also dort, wo sie etwas bewirkt. Vorher legte der
   Dialog jeden Nutzer ohne Muster an; nachtragen ging nur in der
-  aufgeklappten Zeile, und
-  wer das vergaß, sah keinen einzigen Lesson Plan. Die Regel steht auch im
-  Store, nicht nur im Dialog.
+  aufgeklappten Zeile, und wer das vergaß, sah keinen einzigen Lesson Plan.
+  Die Regel steht auch im Store, nicht nur im Dialog.
 - **Bestehende Konten ohne Zuordnung bekommen alle Muster.** Der Umstieg
   nimmt niemandem etwas weg; einschränken ist danach eine bewusste
   Entscheidung.
@@ -264,3 +263,28 @@ geschnitten sind. Eine gemischte Gruppe zeigte CL30-Leuten C560-Inhalte.
 
 Nicht betroffen: Formularablage, Statistik und Behördenexport bleiben
 rollenbasiert (ORA.GEN.220).
+
+## 1.5.1 — 2026-08-13
+
+Dokumentation auf den Stand gebracht. Kein Verhalten geändert.
+
+- **Die falsche Zusage zur Testpflicht ist auch aus README und CI-Workflow
+  raus.** Beide behaupteten weiter, die Abdeckungsschwelle allein lasse eine
+  ungetestete neue Datei durchfallen — der Irrtum, der `src/testGuard.test.ts`
+  überhaupt nötig gemacht hat. Er stand an vier Stellen; korrigiert waren
+  bisher zwei. Jetzt nennen alle vier beide Wachen und ihren Unterschied.
+- **Die musterbezogene Sichtbarkeit steht in der README**, mit Rollentabelle
+  und den drei Festlegungen. Vorher war sie dort nur als Nebensatz beim
+  Lesson Plan zu finden, obwohl sie inzwischen für drei Module gilt.
+- **Ebene 2 ist in der README beschrieben** — die beiden Testprojekte, ihre
+  Umgebungen und warum sie getrennt laufen.
+- Die Admin-Kachel heißt seit 1.4.0 **Chats**; die README sagte an drei
+  Stellen noch „Gruppen".
+- Die feste Dateizahl beim Reproduzierbarkeits-Nachweis („über alle 66") ist
+  raus: Sie driftet mit jedem Build (inzwischen 67), und die CI vergleicht
+  ohnehin Prüfsummen, keine Anzahlen. Eine Zahl, die niemand nachzieht, ist
+  schlechter als keine.
+- `package.json` stand auf 1.0.0, während dieser Changelog bei 1.5.0 war —
+  gleichgezogen (samt `package-lock.json`). Der Changelog **in** der App
+  bleibt bewusst auf dem einen 1.0.0-Eintrag; er richtet sich an
+  Instruktoren.
