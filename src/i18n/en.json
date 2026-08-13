@@ -383,7 +383,9 @@
       "skippedLastSuper": "The last active superadmin was skipped — otherwise nobody could reach the admin area.",
       "roleNote": "Role stays a single-user decision: a slip there would hit every selected account at once.",
       "skippedHidden": "{{count}} users were skipped — they were not in the list shown."
-    }
+    },
+    "aircraftTypesHint": "Controls which lesson plans, info entries and chats this person sees. At least one type.",
+    "aircraftTypesFree": "This role sees every type anyway. An assignment is possible but does not limit what they see."
   },
   "imprint": {
     "title": "Legal notice & terms of use",

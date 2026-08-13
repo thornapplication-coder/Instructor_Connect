@@ -4,6 +4,7 @@ import { networkReachable } from './net'
 import { createSeedState } from './sandbox/seed'
 import { migrateState } from './migrateState'
 import { SANDBOX } from './sandbox/flag'
+import { musterPflicht, nachMuster, sichtbarFuer } from './aircraftScope'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type Note, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import { backupPersistedState, clearPersistedState, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
 import type { InfoEntry } from './types'
@@ -58,7 +59,7 @@ export interface Store {
   saveContact: (contact: { id?: string; department: string; position: string; name: string; phone: string; email: string }) => void
   deleteContact: (id: string) => void
   /** Nutzer anlegen — die Zuweisung zu mindestens einer Gruppe ist Pflicht */
-  addUser: (user: { name: string; email: string; phone: string; role: Role; groupIds: string[] }) => void
+  addUser: (user: { name: string; email: string; phone: string; role: Role; groupIds: string[]; aircraftTypes: string[] }) => void
   /** Info-Einträge, die der aktuelle Nutzer sehen darf (Gruppen-Sichtbarkeit) */
   visibleInfoEntries: AppState['infoEntries']
   /** Wie viele gueltige Eintraege wartet der aktuelle Nutzer noch zu bestaetigen? */
@@ -355,13 +356,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       state.currentUserId
         ? state.groups
             .filter((g) => g.memberIds.includes(state.currentUserId!))
+            // Mitgliedschaft allein reicht nicht mehr: Eine Gruppe mit Muster
+            // erscheint nur bei denen, die dieses Muster fuehren. Gruppen ohne
+            // Muster sind musteruebergreifend gemeint und bleiben fuer alle.
+            .filter((g) => sichtbarFuer(currentUser, g.aircraftType))
             // nach Muster gruppiert, musterübergreifende Gruppen zuletzt
             .sort(
               (a, b) =>
                 (a.aircraftType || 'zzz').localeCompare(b.aircraftType || 'zzz') || a.name.localeCompare(b.name),
             )
         : [],
-    [state.groups, state.currentUserId],
+    // currentUser gehoert in die Liste: Aendert ein Admin die Musterzuordnung,
+    // muss die Chatliste sofort folgen — sonst zeigte sie bis zum naechsten
+    // Neuladen Gruppen, fuer die niemand mehr zustaendig ist.
+    [state.groups, state.currentUserId, currentUser],
   )
 
   /** Jüngster fremder Inhalt einer Gruppe — Referenzzeitpunkt für „gesehen“. */
@@ -385,11 +393,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Gruppen-Sichtbarkeit: Einträge ohne Gruppen sieht jeder; mit Gruppen nur
   // deren Mitglieder. Admins/Superadmin sehen alles (Pflege + Kontrolle).
+  /* Zwei Bedingungen, die verschiedene Fragen beantworten: die Gruppe sagt
+     WER gemeint ist, das Muster WOFUER der Eintrag gilt. Ein Eintrag ohne
+     Musterangabe betrifft alle — das ist eine Aussage, kein fehlender Wert.
+     Der Musterbereich gilt auch fuer Verwalter; nur die Veroeffentlichungs-
+     frist bleibt ihnen erlassen, sonst koennten sie einen geplanten Eintrag
+     nicht mehr sehen, den sie selbst angelegt haben. */
   const visibleInfoEntries = useMemo(() => {
     if (!currentUser) return []
-    if (userHasPerm(state.settings, currentUser, 'info_manage')) return state.infoEntries
+    const darfVerwalten = userHasPerm(state.settings, currentUser, 'info_manage')
     return state.infoEntries.filter(
-      (e) => infoEntryAppliesTo(e, currentUser.id, state.groups) && infoIsPublished(e, now()),
+      (e) =>
+        sichtbarFuer(currentUser, e.aircraftType) &&
+        (darfVerwalten || (infoEntryAppliesTo(e, currentUser.id, state.groups) && infoIsPublished(e, now()))),
     )
   }, [state.infoEntries, state.groups, state.settings, currentUser, now])
 
@@ -456,12 +472,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Instruktoren sehen nur Lesson Plans ihrer zugewiesenen Muster;
   // Admins und Superadmin sehen alle.
+  /* Musterbezogen fuer Mitglied und Admin, nicht fuer Superadmin und
+     Training Admin — welche Rolle die Schranke traegt, entscheidet
+     src/aircraftScope.ts und nicht diese Ansicht. */
   const visibleLessonPlans = useMemo(() => {
     if (!currentUser) return []
     const all = [...state.lessonPlans].sort((a, b) => a.title.localeCompare(b.title))
-    if (userHasPerm(state.settings, currentUser, 'lessons_manage')) return all
-    return all.filter((p) => currentUser.aircraftTypes.includes(p.aircraftType))
-  }, [state.lessonPlans, state.settings, currentUser])
+    return nachMuster(currentUser, all, (p) => p.aircraftType)
+  }, [state.lessonPlans, currentUser])
 
   /**
    * Notizen sind persoenlich: Die Sicht enthaelt ausschliesslich die eigenen.
@@ -784,15 +802,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       addUser: ({ groupIds, ...user }) =>
         patch((s) => {
-          // Invarianten auch im Store: ohne Gruppe und ohne E-Mail kein
-          // neuer Nutzer — die E-Mail ist die einzige Anmeldekennung
+          /* Invarianten auch im Store, nicht nur im Dialog: ohne Gruppe, ohne
+             Muster und ohne E-Mail kein neuer Nutzer. Die E-Mail ist die
+             einzige Anmeldekennung; die Gruppe steuert Chat und Instructor
+             Info; das Muster steuert, welche Lesson Plans jemand ueberhaupt
+             sieht. Ein Konto ohne Muster ist fuer nichts zustaendig — und das
+             gilt fuer den Admin genauso wie fuer den Instruktor. */
           if (groupIds.length === 0 || !user.email.trim()) return null
+          // Musterpflicht nur fuer die Rollen, deren Sicht daran haengt.
+          if (musterPflicht(user.role) && (user.aircraftTypes ?? []).length === 0) return null
           // Doppelte Adresse hieße: zwei Konten, ein Login — der zweite
           // Nutzer könnte die Identität des ersten übernehmen.
           if (emailTaken(s, user.email)) return null
           const id = uid('u')
           return {
-            users: [...s.users, { ...user, id, canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: [], active: true }],
+            users: [...s.users, { ...user, id, canEditDirectory: false, canGrade: false, isTrainee: false, active: true }],
             // Pflicht-Gruppenzuweisung: neue Nutzer landen sofort in ihren Gruppen
             groups: s.groups.map((g) => (groupIds.includes(g.id) ? { ...g, memberIds: [...g.memberIds, id] } : g)),
           }
@@ -1266,5 +1290,10 @@ export function infoEntryAppliesTo(entry: { groupIds?: string[] }, userId: strin
 /** Darf der Nutzer diesen Chat betreten? Mitglieder, Gruppen-Admins, Superadmin. */
 export function mayAccessGroup(user: User | null, group: Group): boolean {
   if (!user) return false
+  /* Der Musterbereich gilt auch hier, nicht nur in der Liste. Sonst waere die
+     Filterung reine Kosmetik: Die Chatliste zeigte die Gruppe nicht, wer die
+     Adresse kannte, war trotzdem drin. Dieselbe Luecke gab es schon einmal
+     bei den Formularen (#29). */
+  if (!sichtbarFuer(user, group.aircraftType)) return false
   return group.memberIds.includes(user.id) || isGroupAdmin(user, group)
 }

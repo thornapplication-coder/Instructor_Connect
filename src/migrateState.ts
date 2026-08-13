@@ -45,7 +45,27 @@ export function migrateState(st: AppState): AppState {
 
   // Demo-Platzhalter „Max Mustermann" heißt jetzt „Steven Fermie" — Nutzer
   // (u-max) und Verzeichniskontakt (c2), nur solange der alte Name steht.
-  const users = st.users?.map((u) => (u.id === 'u-max' && u.name === 'Max Mustermann' ? { ...u, name: 'Steven Fermie' } : u))
+  /*
+   * Musterzuordnung nachtragen.
+   *
+   * Seit die Sichtbarkeit von Lesson Plans, Instructor Info und Chats am
+   * Aircraft Type haengt, ist ein Konto ohne Zuordnung fuer nichts mehr
+   * zustaendig — es saehe von allem Musterbezogenen nichts. Bestehende Konten
+   * ohne Zuordnung bekommen deshalb ALLE Muster, nicht keines: Der Umstieg
+   * darf niemandem etwas wegnehmen, was er gestern noch sah. Wer danach
+   * einschraenken will, tut das bewusst im Admin-Panel.
+   *
+   * Beim Anlegen gilt die Pflicht (Dialog und Store) — nachtraeglich leeren
+   * kann man die Liste weiterhin, das ist dann eine Entscheidung und kein
+   * Altbestand.
+   */
+  const alleMuster = st.settings.aircraftTypes ?? []
+  const users = st.users?.map((u) => {
+    const umbenannt = u.id === 'u-max' && u.name === 'Max Mustermann' ? { ...u, name: 'Steven Fermie' } : u
+    return (umbenannt.aircraftTypes ?? []).length === 0 && alleMuster.length > 0
+      ? { ...umbenannt, aircraftTypes: [...alleMuster] }
+      : umbenannt
+  })
   const contacts = st.contacts?.map((c) => (c.id === 'c2' && c.name === 'Max Mustermann' ? { ...c, name: 'Steven Fermie' } : c))
 
   // Changelog zurückgesetzt: nur noch der 1.0.0-Erststand (mit Datum+Uhrzeit).

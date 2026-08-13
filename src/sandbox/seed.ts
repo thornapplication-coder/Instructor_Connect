@@ -45,7 +45,11 @@ function seedState(now: number): AppState {
       { id: 'u-patrick', name: 'Patrick Thorn', email: 'patrick.thorn@aviationacademy.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
       { id: 'u-christian', name: 'Christian Terler', email: 'christian.terler@aviationacademy.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30'], active: true },
       { id: 'u-michael', name: 'Michael Holy', email: 'michael.holy@aviationacademy.at', phone: '+43 664 1000003', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['C560 XLS+'], active: true },
-      { id: 'u-max', name: 'Steven Fermie', email: 'training.admin@aviationacademy.at', phone: '+43 1 5550 300', role: 'training_admin', canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: [], active: true },
+      // Auch der Training Admin fuehrt Muster: Seit die Sichtbarkeit von
+      // Lesson Plans, Info und Chats daran haengt, saehe er sonst von alldem
+      // nichts. Die Formularablage bleibt davon unberuehrt — sie ist
+      // rollenbasiert (ORA.GEN.220).
+      { id: 'u-max', name: 'Steven Fermie', email: 'training.admin@aviationacademy.at', phone: '+43 1 5550 300', role: 'training_admin', canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
     ],
     groups: [
       {

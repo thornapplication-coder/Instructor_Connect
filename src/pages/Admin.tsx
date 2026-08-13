@@ -5,6 +5,7 @@ import { Avatar, Badge, Button, Card, CardHeading, ChipMultiSelect, Field, input
 import { navigate } from '../router'
 import { adminStatus } from '../adminStatus'
 import { planBulk, type BulkAktion } from '../bulkUsers'
+import { musterPflicht } from '../aircraftScope'
 import { toast } from '../components/Toast'
 import { storageInfo, type StorageInfo } from '../persist'
 import { downloadCsv } from '../csv'
@@ -242,7 +243,7 @@ function UsersTab() {
   const [fGroup, setFGroup] = useState('')
   // Sortierung: alphabetisch nach Name oder nach Funktion (Superadmin zuerst)
   const [sortMode, setSortMode] = useState<'name' | 'role'>('name')
-  const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'member' as Role, groupIds: [] as string[] })
+  const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'member' as Role, groupIds: [] as string[], aircraftTypes: [] as string[] })
   /* Sammelbearbeitung: Bei rund 130 Instruktoren war jede wiederkehrende
      Aenderung Handarbeit — ein neues Muster in der Flotte hiess, es bei
      zwanzig Leuten einzeln anzuhaken. */
@@ -629,18 +630,38 @@ function UsersTab() {
               />
               <p className="mt-1.5 text-micro leading-relaxed text-dim">{t('admin.userGroupsHint')}</p>
             </Field>
+            {/* Pflicht dort, wo die Zuordnung etwas bewirkt: bei Mitglied und
+                Admin. Superadmin und Training Admin sehen ohnehin alles — ein
+                Pflichtfeld ohne Wirkung waere schlimmer als keines, weil der
+                naechste daraus eine Zustaendigkeit liest, die es nicht gibt.
+                Zuweisen kann man ihnen trotzdem etwas; es steht dann fuer die
+                fachliche Zustaendigkeit, nicht fuer die Sicht. */}
+            <Field label={t('admin.aircraftTypes') + (musterPflicht(form.role) ? ' *' : '')}>
+              <ChipMultiSelect
+                options={[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => ({ id: a, label: a }))}
+                selected={form.aircraftTypes}
+                onChange={(aircraftTypes) => setForm({ ...form, aircraftTypes })}
+              />
+              <p className="mt-1.5 text-micro leading-relaxed text-dim">
+                {musterPflicht(form.role) ? t('admin.aircraftTypesHint') : t('admin.aircraftTypesFree')}
+              </p>
+            </Field>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setShowNew(false)}>
                 {t('common.cancel')}
               </Button>
               <Button
                 disabled={
-                  !form.name.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) || form.groupIds.length === 0 || emailTaken
+                  !form.name.trim() ||
+                  !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) ||
+                  form.groupIds.length === 0 ||
+                  (musterPflicht(form.role) && form.aircraftTypes.length === 0) ||
+                  emailTaken
                 }
                 onClick={() => {
                   addUser(form)
                   setShowNew(false)
-                  setForm({ name: '', email: '', phone: '', role: 'member', groupIds: [] })
+                  setForm({ name: '', email: '', phone: '', role: 'member', groupIds: [], aircraftTypes: [] })
                 }}
               >
                 {t('common.save')}
