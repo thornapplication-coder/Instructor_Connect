@@ -34,36 +34,36 @@ export function ChatInfo({ groupId }: { groupId: string }) {
   return (
     <>
       <TopBar title={t('chatInfo.title')} back={`/chat/${groupId}`} />
-      <Page className="space-y-4">
+      <Page className="space-y-section">
         <div className="flex flex-col items-center gap-2 py-2 text-center">
           <Avatar name={group.name} size={64} />
-          <h2 className="text-xl font-bold">{group.name}</h2>
-          <p className="max-w-sm text-[13.5px] text-dim">{group.purpose}</p>
+          <h2 className="text-title font-bold">{group.name}</h2>
+          <p className="max-w-sm text-small text-dim">{group.purpose}</p>
         </div>
 
         <Card className="divide-y divide-line/[0.06]">
           <div className="flex items-start gap-3 p-4">
             <Clock size={18} className="mt-0.5 shrink-0 text-accent" />
             <div>
-              <p className="text-[14px] font-semibold">
+              <p className="text-body font-semibold">
                 {t('chatInfo.retention')}: {t(`retention.${effectiveRetention(group)}`)}
               </p>
-              <p className="mt-0.5 text-[12.5px] text-dim">{t('chatInfo.retentionNote')}</p>
+              <p className="mt-0.5 text-micro text-dim">{t('chatInfo.retentionNote')}</p>
             </div>
           </div>
           <div className="flex items-start gap-3 p-4">
             <Trash2 size={18} className="mt-0.5 shrink-0 text-accent" />
-            <p className="text-[13.5px]">{t('chatInfo.attachmentNote')}</p>
+            <p className="text-small">{t('chatInfo.attachmentNote')}</p>
           </div>
           <div className="flex items-start gap-3 p-4">
             <HardDriveDownload size={18} className="mt-0.5 shrink-0 text-accent" />
-            <p className="text-[13.5px]">
+            <p className="text-small">
               {t('chatInfo.maxUpload')}: <span className="font-semibold">{state.settings.maxUploadMB} MB</span>
             </p>
           </div>
           <div className="flex items-start gap-3 p-4">
             <Shield size={18} className="mt-0.5 shrink-0 text-accent" />
-            <div className="flex flex-wrap items-center gap-2 text-[13.5px]">
+            <div className="flex flex-wrap items-center gap-2 text-small">
               {t('chatInfo.admin')}:
               {admins.map((a) => (
                 <Badge key={a.id}>{a.name}</Badge>
@@ -72,7 +72,7 @@ export function ChatInfo({ groupId }: { groupId: string }) {
           </div>
           <button onClick={() => toggleMute(group.id)} className="flex w-full items-center gap-3 p-4 text-left hover:bg-line/[0.03]">
             {group.muted ? <BellOff size={18} className="shrink-0 text-accent" /> : <Bell size={18} className="shrink-0 text-accent" />}
-            <p className="text-[13.5px]">{group.muted ? t('chat.muted') : t('chat.mute')}</p>
+            <p className="text-small">{group.muted ? t('chat.muted') : t('chat.mute')}</p>
           </button>
         </Card>
 
@@ -80,16 +80,16 @@ export function ChatInfo({ groupId }: { groupId: string }) {
           <CardHeading className="mb-3 flex items-center gap-2">
             <Users size={15} /> {t('chatInfo.members', { count: members.length })}
           </CardHeading>
-          <ul className="space-y-2.5">
+          <ul className="space-y-stack">
             {members.map((m) => (
               <li key={m.id} className="flex items-center gap-2.5">
                 <Avatar name={m.name} size={30} />
-                <span className="min-w-0 flex-1 truncate text-[14px]">{m.name}</span>
+                <span className="min-w-0 flex-1 truncate text-body">{m.name}</span>
                 {group.adminIds.includes(m.id) && <Badge tone="accent">{t('chatInfo.admin')}</Badge>}
                 {mayManage && m.id !== currentUser!.id && (
                   <button
                     onClick={() => setGroupMembers(group.id, group.memberIds.filter((id) => id !== m.id))}
-                    className="text-[12px] text-dim hover:text-danger"
+                    className="text-micro text-dim hover:text-danger"
                   >
                     {t('chatInfo.removeMember')}
                   </button>
@@ -100,7 +100,7 @@ export function ChatInfo({ groupId }: { groupId: string }) {
         </Card>
 
         {mayManage && (
-          <Card className="space-y-4 p-4">
+          <Card className="space-y-section p-4">
             <CardHeading>{t('chatInfo.manage')}</CardHeading>
             <Field label={t('chatInfo.retentionOverride')}>
               <select
@@ -151,7 +151,7 @@ export function ChatInfo({ groupId }: { groupId: string }) {
               >
                 <Trash2 size={16} /> {t('chatInfo.deleteGroup')}
               </Button>
-              <p className={`mt-2 text-[12.5px] leading-relaxed ${blockers.length > 0 ? 'text-danger' : 'text-dim'}`}>
+              <p className={`mt-2 text-micro leading-relaxed ${blockers.length > 0 ? 'text-danger' : 'text-dim'}`}>
                 {blockers.length > 0
                   ? t('chatInfo.deleteBlocked', { names: blockers.map((u) => u.name).join(', ') })
                   : t('chatInfo.deleteGroupHint')}

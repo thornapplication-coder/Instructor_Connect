@@ -34,7 +34,7 @@ function NoteEditor({ note, onClose }: { note?: Note; onClose: () => void }) {
       onClose={onClose}
       confirmDiscard={geaendert ? t('common.discardConfirm') : undefined}
     >
-      <div className="space-y-3.5">
+      <div className="space-y-stack">
         <Field label={`${t('notes.title')} *`}>
           <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus maxLength={120} />
         </Field>
@@ -91,15 +91,15 @@ export function Notes() {
         right={
           <button
             onClick={() => setEditor(undefined)}
-            className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
+            className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
           >
             <Plus size={15} /> {t('notes.new')}
           </button>
         }
       />
-      <Page className="space-y-4">
+      <Page className="space-y-section">
         {/* Was eine Notiz ist und was sie nicht ist — einmal, oben, sichtbar. */}
-        <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] leading-relaxed text-dim">
+        <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small leading-relaxed text-dim">
           {t('notes.intro')}
         </p>
 
@@ -123,13 +123,13 @@ export function Notes() {
             Ein zweiter „Neue Notiz"-Knopf mitten auf der Seite stand in
             Konkurrenz zu dem in der Kopfzeile — derselbe Vorgang darf nicht
             zweimal danebenstehen. */}
-        {visibleNotes.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('notes.empty')}</p>}
+        {visibleNotes.length === 0 && <p className="pt-6 text-center text-body text-dim">{t('notes.empty')}</p>}
         {visibleNotes.length > 0 && gefiltert.length === 0 && (
-          <p className="pt-6 text-center text-sm text-dim">{t('notes.noMatch')}</p>
+          <p className="pt-6 text-center text-body text-dim">{t('notes.noMatch')}</p>
         )}
 
         {gruppen.map(({ key, notes }) => (
-          <section key={key} className="space-y-3">
+          <section key={key} className="space-y-stack">
             {/* Ueberschrift nur, wenn es auch etwas zu unterscheiden gibt:
                 Eine einzelne Gruppe braucht keinen Titel ueber der ganzen
                 Liste — das waere eine Beschriftung ohne Gegenstueck. */}
@@ -146,9 +146,9 @@ export function Notes() {
                     <NotebookPen size={19} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[15px] font-semibold leading-snug">{n.title}</p>
-                    {n.body && <p className="mt-1 text-[13.5px] leading-relaxed text-dim">{notePreview(n.body)}</p>}
-                    <p className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-[12px] text-dim">
+                    <p className="text-lead font-semibold leading-snug">{n.title}</p>
+                    {n.body && <p className="mt-1 text-small leading-relaxed text-dim">{notePreview(n.body)}</p>}
+                    <p className="mt-1.5 flex flex-wrap items-baseline gap-x-1.5 text-micro text-dim">
                       {/* Geaendert steht vor Angelegt: Bei einer Merkliste
                           zaehlt, wann man zuletzt drangesessen ist. */}
                       <span className="shrink-0">{t('notes.updatedAt', { date: dateLabel(n.updatedAt) })}</span>
@@ -182,7 +182,7 @@ export function Notes() {
                 <div className="mt-2.5 flex flex-wrap gap-2 pl-[52px]">
                   <button
                     onClick={() => setEditor(n)}
-                    className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-[13px] transition hover:border-accent/50 hover:text-accent"
+                    className="min-h-11 flex items-center gap-1.5 rounded-lg border border-line/15 px-3 py-1.5 text-small transition hover:border-accent/50 hover:text-accent"
                   >
                     <Pencil size={14} /> {t('notes.edit')}
                   </button>
@@ -192,7 +192,7 @@ export function Notes() {
                       // weg — deshalb dieselbe Rueckfrage wie ueberall sonst.
                       if (window.confirm(t('notes.deleteConfirm', { title: n.title }))) deleteNote(n.id)
                     }}
-                    className="min-h-11 flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-[13px] text-danger transition hover:bg-danger/10"
+                    className="min-h-11 flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-small text-danger transition hover:bg-danger/10"
                   >
                     <Trash2 size={14} /> {t('common.delete')}
                   </button>

@@ -399,10 +399,10 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
   main .p-4 {
     padding: 0.45rem 0.6rem !important;
   }
-  main .space-y-4 > * + * {
+  main .space-y-section > * + * {
     margin-top: 0.4rem !important;
   }
-  main .space-y-3 > * + * {
+  main .space-y-stack > * + * {
     margin-top: 0.3rem !important;
   }
   main .rounded-2xl,
@@ -423,7 +423,10 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
   .print-landscape table {
     width: 100% !important;
     table-layout: fixed;
-    font-size: 9px;
+    /* Entspricht der Stufe `fine` der Schriftskala (tailwind.config.js).
+       Hier als Zahl, weil die Regel nicht ueber eine Klasse laeuft — wer
+       die Stufe aendert, aendert diese Zeile mit. */
+    font-size: 9.5px;
   }
   .print-landscape .overflow-x-auto {
     overflow: visible !important;

@@ -124,7 +124,7 @@ export function StandardisationReport({
   }
 
   return (
-    <div className="space-y-3 print-landscape">
+    <div className="space-y-stack print-landscape">
       {/* Bedienelemente in der Bediensprache — sie stehen nicht auf dem Papier */}
       <div className="flex flex-wrap items-center gap-2 print:hidden">
         <select value={fleet} onChange={(e) => onFleetChange(e.target.value)} className={`${selectCls} w-auto`}>
@@ -149,13 +149,13 @@ export function StandardisationReport({
         </select>
         <button
           onClick={() => window.print()}
-          className="min-h-11 flex items-center gap-1.5 rounded-xl border border-line/15 px-3 text-[13px] transition hover:bg-line/5"
+          className="min-h-11 flex items-center gap-1.5 rounded-xl border border-line/15 px-3 text-small transition hover:bg-line/5"
         >
           <Printer size={15} /> {t('forms:print')}
         </button>
         <button
           onClick={exportCsv}
-          className="min-h-11 flex items-center gap-1.5 rounded-xl border border-line/15 px-3 text-[13px] transition hover:bg-line/5"
+          className="min-h-11 flex items-center gap-1.5 rounded-xl border border-line/15 px-3 text-small transition hover:bg-line/5"
           disabled={sets.length === 0}
         >
           <Table2 size={15} /> {t('forms:std.exportCsv')}
@@ -165,11 +165,11 @@ export function StandardisationReport({
       {/* Kopf des Dokuments: ohne ATO, Zeitraum und Flotte ist ein Ausdruck
           nicht zuordenbar — genau daran scheitern Audits. */}
       <div className="border-b-2 border-line/60 pb-2">
-        <p className="text-[12px] font-semibold uppercase tracking-wide">
+        <p className="text-micro font-semibold uppercase tracking-wide">
           {[doc.atoName, approval].filter(Boolean).join(' · ')}
         </p>
-        <h2 className="text-[19px] font-bold tracking-tight">{t('forms:std.title')}</h2>
-        <p className="mt-1 flex flex-wrap justify-between gap-x-4 gap-y-0.5 text-[12px] text-dim">
+        <h2 className="text-title font-bold tracking-tight">{t('forms:std.title')}</h2>
+        <p className="mt-1 flex flex-wrap justify-between gap-x-4 gap-y-0.5 text-micro text-dim">
           <span>
             {t('forms:std.period.label')}: {label} · {t('forms:admin.fleet')}: {fleet || t('forms:admin.allAircraft')} · {t('forms:admin.authority')}: {approval || t('forms:admin.allAuthorities')}
           </span>
@@ -177,7 +177,7 @@ export function StandardisationReport({
         </p>
       </div>
 
-      {sets.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('forms:empty')}</p>}
+      {sets.length === 0 && <p className="pt-4 text-center text-body text-dim">{t('forms:empty')}</p>}
 
       {sets.map((s) => (
         <div key={s.key} className="rounded-2xl border border-line/10 bg-surface/60 p-3.5">
@@ -185,7 +185,7 @@ export function StandardisationReport({
             {t('forms:std.set')}: <span className="text-ink">{s.name}</span>
           </CardHeading>
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-[12px]">
+            <table className="w-full border-collapse text-micro">
               <thead>
                 <tr className="border-b border-line/20 text-left text-dim">
                   <th className="py-1.5 pr-2 font-medium">{t('forms:std.instructor')}</th>
@@ -244,7 +244,7 @@ export function StandardisationReport({
       ))}
 
       {sets.length > 0 && (
-        <p className="text-[12px] leading-relaxed text-dim">
+        <p className="text-micro leading-relaxed text-dim">
           {t('forms:std.footnote', { watch: WATCH.toFixed(2), review: REVIEW.toFixed(2), grades: MIN_GRADES, sessions: MIN_SESSIONS })}
         </p>
       )}

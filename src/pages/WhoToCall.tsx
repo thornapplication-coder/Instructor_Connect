@@ -25,7 +25,7 @@ function ContactModal({ contact, onClose }: { contact: Partial<Contact> | null; 
       // Hintergrundklick und Escape verwarfen bisher kommentarlos
       confirmDiscard={Object.values(form).some((v) => v.trim()) ? t('common.discardConfirm') : undefined}
     >
-      <div className="space-y-3.5">
+      <div className="space-y-stack">
         <Field label={t('contacts.department')}>
           <input className={inputCls} value={form.department} onChange={set('department')} autoFocus />
         </Field>
@@ -99,14 +99,14 @@ export function WhoToCall() {
           mayEdit ? (
             <button
               onClick={() => setEditing(null)}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg hover:brightness-110"
+              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
             >
               <Plus size={15} /> {t('contacts.newContact')}
             </button>
           ) : undefined
         }
       />
-      <Page className="space-y-4">
+      <Page className="space-y-section">
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -117,7 +117,7 @@ export function WhoToCall() {
         <div className="flex gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setFilter('')}
-            className={`min-h-11 shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
+            className={`min-h-11 shrink-0 rounded-full border px-3.5 py-1.5 text-small transition ${
               !filter ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
             }`}
           >
@@ -127,7 +127,7 @@ export function WhoToCall() {
             <button
               key={d}
               onClick={() => setFilter(filter === d ? '' : d)}
-              className={`min-h-11 shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
+              className={`min-h-11 shrink-0 rounded-full border px-3.5 py-1.5 text-small transition ${
                 filter === d ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
               }`}
             >
@@ -137,9 +137,9 @@ export function WhoToCall() {
         </div>
 
         {/* Leerer Zustand: die Seite sah sonst aus, als würde sie noch laden */}
-        {state.contacts.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('contacts.empty')}</p>}
+        {state.contacts.length === 0 && <p className="pt-6 text-center text-body text-dim">{t('contacts.empty')}</p>}
         {state.contacts.length > 0 && visible.length === 0 && (
-          <p className="pt-6 text-center text-sm text-dim">{t('contacts.noMatch')}</p>
+          <p className="pt-6 text-center text-body text-dim">{t('contacts.noMatch')}</p>
         )}
 
         {grouped.map(({ department, contacts }) => (
@@ -151,8 +151,8 @@ export function WhoToCall() {
                   <div className="flex items-center gap-3">
                     <Avatar name={c.name} size={42} />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-[15px] font-semibold">{c.name}</p>
-                      <p className="truncate text-[13px] text-dim">{c.position}</p>
+                      <p className="truncate text-lead font-semibold">{c.name}</p>
+                      <p className="truncate text-small text-dim">{c.position}</p>
                     </div>
                     {/* Beide Aktionen mit 44px Trefferfläche und Abstand —
                         Löschen fragt nach, es gibt kein Rückgängig. */}
@@ -182,18 +182,18 @@ export function WhoToCall() {
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <a
                       href={`tel:${c.phone.replace(/\s+/g, '')}`}
-                      className="min-h-11 flex items-center justify-center gap-2 rounded-xl border border-line/15 py-2.5 text-[13.5px] font-medium transition hover:border-accent/50 hover:text-accent"
+                      className="min-h-11 flex items-center justify-center gap-2 rounded-xl border border-line/15 py-2.5 text-small font-medium transition hover:border-accent/50 hover:text-accent"
                     >
                       <Phone size={15} /> {t('contacts.call')}
                     </a>
                     <a
                       href={`mailto:${c.email}`}
-                      className="min-h-11 flex items-center justify-center gap-2 rounded-xl border border-line/15 py-2.5 text-[13.5px] font-medium transition hover:border-accent/50 hover:text-accent"
+                      className="min-h-11 flex items-center justify-center gap-2 rounded-xl border border-line/15 py-2.5 text-small font-medium transition hover:border-accent/50 hover:text-accent"
                     >
                       <Mail size={15} /> {t('contacts.mail')}
                     </a>
                   </div>
-                  <p className="mt-2 text-center text-[12px] text-dim">
+                  <p className="mt-2 text-center text-micro text-dim">
                     {c.phone} · {c.email}
                   </p>
                 </Card>

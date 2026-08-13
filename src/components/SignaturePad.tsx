@@ -256,17 +256,17 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
         die nächste Zeile.
       */}
       <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
-        <span className="min-w-0 text-[13px] font-medium text-dim">{label}</span>
+        <span className="min-w-0 text-small font-medium text-dim">{label}</span>
         <span className="ml-auto flex shrink-0 items-center gap-3">
           {value && (
-            <button onClick={clear} className="flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap text-[12px] text-dim hover:text-danger">
+            <button onClick={clear} className="flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap text-micro text-dim hover:text-danger">
               <Eraser size={12} /> {t('forms:clearSignature')}
             </button>
           )}
           <button
             onClick={() => switchMode(mode === 'draw' ? 'type' : 'draw')}
             aria-pressed={mode === 'type'}
-            className="flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap text-[12px] text-dim underline-offset-2 hover:text-accent hover:underline"
+            className="flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap text-micro text-dim underline-offset-2 hover:text-accent hover:underline"
           >
             {mode === 'draw' ? <Keyboard size={12} /> : <PenLine size={12} />}
             {mode === 'draw' ? t('forms:typeInstead') : t('forms:drawInstead')}
@@ -286,18 +286,18 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
                 onKeyDown={(e) => e.key === 'Enter' && typedName.trim() && onChange(typedSignatureImage(typedName.trim()))}
                 placeholder={t('forms:typedNamePlaceholder')}
                 aria-label={label}
-                className="w-full rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20"
+                className="w-full rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-lead text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20"
               />
               <button
                 onClick={() => typedName.trim() && onChange(typedSignatureImage(typedName.trim()))}
                 disabled={!typedName.trim()}
-                className="min-h-11 shrink-0 rounded-xl border border-line/15 px-3 text-[13px] text-ink transition hover:bg-line/5 disabled:opacity-40"
+                className="min-h-11 shrink-0 rounded-xl border border-line/15 px-3 text-small text-ink transition hover:bg-line/5 disabled:opacity-40"
               >
                 {t('forms:useTyped')}
               </button>
             </div>
           )}
-          {!value && <p className="mt-1 text-[12px] text-dim">{t('forms:typedHint')}</p>}
+          {!value && <p className="mt-1 text-micro text-dim">{t('forms:typedHint')}</p>}
         </div>
       )}
       {/* Feste Farben statt Theme-Token: die Fläche zeigt beim Zeichnen genau
@@ -315,10 +315,10 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
       >
         {gross && (
           <div className="flex items-center justify-between gap-2">
-            <p className="min-w-0 truncate text-[15px] font-semibold">{label}</p>
+            <p className="min-w-0 truncate text-lead font-semibold">{label}</p>
             <button
               onClick={() => setGross(false)}
-              className="min-h-11 shrink-0 rounded-xl bg-accent px-4 text-[14px] font-semibold text-bg"
+              className="min-h-11 shrink-0 rounded-xl bg-accent px-4 text-body font-semibold text-bg"
             >
               {t('forms:signDone')}
             </button>
@@ -345,16 +345,16 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
           „Clear" war die einzige Korrektur. */}
       <div className="mt-1 flex items-center gap-3">
         {!gross && (
-          <button onClick={() => setGross(true)} className="min-h-11 text-[12px] text-dim underline-offset-2 hover:text-accent hover:underline">
+          <button onClick={() => setGross(true)} className="min-h-11 text-micro text-dim underline-offset-2 hover:text-accent hover:underline">
             {t('forms:signFullscreen')}
           </button>
         )}
         {historyRef.current.length > 0 && value && (
-          <button onClick={undo} className="min-h-11 text-[12px] text-dim underline-offset-2 hover:text-accent hover:underline">
+          <button onClick={undo} className="min-h-11 text-micro text-dim underline-offset-2 hover:text-accent hover:underline">
             {t('forms:signUndo')}
           </button>
         )}
-        {!value && mode === 'draw' && <p className="text-[12px] text-dim">{t('forms:signHint')}</p>}
+        {!value && mode === 'draw' && <p className="text-micro text-dim">{t('forms:signHint')}</p>}
       </div>
       </div>
     </div>

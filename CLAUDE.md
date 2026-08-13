@@ -61,6 +61,23 @@ prüfen, nicht der Code anzupassen**, bis er zum Test passt.
   Struktur des Textes, nicht sein Kleingedrucktes. Wer eine neue
   Zwischenüberschrift braucht, nimmt eine der beiden — das Muster war
   vorher an vierzig Stellen von Hand geschrieben und wich überall leicht ab.
+- **Statusmarken** kommen aus `Badge` (`src/components/ui.tsx`) — fünf Töne
+  mit je *einer* Bedeutung: `ok` erledigt, `wait` wartet oder mahnt, `bad`
+  durchgefallen oder kaputt, `accent` neutrale Einordnung, `dim` ruhiger
+  Nebenzustand; `strong` schaltet auf die volle Fläche. Keine handgebaute
+  Pille mehr: „Not Competent" stand vorher in drei Farben nebeneinander.
+- **Schrift- und Abstandsskala** stehen in `tailwind.config.js` und sind
+  abgeschlossen: elf Schriftstufen (`text-micro` … `text-giant`, dazu
+  `text-fine` für den Druck) und vier Abstandsstufen (`tight`, `stack`,
+  `section`, `major`). Die Schriftskala **ersetzt** den Tailwind-Standard,
+  steht also nicht unter `extend` — `text-sm` gibt es nicht mehr, damit eine
+  vergessene Stelle auffällt. Einzelwerte wie `text-[13px]` sind verboten;
+  `src/designScale.test.ts` prüft das mechanisch, ebenso die senkrechten
+  Stapel. Wer eine Stufe braucht, die es nicht gibt, ändert die Skala und
+  schreibt den Grund daneben — er lautet nicht „passt hier besser".
+- **Am Desktop** begrenzt `Page` die Breite (1152 px, `wide` 1280 px). Wo die
+  Breite etwas zu tragen hat, füllt sie `CardGrid` mit zwei Spalten; bei einer
+  einzelnen Karte bleibt es einspaltig, sonst stünde daneben eine leere Hälfte.
 - **Kommentare** erklären das *Warum* (gern mit dem Befund, der dahintersteht),
   nicht das *Was*. Deutsch, wie der Bestand.
 - **Auslieferung:** Entwicklung im Feature-Branch, Merge per PR nach `main`;

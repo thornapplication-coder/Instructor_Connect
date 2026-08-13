@@ -28,7 +28,7 @@ function StringListEditor({ label, values, onChange }: { label: string; values: 
     <Field label={label} group>
       <div className="mb-2 flex flex-wrap gap-2">
         {values.map((v) => (
-          <span key={v} className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5 text-[13px]">
+          <span key={v} className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5 text-small">
             {v}
             <button
               onClick={() => onChange(values.filter((x) => x !== v))}
@@ -82,8 +82,8 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
 
   return (
     <Modal title={t('admin.import.title')} onClose={onClose}>
-      <div className="space-y-3.5">
-        <p className="text-[13px] leading-relaxed text-dim">{t('admin.import.intro')}</p>
+      <div className="space-y-stack">
+        <p className="text-small leading-relaxed text-dim">{t('admin.import.intro')}</p>
 
         {/* Zwei Wege zur selben Vorlage: Die Excel-Datei bringt Anleitung und
             Auswahllisten mit, die CSV-Fassung entsteht aus den tatsaechlich
@@ -118,26 +118,26 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
                 }),
               )
             }}
-            className="w-full rounded-xl border border-dashed border-line/25 px-3 py-2.5 text-[13px] text-dim file:mr-3 file:rounded-lg file:border-0 file:bg-raised file:px-3 file:py-1.5 file:text-[13px] file:text-accent"
+            className="w-full rounded-xl border border-dashed border-line/25 px-3 py-2.5 text-small text-dim file:mr-3 file:rounded-lg file:border-0 file:bg-raised file:px-3 file:py-1.5 file:text-small file:text-accent"
           />
-          {fileName && <p className="mt-1.5 text-[12.5px] text-dim">{fileName}</p>}
+          {fileName && <p className="mt-1.5 text-micro text-dim">{fileName}</p>}
         </Field>
 
         {result?.headerError && (
-          <p role="alert" className="rounded-xl bg-danger/10 p-3 text-[13px] leading-relaxed text-danger">
+          <p role="alert" className="rounded-xl bg-danger/10 p-3 text-small leading-relaxed text-danger">
             {t('admin.import.headerError')}
           </p>
         )}
 
         {result && !result.headerError && (
           <>
-            <p className="text-[13px] font-medium">
+            <p className="text-small font-medium">
               {t('admin.import.summary', { ok: uebernehmbar.length, total: result.rows.length })}
             </p>
             {/* Vorschau als echte Tabelle: Jede Zeile zeigt, ob sie durchgeht
                 und woran es sonst liegt — mit der Zeilennummer aus Excel. */}
             <div className="max-h-72 overflow-auto rounded-xl border border-line/15">
-              <table className="w-full border-collapse text-[12.5px]">
+              <table className="w-full border-collapse text-micro">
                 <thead className="sticky top-0 bg-surface">
                   <tr className="border-b border-line/15 text-left text-dim">
                     <th scope="col" className="px-2 py-1.5 font-semibold">{t('admin.import.line')}</th>
@@ -170,7 +170,7 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
         )}
 
         {done !== null && (
-          <p role="status" className="rounded-xl bg-ok/10 p-3 text-[13px] text-ok">
+          <p role="status" className="rounded-xl bg-ok/10 p-3 text-small text-ok">
             {t('admin.import.created', { count: done })}
           </p>
         )}
@@ -241,7 +241,7 @@ function UsersTab() {
   })
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-stack">
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={() => setShowNew(true)} className="flex items-center gap-1.5">
           <Plus size={15} /> {t('admin.addUser')}
@@ -259,7 +259,7 @@ function UsersTab() {
           aria-label={t('admin.searchUsers')}
           className={`${inputCls} min-w-48 flex-1`}
         />
-        <select value={fRole} onChange={(e) => setFRole(e.target.value)} aria-label={t('admin.allRoles')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fRole} onChange={(e) => setFRole(e.target.value)} aria-label={t('admin.allRoles')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-small">
           <option value="">{t('admin.allRoles')}</option>
           {(['member', 'training_admin', 'group_admin', 'superadmin'] as Role[]).map((r) => (
             <option key={r} value={r}>
@@ -267,12 +267,12 @@ function UsersTab() {
             </option>
           ))}
         </select>
-        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} aria-label={t('admin.allStatus')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} aria-label={t('admin.allStatus')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-small">
           <option value="">{t('admin.allStatus')}</option>
           <option value="active">{t('admin.active')}</option>
           <option value="inactive">{t('admin.inactive')}</option>
         </select>
-        <select value={fGroup} onChange={(e) => setFGroup(e.target.value)} aria-label={t('admin.allGroups')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fGroup} onChange={(e) => setFGroup(e.target.value)} aria-label={t('admin.allGroups')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-small">
           <option value="">{t('admin.allGroups')}</option>
           {sortedGroups.map((g) => (
             <option key={g.id} value={g.id}>
@@ -280,16 +280,16 @@ function UsersTab() {
             </option>
           ))}
         </select>
-        <select value={sortMode} onChange={(e) => setSortMode(e.target.value as 'name' | 'role')} aria-label={t('admin.sortBy')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={sortMode} onChange={(e) => setSortMode(e.target.value as 'name' | 'role')} aria-label={t('admin.sortBy')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-small">
           <option value="name">{t('admin.sortByName')}</option>
           <option value="role">{t('admin.sortByRole')}</option>
         </select>
-        <span className="shrink-0 text-[12.5px] text-dim">
+        <span className="shrink-0 text-micro text-dim">
           {users.length}/{allUsers.length}
         </span>
       </div>
-      <p className="px-1 text-[12px] leading-relaxed text-dim">{t('admin.deactivateHint')}</p>
-      {users.length === 0 && <p className="pt-4 text-center text-sm text-dim">{t('admin.noUsersMatch')}</p>}
+      <p className="px-1 text-micro leading-relaxed text-dim">{t('admin.deactivateHint')}</p>
+      {users.length === 0 && <p className="pt-4 text-center text-body text-dim">{t('admin.noUsersMatch')}</p>}
       {users.map((u, i) => (
         <div key={u.id}>
         {sortMode === 'role' && (i === 0 || users[i - 1].role !== u.role) && (
@@ -300,15 +300,15 @@ function UsersTab() {
           <button onClick={() => setOpenId(openId === u.id ? null : u.id)} className="flex w-full items-center gap-3 text-left">
             <Avatar name={u.name} size={34} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-semibold">{u.name}</p>
-              <p className="truncate text-[12px] text-dim">{u.email}</p>
+              <p className="truncate text-body font-semibold">{u.name}</p>
+              <p className="truncate text-micro text-dim">{u.email}</p>
             </div>
-            <span className="shrink-0 text-[12px] text-dim">{t(`roles.${u.role}`)}</span>
+            <span className="shrink-0 text-micro text-dim">{t(`roles.${u.role}`)}</span>
             {!u.active && <Badge tone="dim">{t('admin.inactive')}</Badge>}
             <ChevronDown size={16} className={`shrink-0 text-dim transition ${openId === u.id ? 'rotate-180' : ''}`} />
           </button>
           <div className={openId === u.id ? '' : 'hidden'}>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-small">
             <select
               value={u.role}
               onChange={(e) => updateUser(u.id, { role: e.target.value as Role })}
@@ -374,7 +374,7 @@ function UsersTab() {
           {/* Gruppenzugehörigkeit direkt am Nutzer pflegbar — steuert
               Chat-Zugang und Instructor-Info-Sichtbarkeit */}
           <div className="mt-2.5">
-            <p className="mb-1.5 text-[12.5px] text-dim">{t('admin.userGroups')}</p>
+            <p className="mb-1.5 text-micro text-dim">{t('admin.userGroups')}</p>
             <ChipMultiSelect
               options={sortedGroups.map((g) => ({ id: g.id, label: g.name }))}
               selected={sortedGroups.filter((g) => g.memberIds.includes(u.id)).map((g) => g.id)}
@@ -395,7 +395,7 @@ function UsersTab() {
           </div>
           {/* Zugewiesene Muster steuern, welche Lesson Plans der Nutzer sieht */}
           <div className="mt-2.5">
-            <p className="mb-1.5 text-[12.5px] text-dim">{t('admin.aircraftTypes')}</p>
+            <p className="mb-1.5 text-micro text-dim">{t('admin.aircraftTypes')}</p>
             <div className="flex flex-wrap gap-1.5">
               {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => {
                 const on = u.aircraftTypes.includes(a)
@@ -405,7 +405,7 @@ function UsersTab() {
                     onClick={() =>
                       updateUser(u.id, { aircraftTypes: on ? u.aircraftTypes.filter((x) => x !== a) : [...u.aircraftTypes, a] })
                     }
-                    className={`min-h-11 rounded-full border px-2.5 py-1 text-[12px] transition ${
+                    className={`min-h-11 rounded-full border px-2.5 py-1 text-micro transition ${
                       on ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/12 text-dim'
                     }`}
                   >
@@ -428,7 +428,7 @@ function UsersTab() {
             form.name.trim() || form.email.trim() || form.phone.trim() || form.groupIds.length > 0 ? t('common.discardConfirm') : undefined
           }
         >
-          <div className="space-y-3.5">
+          <div className="space-y-stack">
             <Field label={t('contacts.name')}>
               <input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
             </Field>
@@ -443,9 +443,9 @@ function UsersTab() {
               {/* Die Adresse muss eindeutig bleiben — sonst hätten zwei Konten
                   denselben Login. Direkt am Feld, nicht erst beim Speichern. */}
               {emailTaken ? (
-                <p className="mt-1.5 text-[12px] leading-relaxed text-danger">{t('admin.emailTaken')}</p>
+                <p className="mt-1.5 text-micro leading-relaxed text-danger">{t('admin.emailTaken')}</p>
               ) : (
-                <p className="mt-1.5 text-[12px] leading-relaxed text-dim">{t('admin.emailLoginHint')}</p>
+                <p className="mt-1.5 text-micro leading-relaxed text-dim">{t('admin.emailLoginHint')}</p>
               )}
             </Field>
             <Field label={t('contacts.phone')}>
@@ -472,7 +472,7 @@ function UsersTab() {
                 selected={form.groupIds}
                 onChange={(groupIds) => setForm({ ...form, groupIds })}
               />
-              <p className="mt-1.5 text-[12px] leading-relaxed text-dim">{t('admin.userGroupsHint')}</p>
+              <p className="mt-1.5 text-micro leading-relaxed text-dim">{t('admin.userGroupsHint')}</p>
             </Field>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setShowNew(false)}>
@@ -509,14 +509,14 @@ function PermissionsTab() {
   const roles: ConfigurableRole[] = ['group_admin', 'training_admin']
 
   return (
-    <div className="space-y-3">
-      <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] leading-relaxed text-dim">
+    <div className="space-y-stack">
+      <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small leading-relaxed text-dim">
         {t('admin.permMatrixHint')}
       </p>
       <Card className="overflow-x-auto p-4">
-        <table className="w-full min-w-105 text-[13.5px]">
+        <table className="w-full min-w-105 text-small">
           <thead>
-            <tr className="border-b border-line/15 text-left text-[12px] uppercase tracking-wide text-dim">
+            <tr className="border-b border-line/15 text-left text-micro uppercase tracking-wide text-dim">
               <th className="pb-2 pr-3 font-semibold">{t('admin.permCapability')}</th>
               {roles.map((r) => (
                 <th key={r} className="pb-2 pr-3 text-center font-semibold">
@@ -579,7 +579,7 @@ function GroupsTab() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-stack">
       <Button onClick={() => setShowNew(true)} className="flex items-center gap-1.5">
         <Plus size={15} /> {t('admin.addGroup')}
       </Button>
@@ -588,16 +588,16 @@ function GroupsTab() {
         {headingFor(i) && (
           <SectionHeading className="mb-2 mt-4 px-1 first:mt-0">{headingFor(i)}</SectionHeading>
         )}
-        <Card className="space-y-3 p-3">
+        <Card className="space-y-stack p-3">
           {/* Kompakte Kopfzeile: Name und Mitgliederzahl, Details auf Klick */}
           <div className="flex items-center gap-3">
             <Avatar name={g.name} size={34} />
             <button onClick={() => setOpenId(openId === g.id ? null : g.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
-              <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{g.name}</span>
+              <span className="min-w-0 flex-1 truncate text-body font-semibold">{g.name}</span>
               {g.aircraftType && (
                 <span className="shrink-0"><Badge tone="accent">{g.aircraftType}</Badge></span>
               )}
-              <span className="shrink-0 text-[12px] text-dim">{t('chatInfo.members', { count: g.memberIds.length })}</span>
+              <span className="shrink-0 text-micro text-dim">{t('chatInfo.members', { count: g.memberIds.length })}</span>
               <ChevronDown size={16} className={`shrink-0 text-dim transition ${openId === g.id ? 'rotate-180' : ''}`} />
             </button>
             {/* Blockiert das Löschen, weil jemand ohne Gruppe zurückbliebe,
@@ -618,7 +618,7 @@ function GroupsTab() {
               <Trash2 size={16} />
             </button>
           </div>
-          <div className={openId === g.id ? 'space-y-3' : 'hidden'}>
+          <div className={openId === g.id ? 'space-y-stack' : 'hidden'}>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label={t('admin.groupName')}>
               <input value={g.name} onChange={(e) => renameGroup(g.id, e.target.value)} className={inputCls} />
@@ -628,7 +628,7 @@ function GroupsTab() {
               <select
                 value={g.aircraftType ?? ''}
                 onChange={(e) => setGroupAircraft(g.id, e.target.value)}
-                className="w-full rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]"
+                className="w-full rounded-xl border border-field bg-bg/60 px-3 py-2 text-small"
               >
                 <option value="">{t('admin.groupNoAircraft')}</option>
                 {aircraftTypes.map((a) => (
@@ -644,7 +644,7 @@ function GroupsTab() {
               <select
                 value={g.retention ?? 'default'}
                 onChange={(e) => setGroupRetention(g.id, e.target.value === 'default' ? null : (e.target.value as RetentionKey))}
-                className="w-full rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13.5px]"
+                className="w-full rounded-xl border border-field bg-bg/60 px-3 py-2 text-small"
               >
                 <option value="default">
                   {t('retention.default', { value: t(`retention.${state.settings.defaultRetention}`) })}
@@ -667,7 +667,7 @@ function GroupsTab() {
                       onClick={() =>
                         setGroupAdmins(g.id, isAdmin ? g.adminIds.filter((id) => id !== u.id) : [...g.adminIds, u.id])
                       }
-                      className={`min-h-11 rounded-full border px-2.5 py-1 text-[12px] transition ${
+                      className={`min-h-11 rounded-full border px-2.5 py-1 text-micro transition ${
                         isAdmin ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/12 text-dim'
                       }`}
                     >
@@ -689,7 +689,7 @@ function GroupsTab() {
                     onClick={() =>
                       setGroupMembers(g.id, isMember ? g.memberIds.filter((id) => id !== u.id) : [...g.memberIds, u.id])
                     }
-                    className={`min-h-11 rounded-full border px-2.5 py-1 text-[12px] transition ${
+                    className={`min-h-11 rounded-full border px-2.5 py-1 text-micro transition ${
                       isMember ? 'border-warm/60 bg-warm/10 font-medium text-warm' : 'border-line/12 text-dim'
                     }`}
                   >
@@ -709,7 +709,7 @@ function GroupsTab() {
           onClose={() => setShowNew(false)}
           confirmDiscard={name.trim() || purpose.trim() || newAircraft ? t('common.discardConfirm') : undefined}
         >
-          <div className="space-y-3.5">
+          <div className="space-y-stack">
             <Field label={t('admin.groupName')}>
               <input
                 className={`${inputCls} ${nameTaken ? 'border-danger/60' : ''}`}
@@ -717,7 +717,7 @@ function GroupsTab() {
                 onChange={(e) => setName(e.target.value)}
                 autoFocus
               />
-              {nameTaken && <p className="mt-1.5 text-[12px] leading-relaxed text-danger">{t('admin.groupNameTaken')}</p>}
+              {nameTaken && <p className="mt-1.5 text-micro leading-relaxed text-danger">{t('admin.groupNameTaken')}</p>}
             </Field>
             <Field label={t('admin.purpose')}>
               <input className={inputCls} value={purpose} onChange={(e) => setPurpose(e.target.value)} />
@@ -786,26 +786,26 @@ function FeedbackCard({
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-[14.5px] font-semibold">{userName(f.authorId)}</p>
+            <p className="text-body font-semibold">{userName(f.authorId)}</p>
             <Badge tone="dim">{f.category}</Badge>
             <Badge tone={f.aircraftType ? 'accent' : 'dim'}>{f.aircraftType || t('feedback.scopeGeneral')}</Badge>
             {f.urgent && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[12px] font-semibold text-danger">
+              <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-micro font-semibold text-danger">
                 <AlertTriangle size={11} /> {t('feedback.urgent')}
               </span>
             )}
             {done && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-ok/15 px-2.5 py-0.5 text-[12px] font-semibold text-ok">
+              <span className="inline-flex items-center gap-1 rounded-full bg-ok/15 px-2.5 py-0.5 text-micro font-semibold text-ok">
                 <CheckCircle2 size={11} /> {t('admin.feedbackDone')}
               </span>
             )}
           </div>
-          <p className="mt-0.5 text-[12px] text-dim">
+          <p className="mt-0.5 text-micro text-dim">
             {formatDateTime(f.createdAt)} · {t('feedback.recipient')}: {f.recipient}
           </p>
-          <p className="mt-2 whitespace-pre-wrap text-[13.5px] leading-relaxed">{f.message}</p>
+          <p className="mt-2 whitespace-pre-wrap text-small leading-relaxed">{f.message}</p>
           {f.attachment && (
-            <p className="mt-2 flex items-center gap-1.5 text-[12.5px] text-dim">
+            <p className="mt-2 flex items-center gap-1.5 text-micro text-dim">
               <Paperclip size={13} /> {f.attachment.name} · {f.attachment.sizeMB} MB
             </p>
           )}
@@ -813,11 +813,11 @@ function FeedbackCard({
           {/* Bearbeitet-Block: Wer, wann, und was getan wurde */}
           {done && (
             <div className="mt-3 rounded-xl border border-ok/25 bg-ok/[0.06] p-3">
-              <p className="text-[12.5px] font-medium text-dim">
+              <p className="text-micro font-medium text-dim">
                 {t('admin.feedbackResolvedBy', { name: userName(f.resolvedBy!), date: formatDateTime(f.resolvedAt!) })}
               </p>
               {f.resolutionNote && !editNote && (
-                <p className="mt-1 whitespace-pre-wrap text-[13px] leading-relaxed">{f.resolutionNote}</p>
+                <p className="mt-1 whitespace-pre-wrap text-small leading-relaxed">{f.resolutionNote}</p>
               )}
               {editNote ? (
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row">
@@ -839,7 +839,7 @@ function FeedbackCard({
                   </Button>
                 </div>
               ) : (
-                <button onClick={() => setEditNote(true)} className="mt-1.5 text-[12px] font-medium text-accent hover:underline">
+                <button onClick={() => setEditNote(true)} className="mt-1.5 text-micro font-medium text-accent hover:underline">
                   {f.resolutionNote ? t('admin.feedbackEditNote') : t('admin.feedbackAddNote')}
                 </button>
               )}
@@ -849,7 +849,7 @@ function FeedbackCard({
 
         <div className="flex shrink-0 flex-col items-end gap-2">
           {/* Tickbox „Erledigt" — schaltet Bearbeitet-Status um */}
-          <label className="flex cursor-pointer items-center gap-1.5 text-[12.5px] font-medium text-dim">
+          <label className="flex cursor-pointer items-center gap-1.5 text-micro font-medium text-dim">
             <input
               type="checkbox"
               checked={done}
@@ -907,9 +907,9 @@ function FeedbackTab() {
   const scopeTypes = [...new Set(all.map((f) => f.aircraftType).filter(Boolean) as string[])].sort()
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-stack">
       <div className="flex flex-wrap items-center gap-2">
-        <select value={fCat} onChange={(e) => setFCat(e.target.value)} aria-label={t('admin.allCategories')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fCat} onChange={(e) => setFCat(e.target.value)} aria-label={t('admin.allCategories')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-small">
           <option value="">{t('admin.allCategories')}</option>
           {cats.map((c) => (
             <option key={c} value={c}>
@@ -917,7 +917,7 @@ function FeedbackTab() {
             </option>
           ))}
         </select>
-        <select value={fRec} onChange={(e) => setFRec(e.target.value)} aria-label={t('admin.allRecipients')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fRec} onChange={(e) => setFRec(e.target.value)} aria-label={t('admin.allRecipients')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-small">
           <option value="">{t('admin.allRecipients')}</option>
           {recs.map((r) => (
             <option key={r} value={r}>
@@ -925,7 +925,7 @@ function FeedbackTab() {
             </option>
           ))}
         </select>
-        <select value={fScope} onChange={(e) => setFScope(e.target.value)} aria-label={t('admin.allScopes')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-[13px]">
+        <select value={fScope} onChange={(e) => setFScope(e.target.value)} aria-label={t('admin.allScopes')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-small">
           <option value="">{t('admin.allScopes')}</option>
           <option value="general">{t('feedback.scopeGeneral')}</option>
           {scopeTypes.map((a) => (
@@ -936,17 +936,17 @@ function FeedbackTab() {
         </select>
         <button
           onClick={() => setOnlyUrgent(!onlyUrgent)}
-          className={`min-h-11 rounded-full border px-3 py-1.5 text-[12.5px] font-semibold transition ${
+          className={`min-h-11 rounded-full border px-3 py-1.5 text-micro font-semibold transition ${
             onlyUrgent ? 'border-danger bg-danger/15 text-danger' : 'border-line/15 text-dim'
           }`}
         >
           {t('admin.onlyUrgent')}
         </button>
-        <span className="ml-auto shrink-0 text-[12.5px] text-dim">
+        <span className="ml-auto shrink-0 text-micro text-dim">
           {entries.length}/{all.length}
         </span>
       </div>
-      {entries.length === 0 && <p className="pt-6 text-center text-sm text-dim">{t('admin.feedbackEmpty')}</p>}
+      {entries.length === 0 && <p className="pt-6 text-center text-body text-dim">{t('admin.feedbackEmpty')}</p>}
       {/* Offene zuerst, dann — abgesetzt — die bereits bearbeiteten. */}
       {open.map((f) => (
         <FeedbackCard key={f.id} f={f} userName={userName} onDelete={deleteFeedback} onResolve={resolveFeedback} onReopen={reopenFeedback} />
@@ -991,13 +991,13 @@ function StorageCard() {
   if (info === 'loading') return null
   const share = info && info.quota > 0 ? info.usage / info.quota : null
   return (
-    <Card className="space-y-3 p-4">
+    <Card className="space-y-stack p-4">
       <CardHeading>{t('admin.storage')}</CardHeading>
       {info === null || share === null ? (
-        <p className="text-[13px] text-dim">{t('admin.storageUnknown')}</p>
+        <p className="text-small text-dim">{t('admin.storageUnknown')}</p>
       ) : (
         <>
-          <div className="flex items-baseline justify-between text-[13.5px]">
+          <div className="flex items-baseline justify-between text-small">
             <span>
               {t('admin.storageUsed')}: <strong>{fmtBytes(info.usage)}</strong>{' '}
               <span className="text-dim">{t('admin.storageQuota', { quota: fmtBytes(info.quota) })}</span>
@@ -1010,12 +1010,12 @@ function StorageCard() {
               style={{ width: `${Math.max(2, Math.min(100, share * 100))}%` }}
             />
           </div>
-          <p className="text-[12.5px] text-dim">
+          <p className="text-micro text-dim">
             {t('admin.storageState')}: {fmtBytes(info.stateBytes)}
           </p>
         </>
       )}
-      <p className="text-[12px] leading-relaxed text-dim">{t('admin.storageHint')}</p>
+      <p className="text-micro leading-relaxed text-dim">{t('admin.storageHint')}</p>
     </Card>
   )
 }
@@ -1026,8 +1026,8 @@ function SettingsTab() {
   const s = state.settings
 
   return (
-    <div className="space-y-5">
-      <Card className="space-y-4 p-4">
+    <div className="space-y-section">
+      <Card className="space-y-section p-4">
         <Field label={t('admin.defaultRetention')}>
           <select
             value={s.defaultRetention}
@@ -1074,9 +1074,9 @@ function SettingsTab() {
       {/* Die Vorlage liegt zusaetzlich hier, nicht nur im Import-Dialog:
           Wer sie an die Personalabteilung schickt, will sie holen koennen,
           ohne einen Import zu beginnen. */}
-      <Card className="space-y-3 p-4">
+      <Card className="space-y-stack p-4">
         <CardHeading>{t('admin.import.templateSection')}</CardHeading>
-        <p className="text-[13px] leading-relaxed text-dim">{t('admin.import.templateHint')}</p>
+        <p className="text-small leading-relaxed text-dim">{t('admin.import.templateHint')}</p>
         <div className="flex flex-wrap gap-2">
           <Button
             variant="ghost"
@@ -1114,7 +1114,7 @@ function SettingsTab() {
       <StorageCard />
       {/* Herkunftsangaben des Ausdrucks — ohne sie ist ein ausgedrucktes
           Formular keiner Organisation und keinem Formularstand zuzuordnen. */}
-      <Card className="space-y-3 p-4">
+      <Card className="space-y-stack p-4">
         <CardHeading>{t('admin.documentHeader')}</CardHeading>
         {(
           [
@@ -1136,7 +1136,7 @@ function SettingsTab() {
             />
           </Field>
         ))}
-        <p className="text-[12px] leading-relaxed text-dim">{t('admin.documentHeaderHint')}</p>
+        <p className="text-micro leading-relaxed text-dim">{t('admin.documentHeaderHint')}</p>
       </Card>
     </div>
   )
@@ -1159,15 +1159,15 @@ function ImprintTab() {
   }, [de, en, dirty, updateSettings])
 
   return (
-    <div className="space-y-4">
-      <p className="text-[13px] leading-relaxed text-dim">{t('admin.imprintHint')}</p>
-      <Card className="space-y-4 p-4">
+    <div className="space-y-section">
+      <p className="text-small leading-relaxed text-dim">{t('admin.imprintHint')}</p>
+      <Card className="space-y-section p-4">
         <Field label={t('admin.imprintDe')}>
           <textarea
             value={de}
             onChange={(e) => setDe(e.target.value)}
             spellCheck={false}
-            className={`${inputCls} min-h-72 font-mono text-[12.5px] leading-relaxed`}
+            className={`${inputCls} min-h-72 font-mono text-micro leading-relaxed`}
           />
         </Field>
         <Field label={t('admin.imprintEn')}>
@@ -1175,10 +1175,10 @@ function ImprintTab() {
             value={en}
             onChange={(e) => setEn(e.target.value)}
             spellCheck={false}
-            className={`${inputCls} min-h-72 font-mono text-[12.5px] leading-relaxed`}
+            className={`${inputCls} min-h-72 font-mono text-micro leading-relaxed`}
           />
         </Field>
-        <p className="text-right text-[12.5px] text-dim">
+        <p className="text-right text-micro text-dim">
           {dirty ? t('admin.autoSaving') : t('admin.imprintSaved')}
         </p>
       </Card>
@@ -1190,18 +1190,18 @@ function ChangelogTab() {
   const { t } = useTranslation()
   const { state } = useStore()
   return (
-    <div className="space-y-3">
+    <div className="space-y-stack">
       <Card className="flex items-center justify-between p-4">
-        <span className="text-[14px] text-dim">{t('admin.currentVersion')}</span>
-        <span className="text-lg font-bold text-accent">v{APP_VERSION}</span>
+        <span className="text-body text-dim">{t('admin.currentVersion')}</span>
+        <span className="text-head font-bold text-accent">v{APP_VERSION}</span>
       </Card>
       {state.changelog.map((entry) => (
         <Card key={`${entry.version}-${entry.at}`} className="p-4">
           <div className="mb-1 flex items-center gap-2">
             <Badge>v{entry.version}</Badge>
-            <span className="text-[12px] text-dim">{formatDateTime(entry.at)}</span>
+            <span className="text-micro text-dim">{formatDateTime(entry.at)}</span>
           </div>
-          <p className="text-[13.5px] leading-relaxed">{entry.changes}</p>
+          <p className="text-small leading-relaxed">{entry.changes}</p>
         </Card>
       ))}
     </div>
@@ -1273,7 +1273,7 @@ export function Admin({ sub = '' }: { sub?: string }) {
       <>
         <TopBar title={t('admin.title')} back="/" />
         <Page>
-          <p className="pt-10 text-center text-sm text-dim">{t('admin.noAccess')}</p>
+          <p className="pt-10 text-center text-body text-dim">{t('admin.noAccess')}</p>
         </Page>
       </>
     )
@@ -1290,7 +1290,7 @@ export function Admin({ sub = '' }: { sub?: string }) {
       <div className="admin-narrow-note mx-auto w-full max-w-3xl px-4 pb-24 pt-4">
         <div className="flex flex-col items-center gap-3 pt-16 text-center">
           <Monitor size={44} className="text-accent" />
-          <p className="max-w-xs text-[14px] leading-relaxed text-dim">{t('admin.desktopOnly')}</p>
+          <p className="max-w-xs text-body leading-relaxed text-dim">{t('admin.desktopOnly')}</p>
         </div>
       </div>
       <Page className="admin-panel">
@@ -1309,18 +1309,18 @@ export function Admin({ sub = '' }: { sub?: string }) {
                     <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg">
                       <Icon size={28} />
                     </span>
-                    <span className="px-2 text-center text-[14px] font-semibold leading-tight">{t(`admin.${tb}`)}</span>
+                    <span className="px-2 text-center text-body font-semibold leading-tight">{t(`admin.${tb}`)}</span>
                   </button>
                 )
               })}
             </div>
-            <p className="mt-5 text-center text-[12px] text-dim">{t('admin.autoSaveHint')}</p>
+            <p className="mt-5 text-center text-micro text-dim">{t('admin.autoSaveHint')}</p>
           </>
         ) : (
           <>
             <button
               onClick={() => navigate('/admin')}
-              className="mb-4 flex items-center gap-1.5 text-[13px] font-medium text-dim transition hover:text-ink"
+              className="mb-4 flex items-center gap-1.5 text-small font-medium text-dim transition hover:text-ink"
             >
               <ArrowLeft size={15} /> {t('admin.backToOverview')}
             </button>

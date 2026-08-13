@@ -307,6 +307,13 @@ scheitern. Die CI führt Tests, Typprüfung und Build bei jedem Pull Request aus
 Sprache über den DE/EN-Schalter (react-i18next); das Grading-Modul bleibt
 bewusst durchgehend englisch — seine Texte liegen im Namensraum `forms`, den es
 nur auf Englisch gibt. Theme-Farben zentral in `src/index.css`,
-Hell-/Dunkelmodus umschaltbar. Die fachlichen Regeln des Grading-Moduls
+Hell-/Dunkelmodus umschaltbar.
+
+Schrift- und Abstandsskala stehen abgeschlossen in `tailwind.config.js`: elf
+Schriftstufen (`text-micro` … `text-giant`, `text-fine` für den Druck) und vier
+Abstandsstufen. Die Schriftskala ersetzt den Tailwind-Standard, deshalb gibt es
+weder `text-sm` noch Einzelwerte wie `text-[13px]`; `src/designScale.test.ts`
+hält beides frei. Statusmarken kommen aus `Badge`, Überschriften aus
+`SectionHeading`/`CardHeading`, mehrspaltige Kartenlisten aus `CardGrid`. Die fachlichen Regeln des Grading-Moduls
 liegen in `src/gradingRules.ts`, damit Store und Ansichten dieselbe Logik
 nutzen.

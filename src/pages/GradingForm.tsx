@@ -785,7 +785,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   key={o}
                   aria-pressed={on}
                   onClick={() => setField(f, on ? '' : o)}
-                  className={`min-h-11 rounded-lg border px-3 py-2 text-[13px] transition ${
+                  className={`min-h-11 rounded-lg border px-3 py-2 text-small transition ${
                     on ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
                   }`}
                 >
@@ -812,7 +812,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                     const ordered = optionsOf(f).filter((x) => next.includes(x))
                     setField(f, ordered.join(', '))
                   }}
-                  className={`min-h-11 rounded-lg border px-2.5 py-1.5 text-[12.5px] transition ${
+                  className={`min-h-11 rounded-lg border px-2.5 py-1.5 text-micro transition ${
                     on ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
                   }`}
                 >
@@ -833,7 +833,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
           />
         )}
         {/* Fußnoten des Originalformulars, etwa zu den PRG-Sternchen */}
-        {f.hint && <p className="mt-1.5 text-[12px] leading-relaxed text-dim">{f.hint}</p>}
+        {f.hint && <p className="mt-1.5 text-micro leading-relaxed text-dim">{f.hint}</p>}
       </Field>
     </div>
   )
@@ -843,7 +843,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
       <>
         <TopBar title={t('forms:newForm')} back="/grading" home={false} wide />
         <Page>
-          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[13px] leading-relaxed text-dim">{t('forms:noPermission')}</p>
+          <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small leading-relaxed text-dim">{t('forms:noPermission')}</p>
         </Page>
       </>
     )
@@ -858,10 +858,10 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         home={false}
         wide
       />
-      <Page wide className="space-y-4 pb-32">
+      <Page wide className="space-y-section pb-32">
         {/* Wiederhergestellter Entwurf: sichtbar machen und verwerfbar halten */}
         {draftRestored && (
-          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 p-3.5 text-[13px]">
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 p-3.5 text-small">
             <p className="min-w-0 flex-1 leading-relaxed">{t('forms:draftRestored')}</p>
             <Button
               variant="ghost"
@@ -896,7 +896,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 // Liste wird neu aufgebaut — alte Unterschriften dürfen nicht stehen bleiben
                 setSigTrainees({})
               }}
-              className="w-full rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-[14px] disabled:opacity-60"
+              className="w-full rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-body disabled:opacity-60"
             >
               <option value="">…</option>
               {[...grading.formTypes]
@@ -914,13 +914,13 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
           <>
             {/* 2a. Student / Instructor — Aufbau wie im Originalformular */}
             {competencies.length > 0 && (
-              <Card className="space-y-4 p-4">
+              <Card className="space-y-section p-4">
                 <CardHeading>{t('forms:participants')}</CardHeading>
 
                 {trainees.map((tr, i) => (
                   <div key={i} className="rounded-xl border border-line/10 p-3">
                     <div className="mb-2 flex items-center gap-2">
-                      <p className="flex-1 text-[13px] font-semibold text-accent">
+                      <p className="flex-1 text-small font-semibold text-accent">
                         {isInstructorSheet ? 'Candidate Instructor' : t('forms:student')} {trainees.length > 1 ? i + 1 : ''}
                       </p>
                       {/* Beschriftet und 44 px: Der Knopf loescht einen kompletten
@@ -951,7 +951,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                         <button
                           key={o}
                           onClick={() => setTrainee(i, { position: o })}
-                          className={`min-h-11 rounded-lg border px-3 py-1.5 text-[13px] transition ${
+                          className={`min-h-11 rounded-lg border px-3 py-1.5 text-small transition ${
                             tr.position === o ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
                           }`}
                         >
@@ -963,7 +963,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                         <button
                           key={o}
                           onClick={() => setTrainee(i, { seat: tr.seat === o ? '' : o })}
-                          className={`min-h-11 rounded-lg border px-3 py-1.5 text-[13px] transition ${
+                          className={`min-h-11 rounded-lg border px-3 py-1.5 text-small transition ${
                             tr.seat === o ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
                           }`}
                         >
@@ -976,25 +976,25 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
                 <button
                   onClick={() => setTrainees([...trainees, emptyTrainee(codes, isInstructorSheet ? '' : 'CDR')])}
-                  className="flex items-center gap-1.5 text-[13.5px] font-medium text-accent hover:underline"
+                  className="flex items-center gap-1.5 text-small font-medium text-accent hover:underline"
                 >
                   <Plus size={15} /> {t('forms:addTrainee')}
                 </button>
                 {trainees.length > 1 && (
-                  <p className="rounded-xl bg-bg/40 p-3 text-[12px] leading-relaxed text-dim">{t('forms:multiStudentHint')}</p>
+                  <p className="rounded-xl bg-bg/40 p-3 text-micro leading-relaxed text-dim">{t('forms:multiStudentHint')}</p>
                 )}
 
                 <div className="rounded-xl border border-line/10 p-3">
-                  <p className="mb-2 text-[13px] font-semibold text-accent">
+                  <p className="mb-2 text-small font-semibold text-accent">
                     {isInstructorSheet ? 'Course Instructor' : t('forms:instructor')}
                   </p>
-                  <p className="mb-2 rounded-lg bg-bg/40 px-3 py-2 text-[14px]">{currentUser!.name}</p>
+                  <p className="mb-2 rounded-lg bg-bg/40 px-3 py-2 text-body">{currentUser!.name}</p>
                   <div className={`flex flex-wrap items-center gap-1.5 ${isInstructorSheet ? 'hidden' : ''}`}>
                     {['TKI', 'SFI', 'TRI'].map((o) => (
                       <button
                         key={o}
                         onClick={() => setHeader({ ...header, instructorQual: header.instructorQual === o ? '' : o })}
-                        className={`min-h-11 rounded-lg border px-3 py-1.5 text-[13px] transition ${
+                        className={`min-h-11 rounded-lg border px-3 py-1.5 text-small transition ${
                           header.instructorQual === o ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
                         }`}
                       >
@@ -1006,7 +1006,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                       <button
                         key={o}
                         onClick={() => setHeader({ ...header, instructorSeat: header.instructorSeat === o ? '' : o })}
-                        className={`min-h-11 rounded-lg border px-3 py-1.5 text-[13px] transition ${
+                        className={`min-h-11 rounded-lg border px-3 py-1.5 text-small transition ${
                           header.instructorSeat === o ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
                         }`}
                       >
@@ -1019,7 +1019,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             )}
 
             {/* 2b. Kopfdaten (nur Felder, die VOR dem Grading erfasst werden) */}
-            <Card className="space-y-3 p-4">
+            <Card className="space-y-stack p-4">
               <CardHeading>{t('forms:headerData')}</CardHeading>
               <div className="grid gap-3 sm:grid-cols-2">{preFields.map(renderField)}</div>
               {/* Kein Katalogfeld: die Behörde gehört zu JEDEM Formulartyp
@@ -1034,7 +1034,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
             {/* 3. Freitextabschnitte (306/310) */}
             {formType.freeTextSections.length > 0 && (
-              <Card className="space-y-3 p-4">
+              <Card className="space-y-stack p-4">
                 {formType.freeTextSections.map((sec) => (
                   <Field key={sec} label={sec}>
                     <textarea
@@ -1071,7 +1071,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
               {competencies.length > 0 ? t('forms:toGrading') : t('forms:continue')} <ArrowRight size={16} />
             </Button>
             {error && (
-              <p id="form-error" role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-[13px] text-danger">
+              <p id="form-error" role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-small text-danger">
                 {error}
               </p>
             )}
@@ -1080,7 +1080,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
         {formType && step === 2 && (
           <>
-            <button onClick={() => { setStep(1); scrollToTop(); fokusUeberschrift() }} className="flex items-center gap-1.5 text-[13.5px] text-dim hover:text-ink">
+            <button onClick={() => { setStep(1); scrollToTop(); fokusUeberschrift() }} className="flex items-center gap-1.5 text-small text-dim hover:text-ink">
               <ArrowLeft size={15} /> {t('forms:backToHeader')}
             </button>
 
@@ -1089,7 +1089,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
               trainees.map((tr, i) => {
                 const auto = autoNotCompetent(tr)
                 return (
-                <Card key={i} className="space-y-4 p-4">
+                <Card key={i} className="space-y-section p-4">
                   <div className="flex items-center gap-2">
                     <CardHeading className="flex-1">
                       {tr.traineeName?.trim() || t('forms:traineeN', { n: i + 1 })}
@@ -1099,7 +1099,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   </div>
 
 
-                  <div className="space-y-3 lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
+                  <div className="space-y-stack lg:grid lg:grid-cols-2 lg:gap-3 lg:space-y-0">
                     {competencies.map((c) => {
                       const g = tr.grades.find((x) => x.code === c.code)
                       const key = `${i}-${c.code}`
@@ -1115,7 +1115,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                         <div key={c.code} id={`komp-${i}-${c.code}`} className="scroll-mt-24 rounded-xl border border-line/10 p-2.5">
                           <div className="mb-1.5 flex items-start gap-2">
                             <div className="min-w-0 flex-1">
-                              <p className="text-[14px] font-semibold leading-snug">
+                              <p className="text-body font-semibold leading-snug">
                                 {hideCodes ? c.title : <>{c.code} <span className="font-normal text-dim">· {c.title}</span></>}
                               </p>
                             </div>
@@ -1123,13 +1123,13 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                               onClick={() => setOpenBehaviour(openBehaviour === key ? null : key)}
                               title={t('forms:behaviours')}
                               aria-expanded={openBehaviour === key}
-                              className="min-h-11 flex shrink-0 items-center gap-1 rounded-lg border border-line/15 px-2 py-1 text-[12px] text-dim hover:text-accent"
+                              className="min-h-11 flex shrink-0 items-center gap-1 rounded-lg border border-line/15 px-2 py-1 text-micro text-dim hover:text-accent"
                             >
                               <Info size={12} /> OB <ChevronDown size={11} className={openBehaviour === key ? 'rotate-180' : ''} />
                             </button>
                           </div>
                           {openBehaviour === key && (
-                            <ul className="mb-2.5 list-disc space-y-1 rounded-lg bg-bg/50 p-3 pl-7 text-[12.5px] leading-relaxed text-dim">
+                            <ul className="mb-2.5 list-disc space-y-tight rounded-lg bg-bg/50 p-3 pl-7 text-micro leading-relaxed text-dim">
                               {c.behaviours.map((b, bi) => (
                                 <li key={bi}>{b}</li>
                               ))}
@@ -1149,7 +1149,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                                 onClick={() => setGrade(i, c.code, val)}
                                 aria-pressed={g?.grade === val}
                                 aria-label={`${c.code} · ${c.title}: ${val}`}
-                                className={`min-h-11 rounded-lg px-1 py-2.5 text-[14px] font-semibold transition ${
+                                className={`min-h-11 rounded-lg px-1 py-2.5 text-body font-semibold transition ${
                                   g?.grade === val ? gradeColor(val) + ' ring-2 ring-accent' : 'bg-line/[0.06] text-dim hover:bg-line/10'
                                 }`}
                               >
@@ -1172,13 +1172,13 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                             // Das Feld heisst je nach Zustand anders.
                             aria-label={`${t('forms:commentOptional')} — ${c.code}`}
                             aria-required={commentRequired}
-                            className={`${inputCls} mt-1.5 text-[13px] ${commentRequired && !g?.comment.trim() ? 'border-danger/60' : ''}`}
+                            className={`${inputCls} mt-1.5 text-small ${commentRequired && !g?.comment.trim() ? 'border-danger/60' : ''}`}
                           />
                           )}
                           {!commentRequired && !(g?.comment ?? '').length && openComment !== key && (
                             <button
                               onClick={() => setOpenComment(key)}
-                              className="mt-1.5 text-[12px] text-dim underline-offset-2 hover:text-accent hover:underline"
+                              className="mt-1.5 text-micro text-dim underline-offset-2 hover:text-accent hover:underline"
                             >
                               + {t('forms:commentOptional')}
                             </button>
@@ -1209,7 +1209,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                           aria-pressed={tr.overall === o}
                           disabled={o === 'competent' && auto}
                           onClick={() => setTrainee(i, { overall: o })}
-                          className={`flex-1 rounded-xl border px-3 py-3 text-[14px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                          className={`flex-1 rounded-xl border px-3 py-3 text-body font-semibold transition disabled:cursor-not-allowed disabled:opacity-40 ${
                             tr.overall === o
                               ? o === 'competent'
                                 ? 'border-emerald-700 bg-emerald-700 text-white'
@@ -1221,7 +1221,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                         </button>
                       ))}
                     </div>
-                    {auto && <p role="status" className="mt-2 text-[12.5px] leading-relaxed text-danger">{t('forms:autoNotCompetent')}</p>}
+                    {auto && <p role="status" className="mt-2 text-micro leading-relaxed text-danger">{t('forms:autoNotCompetent')}</p>}
                   </Field>
                 </Card>
                 )
@@ -1237,7 +1237,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                           key={sst}
                           aria-pressed={sessionStatus === sst}
                           onClick={() => setSessionStatus(sst)}
-                          className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-[13.5px] transition ${
+                          className={`min-h-11 flex-1 rounded-xl border px-3 py-2.5 text-small transition ${
                             sessionStatus === sst ? 'border-accent bg-accent/10 font-semibold text-accent' : 'border-line/15 text-dim'
                           }`}
                         >
@@ -1252,21 +1252,21 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
             {/* 4b. Session-Daten — werden immer erst NACH dem Grading erfasst */}
             {postFields.length > 0 && (
-              <Card id="sessiondaten" className="scroll-mt-24 space-y-3 p-4">
+              <Card id="sessiondaten" className="scroll-mt-24 space-y-stack p-4">
                 <CardHeading>{t('forms:sessionData')}</CardHeading>
-                <p className="text-[12px] leading-relaxed text-dim">{t('forms:sessionDataHint')}</p>
+                <p className="text-micro leading-relaxed text-dim">{t('forms:sessionDataHint')}</p>
                 <div className="grid gap-3 sm:grid-cols-2">{postFields.map(renderField)}</div>
               </Card>
             )}
 
             {/* 4c. Teilnehmerliste (307A/307B) */}
             {isAttendance && (
-              <Card className="space-y-3 p-4">
+              <Card className="space-y-stack p-4">
                 <CardHeading>{t('forms:attendance')}</CardHeading>
                 {attendance.map((a, i) => (
-                  <div key={i} className="space-y-2 rounded-xl border border-line/10 p-3">
+                  <div key={i} className="space-y-stack rounded-xl border border-line/10 p-3">
                     <div className="flex items-center gap-2">
-                      <span className="w-6 shrink-0 text-[12.5px] text-dim">{i + 1}.</span>
+                      <span className="w-6 shrink-0 text-micro text-dim">{i + 1}.</span>
                       <input
                         value={a.name}
                         onChange={(e) => setAttendance(attendance.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
@@ -1297,18 +1297,18 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 ))}
                 <button
                   onClick={() => setAttendance([...attendance, { name: '', signature: null }])}
-                  className="flex items-center gap-1.5 text-[13.5px] font-medium text-accent hover:underline"
+                  className="flex items-center gap-1.5 text-small font-medium text-accent hover:underline"
                 >
                   <Plus size={15} /> {t('forms:addAttendee')}
                 </button>
-                {formTypeId === '307B' && <p className="text-[12px] leading-relaxed text-dim">{t('forms:attendance307B')}</p>}
+                {formTypeId === '307B' && <p className="text-micro leading-relaxed text-dim">{t('forms:attendance307B')}</p>}
               </Card>
             )}
 
             {/* 5. Unterschriften — immer live zu leisten, nie gespeichert/übernommen.
                 Bei mehreren Studenten unterschreibt JEDER einzeln; pro Student
                 entsteht beim Abschluss ein eigenes Formular. */}
-            <Card id="unterschriften" className="scroll-mt-24 space-y-4 p-4">
+            <Card id="unterschriften" className="scroll-mt-24 space-y-section p-4">
               <CardHeading>{t('forms:signatures')}</CardHeading>
               <div className="grid gap-4 sm:grid-cols-2">
                 <SignaturePad value={sigInstructor} onChange={setSigInstructor} label={t('forms:sigInstructor')} />
@@ -1326,21 +1326,21 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 )}
               </div>
               {trainees.length > 1 && (
-                <p className="text-[12px] leading-relaxed text-dim">{t('forms:multiStudentHint')}</p>
+                <p className="text-micro leading-relaxed text-dim">{t('forms:multiStudentHint')}</p>
               )}
-              <p className="text-[12px] leading-relaxed text-dim">{t('forms:lockNote')}</p>
-              <p className="text-[12px] leading-relaxed text-dim">{t('forms:sigLiveNote')}</p>
+              <p className="text-micro leading-relaxed text-dim">{t('forms:lockNote')}</p>
+              <p className="text-micro leading-relaxed text-dim">{t('forms:sigLiveNote')}</p>
             </Card>
 
             {/* Deferred Item: Versand geht immer an den Training Admin */}
             {formTypeId === '310' && (
-              <p className="rounded-xl border border-warm/25 bg-warm/5 p-3.5 text-[12.5px] leading-relaxed text-dim">
+              <p className="rounded-xl border border-warm/25 bg-warm/5 p-3.5 text-micro leading-relaxed text-dim">
                 {t('forms:deferredMailNote', { recipients: grading.deferredRecipients.join(', ') })}
               </p>
             )}
 
             {/* 6. Empfänger: Standard (Admin-Konfiguration) + zusätzliche */}
-            <Card className="space-y-3 p-4">
+            <Card className="space-y-stack p-4">
               <CardHeading>{t('forms:recipientsCard')}</CardHeading>
               <div className="flex flex-wrap gap-1.5">
                 {[
@@ -1348,12 +1348,12 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   ...(formTypeId === '310' ? grading.deferredRecipients : []),
                   ...(needsFollowUp ? grading.escalationRecipients : []),
                 ].map((r) => (
-                  <span key={r} className="rounded-full bg-raised px-2.5 py-1 text-[12px] text-dim">
+                  <span key={r} className="rounded-full bg-raised px-2.5 py-1 text-micro text-dim">
                     {r}
                   </span>
                 ))}
                 {extraRecipients.map((r) => (
-                  <span key={r} className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-[12px] text-accent">
+                  <span key={r} className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-micro text-accent">
                     {r}
                     <button onClick={() => setExtraRecipients(extraRecipients.filter((x) => x !== r))} className="hover:text-danger">
                       ×
@@ -1383,7 +1383,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   </div>
                 )
               })()}
-              <p className="text-[12px] leading-relaxed text-dim">{t('forms:extraRecipientsHint')}</p>
+              <p className="text-micro leading-relaxed text-dim">{t('forms:extraRecipientsHint')}</p>
             </Card>
 
             {/* 7. Senden — der Knopf sitzt in der Abschlussleiste unten. Hier
@@ -1405,7 +1405,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         <div className="formularleiste above-sandbox fixed inset-x-0 z-30 border-t border-line/10 bg-bg/95 px-3 pb-3 pt-2 backdrop-blur print:hidden">
           <div className="mx-auto flex max-w-3xl flex-col gap-2">
             {offenOffen && openItems.length > 0 && (
-              <ul className="max-h-40 space-y-1 overflow-y-auto rounded-xl border border-line/10 bg-surface/60 p-2">
+              <ul className="max-h-40 space-y-tight overflow-y-auto rounded-xl border border-line/10 bg-surface/60 p-2">
                 {openItems.map((o) => (
                   <li key={o.id + o.text}>
                     <button
@@ -1413,7 +1413,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                         setOffenOffen(false)
                         springeZu(o.id)
                       }}
-                      className="min-h-11 w-full rounded-lg px-2 text-left text-[13px] text-dim transition hover:bg-line/5 hover:text-accent"
+                      className="min-h-11 w-full rounded-lg px-2 text-left text-small text-dim transition hover:bg-line/5 hover:text-accent"
                     >
                       {o.text}
                     </button>
@@ -1426,12 +1426,12 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 onClick={() => setOffenOffen((v) => !v)}
                 disabled={openItems.length === 0}
                 aria-expanded={offenOffen}
-                className="min-h-11 min-w-0 flex-1 rounded-xl border border-line/15 px-3 text-left text-[13px] transition disabled:opacity-60"
+                className="min-h-11 min-w-0 flex-1 rounded-xl border border-line/15 px-3 text-left text-small transition disabled:opacity-60"
               >
                 <span className="block truncate font-semibold">
                   {gradesTotal > 0 ? t('forms:gradedOf', { done: gradedCount, total: gradesTotal }) : ''}
                 </span>
-                <span className={`block truncate text-[12px] ${openItems.length ? 'text-wait' : 'text-ok'}`}>
+                <span className={`block truncate text-micro ${openItems.length ? 'text-wait' : 'text-ok'}`}>
                   {openItems.length ? t('forms:openItems', { count: openItems.length }) : t('forms:allDone')}
                 </span>
               </button>
@@ -1449,8 +1449,8 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
       {showFollowUp && (
         <Modal title={t('forms:followUpTitle')} onClose={() => setShowFollowUp(false)}>
-          <p className="mb-4 text-[13.5px] leading-relaxed text-dim">{t('forms:followUpBodyMandatory')}</p>
-          <div className="space-y-2">
+          <p className="mb-4 text-small leading-relaxed text-dim">{t('forms:followUpBodyMandatory')}</p>
+          <div className="space-y-stack">
             {/* Über den Katalog iterieren, nicht über eine feste Liste: Fehlt
                 ein Typ (der Superadmin darf ihn löschen, solange kein
                 Datensatz ihn benutzt — im Auslieferungszustand trifft das auf
@@ -1474,12 +1474,12 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${on ? 'border-accent bg-accent text-bg' : 'border-line/30'}`}>
                     {on && '✓'}
                   </span>
-                  <span className="min-w-0 flex-1 text-[14px]">
+                  <span className="min-w-0 flex-1 text-body">
                     <span className="font-semibold">{ft.id}</span> — {ft.title}
                   </span>
                   {/* Pflichtformular: vorausgewählt und nicht abwählbar */}
                   {required && (
-                    <span className="shrink-0 rounded-full bg-danger/15 px-2 py-0.5 text-[12px] font-semibold text-danger">
+                    <span className="shrink-0 rounded-full bg-danger/15 px-2 py-0.5 text-micro font-semibold text-danger">
                       {t('forms:mandatory')}
                     </span>
                   )}
@@ -1489,17 +1489,17 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
           </div>
           {/* Bei mehreren Piloten im Durchgang entsteht je Pilot ein 306 */}
           {notCompetentCount > 1 && followUps.includes('306') && (
-            <p className="mt-3 rounded-xl border border-warm/25 bg-warm/5 p-3 text-[12.5px] leading-relaxed">
+            <p className="mt-3 rounded-xl border border-warm/25 bg-warm/5 p-3 text-micro leading-relaxed">
               {t('forms:followUp306PerPilot', { count: notCompetentCount })}
             </p>
           )}
           {/* Gleiches gilt seit #24 für das 310: es nennt genau einen Piloten. */}
           {trainees.length > 1 && followUps.includes('310') && (
-            <p className="mt-3 rounded-xl border border-warm/25 bg-warm/5 p-3 text-[12.5px] leading-relaxed">
+            <p className="mt-3 rounded-xl border border-warm/25 bg-warm/5 p-3 text-micro leading-relaxed">
               {t('forms:followUp310PerPilot', { count: trainees.length })}
             </p>
           )}
-          <p className="mt-3 text-[12px] leading-relaxed text-dim">{t('forms:followUpMailNote')}</p>
+          <p className="mt-3 text-micro leading-relaxed text-dim">{t('forms:followUpMailNote')}</p>
           <div className="mt-5 flex justify-end">
             <Button onClick={finish} disabled={followUps.length === 0 || submitting}>
               {t('forms:openFollowUp')}

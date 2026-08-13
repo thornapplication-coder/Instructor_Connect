@@ -86,7 +86,7 @@ export function TopBar({
             auf <body> — Tastaturnutzer fingen wieder ganz oben an, und
             Sprachausgaben meldeten den Wechsel gar nicht. In der
             Tab-Reihenfolge taucht die Ueberschrift dadurch nicht auf. */}
-        <h1 data-page-heading tabIndex={-1} className="min-w-0 flex-1 truncate text-[17px] font-semibold tracking-tight outline-none">
+        <h1 data-page-heading tabIndex={-1} className="min-w-0 flex-1 truncate text-head font-semibold tracking-tight outline-none">
           {title}
         </h1>
         {/* Der Titel gibt nach, die Aktion rechts nicht: Ein langer Titel
@@ -126,7 +126,7 @@ export function Page({ children, className = '', wide = false }: { children: Rea
 /**
  * Kartenliste, die am Desktop zweispaltig wird.
  *
- * Ersetzt `space-y-3` ueberall dort, wo die Liste aus kompakten Karten
+ * Tritt an die Stelle des senkrechten Stapels ueberall dort, wo die Liste aus kompakten Karten
  * besteht (Notizen, Kontakte, Chats, Lehrplaene, Formularzeilen). Bis zum
  * Tablet bleibt es eine Spalte — die Karten brauchen die volle Breite.
  */
@@ -135,7 +135,7 @@ export function CardGrid({ children, className = '' }: { children: ReactNode; cl
   // leere Haelfte — die Breite waere wieder aufgespannt statt genutzt, und
   // genau das sollte das Raster abstellen.
   const einzeln = Children.count(children) < 2
-  return <div className={`${einzeln ? 'space-y-3' : 'grid grid-cols-1 gap-3 xl:grid-cols-2'} ${className}`}>{children}</div>
+  return <div className={`${einzeln ? 'space-y-stack' : 'grid grid-cols-1 gap-3 xl:grid-cols-2'} ${className}`}>{children}</div>
 }
 
 /**
@@ -179,7 +179,7 @@ export function SectionHeading({
 }) {
   return (
     <h2
-      className={`flex items-center gap-2.5 text-[12.5px] font-bold uppercase tracking-[0.09em] text-ink ${
+      className={`flex items-center gap-2.5 text-micro font-bold uppercase tracking-[0.09em] text-ink ${
         sticky ? 'below-topbar sticky z-[5] -mx-1 bg-bg/90 px-1 py-2 backdrop-blur' : ''
       } ${className}`}
     >
@@ -196,7 +196,7 @@ export function SectionHeading({
 }
 
 export function CardHeading({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <h3 className={`text-[12.5px] font-bold uppercase tracking-[0.08em] text-ink ${className}`}>{children}</h3>
+  return <h3 className={`text-micro font-bold uppercase tracking-[0.08em] text-ink ${className}`}>{children}</h3>
 }
 
 /**
@@ -306,7 +306,7 @@ export function Button({
       type={type}
       disabled={disabled}
       onClick={onClick}
-      className={`min-h-11 rounded-xl px-4 py-2.5 text-sm transition disabled:opacity-40 ${styles} ${className}`}
+      className={`min-h-11 rounded-xl px-4 py-2.5 text-body transition disabled:opacity-40 ${styles} ${className}`}
     >
       {children}
     </button>
@@ -317,10 +317,10 @@ export function Button({
  *  Klassenliste an vierzehn Stellen wortgleich im Code und wich an zwei
  *  Stellen davon ab. */
 export const selectCls =
-  'w-full rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-[14px] text-ink outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+  'w-full rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-body text-ink outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
 export const inputCls =
-  'w-full rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-[15px] text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+  'w-full rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-lead text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
 /**
  * Beschriftetes Feld.
@@ -351,7 +351,7 @@ export function Field({
   if (group) {
     return (
       <div id={anchorId} className="block scroll-mt-24" role="group" aria-labelledby={id}>
-        <span id={id} className="mb-1.5 block text-[13px] font-medium text-dim">
+        <span id={id} className="mb-1.5 block text-small font-medium text-dim">
           {label}
         </span>
         {children}
@@ -360,7 +360,7 @@ export function Field({
   }
   return (
     <label className="block">
-      <span className="mb-1.5 block text-[13px] font-medium text-dim">{label}</span>
+      <span className="mb-1.5 block text-small font-medium text-dim">{label}</span>
       {children}
     </label>
   )
@@ -398,7 +398,7 @@ export function CountBadge({ count, label, className = '' }: { count: number; la
     <span
       role="img"
       aria-label={`${count} ${label}`}
-      className={`pointer-events-none absolute z-10 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-1 text-[12px] font-bold leading-none text-bg ring-2 ring-bg ${className}`}
+      className={`pointer-events-none absolute z-10 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-accent px-1 text-micro font-bold leading-none text-bg ring-2 ring-bg ${className}`}
     >
       {count > 99 ? '99+' : count}
     </span>
@@ -434,7 +434,7 @@ export function ChipMultiSelect({ options, selected, onChange }: {
           <button
             key={o.id}
             onClick={() => onChange(on ? selected.filter((x) => x !== o.id) : [...selected, o.id])}
-            className={`min-h-11 rounded-full border px-3 py-1.5 text-[12.5px] transition ${
+            className={`min-h-11 rounded-full border px-3 py-1.5 text-micro transition ${
               on ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
             }`}
           >
@@ -487,7 +487,7 @@ export function Badge({ children, tone = 'accent', strong = false }: { children:
   }
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium ${(strong ? full : soft)[tone]} ${strong ? 'font-semibold' : ''}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-micro font-medium ${(strong ? full : soft)[tone]} ${strong ? 'font-semibold' : ''}`}
     >
       {children}
     </span>
@@ -607,7 +607,7 @@ export function Modal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start gap-3">
-          <h2 className="min-w-0 flex-1 text-lg font-semibold">{title}</h2>
+          <h2 className="min-w-0 flex-1 text-head font-semibold">{title}</h2>
           <button
             onClick={close}
             aria-label={t('common.close')}

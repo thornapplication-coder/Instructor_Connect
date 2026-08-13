@@ -65,7 +65,7 @@ function FlagBadge({ flag, t }: { flag: Flag; t: (k: string) => string }) {
  */
 function FigureRow({ label, own, fleet, all }: { label: string; own: string; fleet: string; all: string }) {
   return (
-    <tr className="border-b border-line/[0.06] text-[13px] last:border-0">
+    <tr className="border-b border-line/[0.06] text-small last:border-0">
       <th scope="row" className="py-1.5 pr-2 text-left font-normal text-dim">
         {label}
       </th>
@@ -87,10 +87,10 @@ function Distribution({ dist, t }: { dist: Figures['dist']; t: (k: string) => st
           const share = total === 0 ? 0 : Math.round((n / total) * 100)
           return (
             <span key={k} className="flex items-center gap-1.5 rounded-lg border border-line/10 px-2 py-1">
-              <span className={`flex h-6 w-7 items-center justify-center rounded-md text-[12px] font-bold ${gradeColor(k === 'NO' ? 'NO' : Number(k))}`}>
+              <span className={`flex h-6 w-7 items-center justify-center rounded-md text-micro font-bold ${gradeColor(k === 'NO' ? 'NO' : Number(k))}`}>
                 {k}
               </span>
-              <span className="text-[12.5px] tabular-nums">
+              <span className="text-micro tabular-nums">
                 {n} <span className="text-dim">· {share} %</span>
               </span>
             </span>
@@ -104,9 +104,9 @@ function Distribution({ dist, t }: { dist: Figures['dist']; t: (k: string) => st
 function CompetencyTable({ lines, t }: { lines: CompetencyLine[]; t: (k: string) => string }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[520px] border-collapse text-[13px]">
+      <table className="w-full min-w-[520px] border-collapse text-small">
         <thead>
-          <tr className="border-b border-line/15 text-left text-[12px] uppercase tracking-wide text-dim">
+          <tr className="border-b border-line/15 text-left text-micro uppercase tracking-wide text-dim">
             <th className="py-2 pr-2 font-semibold">{t('forms:admin.perCompetency')}</th>
             <th className="py-2 px-2 text-right font-semibold">{t('forms:admin.yours')}</th>
             <th className="py-2 px-2 text-right font-semibold">{t('forms:admin.fleetCol')}</th>
@@ -233,15 +233,15 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
   }
 
   if (months.length === 0)
-    return <Card className="p-4 text-[13.5px] text-dim">{t('forms:admin.noMonths')}</Card>
+    return <Card className="p-4 text-small text-dim">{t('forms:admin.noMonths')}</Card>
 
   return (
-    <div className="space-y-3">
-      <p className="text-[13px] leading-relaxed text-dim">{t('forms:admin.monthlyHint')}</p>
+    <div className="space-y-stack">
+      <p className="text-small leading-relaxed text-dim">{t('forms:admin.monthlyHint')}</p>
 
       {/* Auswahl: Monat und — mit vollem Archivzugriff — der Instruktor */}
       <div className="flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-1.5 text-[13px] font-medium text-dim">
+        <label className="flex items-center gap-1.5 text-small font-medium text-dim">
           <CalendarRange size={15} /> {t('forms:admin.month')}
         </label>
         <select
@@ -258,7 +258,7 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
         </select>
         {mayPickInstructor && (
           <>
-            <label className="text-[13px] font-medium text-dim">{t('forms:admin.instructorPick')}</label>
+            <label className="text-small font-medium text-dim">{t('forms:admin.instructorPick')}</label>
             <select
               value={instructorId}
               onChange={(e) => { setInstructorId(e.target.value); setPicked('') }}
@@ -273,51 +273,51 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
         )}
         <button
           onClick={exportCsv}
-          className="ml-auto flex min-h-11 items-center gap-1.5 rounded-xl border border-line/15 px-3 py-2 text-[13px] text-dim transition hover:border-accent/40 hover:text-accent"
+          className="ml-auto flex min-h-11 items-center gap-1.5 rounded-xl border border-line/15 px-3 py-2 text-small text-dim transition hover:border-accent/40 hover:text-accent"
         >
           <Download size={15} /> {t('forms:admin.downloadCsv')}
         </button>
       </div>
 
       {!report || report.own.sessions === 0 ? (
-        <Card className="p-4 text-[13.5px] text-dim">{t('forms:admin.noDataMonth')}</Card>
+        <Card className="p-4 text-small text-dim">{t('forms:admin.noDataMonth')}</Card>
       ) : (
         <>
           {/* Kalibrierung zuerst — sie ist die Aussage, der Rest ist Beleg. */}
-          <Card className="space-y-2.5 p-4">
+          <Card className="space-y-stack p-4">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <h3 className="text-[15.5px] font-bold">{userName(report.instructorId)}</h3>
-              <span className="text-[13px] text-dim">· {monthLabel(report.month)}</span>
-              {report.fleets.length > 0 && <span className="text-[13px] text-dim">· {report.fleets.join(', ')}</span>}
+              <h3 className="text-lead font-bold">{userName(report.instructorId)}</h3>
+              <span className="text-small text-dim">· {monthLabel(report.month)}</span>
+              {report.fleets.length > 0 && <span className="text-small text-dim">· {report.fleets.join(', ')}</span>}
             </div>
             <div className="grid gap-2 sm:grid-cols-2">
               {/* Ohne fremde Formulare in der Gruppe vergleicht man sich mit
                   sich selbst — die 0 waere dann keine Aussage, sondern Zufall
                   der Datenlage. Dann lieber den Grund nennen. */}
               <div className="rounded-xl border border-line/10 p-3">
-                <p className="mb-1 text-[12px] uppercase tracking-wide text-dim">{t('forms:admin.vsFleet')}</p>
+                <p className="mb-1 text-micro uppercase tracking-wide text-dim">{t('forms:admin.vsFleet')}</p>
                 {report.fleetHasOthers ? (
                   <>
-                    <p className={`text-[19px] font-bold tabular-nums ${deltaClass(report.deltaFleet)}`}>{fmtDelta(report.deltaFleet)}</p>
+                    <p className={`text-title font-bold tabular-nums ${deltaClass(report.deltaFleet)}`}>{fmtDelta(report.deltaFleet)}</p>
                     <FlagBadge flag={report.flagFleet} t={t} />
                   </>
                 ) : (
-                  <p className="text-[12.5px] leading-relaxed text-dim">{t('forms:admin.onlyYou')}</p>
+                  <p className="text-micro leading-relaxed text-dim">{t('forms:admin.onlyYou')}</p>
                 )}
               </div>
               <div className="rounded-xl border border-line/10 p-3">
-                <p className="mb-1 text-[12px] uppercase tracking-wide text-dim">{t('forms:admin.vsAll')}</p>
+                <p className="mb-1 text-micro uppercase tracking-wide text-dim">{t('forms:admin.vsAll')}</p>
                 {report.allHasOthers ? (
                   <>
-                    <p className={`text-[19px] font-bold tabular-nums ${deltaClass(report.deltaAll)}`}>{fmtDelta(report.deltaAll)}</p>
+                    <p className={`text-title font-bold tabular-nums ${deltaClass(report.deltaAll)}`}>{fmtDelta(report.deltaAll)}</p>
                     <FlagBadge flag={report.flagAll} t={t} />
                   </>
                 ) : (
-                  <p className="text-[12.5px] leading-relaxed text-dim">{t('forms:admin.onlyYou')}</p>
+                  <p className="text-micro leading-relaxed text-dim">{t('forms:admin.onlyYou')}</p>
                 )}
               </div>
             </div>
-            <p className="text-[12px] leading-relaxed text-dim">{t('forms:admin.deltaHint')}</p>
+            <p className="text-micro leading-relaxed text-dim">{t('forms:admin.deltaHint')}</p>
           </Card>
 
           <Card className="p-4">
@@ -325,7 +325,7 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
               <table className="w-full border-collapse">
                 <caption className="sr-only">{t('forms:admin.figuresCaption')}</caption>
                 <thead>
-                  <tr className="border-b border-line/15 text-[12px] uppercase tracking-wide text-dim">
+                  <tr className="border-b border-line/15 text-micro uppercase tracking-wide text-dim">
                     <td />
                     <th scope="col" className="py-1.5 px-2 text-right font-semibold">{t('forms:admin.yours')}</th>
                     <th scope="col" className="py-1.5 px-2 text-right font-semibold">{t('forms:admin.fleetCol')}</th>
@@ -353,7 +353,7 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
             <CompetencyTable lines={report.competencies} t={t} />
           </Card>
 
-          <div className="flex items-start gap-2.5 rounded-xl border border-line/10 bg-surface/60 p-3.5 text-[12.5px] text-dim">
+          <div className="flex items-start gap-2.5 rounded-xl border border-line/10 bg-surface/60 p-3.5 text-micro text-dim">
             <Info size={15} className="mt-0.5 shrink-0 text-accent" />
             <p>{t('forms:admin.onlyOwn')}</p>
           </div>

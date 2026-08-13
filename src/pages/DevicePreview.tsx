@@ -43,7 +43,7 @@ export function DevicePreview() {
           <button
             key={key}
             onClick={() => setDevice(key)}
-            className={`min-h-11 flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13px] transition ${
+            className={`min-h-11 flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-small transition ${
               device === key ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim hover:text-ink'
             }`}
           >
@@ -60,7 +60,7 @@ export function DevicePreview() {
         <button
           onClick={() => frameRef.current?.contentWindow?.location.reload()}
           title={t('sandbox.reset')}
-          className="min-h-11 rounded-full border border-line/15 px-3 py-1.5 text-[13px] text-dim transition hover:text-ink"
+          className="min-h-11 rounded-full border border-line/15 px-3 py-1.5 text-small text-dim transition hover:text-ink"
         >
           ⟳
         </button>
