@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, CardHeading, ChipMultiSelect, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { adminStatus } from '../adminStatus'
+import { toast } from '../components/Toast'
 import { storageInfo, type StorageInfo } from '../persist'
 import { downloadCsv } from '../csv'
 import { buildImportTemplate, isImportable, parseUserImport, type ImportResult, type ImportRow } from '../userImport'
@@ -95,7 +96,10 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
           </Button>
           <Button
             variant="ghost"
-            onClick={() => downloadCsv('instructor-connect-users-template.csv', buildImportTemplate(state.settings.aircraftTypes, domain))}
+            onClick={() => {
+              downloadCsv('instructor-connect-users-template.csv', buildImportTemplate(state.settings.aircraftTypes, domain))
+              toast(t('toast.downloaded'))
+            }}
             className="flex items-center gap-1.5"
           >
             <Download size={15} /> {t('admin.import.template')}
@@ -183,8 +187,7 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
           <Button
             disabled={uebernehmbar.length === 0 || done !== null}
             onClick={() => {
-              setDone(
-                importUsers(
+              const ergebnis = importUsers(
                   uebernehmbar.map((r) => ({
                     name: r.name,
                     email: r.email,
@@ -196,8 +199,9 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
                     canEditDirectory: r.canEditDirectory,
                     active: r.active,
                   })),
-                ),
               )
+              setDone(ergebnis)
+              toast(t('toast.usersImported', { count: ergebnis }), ergebnis ? 'ok' : 'wait')
             }}
           >
             {t('admin.import.run', { count: uebernehmbar.length })}
@@ -832,6 +836,7 @@ function FeedbackCard({
                   <Button
                     onClick={() => {
                       onResolve(f.id, note)
+                      toast(t('toast.feedbackResolved'))
                       setEditNote(false)
                     }}
                     className="shrink-0"
@@ -854,13 +859,25 @@ function FeedbackCard({
             <input
               type="checkbox"
               checked={done}
-              onChange={(e) => (e.target.checked ? onResolve(f.id, note) : onReopen(f.id))}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  onResolve(f.id, note)
+                  toast(t('toast.feedbackResolved'))
+                } else {
+                  onReopen(f.id)
+                  toast(t('toast.feedbackReopened'), 'wait')
+                }
+              }}
               className="h-5 w-5 shrink-0 accent-ok"
             />
             {t('admin.feedbackDone')}
           </label>
           <button
-            onClick={() => window.confirm(t('admin.confirmDeleteFeedback')) && onDelete(f.id)}
+            onClick={() => {
+              if (!window.confirm(t('admin.confirmDeleteFeedback'))) return
+              onDelete(f.id)
+              toast(t('toast.feedbackDeleted'))
+            }}
             aria-label={t('common.delete')}
             className="flex h-11 w-11 items-center justify-center rounded-full text-dim hover:text-danger"
           >

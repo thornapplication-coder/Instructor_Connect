@@ -386,5 +386,24 @@
     "noFile": "Keine Datei hinterlegt",
     "category": "Schulungsart",
     "noCategory": "Ohne Zuordnung"
+  },
+  "toast": {
+    "noteSaved": "Notiz gespeichert",
+    "noteDeleted": "Notiz gelöscht",
+    "contactSaved": "Kontakt gespeichert",
+    "contactDeleted": "Kontakt gelöscht",
+    "lessonAdded": "Lesson Plan hinzugefügt",
+    "lessonDeleted": "Lesson Plan gelöscht",
+    "infoSaved": "Eintrag gespeichert",
+    "infoDeleted": "Eintrag gelöscht",
+    "userSaved": "Benutzer gespeichert",
+    "usersImported_one": "{{count}} Benutzer übernommen",
+    "usersImported_other": "{{count}} Benutzer übernommen",
+    "feedbackResolved": "Als bearbeitet markiert",
+    "feedbackReopened": "Wieder geöffnet",
+    "feedbackDeleted": "Rückmeldung gelöscht",
+    "downloaded": "Datei heruntergeladen",
+    "bulkApplied_one": "{{count}} Benutzer geändert",
+    "bulkApplied_other": "{{count}} Benutzer geändert"
   }
 }

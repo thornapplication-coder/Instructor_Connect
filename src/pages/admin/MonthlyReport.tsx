@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, type BadgeTone, Card, CardHeading, selectCls } from '../../components/ui'
 import { csvNum, csvRow, downloadCsv } from '../../csv'
+import { toast } from '../../components/Toast'
 import type { Flag } from '../../gradingStats'
 import {
   monthlyReport,
@@ -229,6 +230,7 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
       csv += csvRow([`${c.code} ${c.title}`, csvNum(c.own), csvNum(c.fleet), csvNum(c.all), csvNum(c.deltaFleet), csvNum(c.deltaAll)]),
     )
     const m = report.month
+    toast(t('forms:toast.exported'))
     downloadCsv(`monthly-report_${userName(report.instructorId).replace(/\s+/g, '-')}_${m.year}-${String(m.month + 1).padStart(2, '0')}.csv`, csv)
   }
 

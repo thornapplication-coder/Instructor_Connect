@@ -2,6 +2,7 @@ import { Mail, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, TopBar } from '../components/ui'
+import { toast } from '../components/Toast'
 import { useStore } from '../store'
 import type { Contact } from '../types'
 
@@ -49,6 +50,7 @@ function ContactModal({ contact, onClose }: { contact: Partial<Contact> | null; 
             disabled={!valid}
             onClick={() => {
               saveContact({ id: contact?.id, ...form })
+              toast(t('toast.contactSaved'))
               onClose()
             }}
           >
@@ -168,7 +170,10 @@ export function WhoToCall() {
                         </button>
                         <button
                           onClick={() => {
-                            if (window.confirm(t('contacts.deleteConfirm', { name: c.name }))) deleteContact(c.id)
+                            if (window.confirm(t('contacts.deleteConfirm', { name: c.name }))) {
+                              deleteContact(c.id)
+                              toast(t('toast.contactDeleted'))
+                            }
                           }}
                           aria-label={t('contacts.deleteContact')}
                           title={t('contacts.deleteContact')}

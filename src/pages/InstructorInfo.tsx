@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
+import { toast } from '../components/Toast'
 import { infoEntryAppliesTo, infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
 import type { InfoEntry } from '../types'
 import { formatDate, formatDateTime } from './Grading'
@@ -117,6 +118,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
           <Button
             disabled={!valid}
             onClick={() => {
+              toast(t('toast.infoSaved'))
               addInfoEntry({
                 type,
                 title: title.trim(),
@@ -183,6 +185,7 @@ export function InstructorInfo() {
     ackTargets(entry).forEach((u) => {
       csv += csvRow([u.name, acks[u.id] ? 'confirmed' : 'PENDING', acks[u.id] ? formatDateTime(acks[u.id]) : ''])
     })
+    toast(t('toast.downloaded'))
     downloadCsv(`read-confirmations_${entry.title.replace(/[^\w-]+/g, '-').slice(0, 40)}.csv`, csv)
   }
 
@@ -454,7 +457,11 @@ export function InstructorInfo() {
                     )}
                     {mayEdit && (
                       <button
-                        onClick={() => window.confirm(t('info.confirmDelete')) && deleteInfoEntry(entry.id)}
+                        onClick={() => {
+                          if (!window.confirm(t('info.confirmDelete'))) return
+                          deleteInfoEntry(entry.id)
+                          toast(t('toast.infoDeleted'))
+                        }}
                         className="min-h-11 flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-small text-danger hover:bg-danger/10"
                       >
                         <Trash2 size={14} /> {t('common.delete')}

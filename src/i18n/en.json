@@ -386,5 +386,24 @@
     "noFile": "No file attached",
     "category": "Training type",
     "noCategory": "Unassigned"
+  },
+  "toast": {
+    "noteSaved": "Note saved",
+    "noteDeleted": "Note deleted",
+    "contactSaved": "Contact saved",
+    "contactDeleted": "Contact deleted",
+    "lessonAdded": "Lesson plan added",
+    "lessonDeleted": "Lesson plan deleted",
+    "infoSaved": "Entry saved",
+    "infoDeleted": "Entry deleted",
+    "userSaved": "User saved",
+    "usersImported_one": "{{count}} user imported",
+    "usersImported_other": "{{count}} users imported",
+    "feedbackResolved": "Marked as handled",
+    "feedbackReopened": "Reopened",
+    "feedbackDeleted": "Feedback deleted",
+    "downloaded": "File downloaded",
+    "bulkApplied_one": "{{count}} user changed",
+    "bulkApplied_other": "{{count}} users changed"
   }
 }

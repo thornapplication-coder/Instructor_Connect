@@ -2,6 +2,7 @@ import { NotebookPen, Pencil, Pin, Plus, Search, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, TopBar } from '../components/ui'
+import { toast } from '../components/Toast'
 import { groupNotes, notePreview, PINNED, searchNotes } from '../notes'
 import { useStore } from '../store'
 import type { Note } from '../types'
@@ -55,6 +56,7 @@ function NoteEditor({ note, onClose }: { note?: Note; onClose: () => void }) {
             disabled={!title.trim()}
             onClick={() => {
               saveNote({ id: note?.id, title, body })
+              toast(t('toast.noteSaved'))
               onClose()
             }}
           >
@@ -190,7 +192,10 @@ export function Notes() {
                     onClick={() => {
                       // Eine Notiz ist schnell geschrieben und ebenso schnell
                       // weg — deshalb dieselbe Rueckfrage wie ueberall sonst.
-                      if (window.confirm(t('notes.deleteConfirm', { title: n.title }))) deleteNote(n.id)
+                      if (window.confirm(t('notes.deleteConfirm', { title: n.title }))) {
+                          deleteNote(n.id)
+                          toast(t('toast.noteDeleted'))
+                        }
                     }}
                     className="min-h-11 flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-small text-danger transition hover:bg-danger/10"
                   >

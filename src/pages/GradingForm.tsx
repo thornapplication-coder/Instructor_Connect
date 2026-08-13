@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
 import { Button, Card, CardHeading, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
+import { toast } from '../components/Toast'
 import { contentFingerprint, HASH_VERSION } from '../docHash'
 import { networkReachable } from '../net'
 import { autoNotCompetent, isFollowUpType, isNotCompetent } from '../gradingRules'
@@ -671,6 +672,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     // Teil einer Folgeformular-Kette: nächstes Glied öffnen — mit SEINEM
     // Ausgangsformular, nicht mit dem des gerade abgeschlossenen.
     if (parentId && next.length > 0) {
+      toast(t('forms:toast.chainNext'), 'ok')
       navigate(`/grading/new?type=${next[0].type}&parent=${next[0].parentId}&next=${encodeChain(next.slice(1))}`)
       return
     }
@@ -678,6 +680,15 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     // Dashboard (bei einer 306/310-Kette erst hier, nach dem letzten Glied).
     // Blieb etwas offen (Unterschrift, Versand), zeigt die Detailansicht warum.
     const allOk = recs.every((r) => r.status === 'signed' && r.mailStatus === 'sent')
+    /* Bis hierher sprang das Formular wortlos in die Liste zurueck. Drei
+       Ausgaenge sahen dabei gleich aus: fertig und versendet, unterschrieben
+       aber ohne Netz (Ausgangskorb), oder noch etwas offen. Genau die
+       Unterscheidung braucht der Instruktor, bevor er das Geraet weglegt. */
+    const alleUnterschrieben = recs.every((r) => r.status === 'signed')
+    const imKorb = recs.some((r) => r.mailStatus === 'queued')
+    if (allOk) toast(t('forms:toast.signedAndSent'), 'ok')
+    else if (alleUnterschrieben && imKorb) toast(t('forms:toast.queued'), 'wait')
+    else toast(t('forms:toast.openLeft'), 'wait')
     // replace: die Formularadresse verschwindet aus dem Verlauf
     navigate(allOk || recs.length > 1 ? '/grading' : `/grading/${recs[0].id}`, true)
   }

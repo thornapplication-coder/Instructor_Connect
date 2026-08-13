@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, CardHeading, Field, inputCls, selectCls } from '../../components/ui'
 import { downloadCsv } from '../../csv'
+import { toast } from '../../components/Toast'
 import { avgOf, buildGradingCsv, gradingCsvName } from '../../gradingExport'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
@@ -602,6 +603,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
       ),
     })
     downloadCsv(gradingCsvName(scope, jetzt), csv)
+    toast(t('forms:toast.exported'))
   }
 
   // Kachel-Navigation im Stil des Dashboards
