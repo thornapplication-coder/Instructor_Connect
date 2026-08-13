@@ -912,10 +912,10 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                   <span className="shrink-0">· {dateLabel(gradingListDate(r))}</span>
                 </p>
               </div>
-              {r.trainees.some((tr) => tr.overall === 'not_competent') && <Badge tone="warm">{t('forms:notCompetent')}</Badge>}
+              {r.trainees.some((tr) => tr.overall === 'not_competent') && <Badge tone="bad">{t('forms:notCompetent')}</Badge>}
               {!!r.hiddenFor?.length && (
                 <>
-                  <Badge tone="warm">{t('forms:admin.hiddenBadge', { count: r.hiddenFor.length })}</Badge>
+                  <Badge tone="wait">{t('forms:admin.hiddenBadge', { count: r.hiddenFor.length })}</Badge>
                   <button
                     onClick={(e) => {
                       e.stopPropagation()

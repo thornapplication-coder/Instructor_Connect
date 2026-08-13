@@ -78,7 +78,7 @@ export function ChatList() {
                         Platz, und in der Liste war kein einziger Name mehr
                         lesbar. max-w begrenzt ihn auf ein Drittel der Zeile. */}
                     {g.aircraftType && (
-                      <span className="max-w-[33%] shrink truncate rounded-full bg-raised px-2 py-0.5 text-[12px] font-medium text-accent">
+                      <span className="max-w-[33%] shrink truncate rounded-full bg-accent/15 px-2.5 py-0.5 text-[12px] font-medium text-ink">
                         {g.aircraftType}
                       </span>
                     )}

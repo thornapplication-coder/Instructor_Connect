@@ -1,7 +1,7 @@
 import { BarChart3, Ban, FileText, Image as ImageIcon, Info, Paperclip, Plus, SendHorizonal, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Field, inputCls, Modal, NewDot, TopBar } from '../components/ui'
+import { Badge, Button, Field, inputCls, Modal, NewDot, TopBar } from '../components/ui'
 import i18n from '../i18n'
 import { useUnsavedWork } from '../editGuard'
 import { navigate } from '../router'
@@ -114,7 +114,7 @@ function PollCard({ poll }: { poll: Poll }) {
           {t('chat.poll')} · {author?.name}
         </span>
         {closed && (
-          <span className="ml-auto rounded-full bg-line/10 px-2 py-0.5 text-[12px] font-medium">{t('chat.closed')}</span>
+          <span className="ml-auto"><Badge tone="dim">{t('chat.closed')}</Badge></span>
         )}
       </div>
       <p className="mb-1 text-[15px] font-semibold leading-snug">{poll.question}</p>

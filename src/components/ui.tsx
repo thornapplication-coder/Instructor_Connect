@@ -420,17 +420,52 @@ export function ChipMultiSelect({ options, selected, onChange }: {
   )
 }
 
-export function Badge({ children, tone = 'accent' }: { children: ReactNode; tone?: 'accent' | 'warm' | 'dim' }) {
-  const tones = {
-    /* Akzentfarbe auf 15-%-Flaeche ergab gemessene 3,86:1 — unter den
-       geforderten 4,5:1 fuer normalen Text. Die Flaeche traegt den Akzent,
-       die Schrift bleibt Text (12,4:1). Dasselbe gilt fuer den aktiven
-       Zustand jedes Umschalters in der App. */
+export type BadgeTone = 'accent' | 'ok' | 'wait' | 'bad' | 'dim'
+
+/**
+ * Statusmarke — die einzige Pille der App.
+ *
+ * Vorher stand dasselbe Signal in drei Gestalten nebeneinander: „Not
+ * Competent" war in der Liste warm-braun, in der Akte rot getoent und in der
+ * Detailansicht ein volles `bg-red-600`. Wer die drei Ansichten
+ * hintereinander sah, musste jedes Mal neu lesen, statt die Farbe zu
+ * erkennen. Deshalb gibt es hier fuenf Toene mit je EINER Bedeutung —
+ * `ok` erledigt, `wait` wartet oder mahnt, `bad` durchgefallen oder kaputt,
+ * `accent` neutrale Einordnung (Muster, Rolle), `dim` ruhiger Nebenzustand.
+ *
+ * `strong` waehlt die volle Flaeche statt der 15-%-Toenung. Das ist keine
+ * zweite Farbwelt, sondern dieselbe Skala lauter — gebraucht dort, wo die
+ * Marke gegen viel Text bestehen muss (fehlendes Pflichtformular, Ergebnis
+ * im Kopf der Akte).
+ */
+export function Badge({ children, tone = 'accent', strong = false }: { children: ReactNode; tone?: BadgeTone; strong?: boolean }) {
+  /* Akzentfarbe auf 15-%-Flaeche ergab gemessene 3,86:1 — unter den
+     geforderten 4,5:1 fuer normalen Text. Die Flaeche traegt den Akzent,
+     die Schrift bleibt Text (12,4:1). Dasselbe gilt fuer den aktiven
+     Zustand jedes Umschalters in der App. */
+  const soft: Record<BadgeTone, string> = {
     accent: 'bg-accent/15 text-ink',
-    warm: 'bg-warm/15 text-warm',
+    ok: 'bg-ok/15 text-ok',
+    wait: 'bg-wait/15 text-wait',
+    bad: 'bg-bad/15 text-bad',
     dim: 'bg-line/8 text-dim',
-  }[tone]
-  return <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium ${tones}`}>{children}</span>
+  }
+  /* Die Ink-Toene wechseln mit dem Theme mit — auf der hellen Ampelflaeche
+     steht Weiss, auf der dunklen fast Schwarz. */
+  const full: Record<BadgeTone, string> = {
+    accent: 'bg-accent text-bg',
+    ok: 'bg-ok text-okInk',
+    wait: 'bg-wait text-waitInk',
+    bad: 'bg-bad text-badInk',
+    dim: 'bg-raised text-ink',
+  }
+  return (
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium ${(strong ? full : soft)[tone]} ${strong ? 'font-semibold' : ''}`}
+    >
+      {children}
+    </span>
+  )
 }
 
 /**

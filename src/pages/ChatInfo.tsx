@@ -85,7 +85,7 @@ export function ChatInfo({ groupId }: { groupId: string }) {
               <li key={m.id} className="flex items-center gap-2.5">
                 <Avatar name={m.name} size={30} />
                 <span className="min-w-0 flex-1 truncate text-[14px]">{m.name}</span>
-                {group.adminIds.includes(m.id) && <Badge tone="warm">{t('chatInfo.admin')}</Badge>}
+                {group.adminIds.includes(m.id) && <Badge tone="accent">{t('chatInfo.admin')}</Badge>}
                 {mayManage && m.id !== currentUser!.id && (
                   <button
                     onClick={() => setGroupMembers(group.id, group.memberIds.filter((id) => id !== m.id))}

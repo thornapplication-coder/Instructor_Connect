@@ -274,11 +274,15 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               <CheckCircle2 size={11} className="mr-1" /> {t('forms:status.signed')}
             </Badge>
           ) : (
-            <Badge tone="warm">
+            <Badge tone="wait">
               <Clock size={11} className="mr-1" /> {t('forms:status.awaiting_signature')}
             </Badge>
           )}
-          <Badge tone={record.mailStatus === 'sent' ? 'accent' : 'dim'}>{t(`forms:mail.${record.mailStatus}`)}</Badge>
+          {/* Versandstand folgt derselben Skala wie alles andere: verschickt ist
+              erledigt, in der Warteschlange wartet, fehlgeschlagen ist kaputt. */}
+          <Badge tone={record.mailStatus === 'sent' ? 'ok' : record.mailStatus === 'failed' ? 'bad' : record.mailStatus === 'queued' ? 'wait' : 'dim'}>
+            {t(`forms:mail.${record.mailStatus}`)}
+          </Badge>
         </div>
 
         {record.mailStatus === 'failed' && (
@@ -449,14 +453,15 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               <p className="min-w-0 text-[15px] font-semibold">{traineeLabel(tr)}</p>
               <span className="ml-auto flex shrink-0 items-center gap-2 whitespace-nowrap">
                 <span className="text-[12px] text-dim">{[tr.position, tr.seat].filter(Boolean).join(' · ')}</span>
+                {/* Volle Flaeche statt Toenung: Dieses Ergebnis ist die
+                    Aussage des Blattes und muss sie auch auf Papier tragen.
+                    Die Farbe kommt aus derselben Skala wie ueberall sonst —
+                    vorher standen hier zwei Palettenwerte (emerald-700,
+                    red-600), die in der Liste nirgends vorkamen. */}
                 {tr.overall && (
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${
-                      tr.overall === 'competent' ? 'bg-emerald-700 text-white' : 'bg-red-600 text-white'
-                    }`}
-                  >
+                  <Badge tone={tr.overall === 'competent' ? 'ok' : 'bad'} strong>
                     {t(`forms:${tr.overall}`)}
-                  </span>
+                  </Badge>
                 )}
               </span>
             </div>

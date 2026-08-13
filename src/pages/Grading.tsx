@@ -557,8 +557,20 @@ export function Grading() {
               className="p-4"
             >
               <div className="flex items-start gap-3">
-                {/* Status-Icon spiegelt die Ampel: grün ✓, gelb ?, rot ✕ */}
-                <span className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised">
+                {/* Die Ampel dieser Zeile — und zwar nur hier.
+                    Bis zuletzt stand sie zweimal in derselben Zeile: links
+                    dieses Icon-Feld, rechts neben den Knoepfen noch einmal
+                    derselbe Wert als TrafficDot. Zwei Anzeigen fuer eine
+                    Aussage kosten Blickwege und lassen offen, ob sie
+                    dasselbe meinen. Das Icon-Feld bleibt, weil es die
+                    Ampel zusaetzlich in der Form codiert (Haken, Fragezeichen,
+                    Kreuz) — die Farbe allein traegt sie nicht.
+                    Die Ansage haengt jetzt hier, wo vorher der Punkt sie trug. */}
+                <span
+                  role="img"
+                  aria-label={t(`forms:traffic.${light}`)}
+                  className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-raised"
+                >
                   {light === 'green' ? (
                     <CheckCircle2 size={22} className="text-ok" />
                   ) : light === 'red' ? (
@@ -585,35 +597,34 @@ export function Grading() {
                         <CheckCircle2 size={11} className="mr-1" /> {t('forms:status.signed')}
                       </Badge>
                     ) : r.status === 'awaiting_signature' ? (
-                      <Badge tone="warm">
+                      <Badge tone="wait">
                         <Clock size={11} className="mr-1" /> {t('forms:status.awaiting_signature')}
                       </Badge>
                     ) : (
                       <Badge tone="dim">{t('forms:status.draft')}</Badge>
                     )}
-                    {notCompetent && <Badge tone="warm">{t('forms:notCompetent')}</Badge>}
+                    {notCompetent && <Badge tone="bad">{t('forms:notCompetent')}</Badge>}
                     {r.mailStatus === 'failed' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[12px] font-medium text-danger">
-                        <AlertTriangle size={11} /> {t('forms:mail.failed')}
-                      </span>
+                      <Badge tone="bad">
+                        <AlertTriangle size={11} className="mr-1" /> {t('forms:mail.failed')}
+                      </Badge>
                     )}
                     {/* Pflicht-Folgeformular noch nicht ausgefüllt */}
                     {missing.map((id) => (
-                      <span key={id} className="inline-flex items-center gap-1 rounded-full bg-wait px-2.5 py-0.5 text-[12px] font-semibold text-waitInk">
-                        <AlertTriangle size={11} />{' '}
+                      <Badge key={id} tone="wait" strong>
+                        <AlertTriangle size={11} className="mr-1" />{' '}
                         {/* Angelegt, aber unsigniert: dann fehlt nur noch die
                             Unterschrift — das ist etwas anderes als „gar nicht da". */}
                         {followUpStarted(r, state.gradingRecords, id)
                           ? t('forms:unsignedForm', { id })
                           : t('forms:missingForm', { id })}
-                      </span>
+                      </Badge>
                     ))}
                     {r.parentId && <Badge tone="dim">{t('forms:linked')}</Badge>}
                   </div>
                 </div>
-                {/* Ampel + Aktionen in EINER Reihe */}
+                {/* Aktionen in EINER Reihe */}
                 <div className="pointer-events-auto relative z-10 mt-0.5 flex shrink-0 items-center gap-1">
-                  <TrafficDot color={light} className="mr-1" />
                   {/* Komplett ausgefüllte Formulare als PDF herunterladen —
                       öffnet die Ein-Seiten-Druckansicht mit PDF-Dialog */}
                   {r.status === 'signed' && (

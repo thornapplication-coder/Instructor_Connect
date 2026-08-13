@@ -1,7 +1,7 @@
 import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { Badge, Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
 import { infoEntryAppliesTo, infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
 import type { InfoEntry } from '../types'
@@ -355,8 +355,8 @@ export function InstructorInfo() {
                   {/* Für Verwalter sichtbar: der Eintrag gilt erst später und
                       ist für die Zielgruppen noch nicht sichtbar */}
                   {scheduled && (
-                    <p className="mt-1 inline-flex items-center rounded-full bg-wait px-2 py-0.5 text-[12px] font-semibold text-waitInk">
-                      {t('info.scheduled')}
+                    <p className="mt-1">
+                      <Badge tone="wait" strong>{t('info.scheduled')}</Badge>
                     </p>
                   )}
 

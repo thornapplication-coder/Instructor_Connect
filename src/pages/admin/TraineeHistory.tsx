@@ -1,7 +1,7 @@
 import { ArrowLeft, ChevronRight, Minus, Search, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Card, CardHeading, inputCls } from '../../components/ui'
+import { Badge, Card, CardHeading, inputCls } from '../../components/ui'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { traineeHistories, type CompetencyTrack, type TraineeHistory as History } from '../../traineeHistory'
@@ -47,9 +47,9 @@ function CompetencyRow({ c, t }: { c: CompetencyTrack; t: T }) {
         <span className="text-[13.5px] font-semibold">{c.code}</span>
         <span className="min-w-0 flex-1 truncate text-[13px] text-dim">{c.title}</span>
         {c.recurringWeak && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-warm/15 px-2.5 py-0.5 text-[12px] font-semibold text-warm">
-            <TriangleAlert size={12} /> {t('forms:admin.recurringWeak')}
-          </span>
+          <Badge tone="wait">
+            <TriangleAlert size={12} className="mr-1" /> {t('forms:admin.recurringWeak')}
+          </Badge>
         )}
       </div>
       {/* Noten in zeitlicher Folge — die Reihe IST die Aussage */}
@@ -130,8 +130,8 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
               </span>
             </span>
             {s.overall === 'not_competent' && (
-              <span className="shrink-0 rounded-full bg-danger/15 px-2.5 py-0.5 text-[12px] font-semibold text-danger">
-                {t('forms:notCompetent')}
+              <span className="shrink-0">
+                <Badge tone="bad">{t('forms:notCompetent')}</Badge>
               </span>
             )}
             <ChevronRight size={16} className="shrink-0 text-dim" />
@@ -198,13 +198,15 @@ export function TraineeHistory({ records }: { records: GradingRecord[] }) {
                         </span>
                       </span>
                       {weak > 0 && (
-                        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-warm/15 px-2.5 py-0.5 text-[12px] font-semibold text-warm">
-                          <TriangleAlert size={12} /> {weak}
+                        <span className="shrink-0">
+                          <Badge tone="wait">
+                            <TriangleAlert size={12} className="mr-1" /> {weak}
+                          </Badge>
                         </span>
                       )}
                       {h.notCompetentCount > 0 && (
-                        <span className="shrink-0 rounded-full bg-danger/15 px-2.5 py-0.5 text-[12px] font-semibold text-danger">
-                          {h.notCompetentCount}
+                        <span className="shrink-0">
+                          <Badge tone="bad">{h.notCompetentCount}</Badge>
                         </span>
                       )}
                       <ChevronRight size={16} className="shrink-0 text-dim" />

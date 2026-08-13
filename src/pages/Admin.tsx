@@ -595,7 +595,7 @@ function GroupsTab() {
             <button onClick={() => setOpenId(openId === g.id ? null : g.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
               <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{g.name}</span>
               {g.aircraftType && (
-                <span className="shrink-0 rounded-full bg-raised px-2 py-0.5 text-[12px] font-medium text-accent">{g.aircraftType}</span>
+                <span className="shrink-0"><Badge tone="accent">{g.aircraftType}</Badge></span>
               )}
               <span className="shrink-0 text-[12px] text-dim">{t('chatInfo.members', { count: g.memberIds.length })}</span>
               <ChevronDown size={16} className={`shrink-0 text-dim transition ${openId === g.id ? 'rotate-180' : ''}`} />
@@ -788,7 +788,7 @@ function FeedbackCard({
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-[14.5px] font-semibold">{userName(f.authorId)}</p>
             <Badge tone="dim">{f.category}</Badge>
-            <Badge tone={f.aircraftType ? 'warm' : 'dim'}>{f.aircraftType || t('feedback.scopeGeneral')}</Badge>
+            <Badge tone={f.aircraftType ? 'accent' : 'dim'}>{f.aircraftType || t('feedback.scopeGeneral')}</Badge>
             {f.urgent && (
               <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-[12px] font-semibold text-danger">
                 <AlertTriangle size={11} /> {t('feedback.urgent')}

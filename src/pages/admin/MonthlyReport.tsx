@@ -1,7 +1,7 @@
 import { CalendarRange, Download, Info } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Card, CardHeading, selectCls } from '../../components/ui'
+import { Badge, type BadgeTone, Card, CardHeading, selectCls } from '../../components/ui'
 import { csvNum, csvRow, downloadCsv } from '../../csv'
 import type { Flag } from '../../gradingStats'
 import {
@@ -37,11 +37,11 @@ const fmtDelta = (v: number | null) => (v === null ? '–' : `${v > 0 ? '+' : ''
 const deltaClass = (v: number | null) => (v === null ? 'text-dim' : Math.abs(v) < 0.4 ? 'text-dim' : v > 0 ? 'text-warm' : 'text-accent')
 
 function FlagBadge({ flag, t }: { flag: Flag; t: (k: string) => string }) {
-  const map: Record<Flag, string> = {
-    none: 'bg-ok/15 text-ok',
-    watch: 'bg-warm/15 text-warm',
-    review: 'bg-danger/15 text-danger',
-    insufficient: 'bg-line/10 text-dim',
+  const map: Record<Flag, BadgeTone> = {
+    none: 'ok',
+    watch: 'wait',
+    review: 'bad',
+    insufficient: 'dim',
   }
   const label: Record<Flag, string> = {
     none: 'flagNone',
@@ -50,9 +50,7 @@ function FlagBadge({ flag, t }: { flag: Flag; t: (k: string) => string }) {
     insufficient: 'flagInsufficient',
   }
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-semibold ${map[flag]}`}>
-      {t(`forms:admin.${label[flag]}`)}
-    </span>
+    <Badge tone={map[flag]}>{t(`forms:admin.${label[flag]}`)}</Badge>
   )
 }
 
