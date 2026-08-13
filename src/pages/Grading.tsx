@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, inputCls, Page, SectionHeading, TopBar } from '../components/ui'
 import { downloadCsv } from '../csv'
+import { readDrafts } from '../drafts'
 import { toast } from '../components/Toast'
 import { buildGradingCsv, gradingCsvName, type ExportScope } from '../gradingExport'
 import { navigate } from '../router'
@@ -443,38 +444,6 @@ function TrainingAdminGrading() {
       </Page>
     </>
   )
-}
-
-/**
- * Offene Entwuerfe des angemeldeten Nutzers.
- *
- * Ein Entwurf lag bisher unsichtbar in `localStorage`: Nach Neuladen landete
- * man auf der leeren Typauswahl, und die Liste zeigte nichts — im Zweifel
- * begann eine halbe Stunde Bewertung von vorn. Gelesen wird derselbe
- * Schluessel, den das Formular schreibt (`aaa-draft-<user>-new-<typ>`).
- */
-function readDrafts(userId: string): { key: string; formTypeId: string; wer: string; noten: number; gesamt: number }[] {
-  try {
-    const prefix = `aaa-draft-${userId}-new-`
-    return Object.keys(localStorage)
-      .filter((k) => k.startsWith(prefix))
-      .map((k) => {
-        const d = JSON.parse(localStorage.getItem(k) ?? '{}') as {
-          trainees?: { traineeName?: string; grades?: { grade: number | 'NO' | null }[] }[]
-          header?: Record<string, string>
-        }
-        const trainees = d.trainees ?? []
-        return {
-          key: k,
-          formTypeId: k.slice(prefix.length),
-          wer: trainees.map((x) => x.traineeName?.trim()).filter(Boolean).join(', ') || d.header?.traineeName || '',
-          noten: trainees.reduce((n, x) => n + (x.grades ?? []).filter((g) => g.grade !== null).length, 0),
-          gesamt: trainees.reduce((n, x) => n + (x.grades ?? []).length, 0),
-        }
-      })
-  } catch {
-    return []
-  }
 }
 
 export function Grading() {

@@ -203,3 +203,32 @@ Verwaltung und Rückmeldung:
   die Legende Kreis/Dreieck/Quadrat, die Zeilen darunter aber Haken/
   Fragezeichen/Kreuz; die Legende ließ sich auf die Liste nicht anwenden. Die
   Farben kommen jetzt aus dem Theme und sind damit auch im Dunkelmodus klar.
+
+## 1.4.1 — 2026-08-13
+
+Gegengelesen und nachgebessert. Ein unabhängiger Durchgang durch die
+Änderungen der Version 1.4.0 fand sechs Fehler, die beim Bauen nicht
+aufgefallen waren:
+
+- **Sammelbearbeitung:** Die Auswahl überlebte jeden Filterwechsel. Wer 100
+  Instruktoren auswählte, dann den Filter umstellte und „Deaktivieren"
+  drückte, sperrte 100 Konten aus, von denen keines sichtbar war. Aktionen
+  wirken jetzt ausschließlich auf die angezeigte Liste; die Auswahl wird beim
+  Wechsel bereinigt.
+- **Fortschrittsleiste:** Sie meldete „Alles erledigt", während das Absenden
+  blockierte — bei 306 und 310 mit leeren Freitexten, bei den
+  Anwesenheitslisten 307A/B und bei einem Blatt aus lauter „NO". Beide
+  Prüfungen sind jetzt eine einzige; offene Punkte führen zur Fundstelle,
+  auch wenn sie auf Schritt 1 liegt.
+- **Bestätigungen** verdeckten den Offline-Streifen. Alle Leisten am unteren
+  Rand liegen jetzt untereinander statt übereinander.
+- Die Bestätigung wurde von Sprachausgaben **nicht vorgelesen**, weil die
+  Live-Region erst zusammen mit ihrem Text entstand.
+- **Statusmarken im Ton `dim`** hatten keine Fläche: `bg-line/8` erzeugte gar
+  kein CSS. Ein Test hält solche Stufen jetzt frei.
+- Die **Vollbild-Unterschrift** war ein Dialog ohne Dialog-Eigenschaften —
+  ohne Escape, ohne Fokusfang, und „Clear" lag hinter dem Overlay.
+
+Kleiner: Entwürfe von Folgeformularen tauchen wieder in der Entwurfsliste auf
+· fehlendes Pflichtformular ist in der Statuszeile gelb wie in der Liste ·
+zwei weitere Klassen ohne CSS entfernt.

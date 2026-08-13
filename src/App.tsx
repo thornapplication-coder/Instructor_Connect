@@ -96,17 +96,32 @@ function AppShell() {
   const { currentUser } = useStore()
   return (
     <div className="flex min-h-full flex-col">
-      <UpdateBanner />
-      <OfflineBanner />
-      <StorageBanner />
+      {/*
+        Ein einziger Stapel fuer alles, was am unteren Rand liegt.
+
+        Vorher trug jeder Streifen `above-sandbox fixed inset-x-0` selbst und
+        sass damit auf demselben Punkt: Der Offline-Streifen verdeckte die
+        Abschlussleiste des Formulars (dafuer gibt es die Sonderregel in
+        index.css), und die neue Bestaetigung verdeckte anschliessend den
+        Offline-Streifen — ausgerechnet die Zahl der wartenden Formulare, im
+        Funkloch, drei Sekunden lang. Zwei Fehler desselben Musters.
+
+        Ein Flex-Stapel loest das Muster auf: Was gleichzeitig sichtbar ist,
+        liegt untereinander statt uebereinander. Reihenfolge von unten nach
+        oben, dringlichstes zuletzt.
+      */}
+      <div className="above-sandbox pointer-events-none fixed inset-x-0 z-40 flex flex-col items-center gap-tight px-3">
+        <ToastHost />
+        <StorageBanner />
+        <OfflineBanner />
+        <UpdateBanner />
+      </div>
       <div className="flex flex-1 flex-col">
         {/* Identitätswechsel baut die Seite neu auf: sonst schrieb ein offener
             Bildschirm dem neuen Nutzer sofort „gesehen" gut und übernahm
             fremden Formularzustand. */}
         <Screen key={currentUser?.id ?? 'anon'} />
       </div>
-      {/* Bestaetigungen sitzen ueber der Sandbox-Leiste, nicht dahinter. */}
-      <ToastHost />
       <SandboxBar />
     </div>
   )

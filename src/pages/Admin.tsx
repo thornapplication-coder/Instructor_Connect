@@ -275,7 +275,7 @@ function UsersTab() {
    * Verweigern waere so schlecht wie stilles Ausfuehren.
    */
   const bulkAusfuehren = (bezeichnung: string, aktion: BulkAktion) => {
-    const plan = planBulk(state.users, gewaehlt, aktion, currentUser!.id)
+    const plan = planBulk(state.users, users, gewaehlt, aktion, currentUser!.id)
     if (plan.patches.length === 0 && plan.uebersprungen.length === 0) {
       toast(t('admin.bulk.noChange'), 'wait')
       return
@@ -284,9 +284,31 @@ function UsersTab() {
     plan.patches.forEach(({ id, patch }) => updateUser(id, patch))
     if (plan.uebersprungen.some((x) => x.grund === 'selbst')) window.alert(t('admin.bulk.skippedSelf'))
     if (plan.uebersprungen.some((x) => x.grund === 'letzterSuperadmin')) window.alert(t('admin.bulk.skippedLastSuper'))
+    // Sollte durch die Bereinigung unten nie eintreten — wenn doch, dann laut.
+    const unsichtbar = plan.uebersprungen.filter((x) => x.grund === 'nichtSichtbar').length
+    if (unsichtbar) window.alert(t('admin.bulk.skippedHidden', { count: unsichtbar }))
     if (plan.patches.length > 0) toast(t('toast.bulkApplied', { count: plan.patches.length }))
     setGewaehlt([])
   }
+
+  /*
+   * Die Auswahl gilt nur fuer das, was auf dem Bildschirm steht.
+   *
+   * Sie ist eine Liste von Kennungen und ueberlebte bisher jeden Wechsel von
+   * Filter, Suche und Sortierung: Wer 100 Member auswaehlte, dann auf
+   * „Superadmin" filterte und „Deaktivieren" drueckte, sperrte 100
+   * Instruktoren aus, von denen in dem Moment keiner sichtbar war. Die
+   * Rueckfrage nannte nur eine Zahl.
+   *
+   * Deshalb faellt beim Wechsel der sichtbaren Menge alles aus der Auswahl,
+   * was nicht mehr dazugehoert. Der Vergleich laeuft ueber die verketteten
+   * Kennungen, damit der Effekt nicht bei jedem Render feuert.
+   */
+  const sichtbareIds = users.map((u) => u.id).join(',')
+  useEffect(() => {
+    const bleibt = new Set(sichtbareIds ? sichtbareIds.split(',') : [])
+    setGewaehlt((alt) => (alt.every((id) => bleibt.has(id)) ? alt : alt.filter((id) => bleibt.has(id))))
+  }, [sichtbareIds])
 
   return (
     <div className="space-y-stack">
@@ -539,7 +561,7 @@ function UsersTab() {
                       updateUser(u.id, { aircraftTypes: on ? u.aircraftTypes.filter((x) => x !== a) : [...u.aircraftTypes, a] })
                     }
                     className={`min-h-11 rounded-full border px-2.5 py-1 text-micro transition ${
-                      on ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/12 text-dim'
+                      on ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/10 text-dim'
                     }`}
                   >
                     {a}
@@ -647,7 +669,7 @@ function PermissionsTab() {
         {t('admin.permMatrixHint')}
       </p>
       <Card className="overflow-x-auto p-4">
-        <table className="w-full min-w-105 text-small">
+        <table className="w-full min-w-[26rem] text-small">
           <thead>
             <tr className="border-b border-line/15 text-left text-micro uppercase tracking-wide text-dim">
               <th className="pb-2 pr-3 font-semibold">{t('admin.permCapability')}</th>
@@ -801,7 +823,7 @@ function GroupsTab() {
                         setGroupAdmins(g.id, isAdmin ? g.adminIds.filter((id) => id !== u.id) : [...g.adminIds, u.id])
                       }
                       className={`min-h-11 rounded-full border px-2.5 py-1 text-micro transition ${
-                        isAdmin ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/12 text-dim'
+                        isAdmin ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/10 text-dim'
                       }`}
                     >
                       {u.name}
@@ -823,7 +845,7 @@ function GroupsTab() {
                       setGroupMembers(g.id, isMember ? g.memberIds.filter((id) => id !== u.id) : [...g.memberIds, u.id])
                     }
                     className={`min-h-11 rounded-full border px-2.5 py-1 text-micro transition ${
-                      isMember ? 'border-warm/60 bg-warm/10 font-medium text-warm' : 'border-line/12 text-dim'
+                      isMember ? 'border-warm/60 bg-warm/10 font-medium text-warm' : 'border-line/10 text-dim'
                     }`}
                   >
                     {u.name}

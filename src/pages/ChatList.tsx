@@ -2,23 +2,9 @@ import { BellOff, ChevronRight, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Button, Card, Field, inputCls, Modal, NewDot, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { kurzeZeit } from '../drafts'
 import { navigate } from '../router'
 import { isAdminUser, useStore } from '../store'
-
-/**
- * Zeit der letzten Nachricht, so kurz wie moeglich: heute die Uhrzeit,
- * innerhalb der Woche der Wochentag, davor das Datum. Genau die Abstufung,
- * die man aus jeder Nachrichten-App kennt — sie kostet in der Liste eine
- * Zeile Platz und beantwortet trotzdem „wann war da zuletzt was".
- */
-export function kurzeZeit(ts: number, lng: string, jetzt: number): string {
-  const locale = lng === 'de' ? 'de-AT' : 'en-GB'
-  const tagMs = 24 * 3600_000
-  const heute = new Date(jetzt).setHours(0, 0, 0, 0)
-  if (ts >= heute) return new Date(ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
-  if (ts >= heute - 6 * tagMs) return new Date(ts).toLocaleDateString(locale, { weekday: 'short' })
-  return new Date(ts).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })
-}
 
 export function ChatList() {
   const { t, i18n } = useTranslation()

@@ -420,6 +420,12 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
           out.push({ id: `komp-${i}-${c.code}`, text: `${wer} · ${c.code} — ${t('forms:commentRequired')}` })
       })
       if (competencies.length > 0) {
+        // „NO" heisst not observed. Ein Blatt ohne eine einzige echte Note
+        // belegt keine Kompetenz und darf nicht abgeschlossen werden — das
+        // stand nur in der Absendepruefung und fehlte in der Leiste, die den
+        // Knopf steuert.
+        if (!tr.grades.some((g) => typeof g.grade === 'number'))
+          out.push({ id: `komp-${i}-${competencies[0]?.code ?? ''}`, text: t('forms:errAllNotObserved', { name: wer }) })
         if (!tr.positiveComment.trim() || !tr.developmentComment.trim() || !tr.summaryComment.trim())
           out.push({ id: `zusammen-${i}`, text: `${wer} — ${t('forms:summaryMissing')}` })
         if (!tr.overall) out.push({ id: `overall-${i}`, text: `${wer} — ${t('forms:overall')}` })
@@ -429,9 +435,26 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     postFields.forEach((f) => {
       if (f.required && !header[f.key]?.trim()) out.push({ id: 'sessiondaten', text: `${f.label} — ${t('forms:gradeMissing')}` })
     })
+    /* 306 und 310 belegen die Nachschulung bzw. den offenen Punkt — ihr
+       Inhalt steht ausschliesslich in den Freitextabschnitten. Sie fehlten
+       hier, und weil die Leiste den Senden-Knopf steuert, meldete ein leeres
+       306 „Alles erledigt" in Gruen und brach beim Klick ab. */
+    if (isFollowUpType(formTypeId ?? '')) {
+      ;(formType.freeTextSections ?? []).forEach((sec) => {
+        if (!freeText[sec]?.trim()) out.push({ id: 'freitext', text: `${sec} — ${t('forms:gradeMissing')}` })
+      })
+    }
+    // Eine Anwesenheitsliste ohne Anwesende belegt nichts.
+    if (isAttendance && !attendance.some((a) => a.name.trim())) out.push({ id: 'anwesenheit', text: t('forms:errNoAttendee') })
+    if (formTypeId === '307A') {
+      // 307A ist eine Anwesenheitsliste: wer daraufsteht, war da und unterschreibt.
+      attendance
+        .filter((a) => a.name.trim() && !a.signature)
+        .forEach((a) => out.push({ id: 'anwesenheit', text: t('forms:errAttendanceSignature', { name: a.name.trim() }) }))
+    }
     if (!sigInstructor) out.push({ id: 'unterschriften', text: t('forms:errSignature') })
     return out
-  }, [formType, step, trainees, competencies, sessionStatus, postFields, header, sigInstructor, t])
+  }, [formType, formTypeId, step, trainees, competencies, sessionStatus, postFields, header, freeText, isAttendance, attendance, sigInstructor, t])
 
   /** Fortschritt: wie viele Noten sind gesetzt? */
   const gradedCount = trainees.reduce((n, tr) => n + tr.grades.filter((g) => g.grade !== null).length, 0)
@@ -446,8 +469,17 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   }, [formType, step])
 
   const springeZu = (id: string) => {
-    const el = document.getElementById(id)
-    if (!el) return
+    /* Manche offenen Punkte liegen auf Schritt 1 — bei 306/310 stehen die
+       Freitextabschnitte dort, die Leiste steht aber auf Schritt 2. Ohne den
+       Rücksprung verpuffte der Klick wortlos: Das Ziel gibt es im Baum gar
+       nicht, und der Punkt blieb offen, ohne dass man erfuhr, wo er steht. */
+    if (!document.getElementById(id)) {
+      setStep(1)
+      // Erst nach dem Wechsel suchen — vorher ist das Ziel nicht gerendert.
+      window.setTimeout(() => springeZu(id), 60)
+      return
+    }
+    const el = document.getElementById(id)!
     el.scrollIntoView({ block: 'center', behavior: 'smooth' })
     const ziel = el.querySelector<HTMLElement>('button, input, textarea, select') ?? el
     ziel.focus({ preventScroll: true })
@@ -479,50 +511,29 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   }
 
   /** Schritt 2: Bewertung, Session-Daten und Unterschrift */
+  /**
+   * Absendepruefung — sie leitet sich aus derselben Liste ab, die unten in
+   * der Leiste steht.
+   *
+   * Vorher waren es zwei Pruefungen mit unterschiedlichem Umfang, und die
+   * Leiste steuerte den Knopf (`disabled={openItems.length > 0}`). Was nur
+   * hier stand und nicht in `openItems`, fuehrte deshalb zur schlimmsten
+   * Kombination: Die Leiste meldete „Alles erledigt" in Gruen, der Knopf war
+   * aktiv, und der Klick brach mit einer Meldung weit oberhalb der Falz ab.
+   * Betroffen waren ausgerechnet die Blaetter, die eine Nachschulung belegen
+   * (306/310, leere Freitexte), die Anwesenheitslisten (307A/B) und ein Blatt
+   * aus lauter „NO".
+   *
+   * Zwei Listen, die dasselbe prüfen sollen, laufen frueher oder spaeter
+   * auseinander — beim naechsten Formulartyp spaetestens. Deshalb gibt es
+   * jetzt nur noch eine, und diese Funktion nimmt ihren ersten Eintrag.
+   * Die Kopfdaten bleiben getrennt: Sie gehoeren zu Schritt 1, wo es die
+   * Leiste noch gar nicht gibt.
+   */
   const validate = (): string => {
     const headErr = validateHeader()
     if (headErr) return headErr
-    if (competencies.length > 0) {
-      for (const tr of trainees) {
-        const name = tr.traineeName?.trim() || t('forms:trainee')
-        if (tr.grades.some((g) => g.grade === null)) return t('forms:errGrades')
-        // „NO" heißt not observed. Ein Blatt ohne eine einzige echte Note
-        // belegt keine Kompetenz und darf nicht abgeschlossen werden.
-        if (!tr.grades.some((g) => typeof g.grade === 'number')) return t('forms:errAllNotObserved', { name })
-        if (tr.grades.some((g) => (g.grade === 1 || g.grade === 2) && !g.comment.trim()))
-          return t('forms:errGradeComment', { name })
-        if (!tr.positiveComment.trim() || !tr.developmentComment.trim() || !tr.summaryComment.trim())
-          return t('forms:errComments', { name })
-        if (!tr.overall) return t('forms:errOverall')
-      }
-      if (!sessionStatus) return t('forms:errSession')
-    }
-    for (const f of postFields) {
-      if (f.required && !header[f.key]?.trim()) return t('forms:errRequired', { field: f.label })
-    }
-    /*
-     * 306 und 310 belegen die Nachschulung bzw. den offenen Punkt — ihr
-     * Inhalt steht ausschliesslich in den Freitextabschnitten. Die waren an
-     * keiner Stelle Pflicht: Ein 306 mit drei leeren Abschnitten, beidseitig
-     * unterschrieben, galt in `missingFollowUps` als Nachweis und machte das
-     * Ausgangsblatt gruen. Auf dem Grading Sheet erzwingt die App zu jeder 1
-     * und 2 einen Kommentar; auf dem Blatt, das die Nachschulung belegen
-     * soll, erzwang sie nichts.
-     */
-    if (isFollowUpType(formTypeId ?? '')) {
-      const leer = (formType?.freeTextSections ?? []).find((sec) => !freeText[sec]?.trim())
-      if (leer) return t('forms:errRequired', { field: leer })
-    }
-    // Eine Anwesenheitsliste ohne Anwesende belegt nichts — sie war bisher
-    // absendbar und wurde grün.
-    if (isAttendance && !attendance.some((a) => a.name.trim())) return t('forms:errNoAttendee')
-    // 307A ist eine Anwesenheitsliste: wer daraufsteht, war da und unterschreibt.
-    if (formTypeId === '307A') {
-      const open = attendance.find((a) => a.name.trim() && !a.signature)
-      if (open) return t('forms:errAttendanceSignature', { name: open.name.trim() })
-    }
-    if (!sigInstructor) return t('forms:errSignature')
-    return ''
+    return openItems[0]?.text ?? ''
   }
 
   /**
@@ -1045,7 +1056,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
             {/* 3. Freitextabschnitte (306/310) */}
             {formType.freeTextSections.length > 0 && (
-              <Card className="space-y-stack p-4">
+              <Card id="freitext" className="scroll-mt-24 space-y-stack p-4">
                 {formType.freeTextSections.map((sec) => (
                   <Field key={sec} label={sec}>
                     <textarea
@@ -1272,7 +1283,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
             {/* 4c. Teilnehmerliste (307A/307B) */}
             {isAttendance && (
-              <Card className="space-y-stack p-4">
+              <Card id="anwesenheit" className="scroll-mt-24 space-y-stack p-4">
                 <CardHeading>{t('forms:attendance')}</CardHeading>
                 {attendance.map((a, i) => (
                   <div key={i} className="space-y-stack rounded-xl border border-line/10 p-3">

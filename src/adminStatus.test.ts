@@ -64,7 +64,8 @@ describe('Statuszeile des Admin-Panels', () => {
       trainees: [{ traineeName: 'Sophie Berger', traineeId: '', position: 'FO', grades: [], positiveComment: '', developmentComment: '', summaryComment: '', overall: 'not_competent' }],
     })
     const punkte = adminStatus(quelle({ gradingRecords: [durchgefallen] }))
-    expect(punkte.find((p) => p.key === 'openFollowUps')).toMatchObject({ count: 1, tone: 'bad' })
+    // Gelb wie die Ampel derselben Zeile — nicht rot; siehe adminStatus.ts.
+    expect(punkte.find((p) => p.key === 'openFollowUps')).toMatchObject({ count: 1, tone: 'wait' })
   })
 
   it('zaehlt nur unbearbeitetes Feedback', () => {
