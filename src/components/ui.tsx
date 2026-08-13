@@ -433,6 +433,12 @@ export function ChipMultiSelect({ options, selected, onChange }: {
         return (
           <button
             key={o.id}
+            type="button"
+            // Ausgewaehlt oder nicht war nur an der Farbe zu erkennen: Eine
+            // Sprachausgabe meldete vorher wie nachher „C560 XLS+,
+            // Schaltflaeche" — man konnte nicht feststellen, ob die
+            // Pflichtangabe schon erfuellt ist.
+            aria-pressed={on}
             onClick={() => onChange(on ? selected.filter((x) => x !== o.id) : [...selected, o.id])}
             className={`min-h-11 rounded-full border px-3 py-1.5 text-micro transition ${
               on ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'

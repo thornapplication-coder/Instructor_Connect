@@ -35,8 +35,14 @@ jobs:
       # package-lock.json. „npm run build" ist „tsc -b && vite build" — die
       # Typprüfung bricht den Lauf also mit ab.
       # Die Tests laufen VOR dem Build: Eine gebrochene Regel soll den Lauf
-      # beenden, bevor irgendetwas gebaut wird. Die Abdeckungsschwelle greift
-      # dabei auf alle Logik-Module — neue, ungetestete Logik faellt durch.
+      # beenden, bevor irgendetwas gebaut wird.
+      #
+      # Hier stand, die Abdeckungsschwelle greife auf alle Logik-Module und
+      # neue, ungetestete Logik falle durch. Das stimmte nicht: Der
+      # v8-Provider misst, was ausgefuehrt WURDE — eine Datei, die kein Test
+      # importiert, taucht in der Auswertung nicht auf und kann keine
+      # Schwelle reissen. Dafuer sorgt src/testGuard.test.ts, die Schwelle
+      # prueft die Guete der vorhandenen Tests.
       - name: Tests
         run: |
           npm ci

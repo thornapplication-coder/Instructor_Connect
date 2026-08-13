@@ -86,7 +86,16 @@ grün.
   Schranke trägt** — Mitglied und Admin sind ans Muster gebunden, Superadmin
   und Training Admin sehen alles. Wer die Ausnahme in einer Ansicht selbst
   auslegt statt `sichtbarFuer` zu rufen, baut die vierte Stelle, an der sie
-  auseinanderlaufen kann. Die **Nachweise**
+  auseinanderlaufen kann. Genauso auf der **Schreibseite**: Jeder Weg, der
+  einen Nutzer anlegt oder ändert, fragt `musterFehlt` — die Bedingung stand
+  einmal in `addUser` von Hand ausgeschrieben, und Import,
+  Sammelbearbeitung, Rollenwechsel und die Chip-Reihe in der Nutzerzeile
+  kannten sie nicht. Vier Wege in einen Zustand, den der fünfte verbietet.
+  Was jemand einem Inhalt an Muster **geben** darf, sagt `musterZurAuswahl`:
+  nur, was er auch sieht — sonst legt ein Admin einen Lesson Plan an und
+  verliert ihn im selben Moment. Und ein Nachtrag in `migrateState` braucht
+  eine **Marke**: Ohne sie lief er bei jedem Start und machte jede bewusste
+  Entziehung wieder rückgängig, und zwar nach oben. Die **Nachweise**
   (Ablage, Statistik, Behördenexport) bleiben bewusst rollenbasiert: Die
   Aufbewahrungspflicht gilt für den ganzen Bestand, nicht für den eigenen
   Teil davon. Wer eine neue Ansicht baut, entscheidet zuerst, in welche der

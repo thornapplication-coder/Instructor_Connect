@@ -258,7 +258,7 @@
     "canGrade": "Darf bewerten (Grading)",
     "isTrainee": "Ist Trainee",
     "grading": "Grading Tool",
-    "aircraftTypes": "Zugewiesene Muster (Lesson Plans)",
+    "aircraftTypes": "Zugewiesene Muster",
     "feedback": "Feedback",
     "feedbackEmpty": "Noch kein Feedback eingegangen.",
     "confirmDeleteFeedback": "Diesen Feedback-Eintrag löschen?",
@@ -344,7 +344,8 @@
       "pAircraft": "Unbekanntes Muster verworfen: {{list}}",
       "templateXlsx": "Vorlage herunterladen (Excel)",
       "templateSection": "Vorlage für den Benutzer-Import",
-      "templateHint": "Dieselbe Vorlage wie unter Benutzer → Benutzer importieren. In Excel ausfüllen, als „CSV UTF-8“ speichern und unter Benutzer hochladen."
+      "templateHint": "Dieselbe Vorlage wie unter Benutzer → Benutzer importieren. In Excel ausfüllen, als „CSV UTF-8“ speichern und unter Benutzer hochladen.",
+      "p_aircraftMissing": "Ohne Muster — diese Person sähe weder Lesson Plans noch Info noch Chats"
     },
     "status": {
       "title": "Es wartet",
@@ -382,10 +383,12 @@
       "skippedSelf": "Das eigene Konto wurde ausgelassen — sonst wärst du selbst ausgesperrt.",
       "skippedLastSuper": "Der letzte aktive Superadmin wurde ausgelassen — sonst käme niemand mehr in die Verwaltung.",
       "roleNote": "Die Rolle bleibt Einzelentscheidung: Ein Fehlgriff dabei trifft sonst alle Ausgewählten auf einmal.",
-      "skippedHidden": "{{count}} Benutzer wurden ausgelassen — sie standen nicht in der angezeigten Liste."
+      "skippedHidden": "{{count}} Benutzer wurden ausgelassen — sie standen nicht in der angezeigten Liste.",
+      "skippedLastAircraft": "Bei {{count}} Person(en) nicht ausgeführt: Es wäre ihr letztes Muster gewesen. Diese Rollen sähen danach weder Lesson Plans noch Instructor Info noch musterbezogene Chats."
     },
     "aircraftTypesHint": "Steuert, welche Lesson Plans, Info-Einträge und Chats die Person sieht. Mindestens ein Muster.",
-    "aircraftTypesFree": "Diese Rolle sieht ohnehin alle Muster. Eine Zuordnung ist möglich, schränkt die Sicht aber nicht ein."
+    "aircraftTypesFree": "Diese Rolle sieht ohnehin alle Muster. Eine Zuordnung ist möglich, schränkt die Sicht aber nicht ein.",
+    "lastAircraftBlocked": "Das letzte Muster lässt sich nicht entfernen: Diese Rolle sähe danach weder Lesson Plans noch Instructor Info noch musterbezogene Chats. Erst ein anderes Muster zuweisen."
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",
@@ -424,7 +427,7 @@
     "lessonDeleted": "Lesson Plan gelöscht",
     "infoSaved": "Eintrag gespeichert",
     "infoDeleted": "Eintrag gelöscht",
-    "userSaved": "Benutzer gespeichert",
+    "userSaved": "Benutzer angelegt.",
     "usersImported_one": "{{count}} Benutzer übernommen",
     "usersImported_other": "{{count}} Benutzer übernommen",
     "feedbackResolved": "Als bearbeitet markiert",
@@ -432,6 +435,7 @@
     "feedbackDeleted": "Rückmeldung gelöscht",
     "downloaded": "Datei heruntergeladen",
     "bulkApplied_one": "{{count}} Benutzer geändert",
-    "bulkApplied_other": "{{count}} Benutzer geändert"
+    "bulkApplied_other": "{{count}} Benutzer geändert",
+    "userSaveFailed": "Nicht angelegt — bitte Eingaben prüfen."
   }
 }

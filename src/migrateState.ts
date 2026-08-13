@@ -58,14 +58,41 @@ export function migrateState(st: AppState): AppState {
    * Beim Anlegen gilt die Pflicht (Dialog und Store) — nachtraeglich leeren
    * kann man die Liste weiterhin, das ist dann eine Entscheidung und kein
    * Altbestand.
+   *
+   * **Und deshalb laeuft der Nachtrag GENAU EINMAL** (`aircraftBackfilled`).
+   * Ohne Marke lief er bei jedem Start, auch ueber den gerade gespeicherten
+   * Stand: Wer einem Mitglied bewusst das letzte Muster entzog, fand es beim
+   * naechsten Neuladen mit ALLEN Mustern wieder — die Korrektur lief also in
+   * die weite Richtung und stellte genau den Zustand her, den die Regel
+   * verhindern soll. Nachgemessen: ein Mitglied stand danach auf allen acht
+   * Mustern. Dieselbe Falle war in dieser Datei schon einmal erkannt und mit
+   * einer Marke geloest worden (`seedHistoryMigrated`) — ein Loeschen, das
+   * sich von selbst rueckgaengig macht, ist das Gegenteil dessen, was der
+   * Nutzer angewiesen hat.
    */
   const alleMuster = st.settings.aircraftTypes ?? []
+  // Ein frisch aufgebauter Seed braucht keinen Nachtrag; ein gespeicherter
+  // Stand ohne Marke schon. `users === undefined` heisst: kein Bestand.
+  const musterDone = st.aircraftBackfilled === true || st.users === undefined
   const users = st.users?.map((u) => {
     const umbenannt = u.id === 'u-max' && u.name === 'Max Mustermann' ? { ...u, name: 'Steven Fermie' } : u
-    return (umbenannt.aircraftTypes ?? []).length === 0 && alleMuster.length > 0
-      ? { ...umbenannt, aircraftTypes: [...alleMuster] }
-      : umbenannt
+    // `aircraftTypes` darf auch dann nicht `undefined` bleiben, wenn es
+    // nichts nachzutragen gibt: Ansichten und Sammelaktionen lesen das Feld
+    // ungeprueft, und ein Stand aus der Zeit vor dem Feld haette es sonst gar
+    // nicht. Der Nachtrag ist die Ausnahme, die Vereinheitlichung die Regel.
+    //
+    // Beides aber nur, wenn wirklich etwas fehlt: Ein unbedingt neu gebautes
+    // Objekt liesse `usersChanged` bei JEDEM Lauf anschlagen, und die
+    // Migration gaebe nie wieder denselben Stand zurueck — der fruehe
+    // Ausstieg waere tot, jeder Start schriebe den Speicher neu.
+    const vorhanden = umbenannt.aircraftTypes
+    if (vorhanden !== undefined && vorhanden.length > 0) return umbenannt
+    if (!musterDone && alleMuster.length > 0) return { ...umbenannt, aircraftTypes: [...alleMuster] }
+    return vorhanden === undefined ? { ...umbenannt, aircraftTypes: [] } : umbenannt
   })
+  // Marke auch dann setzen, wenn nichts nachzutragen war — der Umstieg ist
+  // damit endgueltig erledigt, nicht nur fuer diesen Start.
+  const markAircraft = !musterDone
   const contacts = st.contacts?.map((c) => (c.id === 'c2' && c.name === 'Max Mustermann' ? { ...c, name: 'Steven Fermie' } : c))
 
   // Changelog zurückgesetzt: nur noch der 1.0.0-Erststand (mit Datum+Uhrzeit).
@@ -132,6 +159,13 @@ export function migrateState(st: AppState): AppState {
     !clNeedsReset &&
     !histMissing &&
     !markSeedHistory &&
+    // Auch die Muster-Marke muss den fruehen Ausstieg kennen: Ein Geraet, das
+    // die Verlaufs-Migration schon hinter sich hat und dessen Nutzer alle
+    // zugeordnet sind, verliesse die Funktion sonst hier — ohne die Marke zu
+    // setzen. Der Nachtrag bliebe damit fuer immer scharf und schluege beim
+    // ersten Entzug zu. Genau der Fehler, den die Marke verhindern soll,
+    // haette sich hinten herum wieder eingeschlichen.
+    !markAircraft &&
     !notesFehlten &&
     !kopfFehlte &&
     !formulareFehlten &&
@@ -143,6 +177,7 @@ export function migrateState(st: AppState): AppState {
     gradingRecords,
     notes,
     seedHistoryMigrated: st.seedHistoryMigrated || markSeedHistory || undefined,
+    aircraftBackfilled: st.aircraftBackfilled || markAircraft || undefined,
     users: usersChanged ? users! : st.users,
     contacts: contactsChanged ? contacts! : st.contacts,
     changelog,

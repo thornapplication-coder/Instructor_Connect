@@ -258,7 +258,7 @@
     "canGrade": "May grade",
     "isTrainee": "Is trainee",
     "grading": "Grading Tool",
-    "aircraftTypes": "Assigned aircraft types (lesson plans)",
+    "aircraftTypes": "Assigned aircraft types",
     "feedback": "Feedback",
     "feedbackEmpty": "No feedback received yet.",
     "confirmDeleteFeedback": "Delete this feedback entry?",
@@ -344,7 +344,8 @@
       "pAircraft": "Unknown aircraft type ignored: {{list}}",
       "templateXlsx": "Download template (Excel)",
       "templateSection": "User import template",
-      "templateHint": "The same template as in Users → Import users. Fill it in with Excel, save it as “CSV UTF-8” and upload it under Users."
+      "templateHint": "The same template as in Users → Import users. Fill it in with Excel, save it as “CSV UTF-8” and upload it under Users.",
+      "p_aircraftMissing": "No aircraft type — this person would see no lesson plans, info entries or chats"
     },
     "status": {
       "title": "Waiting",
@@ -382,10 +383,12 @@
       "skippedSelf": "Your own account was skipped — otherwise you would lock yourself out.",
       "skippedLastSuper": "The last active superadmin was skipped — otherwise nobody could reach the admin area.",
       "roleNote": "Role stays a single-user decision: a slip there would hit every selected account at once.",
-      "skippedHidden": "{{count}} users were skipped — they were not in the list shown."
+      "skippedHidden": "{{count}} users were skipped — they were not in the list shown.",
+      "skippedLastAircraft": "Not applied to {{count}} person(s): it would have been their last aircraft type. Those roles would then see no lesson plans, no instructor info and no type-specific chats."
     },
     "aircraftTypesHint": "Controls which lesson plans, info entries and chats this person sees. At least one type.",
-    "aircraftTypesFree": "This role sees every type anyway. An assignment is possible but does not limit what they see."
+    "aircraftTypesFree": "This role sees every type anyway. An assignment is possible but does not limit what they see.",
+    "lastAircraftBlocked": "The last aircraft type cannot be removed: this role would then see no lesson plans, no instructor info and no type-specific chats. Assign another type first."
   },
   "imprint": {
     "title": "Legal notice & terms of use",
@@ -424,7 +427,7 @@
     "lessonDeleted": "Lesson plan deleted",
     "infoSaved": "Entry saved",
     "infoDeleted": "Entry deleted",
-    "userSaved": "User saved",
+    "userSaved": "User created.",
     "usersImported_one": "{{count}} user imported",
     "usersImported_other": "{{count}} users imported",
     "feedbackResolved": "Marked as handled",
@@ -432,6 +435,7 @@
     "feedbackDeleted": "Feedback deleted",
     "downloaded": "File downloaded",
     "bulkApplied_one": "{{count}} user changed",
-    "bulkApplied_other": "{{count}} users changed"
+    "bulkApplied_other": "{{count}} users changed",
+    "userSaveFailed": "Not created — please check the entries."
   }
 }

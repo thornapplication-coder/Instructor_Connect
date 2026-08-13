@@ -4,7 +4,7 @@ import { networkReachable } from './net'
 import { createSeedState } from './sandbox/seed'
 import { migrateState } from './migrateState'
 import { SANDBOX } from './sandbox/flag'
-import { musterPflicht, nachMuster, sichtbarFuer } from './aircraftScope'
+import { musterFehlt, musterPflicht, nachMuster, sichtbarFuer } from './aircraftScope'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type Note, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import { backupPersistedState, clearPersistedState, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
 import type { InfoEntry } from './types'
@@ -59,7 +59,10 @@ export interface Store {
   saveContact: (contact: { id?: string; department: string; position: string; name: string; phone: string; email: string }) => void
   deleteContact: (id: string) => void
   /** Nutzer anlegen — die Zuweisung zu mindestens einer Gruppe ist Pflicht */
-  addUser: (user: { name: string; email: string; phone: string; role: Role; groupIds: string[]; aircraftTypes: string[] }) => void
+  /** Legt den Nutzer an; `false`, wenn eine Invariante ihn abgewiesen hat.
+   *  Der Rueckgabewert ist kein Beiwerk: Der Dialog schloss vorher auch bei
+   *  Ablehnung und quittierte einen Nutzer, den es nicht gab. */
+  addUser: (user: { name: string; email: string; phone: string; role: Role; groupIds: string[]; aircraftTypes: string[] }) => boolean
   /** Info-Einträge, die der aktuelle Nutzer sehen darf (Gruppen-Sichtbarkeit) */
   visibleInfoEntries: AppState['infoEntries']
   /** Wie viele gueltige Eintraege wartet der aktuelle Nutzer noch zu bestaetigen? */
@@ -520,7 +523,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const actor = actorOf(s)
       if (!actor) return false
       if (actor.role === 'superadmin') return true
-      return s.groups.find((g) => g.id === groupId)?.adminIds.includes(actor.id) ?? false
+      const gruppe = s.groups.find((g) => g.id === groupId)
+      if (!gruppe) return false
+      // Die Leseschranke gilt auch fuer die Schreibseite. Sonst war sie mit
+      // einem Auswahlknopf aufzuheben: Ein Gruppenadmin, der als Admin einer
+      // Gruppe fremden Musters eingetragen war, konnte sie zwar nicht
+      // betreten (mayAccessGroup), aber im Panel ihr Muster auf „Ohne
+      // Muster" stellen — und stand danach mit der vollen Historie drin.
+      // Umbenennen, Mitglieder tauschen und Loeschen hing an derselben
+      // Pruefung.
+      if (!sichtbarFuer(actor, gruppe.aircraftType)) return false
+      return gruppe.adminIds.includes(actor.id)
     }
     /** E-Mail ist die einzige Anmeldekennung und muss eindeutig bleiben. */
     const emailTaken = (s: AppState, email: string, exceptId?: string) =>
@@ -800,7 +813,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           contactsChangedAt: Date.now() + s.timeOffsetMs,
         })),
 
-      addUser: ({ groupIds, ...user }) =>
+      addUser: ({ groupIds, ...user }) => {
+        let angelegt = false
         patch((s) => {
           /* Invarianten auch im Store, nicht nur im Dialog: ohne Gruppe, ohne
              Muster und ohne E-Mail kein neuer Nutzer. Die E-Mail ist die
@@ -809,18 +823,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
              sieht. Ein Konto ohne Muster ist fuer nichts zustaendig — und das
              gilt fuer den Admin genauso wie fuer den Instruktor. */
           if (groupIds.length === 0 || !user.email.trim()) return null
-          // Musterpflicht nur fuer die Rollen, deren Sicht daran haengt.
-          if (musterPflicht(user.role) && (user.aircraftTypes ?? []).length === 0) return null
+          // Musterpflicht nur fuer die Rollen, deren Sicht daran haengt —
+          // und ueber `musterFehlt`, nicht von Hand: Die Bedingung stand hier
+          // ausgeschrieben, waehrend vier andere Schreibwege sie nicht kannten.
+          if (musterFehlt(user)) return null
           // Doppelte Adresse hieße: zwei Konten, ein Login — der zweite
           // Nutzer könnte die Identität des ersten übernehmen.
           if (emailTaken(s, user.email)) return null
           const id = uid('u')
+          angelegt = true
           return {
             users: [...s.users, { ...user, id, canEditDirectory: false, canGrade: false, isTrainee: false, active: true }],
             // Pflicht-Gruppenzuweisung: neue Nutzer landen sofort in ihren Gruppen
             groups: s.groups.map((g) => (groupIds.includes(g.id) ? { ...g, memberIds: [...g.memberIds, id] } : g)),
           }
-        }),
+        })
+        return angelegt
+      },
       updateUser: (id, p) =>
         patch((s) => {
           const target = s.users.find((u) => u.id === id)
@@ -837,6 +856,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (lastSuper && safe.active === false) delete safe.active
           // Sich selbst stillzulegen sperrt einen aus der laufenden Sitzung aus.
           if (id === s.currentUserId && safe.active === false) delete safe.active
+          // Niemand wird blind geschaltet. Zwei Wege fuehrten hier hinein:
+          // die Muster einzeln abwaehlen, oder einen Superadmin (der ohne
+          // Muster entstehen darf) zum Mitglied herabstufen. Beide erzeugten
+          // ein Konto, das der Anlege-Dialog ausdruecklich verweigert.
+          //
+          // Geprueft wird das ERGEBNIS, nicht der Patch: Ob die Rolle oder
+          // die Musterliste den Ausschlag gibt, ist gleichgueltig — blind ist
+          // blind. Ein bereits so entstandenes Altkonto bleibt aenderbar,
+          // solange die Aenderung es nicht schlechter macht.
+          const ziel = { ...target, ...safe }
+          if (musterFehlt(ziel) && !musterFehlt(target)) {
+            delete safe.role
+            delete safe.aircraftTypes
+          }
           const users = s.users.map((u) => (u.id === id ? { ...u, ...safe } : u))
           // Wer deaktiviert wird, verliert seine Sitzung — in der Sandbox ist
           // das die aktuell angemeldete Identität.
@@ -1133,6 +1166,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               // entstehen — die Liste kann sich zwischen Vorschau und Klick
               // geaendert haben.
               if (erlaubt.length > 0 && !erlaubt.some((d) => mail.endsWith(`@${d}`))) return false
+              // Und gegen die Musterpflicht — der Dialog verweigert genau
+              // dieses Konto, der Import legte es reihenweise an. Die
+              // Vorschau meldet die Zeile schon vorher (`aircraftMissing`);
+              // hier steht der Riegel fuer den Fall, dass sich die
+              // Musterliste zwischen Vorschau und Klick geaendert hat.
+              if (musterFehlt(r)) return false
               vergeben.add(mail)
               return true
             })

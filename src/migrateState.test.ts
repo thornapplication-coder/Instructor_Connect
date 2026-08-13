@@ -13,11 +13,14 @@ const HIST = ['gr-hist1', 'gr-hist2', 'gr-hist3']
 
 const idsOf = (st: ReturnType<typeof createSeedState>) => st.gradingRecords.map((r) => r.id)
 
-/** Ein Bestandsgeraet kennt die Nachtrags-Marke noch nicht — genau das ist
- *  der Zustand, fuer den die Migration gebaut ist. */
+/** Ein Bestandsgeraet kennt die Nachtrags-Marken noch nicht — genau das ist
+ *  der Zustand, fuer den die Migration gebaut ist. Kommt eine neue Marke
+ *  hinzu, gehoert sie hierher: Sonst prueft die halbe Datei gegen einen
+ *  Stand, der die Migration laengst hinter sich hat. */
 const bestand = (over: Partial<ReturnType<typeof createSeedState>> = {}) => {
   const st = { ...createSeedState(), ...over }
   delete (st as { seedHistoryMigrated?: boolean }).seedHistoryMigrated
+  delete (st as { aircraftBackfilled?: boolean }).aircraftBackfilled
   return st
 }
 
@@ -283,5 +286,64 @@ describe('Musterzuordnung nachtragen', () => {
     // Eine ATO, die noch keine Flotte gepflegt hat: nichts nachzutragen,
     // aber auch kein Absturz.
     expect(migrateState(mitNutzer([], [])).users[0].aircraftTypes).toEqual([])
+  })
+
+  it('vereinheitlicht ein fehlendes Feld zu einer leeren Liste', () => {
+    // Ein Stand aus der Zeit vor dem Feld hatte `aircraftTypes: undefined`.
+    // Ansichten und Sammelaktionen lesen es ungeprueft — `.includes` auf
+    // `undefined` ist ein Absturz, kein leeres Ergebnis.
+    const st = mitNutzer([], [])
+    delete (st.users[0] as { aircraftTypes?: string[] }).aircraftTypes
+    expect(migrateState(st).users[0].aircraftTypes).toEqual([])
+  })
+
+  describe('Der Nachtrag laeuft genau einmal', () => {
+    /*
+     * Der schwerste Befund der Gegenlesung, und er war messbar: Ohne Marke
+     * lief der Nachtrag bei JEDEM Start — auch ueber den gerade
+     * gespeicherten Stand. Wer einem Mitglied bewusst das letzte Muster
+     * entzog, fand es nach dem naechsten Neuladen mit ALLEN Mustern wieder.
+     * Die Korrektur lief also in die weite Richtung und stellte genau den
+     * Zustand her, den die Regel verhindern soll.
+     *
+     * Dieselbe Falle war in dieser Datei schon einmal gestellt und mit einer
+     * Marke geloest worden (seedHistoryMigrated). Sie zweimal zu stellen ist
+     * der Grund, warum diese Faelle hier stehen.
+     */
+    it('setzt die Marke beim ersten Lauf', () => {
+      expect(migrateState(mitNutzer([], ['CL30'])).aircraftBackfilled).toBe(true)
+    })
+
+    it('macht eine bewusste Entziehung NICHT rueckgaengig', () => {
+      const einmal = migrateState(mitNutzer([], ['C560 XLS+', 'CL30']))
+      expect(einmal.users[0].aircraftTypes).toEqual(['C560 XLS+', 'CL30'])
+      // Der Admin nimmt danach alles weg — eine Entscheidung, kein Altbestand.
+      const entzogen = { ...einmal, users: [{ ...einmal.users[0], aircraftTypes: [] }] }
+      // Neustart der App: derselbe Stand laeuft erneut durch die Migration.
+      expect(migrateState(entzogen).users[0].aircraftTypes).toEqual([])
+    })
+
+    it('setzt die Marke auch dann, wenn sonst nichts zu tun ist', () => {
+      /* Ein Geraet, das die Verlaufs-Migration schon hinter sich hat und
+         dessen Nutzer alle zugeordnet sind, verliess die Funktion im fruehen
+         Ausstieg — ohne die Marke zu setzen. Der Nachtrag blieb damit fuer
+         immer scharf. Aufgefallen ist das nicht beim Lesen, sondern an der
+         Abdeckungsschwelle: Der fruehe Ausstieg wurde ploetzlich von keinem
+         Test mehr erreicht. */
+      const fertig = migrateState(createSeedState())
+      expect(fertig.aircraftBackfilled).toBe(true)
+      // Zweiter Lauf: nichts mehr zu tun, derselbe Stand kommt zurueck.
+      expect(migrateState(fertig)).toBe(fertig)
+    })
+
+    it('traegt auch dann nichts nach, wenn beim ersten Lauf nichts zu tun war', () => {
+      // Marke wird auch ohne Aenderung gesetzt — sonst bliebe der Nachtrag
+      // fuer immer scharf und schluege beim ersten Entzug zu.
+      const st = mitNutzer(['CL30'], ['C560 XLS+', 'CL30'])
+      const einmal = migrateState(st)
+      expect(einmal.aircraftBackfilled).toBe(true)
+      const entzogen = { ...einmal, users: [{ ...einmal.users[0], aircraftTypes: [] }] }
+      expect(migrateState(entzogen).users[0].aircraftTypes).toEqual([])
+    })
   })
 })

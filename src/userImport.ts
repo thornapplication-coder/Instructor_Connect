@@ -1,3 +1,4 @@
+import { musterFehlt } from './aircraftScope'
 import { csvRow } from './csv'
 import type { Role, User } from './types'
 
@@ -69,7 +70,10 @@ export type ImportProblem =
   | 'emailTaken'
   | 'emailDuplicate'
   | 'role'
+  /** Unbekanntes Muster genannt — wird verworfen, haelt die Zeile aber nicht auf. */
   | 'aircraft'
+  /** Musterpflichtige Rolle ohne ein einziges gueltiges Muster. Blockiert. */
+  | 'aircraftMissing'
 
 export interface ImportRow {
   /** Zeilennummer in der Datei, 1-basiert inkl. Kopfzeile — damit der
@@ -251,6 +255,12 @@ export function parseUserImport(
     }
     if (!role) problems.push('role')
     if (unknownAircraft.length > 0) problems.push('aircraft')
+    // Musterpflicht wie im Anlege-Dialog. Der Import kannte sie nicht und
+    // legte reihenweise Konten an, die anschliessend weder Lesson Plan noch
+    // Info noch Chat sehen — die Vorschau zeigte sie gruen. Geprueft wird das
+    // ERGEBNIS nach dem Verwerfen unbekannter Kennungen: Wer als einziges
+    // Muster ein unbekanntes nennt, steht danach ohne alles da.
+    if (role && musterFehlt({ role, aircraftTypes })) problems.push('aircraftMissing')
 
     rows.push({
       line: i + 1,
@@ -277,6 +287,10 @@ export function parseUserImport(
  * Ein unbekanntes Muster blockiert NICHT: Der Nutzer entsteht dann ohne
  * dieses Muster, und das ist im Admin-Panel in zwei Klicks nachgetragen —
  * die ganze Datei daran scheitern zu lassen waere unverhaeltnismaessig.
+ *
+ * Diese Abwaegung traegt aber nur, solange noch ein Muster uebrig bleibt.
+ * Bleibt keines, ist das Ergebnis kein unvollstaendiger Nutzer, sondern ein
+ * blinder — `aircraftMissing` blockiert deshalb, `aircraft` allein nicht.
  */
 export function isImportable(row: ImportRow): boolean {
   return row.problems.every((p) => p === 'aircraft')

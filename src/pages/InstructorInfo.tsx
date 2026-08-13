@@ -1,4 +1,5 @@
 import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
+import { musterZurAuswahl, sichtbarFuer } from '../aircraftScope'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
@@ -15,7 +16,7 @@ const NEW_MS = 14 * 24 * 3600_000
 
 function NewEntryModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
-  const { state, addInfoEntry } = useStore()
+  const { state, currentUser, addInfoEntry } = useStore()
   const [type, setType] = useState<'text' | 'pdf'>('text')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -77,7 +78,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
             className={selectCls}
           >
             <option value="">{t('admin.groupNoAircraft')}</option>
-            {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
+            {musterZurAuswahl(currentUser, [...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b))).map((a) => (
               <option key={a} value={a}>
                 {a}
               </option>
@@ -167,9 +168,22 @@ export function InstructorInfo() {
   /** Zielpersonen einer Lese-Bestätigung: aktive Mitglieder der Zielgruppen */
   // Bestätigen kann nur, wer die Instructor Info auch erreicht — ein Training
   // Admin ohne Zugang zählte sonst in jeder Quote als dauerhaft säumig.
+  //
+  // Seit die Sichtbarkeit am Muster hängt, gibt es einen ZWEITEN Weg, einen
+  // Eintrag nicht zu erreichen: Ein Eintrag fremden Musters taucht in der
+  // Ansicht des Mitglieds gar nicht auf. Ohne diesen Filter stünde es in der
+  // Kontrollliste und im Behördenauszug dauerhaft als PENDING — säumig
+  // genannt für etwas, das die App ihm vorenthält, und die Quote erreichte
+  // nie 100 %.
   const ackTargets = (entry: (typeof state.infoEntries)[number]) =>
     state.users
-      .filter((u) => u.active && userMayModule(state.settings, u, 'info') && infoEntryAppliesTo(entry, u.id, state.groups))
+      .filter(
+        (u) =>
+          u.active &&
+          userMayModule(state.settings, u, 'info') &&
+          sichtbarFuer(u, entry.aircraftType) &&
+          infoEntryAppliesTo(entry, u.id, state.groups),
+      )
       // Alphabetisch — die interne Reihenfolge war für eine Kontrollliste
       // nicht nachvollziehbar.
       .sort((a, b) => a.name.localeCompare(b.name))

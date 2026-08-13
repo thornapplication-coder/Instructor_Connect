@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { planBulk } from './bulkUsers'
-import type { User } from './types'
+import type { Role, User } from './types'
 
 /**
  * An der Sammelbearbeitung haengen zwei Zusagen, die man beim Klicken nicht
@@ -164,5 +164,51 @@ describe('Sammelbearbeitung', () => {
       // damit erreichbar.
       expect(plan.patches).toEqual([{ id: 'kollege', patch: { active: false } }])
     })
+  })
+})
+
+describe('Sammelaktion nimmt niemandem das letzte Muster', () => {
+  /*
+   * „CL30 faellt aus der Flotte" trifft vierzig Leute auf einmal. Wer nur
+   * CL30 hatte, staende danach ohne alles da — inhaltlich derselbe Fall wie
+   * das Aussperren, nur leiser: kein Lesson Plan, keine Instructor Info,
+   * kein musterbezogener Chat, und nichts sagt es.
+   *
+   * Der Store weist eine solche Aenderung ohnehin ab. Wuerde sie hier
+   * trotzdem eingeplant, meldete der Zaehler vierzig geaenderte und es waeren
+   * dreissig — und die ehrliche Zahl ist die erste Zusage dieser Datei.
+   */
+  const wer = (role: Role, aircraftTypes: string[]): User => ({
+    id: 'x',
+    name: 'X',
+    email: 'x@a.at',
+    phone: '',
+    role,
+    canEditDirectory: false,
+    canGrade: true,
+    isTrainee: false,
+    aircraftTypes,
+    active: true,
+  })
+  const entfernen = { art: 'aircraft', wert: 'remove', typ: 'CL30' } as const
+
+  it('ueberspringt und benennt, statt still zu leeren', () => {
+    const plan = planBulk([wer('member', ['CL30'])], [wer('member', ['CL30'])], ['x'], entfernen, 'ich')
+    expect(plan.patches).toEqual([])
+    expect(plan.uebersprungen).toEqual([{ id: 'x', grund: 'letztesMuster' }])
+  })
+
+  it('entfernt weiter, solange ein Muster uebrig bleibt', () => {
+    const u = wer('member', ['C560 XLS+', 'CL30'])
+    const plan = planBulk([u], [u], ['x'], entfernen, 'ich')
+    expect(plan.patches).toEqual([{ id: 'x', patch: { aircraftTypes: ['C560 XLS+'] } }])
+    expect(plan.uebersprungen).toEqual([])
+  })
+
+  it('laesst die freien Rollen auch das letzte Muster abgeben', () => {
+    // Ihre Sicht haengt nicht daran — hier ist die leere Liste kein Verlust.
+    const u = wer('training_admin', ['CL30'])
+    const plan = planBulk([u], [u], ['x'], entfernen, 'ich')
+    expect(plan.patches).toEqual([{ id: 'x', patch: { aircraftTypes: [] } }])
   })
 })

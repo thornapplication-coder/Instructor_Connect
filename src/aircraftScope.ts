@@ -116,3 +116,41 @@ export function ohneMuster(user: { aircraftTypes?: string[] }): boolean {
 export function musterPflicht(role: Role): boolean {
   return giltMusterbereich({ role })
 }
+
+/**
+ * Waere dieses Konto fuer nichts zustaendig?
+ *
+ * Die Frage stellt sich an JEDEM Schreibweg auf einen Nutzer, nicht nur beim
+ * Anlegen — und genau das war der Fehler: Die Bedingung stand in `addUser`
+ * von Hand ausgeschrieben, waehrend Import, Sammelbearbeitung, Rollenwechsel
+ * und die Chip-Reihe in der Nutzerzeile sie nicht kannten. Vier Wege in einen
+ * Zustand, den der fuenfte ausdruecklich verbietet.
+ *
+ * Deshalb steht sie hier, und die Schreibwege rufen sie. Wer einen neuen Weg
+ * baut, hat damit eine Stelle zu fragen statt einer Bedingung nachzubauen.
+ */
+export function musterFehlt(user: { role: Role; aircraftTypes?: string[] }): boolean {
+  return musterPflicht(user.role) && ohneMuster(user)
+}
+
+/**
+ * Welche Muster darf diese Person einem Inhalt GEBEN?
+ *
+ * Nur die, die sie auch sieht. Sonst legt ein Gruppenadmin einen Lesson Plan
+ * fuer ein fremdes Muster an, bekommt die Bestaetigung — und der Plan ist im
+ * selben Moment weg: Die Liste, aus der man loeschen und bearbeiten koennte,
+ * ist dieselbe gefilterte. Nur ein Superadmin kaeme noch heran.
+ *
+ * `aircraftScope` kannte diese Kehrseite im Kopfkommentar bereits („Um
+ * Inhalte eines Musters zu verwalten, muss man diesem Muster zugeordnet
+ * sein"), zog aber die Folge nicht: Dann duerfen die Auswahlfelder auch nur
+ * das anbieten.
+ */
+export function musterZurAuswahl(
+  user: { role: Role; aircraftTypes?: string[] } | null | undefined,
+  alle: string[],
+): string[] {
+  if (!user) return []
+  if (!giltMusterbereich(user)) return alle
+  return alle.filter((m) => imMusterbereich(user.aircraftTypes, m))
+}

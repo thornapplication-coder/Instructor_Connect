@@ -253,9 +253,8 @@ geschnitten sind. Eine gemischte Gruppe zeigte CL30-Leuten C560-Inhalte.
 - **Die Zuordnung ist beim Anlegen Pflicht**, als Mehrfachauswahl, für
   Mitglied und Admin — also dort, wo sie etwas bewirkt. Vorher legte der
   Dialog jeden Nutzer ohne Muster an; nachtragen ging nur in der
-  aufgeklappten Zeile, und
-  wer das vergaß, sah keinen einzigen Lesson Plan. Die Regel steht auch im
-  Store, nicht nur im Dialog.
+  aufgeklappten Zeile, und wer das vergaß, sah keinen einzigen Lesson Plan.
+  Die Regel steht auch im Store, nicht nur im Dialog.
 - **Bestehende Konten ohne Zuordnung bekommen alle Muster.** Der Umstieg
   nimmt niemandem etwas weg; einschränken ist danach eine bewusste
   Entscheidung.
@@ -264,3 +263,99 @@ geschnitten sind. Eine gemischte Gruppe zeigte CL30-Leuten C560-Inhalte.
 
 Nicht betroffen: Formularablage, Statistik und Behördenexport bleiben
 rollenbasiert (ORA.GEN.220).
+
+## 1.5.1 — 2026-08-13
+
+Dokumentation auf den Stand gebracht. Kein Verhalten geändert.
+
+- **Die falsche Zusage zur Testpflicht ist auch aus README und CI-Workflow
+  raus.** Beide behaupteten weiter, die Abdeckungsschwelle allein lasse eine
+  ungetestete neue Datei durchfallen — der Irrtum, der `src/testGuard.test.ts`
+  überhaupt nötig gemacht hat. Er stand an vier Stellen; korrigiert waren
+  bisher zwei. Jetzt nennen alle vier beide Wachen und ihren Unterschied.
+- **Die musterbezogene Sichtbarkeit steht in der README**, mit Rollentabelle
+  und den drei Festlegungen. Vorher war sie dort nur als Nebensatz beim
+  Lesson Plan zu finden, obwohl sie inzwischen für drei Module gilt.
+- **Ebene 2 ist in der README beschrieben** — die beiden Testprojekte, ihre
+  Umgebungen und warum sie getrennt laufen.
+- Die Admin-Kachel heißt seit 1.4.0 **Chats**; die README sagte an drei
+  Stellen noch „Gruppen".
+- Die feste Dateizahl beim Reproduzierbarkeits-Nachweis („über alle 66") ist
+  raus: Sie driftet mit jedem Build (inzwischen 67), und die CI vergleicht
+  ohnehin Prüfsummen, keine Anzahlen. Eine Zahl, die niemand nachzieht, ist
+  schlechter als keine.
+- `package.json` stand auf 1.0.0, während dieser Changelog bei 1.5.0 war —
+  gleichgezogen (samt `package-lock.json`). Der Changelog **in** der App
+  bleibt bewusst auf dem einen 1.0.0-Eintrag; er richtet sich an
+  Instruktoren.
+
+## 1.5.2 — 2026-08-13
+
+Gegenlesung der Musterregel durch drei Prüfer. Der Kern der Regel hielt —
+alle Befunde lagen an den Aufrufstellen.
+
+**Der schwerste zuerst:** `migrateState` trug die Musterzuordnung ohne Marke
+nach und lief damit bei **jedem** Start, auch über den gerade gespeicherten
+Stand. Wer einem Mitglied bewusst das letzte Muster entzog, fand es nach dem
+nächsten Neuladen mit **allen** Mustern wieder — die Korrektur lief in die
+weite Richtung und stellte genau den Zustand her, den die Regel verhindern
+soll. Nachgemessen im Browser. Der Nachtrag läuft jetzt genau einmal
+(`aircraftBackfilled`); dieselbe Falle war in derselben Datei schon einmal
+gestellt und mit einer Marke gelöst worden.
+
+**Die Pflicht galt nur beim Anlegen.** Vier weitere Schreibwege kannten sie
+nicht, weil die Bedingung in `addUser` von Hand ausgeschrieben stand:
+
+- **Der CSV-Import** legte Mitglieder ohne Muster an, und die Vorschau meldete
+  sie grün — auf dem Weg, der nicht einen Nutzer anlegt, sondern
+  hundertfünfzig. Jetzt blockiert `aircraftMissing` die Zeile, in der Vorschau
+  **und** im Store. Wer als einziges Muster ein unbekanntes nennt, fällt
+  ebenfalls auf: Verworfen wird es weiterhin, aber danach ist die Liste leer.
+- **Die Sammelbearbeitung** leerte bei „Muster entfernen" die Liste derer, die
+  nur dieses eine hatten — vierzig Klicks, dreißig blinde Konten, und der
+  Zähler meldete Erfolg. Jetzt übersprungen und benannt, wie beim
+  Aussperr-Schutz.
+- **Ein Rollenwechsel** von Superadmin (darf ohne Muster sein) zu Mitglied
+  erzeugte denselben Zustand, ohne dass jemand ein Muster angefasst hätte.
+- **Das letzte Muster** ließ sich in der Nutzerzeile wortlos abwählen. Jetzt
+  gesperrt und begründet — bei den Gruppen direkt darüber gibt es das seit
+  jeher.
+
+Alle fünf fragen jetzt `musterFehlt`.
+
+**Zwei Wege, die Schranke zu umgehen:**
+
+- Ein Gruppenadmin, der als Admin einer Gruppe fremden Musters eingetragen
+  war, konnte sie zwar nicht betreten, im Panel aber ihr Muster auf „Ohne
+  Muster" stellen — und stand danach mit der vollen Historie drin. Umbenennen,
+  Mitglieder tauschen und Löschen hingen an derselben Prüfung. `maySeeGroup`
+  prüft jetzt das Muster.
+- Die **Kontrollliste der Lese-Bestätigungen** und ihr CSV-Auszug führten
+  Personen als `PENDING`, denen die App den Eintrag vorenthält. Die Quote
+  erreichte nie 100 %, und ein Nachweisdokument nannte jemanden säumig.
+
+**Verwalter verloren, was sie anlegten.** Wer einen Lesson Plan, Info-Eintrag
+oder Chat für ein fremdes Muster anlegte, bekam die Bestätigung — und der
+Inhalt war weg, weil Bearbeiten und Löschen an derselben gefilterten Liste
+hängen. Die Auswahlfelder bieten jetzt nur noch die eigenen Muster an
+(`musterZurAuswahl`).
+
+**Bedienung:**
+
+- Die Feldbeschriftung lag in einem `<label>`. `<button>` ist ein labelable
+  element — ein Tippen auf „Zugewiesene Muster" schaltete das alphabetisch
+  erste Muster ein. Jetzt `role="group"`, wie an sieben anderen Stellen der
+  Datei.
+- Ausgewählt oder nicht war nur an der Farbe erkennbar; die Chips tragen jetzt
+  `aria-pressed`.
+- Die Beschriftung sagte „(Lesson Plans)", der Hinweis darunter „auch Info und
+  Chats". Der Klammerzusatz ist raus.
+- Das Anlegen quittiert; ein vom Store abgewiesener Vorgang sah vorher aus wie
+  ein gelungener (`addUser` gibt jetzt zurück, ob es geklappt hat).
+- Die Rückfrage vor dem Verwerfen kannte das neue Feld nicht.
+- Die Musterauswahl in der Nutzerzeile war handgebaut und wich in Abstand,
+  Rahmen und Schriftschnitt ab — jetzt dieselbe `ChipMultiSelect`.
+
+Die Begründung im Seed für die Muster des Training Admins war falsch („sähe
+sonst nichts") und ist ersetzt. `@types/node` ist dazugekommen, weil der Test
+der Excel-Vorlage die Datei liest.
