@@ -384,7 +384,8 @@
       "roleNote": "Die Rolle bleibt Einzelentscheidung: Ein Fehlgriff dabei trifft sonst alle Ausgewählten auf einmal.",
       "skippedHidden": "{{count}} Benutzer wurden ausgelassen — sie standen nicht in der angezeigten Liste."
     },
-    "aircraftTypesHint": "Steuert, welche Lesson Plans die Person sieht. Mindestens ein Muster — auch bei Admins."
+    "aircraftTypesHint": "Steuert, welche Lesson Plans, Info-Einträge und Chats die Person sieht. Mindestens ein Muster.",
+    "aircraftTypesFree": "Diese Rolle sieht ohnehin alle Muster. Eine Zuordnung ist möglich, schränkt die Sicht aber nicht ein."
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",

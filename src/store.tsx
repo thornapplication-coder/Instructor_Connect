@@ -4,7 +4,7 @@ import { networkReachable } from './net'
 import { createSeedState } from './sandbox/seed'
 import { migrateState } from './migrateState'
 import { SANDBOX } from './sandbox/flag'
-import { imMusterbereich, nachMuster } from './aircraftScope'
+import { musterPflicht, nachMuster, sichtbarFuer } from './aircraftScope'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type Note, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import { backupPersistedState, clearPersistedState, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
 import type { InfoEntry } from './types'
@@ -359,7 +359,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             // Mitgliedschaft allein reicht nicht mehr: Eine Gruppe mit Muster
             // erscheint nur bei denen, die dieses Muster fuehren. Gruppen ohne
             // Muster sind musteruebergreifend gemeint und bleiben fuer alle.
-            .filter((g) => imMusterbereich(currentUser?.aircraftTypes, g.aircraftType))
+            .filter((g) => sichtbarFuer(currentUser, g.aircraftType))
             // nach Muster gruppiert, musterübergreifende Gruppen zuletzt
             .sort(
               (a, b) =>
@@ -404,7 +404,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const darfVerwalten = userHasPerm(state.settings, currentUser, 'info_manage')
     return state.infoEntries.filter(
       (e) =>
-        imMusterbereich(currentUser.aircraftTypes, e.aircraftType) &&
+        sichtbarFuer(currentUser, e.aircraftType) &&
         (darfVerwalten || (infoEntryAppliesTo(e, currentUser.id, state.groups) && infoIsPublished(e, now()))),
     )
   }, [state.infoEntries, state.groups, state.settings, currentUser, now])
@@ -472,15 +472,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Instruktoren sehen nur Lesson Plans ihrer zugewiesenen Muster;
   // Admins und Superadmin sehen alle.
-  /* Musterbezogen fuer JEDEN, auch fuer Verwalter: Wer Lehrplaene pflegt,
-     tut das fuer die Muster, fuer die er zustaendig ist. Die Kehrseite ist
-     bekannt und gewollt — um ein Muster zu verwalten, muss man ihm zugeordnet
-     sein. Deshalb ist die Zuordnung eine Mehrfachauswahl und beim Anlegen
-     Pflicht. Siehe src/aircraftScope.ts. */
+  /* Musterbezogen fuer Mitglied und Admin, nicht fuer Superadmin und
+     Training Admin — welche Rolle die Schranke traegt, entscheidet
+     src/aircraftScope.ts und nicht diese Ansicht. */
   const visibleLessonPlans = useMemo(() => {
     if (!currentUser) return []
     const all = [...state.lessonPlans].sort((a, b) => a.title.localeCompare(b.title))
-    return nachMuster(currentUser.aircraftTypes, all, (p) => p.aircraftType)
+    return nachMuster(currentUser, all, (p) => p.aircraftType)
   }, [state.lessonPlans, currentUser])
 
   /**
@@ -810,7 +808,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
              Info; das Muster steuert, welche Lesson Plans jemand ueberhaupt
              sieht. Ein Konto ohne Muster ist fuer nichts zustaendig — und das
              gilt fuer den Admin genauso wie fuer den Instruktor. */
-          if (groupIds.length === 0 || !user.email.trim() || (user.aircraftTypes ?? []).length === 0) return null
+          if (groupIds.length === 0 || !user.email.trim()) return null
+          // Musterpflicht nur fuer die Rollen, deren Sicht daran haengt.
+          if (musterPflicht(user.role) && (user.aircraftTypes ?? []).length === 0) return null
           // Doppelte Adresse hieße: zwei Konten, ein Login — der zweite
           // Nutzer könnte die Identität des ersten übernehmen.
           if (emailTaken(s, user.email)) return null
@@ -1294,6 +1294,6 @@ export function mayAccessGroup(user: User | null, group: Group): boolean {
      Filterung reine Kosmetik: Die Chatliste zeigte die Gruppe nicht, wer die
      Adresse kannte, war trotzdem drin. Dieselbe Luecke gab es schon einmal
      bei den Formularen (#29). */
-  if (!imMusterbereich(user.aircraftTypes, group.aircraftType)) return false
+  if (!sichtbarFuer(user, group.aircraftType)) return false
   return group.memberIds.includes(user.id) || isGroupAdmin(user, group)
 }

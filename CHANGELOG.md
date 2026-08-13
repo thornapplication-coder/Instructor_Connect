@@ -243,13 +243,17 @@ musterbezogen wirkte, lag nur daran, dass die Gruppen meist nach Mustern
 geschnitten sind. Eine gemischte Gruppe zeigte CL30-Leuten C560-Inhalte.
 
 - **Lesson Plans, Instructor Info und Chats** folgen jetzt derselben Regel
-  (`src/aircraftScope.ts`). Sie gilt auch für Verwalter: Wer ein Muster
-  betreut, muss ihm zugeordnet sein.
+  (`src/aircraftScope.ts`) — für **Mitglied und Admin**. Wer als Admin ein
+  Muster betreut, muss ihm zugeordnet sein.
+- **Superadmin und Training Admin sehen alles**, unabhängig von ihrer
+  Zuordnung. Beide haben Aufgaben, die den ganzen Betrieb betreffen; wer sie
+  einschränkte, machte genau die Rollen blind, die den Überblick brauchen.
 - **Ohne Musterangabe heißt „betrifft alle"** — allgemeine Info-Einträge und
   musterübergreifende Gruppen bleiben für jeden sichtbar.
-- **Die Zuordnung ist beim Anlegen Pflicht**, als Mehrfachauswahl, für jede
-  Rolle einschließlich Admin und Superadmin. Vorher legte der Dialog jeden
-  Nutzer ohne Muster an; nachtragen ging nur in der aufgeklappten Zeile, und
+- **Die Zuordnung ist beim Anlegen Pflicht**, als Mehrfachauswahl, für
+  Mitglied und Admin — also dort, wo sie etwas bewirkt. Vorher legte der
+  Dialog jeden Nutzer ohne Muster an; nachtragen ging nur in der
+  aufgeklappten Zeile, und
   wer das vergaß, sah keinen einzigen Lesson Plan. Die Regel steht auch im
   Store, nicht nur im Dialog.
 - **Bestehende Konten ohne Zuordnung bekommen alle Muster.** Der Umstieg

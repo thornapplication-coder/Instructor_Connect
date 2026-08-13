@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { imMusterbereich, nachMuster, ohneMuster } from './aircraftScope'
+import { giltMusterbereich, imMusterbereich, musterPflicht, nachMuster, ohneMuster, sichtbarFuer } from './aircraftScope'
 
 /**
  * Diese Regel entscheidet, wer was sieht — sie ist damit die Stelle, an der
@@ -49,6 +49,64 @@ describe('imMusterbereich', () => {
   })
 })
 
+/** Kurzform fuer eine Person mit Rolle und Zuordnung. */
+const person = (role: 'member' | 'group_admin' | 'training_admin' | 'superadmin', aircraftTypes: string[] = []) => ({ role, aircraftTypes })
+
+describe('Wer traegt die Schranke', () => {
+  it('bindet Mitglied und Admin ans Muster', () => {
+    expect(giltMusterbereich(person('member'))).toBe(true)
+    expect(giltMusterbereich(person('group_admin'))).toBe(true)
+  })
+
+  it('nimmt Superadmin und Training Admin aus', () => {
+    // Beide haben Aufgaben, die den ganzen Betrieb betreffen: Der Superadmin
+    // verwaltet die ATO, der Training Admin fuehrt die Ablage. Wer sie
+    // einschraenkte, machte genau die Rollen blind, die den Ueberblick
+    // haben muessen.
+    expect(giltMusterbereich(person('superadmin'))).toBe(false)
+    expect(giltMusterbereich(person('training_admin'))).toBe(false)
+  })
+
+  it('gibt ohne angemeldete Person nichts frei', () => {
+    expect(giltMusterbereich(null)).toBe(false)
+    expect(giltMusterbereich(undefined)).toBe(false)
+  })
+})
+
+describe('sichtbarFuer', () => {
+  it('schraenkt Mitglied und Admin auf ihre Muster ein', () => {
+    expect(sichtbarFuer(person('member', ['CL30']), 'CL30')).toBe(true)
+    expect(sichtbarFuer(person('member', ['CL30']), 'C560 XLS+')).toBe(false)
+    expect(sichtbarFuer(person('group_admin', ['CL30']), 'C560 XLS+')).toBe(false)
+  })
+
+  it('zeigt Superadmin und Training Admin auch fremde Muster', () => {
+    // Und zwar unabhaengig von ihrer eigenen Zuordnung — hier bewusst leer.
+    expect(sichtbarFuer(person('superadmin', []), 'C560 XLS+')).toBe(true)
+    expect(sichtbarFuer(person('training_admin', []), 'C560 XLS+')).toBe(true)
+  })
+
+  it('zeigt allen das Musteruebergreifende', () => {
+    expect(sichtbarFuer(person('member', []), undefined)).toBe(true)
+    expect(sichtbarFuer(person('superadmin', []), undefined)).toBe(true)
+  })
+
+  it('gibt ohne angemeldete Person nichts frei', () => {
+    expect(sichtbarFuer(null, undefined)).toBe(false)
+  })
+})
+
+describe('musterPflicht', () => {
+  it('verlangt die Zuordnung nur dort, wo sie etwas bewirkt', () => {
+    // Ein totes Pflichtfeld waere schlimmer als keines: Man klickt
+    // irgendetwas an, und der naechste liest daraus eine Zustaendigkeit.
+    expect(musterPflicht('member')).toBe(true)
+    expect(musterPflicht('group_admin')).toBe(true)
+    expect(musterPflicht('superadmin')).toBe(false)
+    expect(musterPflicht('training_admin')).toBe(false)
+  })
+})
+
 describe('nachMuster', () => {
   const inhalte = [
     { id: 'a', aircraftType: 'CL30' },
@@ -58,21 +116,26 @@ describe('nachMuster', () => {
   ]
 
   it('laesst das eigene Muster und das Allgemeine stehen', () => {
-    expect(nachMuster(['CL30'], inhalte, (x) => x.aircraftType).map((x) => x.id)).toEqual(['a', 'c', 'd'])
+    expect(nachMuster(person('member', ['CL30']), inhalte, (x) => x.aircraftType).map((x) => x.id)).toEqual(['a', 'c', 'd'])
+  })
+
+  it('reicht Superadmin und Training Admin die ganze Liste durch', () => {
+    expect(nachMuster(person('superadmin', []), inhalte, (x) => x.aircraftType).map((x) => x.id)).toEqual(['a', 'b', 'c', 'd'])
+    expect(nachMuster(person('training_admin', ['CL30']), inhalte, (x) => x.aircraftType).map((x) => x.id)).toEqual(['a', 'b', 'c', 'd'])
   })
 
   it('behaelt die Reihenfolge der Liste bei', () => {
     // Die Sortierung entsteht davor (alphabetisch, nach Datum); der Filter
     // darf sie nicht umwerfen.
-    expect(nachMuster(['CL30', 'C560 XLS+'], inhalte, (x) => x.aircraftType).map((x) => x.id)).toEqual(['a', 'b', 'c', 'd'])
+    expect(nachMuster(person('member', ['CL30', 'C560 XLS+']), inhalte, (x) => x.aircraftType).map((x) => x.id)).toEqual(['a', 'b', 'c', 'd'])
   })
 
   it('laesst bei fehlender Zuordnung nur das Allgemeine uebrig', () => {
-    expect(nachMuster([], inhalte, (x) => x.aircraftType).map((x) => x.id)).toEqual(['c'])
+    expect(nachMuster(person('member', []), inhalte, (x) => x.aircraftType).map((x) => x.id)).toEqual(['c'])
   })
 
   it('gibt eine leere Liste zurueck, statt zu werfen', () => {
-    expect(nachMuster(['CL30'], [], (x: { aircraftType?: string }) => x.aircraftType)).toEqual([])
+    expect(nachMuster(person('member', ['CL30']), [], (x: { aircraftType?: string }) => x.aircraftType)).toEqual([])
   })
 })
 
