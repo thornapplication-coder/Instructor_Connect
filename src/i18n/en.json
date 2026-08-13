@@ -345,6 +345,18 @@
       "templateXlsx": "Download template (Excel)",
       "templateSection": "User import template",
       "templateHint": "The same template as in Users → Import users. Fill it in with Excel, save it as “CSV UTF-8” and upload it under Users."
+    },
+    "status": {
+      "title": "Waiting",
+      "failedMails_one": "{{count}} send failed",
+      "failedMails_other": "{{count}} sends failed",
+      "openFollowUps_one": "{{count}} required form missing",
+      "openFollowUps_other": "{{count}} required forms missing",
+      "openSignatures_one": "{{count}} form without signature",
+      "openSignatures_other": "{{count}} forms without signature",
+      "openFeedback_one": "{{count}} feedback unhandled",
+      "openFeedback_other": "{{count}} feedback entries unhandled",
+      "clear": "Nothing open — all done"
     }
   },
   "imprint": {

@@ -1,8 +1,9 @@
-import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, ClipboardList, Download, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Upload, Users, UsersRound, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, Clock, ClipboardList, Download, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Upload, Users, UsersRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, CardHeading, ChipMultiSelect, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
+import { adminStatus } from '../adminStatus'
 import { storageInfo, type StorageInfo } from '../persist'
 import { downloadCsv } from '../csv'
 import { buildImportTemplate, isImportable, parseUserImport, type ImportResult, type ImportRow } from '../userImport'
@@ -1230,6 +1231,49 @@ const TAB_ICONS: Record<Tab, typeof Users> = {
  * @param sub Pfad hinter „/admin/" — erstes Segment ist der Bereich, ein
  *            zweites reicht die Grading-Ablage an ihre Unterbereiche weiter.
  */
+/**
+ * Die Statuszeile ueber den Kacheln.
+ *
+ * `role="status"` statt eines stummen Streifens: Wer mit Sprachausgabe
+ * arbeitet, bekam vom Wechsel „drei offene Punkte" auf „nichts offen" sonst
+ * nichts mit. Gezaehlt wird in src/adminStatus.ts — dieselbe Rechnung wie im
+ * Dashboard des Grading Tools, nur an einer Stelle definiert.
+ */
+function StatusZeile() {
+  const { t } = useTranslation()
+  const { state, currentUser } = useStore()
+  const punkte = adminStatus({
+    gradingRecords: state.gradingRecords,
+    feedbackEntries: state.feedbackEntries,
+    darfGrading: currentUser!.role === 'superadmin',
+  })
+  return (
+    <div role="status" className="mb-section">
+      {punkte.length === 0 ? (
+        <p className="flex items-center justify-center gap-2 text-small text-dim">
+          <CheckCircle2 size={15} className="text-ok" /> {t('admin.status.clear')}
+        </p>
+      ) : (
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <span className="text-small font-semibold text-dim">{t('admin.status.title')}:</span>
+          {punkte.map((p) => (
+            <button
+              key={p.key}
+              onClick={() => navigate(p.to)}
+              className="min-h-11 rounded-full transition hover:brightness-95"
+            >
+              <Badge tone={p.tone} strong>
+                {p.tone === 'bad' ? <AlertTriangle size={12} className="mr-1" /> : <Clock size={12} className="mr-1" />}
+                {t(`admin.status.${p.key}`, { count: p.count })}
+              </Badge>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function Admin({ sub = '' }: { sub?: string }) {
   const { t } = useTranslation()
   const { currentUser } = useStore()
@@ -1296,6 +1340,15 @@ export function Admin({ sub = '' }: { sub?: string }) {
       <Page className="admin-panel">
         {openTab === null ? (
           <>
+            {/* Was gerade wartet — vor den Kacheln, nicht hinter ihnen.
+                Das Panel zeigte acht gleich aussehende Kacheln und sonst
+                nichts; ob irgendwo etwas liegt, stand hinter zwei bis drei
+                Klicks. Ein fehlgeschlagener Versand eines
+                Schulungsnachweises ist genau das, was nicht liegen bleiben
+                darf (ORA.GEN.220). Jeder Punkt fuehrt dorthin, wo er zu
+                erledigen ist. */}
+            <StatusZeile />
+
             {/* Kachel-Übersicht wie am Dashboard — leichter zu finden und zu ändern */}
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
               {tabs.map((tb) => {

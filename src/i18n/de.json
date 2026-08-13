@@ -345,6 +345,18 @@
       "templateXlsx": "Vorlage herunterladen (Excel)",
       "templateSection": "Vorlage für den Benutzer-Import",
       "templateHint": "Dieselbe Vorlage wie unter Benutzer → Benutzer importieren. In Excel ausfüllen, als „CSV UTF-8“ speichern und unter Benutzer hochladen."
+    },
+    "status": {
+      "title": "Es wartet",
+      "failedMails_one": "{{count}} Versand fehlgeschlagen",
+      "failedMails_other": "{{count}} Versendungen fehlgeschlagen",
+      "openFollowUps_one": "{{count}} Pflichtformular fehlt",
+      "openFollowUps_other": "{{count}} Pflichtformulare fehlen",
+      "openSignatures_one": "{{count}} Formular ohne Unterschrift",
+      "openSignatures_other": "{{count}} Formulare ohne Unterschrift",
+      "openFeedback_one": "{{count}} Rückmeldung unbearbeitet",
+      "openFeedback_other": "{{count}} Rückmeldungen unbearbeitet",
+      "clear": "Nichts offen — alles erledigt"
     }
   },
   "imprint": {
