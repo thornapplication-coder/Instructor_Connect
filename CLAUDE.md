@@ -10,14 +10,25 @@ keine serverseitige Anmeldung.
 Das ist die wichtigste Regel hier. Wer eine Funktion in `src/*.ts` anlegt oder
 eine bestehende Regel ändert, schreibt die Tests **im selben Zuge** dazu.
 
-Abgesichert wird das nicht nur durch Absprache, sondern mechanisch: Die
-Abdeckungsschwelle in `vitest.config.ts` erfasst über `include: ['src/*.ts']`
-**alle** Logik-Module. Eine neue, ungetestete Datei fällt damit von selbst unter
-die Schwelle und lässt `npm test` scheitern — sie kann nicht still an der
-Prüfung vorbeiwachsen. Das ist beabsichtigt und darf nicht durch eine
-Erweiterung der `exclude`-Liste umgangen werden. Wer dort etwas einträgt,
-schreibt den Grund daneben, und der Grund lautet „braucht Browser-Umgebung
-(Ebene 2)", nicht „hat gerade keine Zeit".
+Abgesichert wird das nicht nur durch Absprache, sondern mechanisch — durch
+**zwei** Wachen, die zusammengehören:
+
+1. `src/testGuard.test.ts` verlangt zu jedem Logik-Modul in `src/*.ts` eine
+   Testdatei (`X.test.ts` für reine Logik, `X.dom.test.ts` für alles, was eine
+   Browser-Umgebung braucht). Ausnahmen stehen dort namentlich mit Grund.
+2. Die Abdeckungsschwelle in `vitest.config.ts` prüft, dass diese Tests auch
+   etwas abdecken (`perFile`, 90 % Zeilen / 85 % Zweige).
+
+Der Unterschied ist wichtig, weil hier lange etwas Falsches stand: Die
+Schwelle allein fängt eine ungetestete neue Datei **nicht** ab. Der
+v8-Provider misst, was ausgeführt wurde — eine Datei, die kein Test
+importiert, erscheint gar nicht erst in der Auswertung. Nachgemessen: neue
+Datei mit ungetesteter Logik angelegt, `npm test` blieb grün. Erst die erste
+Wache schließt die Lücke.
+
+Beide dürfen nicht durch eine Erweiterung der Ausnahmelisten umgangen werden.
+Wer dort etwas einträgt, schreibt den Grund daneben, und der Grund lautet
+„braucht Browser-Umgebung (Ebene 2)", nicht „hat gerade keine Zeit".
 
 `npm test` läuft in der CI bei jedem Pull Request **und** vor jeder
 Veröffentlichung. Eine gebrochene Regel geht damit nicht live.
@@ -35,12 +46,19 @@ prüfen, nicht der Code anzupassen**, bis er zum Test passt.
 
 ## Ebenen
 
-- **Ebene 1 (vorhanden):** reine Logik ohne React/DOM — `gradingRules`,
-  `gradingStats`, `csv`, `docHash`.
-- **Ebene 2 (offen):** Komponenten- und Speichertests (React Testing Library,
-  `fake-indexeddb`) für `persist`, `net`, `editGuard`, `useIsDesktop`.
+- **Ebene 1 (vorhanden):** reine Logik ohne React/DOM — Dateiendung
+  `*.test.ts`, Umgebung `node`.
+- **Ebene 2 (vorhanden):** was eine Browser-Umgebung braucht — Dateiendung
+  `*.dom.test.ts` (Speicher, Hooks) bzw. `*.test.tsx` (Komponenten), Umgebung
+  `jsdom` mit `fake-indexeddb` und React Testing Library. Abgedeckt sind
+  `persist`, `editGuard`, `useIsDesktop`; `net` steht noch aus (braucht eine
+  Service-Worker-Registrierung, nicht nur `fetch`).
 - **Ebene 3 (offen):** wenige E2E-Wege mit Playwright (Anmelden → Formular →
   Unterschrift → Versand, Offline).
+
+Die Trennung der Ebenen ist Absicht: Liefe Ebene 1 ebenfalls unter `jsdom`,
+könnte ein Logik-Modul unbemerkt vom DOM abhängig werden und der Lauf bliebe
+grün.
 
 ## Sonstiges
 
