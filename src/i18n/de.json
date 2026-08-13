@@ -345,6 +345,43 @@
       "templateXlsx": "Vorlage herunterladen (Excel)",
       "templateSection": "Vorlage für den Benutzer-Import",
       "templateHint": "Dieselbe Vorlage wie unter Benutzer → Benutzer importieren. In Excel ausfüllen, als „CSV UTF-8“ speichern und unter Benutzer hochladen."
+    },
+    "status": {
+      "title": "Es wartet",
+      "failedMails_one": "{{count}} Versand fehlgeschlagen",
+      "failedMails_other": "{{count}} Versendungen fehlgeschlagen",
+      "openFollowUps_one": "{{count}} Pflichtformular fehlt",
+      "openFollowUps_other": "{{count}} Pflichtformulare fehlen",
+      "openSignatures_one": "{{count}} Formular ohne Unterschrift",
+      "openSignatures_other": "{{count}} Formulare ohne Unterschrift",
+      "openFeedback_one": "{{count}} Rückmeldung unbearbeitet",
+      "openFeedback_other": "{{count}} Rückmeldungen unbearbeitet",
+      "clear": "Nichts offen — alles erledigt"
+    },
+    "bulk": {
+      "select": "Auswählen",
+      "selectAll": "Alle angezeigten auswählen",
+      "clear": "Auswahl aufheben",
+      "selected_one": "{{count}} ausgewählt",
+      "selected_other": "{{count}} ausgewählt",
+      "activate": "Aktivieren",
+      "deactivate": "Deaktivieren",
+      "canGradeOn": "Bewerten erlauben",
+      "canGradeOff": "Bewerten entziehen",
+      "isTraineeOn": "Als Trainee führen",
+      "isTraineeOff": "Nicht mehr als Trainee führen",
+      "directoryOn": "Verzeichnis bearbeiten erlauben",
+      "directoryOff": "Verzeichnis bearbeiten entziehen",
+      "chatBlockOn": "Chat sperren",
+      "chatBlockOff": "Chat entsperren",
+      "aircraftAdd": "Muster zuweisen",
+      "aircraftRemove": "Muster entfernen",
+      "aircraftPick": "Muster wählen",
+      "confirm": "{{action}} — für {{count}} Benutzer ausführen?",
+      "noChange": "Nichts zu ändern — die Auswahl ist bereits so eingestellt",
+      "skippedSelf": "Das eigene Konto wurde ausgelassen — sonst wärst du selbst ausgesperrt.",
+      "skippedLastSuper": "Der letzte aktive Superadmin wurde ausgelassen — sonst käme niemand mehr in die Verwaltung.",
+      "roleNote": "Die Rolle bleibt Einzelentscheidung: Ein Fehlgriff dabei trifft sonst alle Ausgewählten auf einmal."
     }
   },
   "imprint": {
@@ -374,5 +411,24 @@
     "noFile": "Keine Datei hinterlegt",
     "category": "Schulungsart",
     "noCategory": "Ohne Zuordnung"
+  },
+  "toast": {
+    "noteSaved": "Notiz gespeichert",
+    "noteDeleted": "Notiz gelöscht",
+    "contactSaved": "Kontakt gespeichert",
+    "contactDeleted": "Kontakt gelöscht",
+    "lessonAdded": "Lesson Plan hinzugefügt",
+    "lessonDeleted": "Lesson Plan gelöscht",
+    "infoSaved": "Eintrag gespeichert",
+    "infoDeleted": "Eintrag gelöscht",
+    "userSaved": "Benutzer gespeichert",
+    "usersImported_one": "{{count}} Benutzer übernommen",
+    "usersImported_other": "{{count}} Benutzer übernommen",
+    "feedbackResolved": "Als bearbeitet markiert",
+    "feedbackReopened": "Wieder geöffnet",
+    "feedbackDeleted": "Rückmeldung gelöscht",
+    "downloaded": "Datei heruntergeladen",
+    "bulkApplied_one": "{{count}} Benutzer geändert",
+    "bulkApplied_other": "{{count}} Benutzer geändert"
   }
 }

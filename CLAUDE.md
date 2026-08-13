@@ -78,6 +78,18 @@ prüfen, nicht der Code anzupassen**, bis er zum Test passt.
 - **Am Desktop** begrenzt `Page` die Breite (1152 px, `wide` 1280 px). Wo die
   Breite etwas zu tragen hat, füllt sie `CardGrid` mit zwei Spalten; bei einer
   einzelnen Karte bleibt es einspaltig, sonst stünde daneben eine leere Hälfte.
+- **Bestätigungen** kommen aus `toast(text, tone)` (`src/components/Toast.tsx`),
+  nicht aus einem Dialog: Eine Rückmeldung darf den nächsten Handgriff nicht
+  aufhalten. Der Streifen trägt `role="status"`, damit Sprachausgaben ihn
+  vorlesen, ohne den Fokus zu nehmen. Wer eine Aktion baut, die etwas
+  Endgültiges tut (speichern, löschen, absenden, herunterladen), quittiert
+  sie — vorher sprang das Grading-Formular wortlos zurück, und drei
+  verschiedene Ausgänge sahen gleich aus.
+- **Sammelaktionen** planen in `src/bulkUsers.ts`, bevor sie schreiben. Zwei
+  Zusagen hängen daran und sind dort getestet: Der gemeldete Zähler nennt,
+  was sich *wirklich* ändert (nicht die Größe der Auswahl), und niemand kann
+  sich selbst oder den letzten aktiven Superadmin aussperren. Die **Rolle**
+  bleibt bewusst Einzelentscheidung.
 - **Kommentare** erklären das *Warum* (gern mit dem Befund, der dahintersteht),
   nicht das *Was*. Deutsch, wie der Bestand.
 - **Auslieferung:** Entwicklung im Feature-Branch, Merge per PR nach `main`;

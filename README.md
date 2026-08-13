@@ -309,6 +309,11 @@ bewusst durchgehend englisch — seine Texte liegen im Namensraum `forms`, den e
 nur auf Englisch gibt. Theme-Farben zentral in `src/index.css`,
 Hell-/Dunkelmodus umschaltbar.
 
+Bestätigungen laufen über `toast(...)` aus `src/components/Toast.tsx`
+(`role="status"`, kein Dialog); Sammelaktionen im Admin-Panel werden in
+`src/bulkUsers.ts` geplant, bevor sie schreiben, und die Statuszeile über den
+Admin-Kacheln zählt in `src/adminStatus.ts`.
+
 Schrift- und Abstandsskala stehen abgeschlossen in `tailwind.config.js`: elf
 Schriftstufen (`text-micro` … `text-giant`, `text-fine` für den Druck) und vier
 Abstandsstufen. Die Schriftskala ersetzt den Tailwind-Standard, deshalb gibt es

@@ -275,7 +275,6 @@
   "openUnsignedFollowUp": "Complete {{form}} — signature outstanding",
   "leaveConfirm": "Leave the form? Your entries are saved as a draft and offered again next time — signatures are not kept.",
   "draftRestored": "A draft of this form was restored. Signatures always have to be drawn again.",
-  "draftDiscard": "Discard draft",
   "missingForm": "Missing Form {{id}}",
   "unsignedForm": "Form {{id}} not signed",
   "std": {
@@ -324,5 +323,12 @@
   "authority": "Approving authority *",
   "authorityAT": "Austro Control (AT) — {{nr}}",
   "authorityUK": "UK CAA — {{nr}}",
-  "removePilot": "Remove"
+  "removePilot": "Remove",
+  "toast": {
+    "signedAndSent": "Form signed and sent.",
+    "queued": "Form signed. It is in the outbox and will be sent as soon as there is a connection.",
+    "openLeft": "Saved — signature or sending still open.",
+    "chainNext": "Saved. Next required form opens now.",
+    "exported": "CSV file downloaded."
+  }
 }

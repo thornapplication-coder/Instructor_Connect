@@ -345,6 +345,43 @@
       "templateXlsx": "Download template (Excel)",
       "templateSection": "User import template",
       "templateHint": "The same template as in Users → Import users. Fill it in with Excel, save it as “CSV UTF-8” and upload it under Users."
+    },
+    "status": {
+      "title": "Waiting",
+      "failedMails_one": "{{count}} send failed",
+      "failedMails_other": "{{count}} sends failed",
+      "openFollowUps_one": "{{count}} required form missing",
+      "openFollowUps_other": "{{count}} required forms missing",
+      "openSignatures_one": "{{count}} form without signature",
+      "openSignatures_other": "{{count}} forms without signature",
+      "openFeedback_one": "{{count}} feedback unhandled",
+      "openFeedback_other": "{{count}} feedback entries unhandled",
+      "clear": "Nothing open — all done"
+    },
+    "bulk": {
+      "select": "Select",
+      "selectAll": "Select all shown",
+      "clear": "Clear selection",
+      "selected_one": "{{count}} selected",
+      "selected_other": "{{count}} selected",
+      "activate": "Activate",
+      "deactivate": "Deactivate",
+      "canGradeOn": "Allow grading",
+      "canGradeOff": "Revoke grading",
+      "isTraineeOn": "Mark as trainee",
+      "isTraineeOff": "Unmark as trainee",
+      "directoryOn": "Allow directory editing",
+      "directoryOff": "Revoke directory editing",
+      "chatBlockOn": "Block chat",
+      "chatBlockOff": "Unblock chat",
+      "aircraftAdd": "Assign aircraft type",
+      "aircraftRemove": "Remove aircraft type",
+      "aircraftPick": "Choose aircraft type",
+      "confirm": "{{action}} — apply to {{count}} users?",
+      "noChange": "Nothing to change — the selection is already set that way",
+      "skippedSelf": "Your own account was skipped — otherwise you would lock yourself out.",
+      "skippedLastSuper": "The last active superadmin was skipped — otherwise nobody could reach the admin area.",
+      "roleNote": "Role stays a single-user decision: a slip there would hit every selected account at once."
     }
   },
   "imprint": {
@@ -374,5 +411,24 @@
     "noFile": "No file attached",
     "category": "Training type",
     "noCategory": "Unassigned"
+  },
+  "toast": {
+    "noteSaved": "Note saved",
+    "noteDeleted": "Note deleted",
+    "contactSaved": "Contact saved",
+    "contactDeleted": "Contact deleted",
+    "lessonAdded": "Lesson plan added",
+    "lessonDeleted": "Lesson plan deleted",
+    "infoSaved": "Entry saved",
+    "infoDeleted": "Entry deleted",
+    "userSaved": "User saved",
+    "usersImported_one": "{{count}} user imported",
+    "usersImported_other": "{{count}} users imported",
+    "feedbackResolved": "Marked as handled",
+    "feedbackReopened": "Reopened",
+    "feedbackDeleted": "Feedback deleted",
+    "downloaded": "File downloaded",
+    "bulkApplied_one": "{{count}} user changed",
+    "bulkApplied_other": "{{count}} users changed"
   }
 }

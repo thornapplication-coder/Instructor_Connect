@@ -2,6 +2,7 @@ import { Download, Eye, FileText, Plane, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { toast } from '../components/Toast'
 import { useStore } from '../store'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
@@ -74,6 +75,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
               // bot sonst Ansehen und Herunterladen für ein Dokument an, das
               // es nie gab.
               addLessonPlan({ title: title.trim(), description: description.trim(), aircraftType, category, fileName: fileName.trim() })
+              toast(t('toast.lessonAdded'))
               onClose()
             }}
           >
@@ -212,7 +214,10 @@ export function LessonPlans() {
                         {mayEdit && (
                           <button
                             onClick={() => {
-                              if (window.confirm(t('lessons.deleteConfirm', { title: p.title }))) deleteLessonPlan(p.id)
+                              if (window.confirm(t('lessons.deleteConfirm', { title: p.title }))) {
+                                deleteLessonPlan(p.id)
+                                toast(t('toast.lessonDeleted'))
+                              }
                             }}
                             className="min-h-11 flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-small text-danger hover:bg-danger/10"
                           >

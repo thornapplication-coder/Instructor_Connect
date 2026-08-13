@@ -3,6 +3,7 @@ import { SandboxBar } from './components/SandboxBar'
 import { OfflineBanner } from './components/OfflineBanner'
 import { StorageBanner } from './components/StorageBanner'
 import { UpdateBanner } from './components/UpdateBanner'
+import { ToastHost } from './components/Toast'
 import { Admin } from './pages/Admin'
 import { ChatInfo } from './pages/ChatInfo'
 import { ChatList } from './pages/ChatList'
@@ -104,6 +105,8 @@ function AppShell() {
             fremden Formularzustand. */}
         <Screen key={currentUser?.id ?? 'anon'} />
       </div>
+      {/* Bestaetigungen sitzen ueber der Sandbox-Leiste, nicht dahinter. */}
+      <ToastHost />
       <SandboxBar />
     </div>
   )

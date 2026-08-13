@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, inputCls, Page, SectionHeading, TopBar } from '../components/ui'
 import { downloadCsv } from '../csv'
+import { toast } from '../components/Toast'
 import { buildGradingCsv, gradingCsvName, type ExportScope } from '../gradingExport'
 import { navigate } from '../router'
 import { gradingListComparator } from '../gradingRules'
@@ -227,6 +228,7 @@ function TrainingAdminGrading() {
       formatDateTime,
     })
     downloadCsv(gradingCsvName(scope, jetzt), csv)
+    toast(t('forms:toast.exported'))
   }
 
   const selCls = 'rounded-xl border border-field bg-bg/60 px-3 py-2 text-small'

@@ -2,6 +2,7 @@ import { Printer, Table2 } from 'lucide-react'
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { csvNum, csvRow, downloadCsv } from '../../csv'
+import { toast } from '../../components/Toast'
 import { CardHeading, selectCls } from '../../components/ui'
 import { useStore } from '../../store'
 import type { CompetencySetKey, GradingRecord } from '../../types'
@@ -113,6 +114,7 @@ export function StandardisationReport({
     })
     const d = new Date(now)
     const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    toast(t('forms:toast.exported'))
     downloadCsv(`standardisation-report_${stamp}.csv`, csv)
   }
 
