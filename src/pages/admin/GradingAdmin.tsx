@@ -2,7 +2,8 @@ import { Eye, EyeOff, AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, CardHeading, Field, inputCls, selectCls } from '../../components/ui'
-import { csvNum, csvRow, downloadCsv } from '../../csv'
+import { downloadCsv } from '../../csv'
+import { avgOf, buildGradingCsv, gradingCsvName } from '../../gradingExport'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
@@ -17,12 +18,6 @@ import { authorityOf, PERIODS, periodLabel, scopeRecords, statsBySet as computeS
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats' | 'standardisation' | 'trainees' | 'monthly'
 const SECTIONS: Section[] = ['dashboard', 'records', 'trainees', 'monthly', 'stats', 'standardisation', 'config']
-
-/** Durchschnitt der numerischen Noten (NO zählt nicht mit) */
-function avgOf(values: (number | 'NO' | null)[]): number | null {
-  const nums = values.filter((v): v is number => typeof v === 'number')
-  return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null
-}
 
 function StringList({ label, values, onChange }: { label: string; values: string[]; onChange: (v: string[]) => void }) {
   const { t } = useTranslation()
@@ -582,94 +577,31 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
    * Instruktor gefiltert, Datei mit dreien.
    */
   const exportCsv = (scope: 'records' | 'competencies' | 'people', source: { records: GradingRecord[]; filters: [string, string][] }) => {
-    // csvRow escapet Trennzeichen und entschärft Formelzeichen (siehe csv.ts).
-    const row = csvRow
-    // Jeder Export trägt Zeitpunkt und exportierende Person im Kopf.
-    let csv = row(['Instructor Connect — Grading Export'])
-    csv += row(['Exported (date/time)', formatDateTime(Date.now() + state.timeOffsetMs), 'Exported by', currentUser!.name])
-    csv += row([])
-    const scopeRecords = source.records
-    source.filters.forEach(([k, v]) => (csv += row([k, v])))
-    csv += row([])
-    if (scope === 'records') {
-      // Behoerde, Unterschriftszeitpunkt und Fingerabdruck gehoeren in einen
-      // Auszug fuer die Behoerde: AT- und UK-Vorgaenge liegen im selben
-      // Bestand, und ohne `SignedAt`/`Fingerprint` laesst sich eine Zeile
-      // keinem geprueften Dokument zuordnen.
-      csv += row(['Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Status', 'Authority', 'SignedAt', 'Fingerprint', 'FollowUpTo', 'Avg'])
-      scopeRecords.forEach((r) => {
-        if (r.trainees.length > 0) {
-          r.trainees.forEach((tr) => {
-            // Durchschnitt je Pilot, nicht des gesamten Formulars
-            const avg = avgOf(tr.grades.map((g2) => g2.grade))
-            csv += row([
-              r.formTypeId, userName(r.instructorId), traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice,
-              r.header.date, tr.overall, r.sessionStatus, r.status,
-              r.authority ?? 'AT', r.signedAt ? formatDateTime(r.signedAt) : '', r.contentHash ?? '',
-              r.parentId ? parentLabel(r) : '', csvNum(avg),
-            ])
-          })
-          return
-        }
-        // Folgeformulare (306/310) führen keine Bewertung, gehören aber in
-        // die Ablage — sie belegen die Nachschulung.
-        traineesOf(r, records).forEach((tr) => {
-          csv += row([
-            r.formTypeId, userName(r.instructorId), traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice ?? '',
-            r.header.date, '', '', r.status,
-            r.authority ?? 'AT', r.signedAt ? formatDateTime(r.signedAt) : '', r.contentHash ?? '',
-            r.parentId ? parentLabel(r) : '', '',
-          ])
-        })
-      })
-    } else if (scope === 'competencies') {
-      csv += row(['Form', 'Trainee', 'Competency', 'Title', 'Grade', 'Comment'])
-      scopeRecords.forEach((r) =>
-        r.trainees.forEach((tr) => {
-          tr.grades.forEach((gr) => {
-            const title = r.competencies?.find((c) => c.code === gr.code)?.title ?? ''
-            csv += row([r.formTypeId, traineeLabel(tr), gr.code, title, gr.grade, gr.comment])
-          })
-          // Die zusammenfassende Bewertung ist Pflichtfeld auf dem Formular
-          // und genau der Teil, den ein Prüfer liest — sie fehlte bisher in
-          // jedem Export. Als eigene Zeilen je Pilot, damit die Spalten der
-          // Kompetenzzeilen unverändert bleiben.
-          const zusammenfassung: [string, string][] = [
-            ['Positive aspects', tr.positiveComment],
-            ['Areas for development', tr.developmentComment],
-            ['Summary', tr.summaryComment],
-          ]
-          zusammenfassung.forEach(([abschnitt, text]) => {
-            if (text?.trim()) csv += row([r.formTypeId, traineeLabel(tr), '', abschnitt, '', text])
-          })
-          if (tr.overall) csv += row([r.formTypeId, traineeLabel(tr), '', 'Overall result', '', tr.overall])
-        }),
-      )
-      // Folgeformulare haben keine Kompetenzen, ihre Freitexte sind aber der
-      // eigentliche Nachweis — deshalb als eigene Zeilen mitgeben.
-      scopeRecords
-        .filter((r) => r.trainees.length === 0)
-        .forEach((r) =>
-          Object.entries(r.freeText).forEach(([section, text]) => {
-            traineesOf(r, records).forEach((tr) => {
-              csv += row([r.formTypeId, traineeLabel(tr), '', section, '', text])
-            })
-          }),
-        )
-    } else {
-      // Kalibrierung getrennt je Kompetenzsatz — Piloten- und
-      // Instruktorenbewertungen werden nie miteinander verglichen.
-      csv += row(['CompetencySet', 'Person', 'Role', 'Sessions', 'AvgGrade', 'DeviationFromSetAvg'])
-      statsBySet.forEach((st) =>
-        st.calibration.rows.forEach((r2) => {
-          csv += row([st.name, userName(r2.id), 'Instructor', r2.sessions, csvNum(r2.avg), csvNum((r2.avg ?? 0) - (st.calibration.overall ?? 0))])
-        }),
-      )
-    }
-    // Exportzeitpunkt auch im Dateinamen
-    const d = new Date(Date.now() + state.timeOffsetMs)
-    const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}_${String(d.getHours()).padStart(2, '0')}-${String(d.getMinutes()).padStart(2, '0')}`
-    downloadCsv(`grading-${scope}_${stamp}.csv`, csv)
+    // Der Inhalt entsteht in src/gradingExport.ts — dieselbe Funktion nutzt
+    // die Ablage des Training Admins, und nur so ist sie pruefbar.
+    const jetzt = Date.now() + state.timeOffsetMs
+    const csv = buildGradingCsv(scope, {
+      records: source.records,
+      alle: records,
+      filter: source.filters,
+      exportiertAm: jetzt,
+      exportiertVon: currentUser!.name,
+      userName,
+      traineeLabel,
+      traineesOf,
+      parentLabel,
+      formatDateTime,
+      kalibrierung: statsBySet.flatMap((st) =>
+        st.calibration.rows.map((r) => ({
+          satz: st.name,
+          personId: r.id,
+          sessions: r.sessions,
+          avg: r.avg,
+          abweichung: (r.avg ?? 0) - (st.calibration.overall ?? 0),
+        })),
+      ),
+    })
+    downloadCsv(gradingCsvName(scope, jetzt), csv)
   }
 
   // Kachel-Navigation im Stil des Dashboards
