@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { giltMusterbereich, imMusterbereich, musterPflicht, nachMuster, ohneMuster, sichtbarFuer } from './aircraftScope'
+import {
+  giltMusterbereich,
+  imMusterbereich,
+  musterFehlt,
+  musterPflicht,
+  musterZurAuswahl,
+  nachMuster,
+  ohneMuster,
+  sichtbarFuer,
+} from './aircraftScope'
 
 /**
  * Diese Regel entscheidet, wer was sieht — sie ist damit die Stelle, an der
@@ -147,5 +156,55 @@ describe('ohneMuster', () => {
 
   it('erkennt ein zugeordnetes Konto', () => {
     expect(ohneMuster({ aircraftTypes: ['CL30'] })).toBe(false)
+  })
+})
+
+describe('musterFehlt', () => {
+  /*
+   * Der gemeinsame Aufrufpunkt aller Schreibwege. Er entstand, weil die
+   * Bedingung in `addUser` von Hand ausgeschrieben stand und vier andere
+   * Wege sie nicht kannten: Import, Sammelbearbeitung, Rollenwechsel und die
+   * Chip-Reihe in der Nutzerzeile. Alle vier fuehrten in einen Zustand, den
+   * der fuenfte ausdruecklich verbietet.
+   */
+  it('erkennt das Konto, das fuer nichts zustaendig waere', () => {
+    expect(musterFehlt({ role: 'member', aircraftTypes: [] })).toBe(true)
+    expect(musterFehlt({ role: 'group_admin', aircraftTypes: [] })).toBe(true)
+    expect(musterFehlt({ role: 'member' })).toBe(true)
+  })
+
+  it('laesst die freien Rollen ohne Zuordnung zu', () => {
+    expect(musterFehlt({ role: 'superadmin', aircraftTypes: [] })).toBe(false)
+    expect(musterFehlt({ role: 'training_admin' })).toBe(false)
+  })
+
+  it('ist zufrieden, sobald ein einziges Muster steht', () => {
+    expect(musterFehlt({ role: 'member', aircraftTypes: ['CL30'] })).toBe(false)
+  })
+})
+
+describe('musterZurAuswahl', () => {
+  const alle = ['ATR 42/72', 'C560 XLS+', 'CL30']
+
+  it('bietet dem Gebundenen nur die eigenen Muster an', () => {
+    // Sonst legt ein Gruppenadmin einen Lesson Plan fuer ein fremdes Muster
+    // an, bekommt die Bestaetigung — und der Plan ist im selben Moment weg:
+    // Bearbeiten und Loeschen haengen an derselben gefilterten Liste.
+    expect(musterZurAuswahl({ role: 'group_admin', aircraftTypes: ['CL30'] }, alle)).toEqual(['CL30'])
+    expect(musterZurAuswahl({ role: 'member', aircraftTypes: ['CL30', 'ATR 42/72'] }, alle)).toEqual(['ATR 42/72', 'CL30'])
+  })
+
+  it('bietet den freien Rollen die ganze Liste an', () => {
+    expect(musterZurAuswahl({ role: 'superadmin', aircraftTypes: [] }, alle)).toEqual(alle)
+    expect(musterZurAuswahl({ role: 'training_admin', aircraftTypes: ['CL30'] }, alle)).toEqual(alle)
+  })
+
+  it('behaelt die Reihenfolge der uebergebenen Liste', () => {
+    // Die Sortierung entsteht davor; die Auswahl darf sie nicht umwerfen.
+    expect(musterZurAuswahl({ role: 'member', aircraftTypes: alle }, alle)).toEqual(alle)
+  })
+
+  it('gibt ohne angemeldete Person nichts frei', () => {
+    expect(musterZurAuswahl(null, alle)).toEqual([])
   })
 })

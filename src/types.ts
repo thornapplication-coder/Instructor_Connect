@@ -265,6 +265,10 @@ export interface AppState {
    *  nach dem Löschen bei jedem Start zurück — jedes Mal mit frisch
    *  gerechneten Zeitstempeln, also als NEUE Daten. */
   seedHistoryMigrated?: boolean
+  /** Musterzuordnung wurde beim Umstieg einmalig nachgetragen (siehe
+   *  migrateState). Ohne diese Marke liefe der Nachtrag bei JEDEM Start und
+   *  machte jede spaetere Entziehung wieder rueckgaengig. */
+  aircraftBackfilled?: boolean
 }
 
 

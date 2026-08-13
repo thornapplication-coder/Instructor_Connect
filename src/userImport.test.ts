@@ -103,7 +103,7 @@ describe('Pruefung je Zeile', () => {
 
   it('erkennt dieselbe Adresse zweimal IN der Datei', () => {
     const r = parseUserImport(
-      datei('A;doppelt@aviationacademy.at;;member;;;;;', 'B;doppelt@aviationacademy.at;;member;;;;;'),
+      datei('A;doppelt@aviationacademy.at;;member;CL30;;;;', 'B;doppelt@aviationacademy.at;;member;CL30;;;;'),
       CTX,
     )
     expect(r.rows[0].problems).toEqual([])
@@ -157,13 +157,13 @@ describe('Pruefung je Zeile', () => {
   })
 
   it('kommt mit dem BOM klar, das Excel schreibt', () => {
-    const r = parseUserImport('﻿' + datei('Anna;anna@aviationacademy.at;;member;;;;;'), CTX)
+    const r = parseUserImport('﻿' + datei('Anna;anna@aviationacademy.at;;member;CL30;;;;'), CTX)
     expect(r.headerError).toBe(false)
     expect(r.rows[0].problems).toEqual([])
   })
 
   it('liest auch komma-getrennte Dateien', () => {
-    const r = parseUserImport('Name,Email,Role\nAnna,anna@aviationacademy.at,member', CTX)
+    const r = parseUserImport('Name,Email,Role,AircraftTypes\nAnna,anna@aviationacademy.at,member,CL30', CTX)
     expect(r.separator).toBe(',')
     expect(r.rows[0].problems).toEqual([])
   })
@@ -217,7 +217,67 @@ describe('Pruefung je Zeile', () => {
   })
 
   it('laesst ohne freigegebene Domains jede Adresse zu', () => {
-    const r = parseUserImport(datei('Anna;anna@gmail.com;;member;;;;;'), { ...CTX, allowedDomains: [] })
+    const r = parseUserImport(datei('Anna;anna@gmail.com;;member;CL30;;;;'), { ...CTX, allowedDomains: [] })
     expect(r.rows[0].problems).toEqual([])
+  })
+})
+
+/**
+ * Die Musterpflicht — und die Zusage, die dabei bewusst aufgegeben wurde.
+ *
+ * Bis hierher galt: „Ein unbekanntes Muster blockiert NICHT." Das bleibt
+ * richtig, solange noch ein Muster uebrig bleibt. Bleibt keines, ist das
+ * Ergebnis kein unvollstaendiger Nutzer, sondern ein blinder — er sieht
+ * weder Lesson Plan noch Instructor Info noch musterbezogenen Chat.
+ *
+ * Der Anlege-Dialog verweigert genau dieses Konto. Der Import legte es an,
+ * und die Vorschau meldete die Zeile gruen — auf dem Weg, der nicht einen
+ * Nutzer anlegt, sondern hundertfuenfzig. Aufgefallen ist das beim
+ * Gegenlesen, nicht im Betrieb.
+ */
+describe('Musterpflicht beim Import', () => {
+  it('blockiert eine member-Zeile ohne Muster', () => {
+    const r = parseUserImport(datei('Anna;anna@aviationacademy.at;;member;;ja;;;'), CTX)
+    expect(r.rows[0].problems).toEqual(['aircraftMissing'])
+    expect(isImportable(r.rows[0])).toBe(false)
+  })
+
+  it('blockiert auch den Gruppen-Admin — er ist ans Muster gebunden', () => {
+    const r = parseUserImport(datei('Erika;erika@aviationacademy.at;;admin;;ja;;;'), CTX)
+    expect(isImportable(r.rows[0])).toBe(false)
+  })
+
+  it('laesst superadmin und training admin ohne Muster durch', () => {
+    // Fuer sie waere die Spalte ein totes Pflichtfeld: Ihre Sicht haengt
+    // nicht am Muster, eine Eintragung aendert daran nichts.
+    const r = parseUserImport(
+      datei('S;s@aviationacademy.at;;superadmin;;;;;', 'T;t@aviationacademy.at;;training admin;;;;;'),
+      CTX,
+    )
+    expect(r.rows.map((x) => x.problems)).toEqual([[], []])
+    expect(r.rows.every(isImportable)).toBe(true)
+  })
+
+  it('blockiert, wenn das EINZIGE genannte Muster unbekannt ist', () => {
+    // Hier laufen beide Regeln zusammen: Die unbekannte Kennung wird
+    // verworfen (kein Blocker), aber danach ist die Liste leer (Blocker).
+    const r = parseUserImport(datei('Anna;anna@aviationacademy.at;;member;Boeing 737;;;;'), CTX)
+    expect(r.rows[0].unknownAircraft).toEqual(['Boeing 737'])
+    expect(r.rows[0].problems).toEqual(['aircraft', 'aircraftMissing'])
+    expect(isImportable(r.rows[0])).toBe(false)
+  })
+
+  it('laesst eine Zeile durch, bei der nach dem Verwerfen ein Muster bleibt', () => {
+    // Die alte Abwaegung gilt unveraendert: nachtragen im Panel ist zumutbar.
+    const r = parseUserImport(datei('Anna;anna@aviationacademy.at;;member;"CL30; Boeing 737";;;;'), CTX)
+    expect(r.rows[0].problems).toEqual(['aircraft'])
+    expect(isImportable(r.rows[0])).toBe(true)
+  })
+
+  it('meldet die fehlende Rolle, nicht das fehlende Muster', () => {
+    // Ohne Rolle ist gar nicht entscheidbar, ob die Pflicht gilt — dann darf
+    // die Zeile nicht mit zwei Vorwuerfen dastehen, von denen einer geraten ist.
+    const r = parseUserImport(datei('Anna;anna@aviationacademy.at;;Chefpilot;;;;;'), CTX)
+    expect(r.rows[0].problems).toEqual(['role'])
   })
 })

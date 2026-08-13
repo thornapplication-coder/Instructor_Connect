@@ -45,10 +45,12 @@ function seedState(now: number): AppState {
       { id: 'u-patrick', name: 'Patrick Thorn', email: 'patrick.thorn@aviationacademy.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
       { id: 'u-christian', name: 'Christian Terler', email: 'christian.terler@aviationacademy.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30'], active: true },
       { id: 'u-michael', name: 'Michael Holy', email: 'michael.holy@aviationacademy.at', phone: '+43 664 1000003', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['C560 XLS+'], active: true },
-      // Auch der Training Admin fuehrt Muster: Seit die Sichtbarkeit von
-      // Lesson Plans, Info und Chats daran haengt, saehe er sonst von alldem
-      // nichts. Die Formularablage bleibt davon unberuehrt — sie ist
-      // rollenbasiert (ORA.GEN.220).
+      // Der Training Admin fuehrt Muster, obwohl seine Sicht nicht daran
+      // haengt (er steht in OHNE_SCHRANKE). Hier stand als Begruendung, er
+      // saehe sonst nichts — das war schlicht falsch und beim Gegenlesen
+      // aufgefallen. Der echte Grund ist ein anderer: Wird die Rolle spaeter
+      // auf Mitglied herabgestuft, greift die Musterpflicht, und ohne
+      // Zuordnung liesse `updateUser` die Herabstufung gar nicht zu.
       { id: 'u-max', name: 'Steven Fermie', email: 'training.admin@aviationacademy.at', phone: '+43 1 5550 300', role: 'training_admin', canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
     ],
     groups: [
@@ -242,6 +244,7 @@ function seedState(now: number): AppState {
     // Marke käme er zum Zug, sobald ein Superadmin die Blätter löscht, und
     // stellte sie beim nächsten Laden wieder her.
     seedHistoryMigrated: true,
+    aircraftBackfilled: true,
     timeOffsetMs: 0,
     seen: {},
     contactsChangedAt: now - 2 * d,

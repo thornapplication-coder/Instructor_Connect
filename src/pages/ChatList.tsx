@@ -1,4 +1,5 @@
 import { BellOff, ChevronRight, Plus } from 'lucide-react'
+import { musterZurAuswahl } from '../aircraftScope'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Button, Card, Field, inputCls, Modal, NewDot, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
@@ -14,7 +15,9 @@ export function ChatList() {
   const [name, setName] = useState('')
   const [purpose, setPurpose] = useState('')
   const [aircraft, setAircraft] = useState('')
-  const aircraftTypes = [...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b))
+  // Nur die eigenen Muster: Eine Gruppe fremden Musters koennte der
+  // Anleger anschliessend selbst nicht betreten.
+  const aircraftTypes = musterZurAuswahl(currentUser, [...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)))
 
   return (
     <>

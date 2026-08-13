@@ -1,4 +1,5 @@
 import { Download, Eye, FileText, Plane, Plus, Trash2 } from 'lucide-react'
+import { musterZurAuswahl } from '../aircraftScope'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
@@ -9,7 +10,7 @@ const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
 
 function UploadModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
-  const { state, addLessonPlan } = useStore()
+  const { state, currentUser, addLessonPlan } = useStore()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [aircraftType, setAircraftType] = useState('')
@@ -28,7 +29,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
         <Field label={t('lessons.aircraftType') + ' *'}>
           <select value={aircraftType} onChange={(e) => setAircraftType(e.target.value)} className={selectCls}>
             <option value="">…</option>
-            {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
+            {musterZurAuswahl(currentUser, [...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b))).map((a) => (
               <option key={a} value={a}>
                 {a}
               </option>

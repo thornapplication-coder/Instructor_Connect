@@ -84,8 +84,14 @@ Drei Festlegungen gehören dazu:
   Behördenexport bleiben rollenbasiert: Die Aufbewahrungspflicht
   (ORA.GEN.220) gilt für den ganzen Bestand, nicht für den eigenen Teil davon.
 
-Die Zuordnung ist eine Mehrfachauswahl und beim Anlegen dort Pflicht, wo sie
-etwas bewirkt — bei Member und Group Admin. Für die beiden freien Rollen wäre
+Die Zuordnung ist eine Mehrfachauswahl und **auf jedem Schreibweg** dort
+Pflicht, wo sie etwas bewirkt — bei Member und Group Admin. Nicht nur im
+Anlege-Dialog: Der CSV-Import weist eine solche Zeile schon in der Vorschau
+ab, die Sammelbearbeitung überspringt sie und benennt das, ein Rollenwechsel
+zu Member greift ohne Zuordnung nicht, und das letzte Muster einzeln
+abzuwählen ist gesperrt. Beim Anlegen von Inhalten wird außerdem nur
+angeboten, was der Anlegende selbst sieht — sonst legt ein Admin einen Lesson
+Plan für ein fremdes Muster an und verliert ihn im selben Moment. Für die beiden freien Rollen wäre
 sie ein totes Pflichtfeld: Man klickt irgendetwas an, und der nächste liest
 daraus eine Zuständigkeit, die es nicht gibt. Bestehende Konten ohne
 Zuordnung bekommen bei der Migration **alle** Muster; der Umstieg darf

@@ -288,3 +288,74 @@ Dokumentation auf den Stand gebracht. Kein Verhalten geändert.
   gleichgezogen (samt `package-lock.json`). Der Changelog **in** der App
   bleibt bewusst auf dem einen 1.0.0-Eintrag; er richtet sich an
   Instruktoren.
+
+## 1.5.2 — 2026-08-13
+
+Gegenlesung der Musterregel durch drei Prüfer. Der Kern der Regel hielt —
+alle Befunde lagen an den Aufrufstellen.
+
+**Der schwerste zuerst:** `migrateState` trug die Musterzuordnung ohne Marke
+nach und lief damit bei **jedem** Start, auch über den gerade gespeicherten
+Stand. Wer einem Mitglied bewusst das letzte Muster entzog, fand es nach dem
+nächsten Neuladen mit **allen** Mustern wieder — die Korrektur lief in die
+weite Richtung und stellte genau den Zustand her, den die Regel verhindern
+soll. Nachgemessen im Browser. Der Nachtrag läuft jetzt genau einmal
+(`aircraftBackfilled`); dieselbe Falle war in derselben Datei schon einmal
+gestellt und mit einer Marke gelöst worden.
+
+**Die Pflicht galt nur beim Anlegen.** Vier weitere Schreibwege kannten sie
+nicht, weil die Bedingung in `addUser` von Hand ausgeschrieben stand:
+
+- **Der CSV-Import** legte Mitglieder ohne Muster an, und die Vorschau meldete
+  sie grün — auf dem Weg, der nicht einen Nutzer anlegt, sondern
+  hundertfünfzig. Jetzt blockiert `aircraftMissing` die Zeile, in der Vorschau
+  **und** im Store. Wer als einziges Muster ein unbekanntes nennt, fällt
+  ebenfalls auf: Verworfen wird es weiterhin, aber danach ist die Liste leer.
+- **Die Sammelbearbeitung** leerte bei „Muster entfernen" die Liste derer, die
+  nur dieses eine hatten — vierzig Klicks, dreißig blinde Konten, und der
+  Zähler meldete Erfolg. Jetzt übersprungen und benannt, wie beim
+  Aussperr-Schutz.
+- **Ein Rollenwechsel** von Superadmin (darf ohne Muster sein) zu Mitglied
+  erzeugte denselben Zustand, ohne dass jemand ein Muster angefasst hätte.
+- **Das letzte Muster** ließ sich in der Nutzerzeile wortlos abwählen. Jetzt
+  gesperrt und begründet — bei den Gruppen direkt darüber gibt es das seit
+  jeher.
+
+Alle fünf fragen jetzt `musterFehlt`.
+
+**Zwei Wege, die Schranke zu umgehen:**
+
+- Ein Gruppenadmin, der als Admin einer Gruppe fremden Musters eingetragen
+  war, konnte sie zwar nicht betreten, im Panel aber ihr Muster auf „Ohne
+  Muster" stellen — und stand danach mit der vollen Historie drin. Umbenennen,
+  Mitglieder tauschen und Löschen hingen an derselben Prüfung. `maySeeGroup`
+  prüft jetzt das Muster.
+- Die **Kontrollliste der Lese-Bestätigungen** und ihr CSV-Auszug führten
+  Personen als `PENDING`, denen die App den Eintrag vorenthält. Die Quote
+  erreichte nie 100 %, und ein Nachweisdokument nannte jemanden säumig.
+
+**Verwalter verloren, was sie anlegten.** Wer einen Lesson Plan, Info-Eintrag
+oder Chat für ein fremdes Muster anlegte, bekam die Bestätigung — und der
+Inhalt war weg, weil Bearbeiten und Löschen an derselben gefilterten Liste
+hängen. Die Auswahlfelder bieten jetzt nur noch die eigenen Muster an
+(`musterZurAuswahl`).
+
+**Bedienung:**
+
+- Die Feldbeschriftung lag in einem `<label>`. `<button>` ist ein labelable
+  element — ein Tippen auf „Zugewiesene Muster" schaltete das alphabetisch
+  erste Muster ein. Jetzt `role="group"`, wie an sieben anderen Stellen der
+  Datei.
+- Ausgewählt oder nicht war nur an der Farbe erkennbar; die Chips tragen jetzt
+  `aria-pressed`.
+- Die Beschriftung sagte „(Lesson Plans)", der Hinweis darunter „auch Info und
+  Chats". Der Klammerzusatz ist raus.
+- Das Anlegen quittiert; ein vom Store abgewiesener Vorgang sah vorher aus wie
+  ein gelungener (`addUser` gibt jetzt zurück, ob es geklappt hat).
+- Die Rückfrage vor dem Verwerfen kannte das neue Feld nicht.
+- Die Musterauswahl in der Nutzerzeile war handgebaut und wich in Abstand,
+  Rahmen und Schriftschnitt ab — jetzt dieselbe `ChipMultiSelect`.
+
+Die Begründung im Seed für die Muster des Training Admins war falsch („sähe
+sonst nichts") und ist ersetzt. `@types/node` ist dazugekommen, weil der Test
+der Excel-Vorlage die Datei liest.

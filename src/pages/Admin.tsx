@@ -5,7 +5,7 @@ import { Avatar, Badge, Button, Card, CardHeading, ChipMultiSelect, Field, input
 import { navigate } from '../router'
 import { adminStatus } from '../adminStatus'
 import { planBulk, type BulkAktion } from '../bulkUsers'
-import { musterPflicht } from '../aircraftScope'
+import { musterFehlt, musterPflicht, musterZurAuswahl } from '../aircraftScope'
 import { toast } from '../components/Toast'
 import { storageInfo, type StorageInfo } from '../persist'
 import { downloadCsv } from '../csv'
@@ -288,6 +288,9 @@ function UsersTab() {
     // Sollte durch die Bereinigung unten nie eintreten — wenn doch, dann laut.
     const unsichtbar = plan.uebersprungen.filter((x) => x.grund === 'nichtSichtbar').length
     if (unsichtbar) window.alert(t('admin.bulk.skippedHidden', { count: unsichtbar }))
+    // „CL30 faellt aus der Flotte" traf sonst auch die, die nur CL30 hatten.
+    const letztes = plan.uebersprungen.filter((x) => x.grund === 'letztesMuster').length
+    if (letztes) window.alert(t('admin.bulk.skippedLastAircraft', { count: letztes }))
     if (plan.patches.length > 0) toast(t('toast.bulkApplied', { count: plan.patches.length }))
     setGewaehlt([])
   }
@@ -549,27 +552,28 @@ function UsersTab() {
               }}
             />
           </div>
-          {/* Zugewiesene Muster steuern, welche Lesson Plans der Nutzer sieht */}
+          {/* Zugewiesene Muster steuern Lesson Plans, Instructor Info und Chats.
+              Dieselbe Mehrfachauswahl wie darueber — vorher stand hier eine
+              handgebaute Variante, die sich in Abstand, Rahmen und Schriftschnitt
+              unterschied und die Zustandsansage nicht mitbrachte. */}
           <div className="mt-2.5">
-            <p className="mb-1.5 text-micro text-dim">{t('admin.aircraftTypes')}</p>
-            <div className="flex flex-wrap gap-1.5">
-              {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => {
-                const on = u.aircraftTypes.includes(a)
-                return (
-                  <button
-                    key={a}
-                    onClick={() =>
-                      updateUser(u.id, { aircraftTypes: on ? u.aircraftTypes.filter((x) => x !== a) : [...u.aircraftTypes, a] })
-                    }
-                    className={`min-h-11 rounded-full border px-2.5 py-1 text-micro transition ${
-                      on ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/10 text-dim'
-                    }`}
-                  >
-                    {a}
-                  </button>
-                )
-              })}
-            </div>
+            <Field label={t('admin.aircraftTypes')} group>
+              <ChipMultiSelect
+                options={[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => ({ id: a, label: a }))}
+                selected={u.aircraftTypes}
+                onChange={(aircraftTypes) => {
+                  // Das letzte Muster abzuwaehlen macht den Nutzer blind. Der
+                  // Store weist das ab; ohne Meldung sahe es hier aus wie ein
+                  // Klick, der nicht ankommt. Direkt darueber, bei den Gruppen,
+                  // gibt es diesen Riegel seit jeher.
+                  if (musterFehlt({ role: u.role, aircraftTypes })) {
+                    window.alert(t('admin.lastAircraftBlocked'))
+                    return
+                  }
+                  updateUser(u.id, { aircraftTypes })
+                }}
+              />
+            </Field>
           </div>
           </div>
         </Card>
@@ -581,7 +585,9 @@ function UsersTab() {
           title={t('admin.addUser')}
           onClose={() => setShowNew(false)}
           confirmDiscard={
-            form.name.trim() || form.email.trim() || form.phone.trim() || form.groupIds.length > 0 ? t('common.discardConfirm') : undefined
+            form.name.trim() || form.email.trim() || form.phone.trim() || form.groupIds.length > 0 || form.aircraftTypes.length > 0
+              ? t('common.discardConfirm')
+              : undefined
           }
         >
           <div className="space-y-stack">
@@ -622,7 +628,7 @@ function UsersTab() {
             </Field>
             {/* Pflicht: jede Person gehört mindestens einer Gruppe an —
                 Gruppen steuern Chat-Zugang und Instructor-Info-Sichtbarkeit */}
-            <Field label={t('admin.userGroups') + ' *'}>
+            <Field label={t('admin.userGroups') + ' *'} group>
               <ChipMultiSelect
                 options={sortedGroups.map((g) => ({ id: g.id, label: g.name }))}
                 selected={form.groupIds}
@@ -636,7 +642,7 @@ function UsersTab() {
                 naechste daraus eine Zustaendigkeit liest, die es nicht gibt.
                 Zuweisen kann man ihnen trotzdem etwas; es steht dann fuer die
                 fachliche Zustaendigkeit, nicht fuer die Sicht. */}
-            <Field label={t('admin.aircraftTypes') + (musterPflicht(form.role) ? ' *' : '')}>
+            <Field label={t('admin.aircraftTypes') + (musterPflicht(form.role) ? ' *' : '')} group>
               <ChipMultiSelect
                 options={[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => ({ id: a, label: a }))}
                 selected={form.aircraftTypes}
@@ -659,9 +665,19 @@ function UsersTab() {
                   emailTaken
                 }
                 onClick={() => {
-                  addUser(form)
+                  // Der Store kann trotz aller Sperren ablehnen: Zwischen dem
+                  // Rendern des Dialogs und dem Klick kann ein zweiter Tab
+                  // dieselbe Adresse vergeben haben. Vorher schloss der Dialog
+                  // auch dann und leerte das Formular — der Anwender hatte
+                  // einen Nutzer angelegt, den es nicht gab.
+                  const ok = addUser(form)
+                  if (!ok) {
+                    toast(t('toast.userSaveFailed'), 'bad')
+                    return
+                  }
                   setShowNew(false)
                   setForm({ name: '', email: '', phone: '', role: 'member', groupIds: [], aircraftTypes: [] })
+                  toast(t('toast.userSaved'))
                 }}
               >
                 {t('common.save')}
@@ -746,7 +762,9 @@ function GroupsTab() {
     .filter((g) => currentUser!.role === 'superadmin' || g.adminIds.includes(currentUser!.id))
     .sort((a, b) => (a.aircraftType || 'zzz').localeCompare(b.aircraftType || 'zzz') || a.name.localeCompare(b.name))
   const activeUsers = state.users.filter((u) => u.active).sort((a, b) => a.name.localeCompare(b.name))
-  const aircraftTypes = [...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b))
+  // Nur die eigenen Muster: Eine Gruppe fremden Musters koennte der
+  // Anleger anschliessend selbst nicht betreten (maySeeGroup).
+  const aircraftTypes = musterZurAuswahl(currentUser, [...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)))
   // Zwischenüberschrift, sobald ein neues Muster beginnt
   const headingFor = (i: number) => {
     const cur = groups[i].aircraftType || ''

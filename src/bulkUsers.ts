@@ -1,3 +1,4 @@
+import { musterFehlt } from './aircraftScope'
 import type { Role, User } from './types'
 
 /**
@@ -18,8 +19,10 @@ import type { Role, User } from './types'
  *     die Auswahl falsch war.
  *  2. **Man kann sich nicht aussperren.** Wer sich selbst deaktiviert, ist
  *     draussen; wer den letzten aktiven Superadmin deaktiviert, sperrt die
- *     ganze ATO aus ihrer Verwaltung aus. Beides wird uebersprungen und
- *     benannt, nicht still ausgefuehrt und auch nicht still verweigert.
+ *     ganze ATO aus ihrer Verwaltung aus. Wer sein letztes Muster verliert,
+ *     ist aus allem Musterbezogenen draussen — inhaltlich derselbe Fall, nur
+ *     leiser. Alle drei werden uebersprungen und benannt, nicht still
+ *     ausgefuehrt und auch nicht still verweigert.
  *
  * Bewusst NICHT dabei: die Rolle. Eine Rollenaenderung ist eine
  * Rechteaenderung, und ein Fehlgriff dabei trifft zwanzig Konten auf einmal.
@@ -35,7 +38,7 @@ export type BulkAktion =
   | { art: 'aircraft'; wert: 'add' | 'remove'; typ: string }
 
 /** Warum ein Nutzer aus einer Sammelaktion herausfaellt. */
-export type Uebersprungen = 'selbst' | 'letzterSuperadmin' | 'nichtSichtbar'
+export type Uebersprungen = 'selbst' | 'letzterSuperadmin' | 'nichtSichtbar' | 'letztesMuster'
 
 export type BulkPlan = {
   /** Je Nutzer nur die Felder, die sich tatsaechlich aendern. */
@@ -97,6 +100,14 @@ export function planBulk(alle: User[], sichtbar: User[], ids: string[], aktion: 
           : vorhanden.filter((x) => x !== aktion.typ)
       // Gleiche Liste = keine Aenderung, also auch kein Treffer im Zaehler.
       if (neu.length === vorhanden.length && neu.every((x, i) => x === vorhanden[i])) continue
+      // „CL30 faellt aus der Flotte" trifft vierzig Leute auf einmal — wer
+      // nur CL30 hatte, staende danach ohne alles da. Der Store weist eine
+      // solche Aenderung ohnehin ab; wuerde sie hier trotzdem eingeplant,
+      // meldete der Zaehler vierzig geaenderte und es waeren dreissig.
+      if (musterFehlt({ role: u.role, aircraftTypes: neu })) {
+        plan.uebersprungen.push({ id: u.id, grund: 'letztesMuster' })
+        continue
+      }
       plan.patches.push({ id: u.id, patch: { aircraftTypes: neu } })
       continue
     }
