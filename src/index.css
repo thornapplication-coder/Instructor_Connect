@@ -146,6 +146,18 @@ input[type='date'] {
   .below-topbar {
     top: calc(3.5rem + env(safe-area-inset-top, 0px));
   }
+  /*
+   * Zwei Leisten am unteren Rand vertragen sich nicht von selbst.
+   *
+   * Die Abschlussleiste des Grading-Formulars und der Offline-Streifen sassen
+   * beide auf `above-sandbox` — im Funkloch verdeckte der Streifen genau den
+   * Senden-Knopf, und zwar unbemerkt (der Knopf war da, nur nicht klickbar).
+   * Solange die Formularleiste steht, ruecken die uebrigen Streifen darueber.
+   */
+  body.hat-formularleiste .above-sandbox:not(.formularleiste) {
+    bottom: calc(2.75rem + 5.25rem + env(safe-area-inset-bottom, 0px));
+  }
+
   .above-sandbox-sticky {
     bottom: calc(2.75rem + env(safe-area-inset-bottom, 0px));
   }

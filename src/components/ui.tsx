@@ -199,11 +199,14 @@ export function Card({
   className = '',
   onClick,
   label,
+  id,
 }: {
   children: ReactNode
   className?: string
   onClick?: () => void
   label?: string
+  /** Sprungziel — z. B. fuer die Abschlussleiste des Grading-Formulars. */
+  id?: string
 }) {
   const optik = `rounded-2xl border border-line/[0.06] bg-surface/90 shadow-soft ${onClick ? 'cursor-pointer transition hover:border-accent/30 hover:bg-raised/70' : ''}`
   const base = `${optik} ${className}`
@@ -213,7 +216,7 @@ export function Card({
     // deshalb an den Inhalt, nicht an die aeussere Huelle — sonst waere der
     // ganze Inhalt EIN Flex-Element.
     return (
-      <div className={`relative ${optik}`}>
+      <div id={id} className={`relative ${optik}`}>
         <button
           type="button"
           onClick={onClick}
@@ -230,6 +233,7 @@ export function Card({
 
   return (
     <div
+      id={id}
       onClick={onClick}
       {...(onClick
         ? {
@@ -305,11 +309,22 @@ export const inputCls =
  * Für Gruppen daher `group` setzen: dann beschriftet die Überschrift die
  * Gruppe als Ganzes, und jeder Knopf behält seinen eigenen Namen.
  */
-export function Field({ label, children, group = false }: { label: string; children: ReactNode; group?: boolean }) {
+export function Field({
+  label,
+  children,
+  group = false,
+  id: anchorId,
+}: {
+  label: string
+  children: ReactNode
+  group?: boolean
+  /** Sprungziel — die Abschlussleiste des Formulars scrollt hierher. */
+  id?: string
+}) {
   const id = useId()
   if (group) {
     return (
-      <div className="block" role="group" aria-labelledby={id}>
+      <div id={anchorId} className="block scroll-mt-24" role="group" aria-labelledby={id}>
         <span id={id} className="mb-1.5 block text-[13px] font-medium text-dim">
           {label}
         </span>
