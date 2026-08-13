@@ -42,7 +42,7 @@ Lesezeichen auf `#/report` landen dort.
 |---|---|
 | **Superadmin** | alles, inklusive Rollenvergabe und endgültigem Löschen von Formularen |
 | **Group Admin** | Gruppen, in denen er als Admin eingetragen ist, samt deren Rückmeldungen |
-| **Training Admin** | nur-lesende Formularablage; weitere Module nur, wenn die Rechte-Matrix sie freischaltet |
+| **Training Admin** | nur-lesende Formularablage mit Suche, Filtern und CSV-Auszug der gefilterten Auswahl; weitere Module nur, wenn die Rechte-Matrix sie freischaltet |
 | **Member** | Instruktor: eigene Formulare, Chat, Info, Lesson Plans, Feedback, Verzeichnis |
 
 Konten werden **deaktiviert statt gelöscht**, damit unterschriebene Formulare,

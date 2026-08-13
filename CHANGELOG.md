@@ -171,3 +171,14 @@ Optik:
   Spalten. Sieben Startseiten-Kacheln in vier Spalten statt sechs.
 - Schrift- und Abstandsskala festgeschrieben: elf Schriftstufen und vier
   Abstandsstufen ersetzen 448 Einzelwerte im Markup; ein Test hält sie frei
+
+Ablage (Training Admin):
+
+- Suche über Pilot, Instruktor, Formular und Datum, dazu ein Filter nach
+  Formulartyp — beides gab es bisher nur im Superadmin-Panel
+- CSV-Auszug der gefilterten Auswahl (Formulare und Kompetenzen). Vorher
+  musste jedes Blatt einzeln als PDF gezogen werden; eine Jahresauswertung
+  war Handarbeit. Der Dateikopf nennt den Ausschnitt, den er zeigt.
+- Der Behördenexport liegt jetzt als geprüfte Funktion in
+  `src/gradingExport.ts` statt als Closure im Admin-Panel — eine Quelle für
+  beide Ansichten

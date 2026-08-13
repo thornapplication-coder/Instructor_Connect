@@ -1,7 +1,9 @@
-import { AlertTriangle, CheckCircle2, Clock, FileDown, FilePen, HelpCircle, Plus, Trash2, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, Download, FileDown, FilePen, HelpCircle, Plus, Search, Trash2, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Card, Page, SectionHeading, TopBar } from '../components/ui'
+import { Badge, Button, Card, inputCls, Page, SectionHeading, TopBar } from '../components/ui'
+import { downloadCsv } from '../csv'
+import { buildGradingCsv, gradingCsvName, type ExportScope } from '../gradingExport'
 import { navigate } from '../router'
 import { gradingListComparator } from '../gradingRules'
 import { trainingDate } from '../gradingStats'
@@ -98,12 +100,17 @@ export function TrafficDot({ color, className = '', size = 13 }: { color: Traffi
  */
 function TrainingAdminGrading() {
   const { t } = useTranslation()
-  const { state, now } = useStore()
+  const { state, now, currentUser } = useStore()
   const [tab, setTab] = useState<'completed' | 'open' | 'trainees' | 'monthly'>('completed')
   const [period, setPeriod] = useState('all')
   const [fTrainee, setFTrainee] = useState('')
   const [fAircraft, setFAircraft] = useState('')
   const [fInstructor, setFInstructor] = useState('')
+  // Suche und Formulartyp-Filter gab es bisher nur im Superadmin-Panel. Wer
+  // die Ablage fuehrt, sucht aber genau so: nach einem Namen, den jemand am
+  // Telefon nennt, oder nach allen 306 eines Jahres.
+  const [query, setQuery] = useState('')
+  const [fType, setFType] = useState('')
 
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
   const traineeLabel = (tr: { traineeName?: string; traineeId: string }) =>
@@ -154,8 +161,73 @@ function TrainingAdminGrading() {
     if (fTrainee && !traineesOf(r, all).some((tr) => traineeLabel(tr) === fTrainee)) return false
     if (fAircraft && r.header.aircraftType !== fAircraft) return false
     if (fInstructor && r.instructorId !== fInstructor) return false
-    return true
+    if (fType && r.formTypeId !== fType) return false
+    if (!query) return true
+    // Auch die angezeigte Datumsform durchsuchbar machen: gesucht wird nach
+    // dem, was in der Zeile steht (04.08.2026), nicht nach dem Rohwert.
+    const heu = [
+      r.formTypeId,
+      formTitle(r.formTypeId),
+      userName(r.instructorId),
+      ...traineesOf(r, all).map(traineeLabel),
+      ...Object.values(r.header),
+      formatDate(gradingListDate(r)),
+    ]
+      .join(' ')
+      .toLowerCase()
+    return heu.includes(query.toLowerCase())
   })
+
+  const formTypeOptions = [...new Set([...state.settings.grading.formTypes.map((f) => f.id), ...all.map((r) => r.formTypeId)])].sort()
+  const filterAktiv = period !== 'all' || !!fTrainee || !!fAircraft || !!fInstructor || !!fType || !!query
+  const filterZuruecksetzen = () => {
+    setPeriod('all')
+    setFTrainee('')
+    setFAircraft('')
+    setFInstructor('')
+    setFType('')
+    setQuery('')
+  }
+
+  /**
+   * Was man sieht, bekommt man.
+   *
+   * Der Auszug nimmt genau die Zeilen der Liste und schreibt deren Filter in
+   * den Dateikopf — dieselbe Funktion wie im Superadmin-Panel
+   * (src/gradingExport.ts). Fuer den Training Admin ist das der eigentliche
+   * Grund der Rolle: Bisher musste er jedes Blatt einzeln als PDF ziehen,
+   * eine Jahresauswertung war Handarbeit. Der Personen-Auszug
+   * (Kalibrierung) bleibt aussen vor — er bewertet Instruktoren und gehoert
+   * dem Head of Training.
+   */
+  const exportieren = (scope: ExportScope) => {
+    const jetzt = now()
+    const csv = buildGradingCsv(scope, {
+      records: list,
+      alle: all,
+      filter: [
+        ['Rows', `${list.length} of ${all.length}`],
+        ['Tab', t(`forms:ta.${tab === 'completed' ? 'completed' : 'open'}`)],
+        ...(period !== 'all' ? ([['Period', t(`forms:ta.period.${period}`)]] as [string, string][]) : []),
+        ...(fType ? ([['Form type', fType]] as [string, string][]) : []),
+        ...(fTrainee ? ([['Trainee', fTrainee]] as [string, string][]) : []),
+        ...(fInstructor ? ([['Instructor', userName(fInstructor)]] as [string, string][]) : []),
+        ...(fAircraft ? ([['Aircraft', fAircraft]] as [string, string][]) : []),
+        ...(query ? ([['Search', query]] as [string, string][]) : []),
+      ],
+      exportiertAm: jetzt,
+      exportiertVon: currentUser!.name,
+      userName,
+      traineeLabel,
+      traineesOf,
+      parentLabel: (r) => {
+        const eltern = all.find((x) => x.id === r.parentId)
+        return eltern ? `${eltern.formTypeId} · ${formatDate(gradingListDate(eltern))}` : ''
+      },
+      formatDateTime,
+    })
+    downloadCsv(gradingCsvName(scope, jetzt), csv)
+  }
 
   const selCls = 'rounded-xl border border-field bg-bg/60 px-3 py-2 text-small'
   return (
@@ -202,7 +274,28 @@ function TrainingAdminGrading() {
         {/* Filter: Zeitraum, Student, Aircraft Type, Instruktor.
             `aria-label` an jedem Feld: Angesagt wurde sonst nur der aktuelle
             Wert („Alle Muster"), nicht, wofuer er gilt. */}
+        {/* Suche zuerst: In der Ablage sucht man nach einem Namen, den
+            jemand am Telefon nennt — vorher ging das nur durch Scrollen. */}
+        <div className="relative">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-dim" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t('forms:admin.search')}
+            aria-label={t('forms:admin.search')}
+            className={`${inputCls} pl-9`}
+          />
+        </div>
+
         <div className="flex flex-wrap gap-2">
+          <select value={fType} onChange={(e) => setFType(e.target.value)} aria-label={t('forms:admin.allTypes')} className={selCls}>
+            <option value="">{t('forms:admin.allTypes')}</option>
+            {formTypeOptions.map((id) => (
+              <option key={id} value={id}>
+                {id}
+              </option>
+            ))}
+          </select>
           <select value={period} onChange={(e) => setPeriod(e.target.value)} aria-label={t('forms:ta.periodLabel')} className={selCls}>
             {PERIODS.map((x) => (
               <option key={x.key} value={x.key}>
@@ -236,21 +329,28 @@ function TrainingAdminGrading() {
           </select>
         </div>
 
+        {/* Der Auszug folgt der Liste — was oben gefiltert ist, steht in der
+            Datei, und die Datei sagt im Kopf selbst, welcher Ausschnitt sie
+            ist. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {(['records', 'competencies'] as const).map((sc) => (
+            <Button key={sc} variant="ghost" onClick={() => exportieren(sc)} className="flex items-center gap-1.5 text-micro">
+              <Download size={13} /> {t(`forms:admin.export_${sc}`)}
+            </Button>
+          ))}
+          <span className="text-micro text-dim">{t('forms:admin.exportListHint', { count: list.length })}</span>
+        </div>
+
         {/* „No forms yet" erschien auch dann, wenn nur die Filter alles
             verdeckten — bei einer Ablage mit Aufbewahrungspflicht ein echter
             Schreck. Jetzt sagt der Text, was los ist, und bietet den Weg
             zurueck an. */}
         {list.length === 0 &&
-          (period !== 'all' || fTrainee || fAircraft || fInstructor ? (
+          (filterAktiv ? (
             <div className="space-y-stack pt-6 text-center">
               <p className="text-body text-dim">{t('forms:noMatch')}</p>
               <button
-                onClick={() => {
-                  setPeriod('all')
-                  setFTrainee('')
-                  setFAircraft('')
-                  setFInstructor('')
-                }}
+                onClick={filterZuruecksetzen}
                 className="min-h-11 rounded-xl border border-line/15 px-4 text-small transition hover:border-accent/50 hover:text-accent"
               >
                 {t('forms:showAll')}
