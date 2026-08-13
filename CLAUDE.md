@@ -66,6 +66,13 @@ prüfen, nicht der Code anzupassen**, bis er zum Test passt.
   durchgefallen oder kaputt, `accent` neutrale Einordnung, `dim` ruhiger
   Nebenzustand; `strong` schaltet auf die volle Fläche. Keine handgebaute
   Pille mehr: „Not Competent" stand vorher in drei Farben nebeneinander.
+- **Die Ampel** hat EINE Gestalt: `TrafficIcon` (`src/pages/Grading.tsx`) —
+  Haken, Fragezeichen, Kreuz in `text-ok`/`text-wait`/`text-bad`. Vorher gab
+  es zwei Formensysteme nebeneinander (Kreis/Dreieck/Quadrat als Marke,
+  Haken/Fragezeichen/Kreuz im Icon-Feld), und die Legende über der Liste
+  zeigte die eine, während die Zeilen darunter die andere trugen. Wer eine
+  Ampel anzeigt, nimmt diese Komponente; `stumm` schaltet die Ansage ab, wo
+  daneben schon Text steht.
 - **Schrift- und Abstandsskala** stehen in `tailwind.config.js` und sind
   abgeschlossen: elf Schriftstufen (`text-micro` … `text-giant`, dazu
   `text-fine` für den Druck) und vier Abstandsstufen (`tight`, `stack`,
