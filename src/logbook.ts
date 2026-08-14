@@ -272,3 +272,34 @@ export function summeUnterFilter(eintraege: LogbookEintrag[], filter: AdminZeitF
   const minuten = passend.reduce((s, e) => s + (filter === 'ohneBriefing' ? e.session : e.gesamt), 0)
   return { minuten, anzahl: passend.length }
 }
+
+export type AdminZeile = {
+  anzahl: number
+  ground: number
+  simulator: number
+  other: number
+  gesamt: number
+  /** Muster, die in den gezaehlten Eintraegen vorkommen — sortiert, ohne Leere */
+  muster: string[]
+}
+
+/**
+ * Eine Zeile der Admin-Tabelle: je Kategorie eine Spalte statt eines
+ * umzuschaltenden Einzelwerts — der Ueberblick soll ohne Klicken zeigen,
+ * woraus sich die Gesamtzeit zusammensetzt. `ohneBriefing` zaehlt ueberall
+ * nur die Session (bei 307ern und manuellen Eintraegen ohnehin die ganze
+ * Zeit); die drei Kategoriespalten ergeben zusammen stets die Gesamtspalte,
+ * weil „other" auch Freitext-Kategorien faengt.
+ */
+export function adminZeile(eintraege: LogbookEintrag[], ohneBriefing: boolean): AdminZeile {
+  const zeit = (e: LogbookEintrag) => (ohneBriefing ? e.session : e.gesamt)
+  const je = (f: AdminZeitFilter) => eintraegeUnterFilter(eintraege, f).reduce((s, e) => s + zeit(e), 0)
+  return {
+    anzahl: eintraege.length,
+    ground: je('ground'),
+    simulator: je('simulator'),
+    other: je('other'),
+    gesamt: eintraege.reduce((s, e) => s + zeit(e), 0),
+    muster: [...new Set(eintraege.map((e) => e.aircraftType).filter(Boolean))].sort(),
+  }
+}

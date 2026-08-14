@@ -260,7 +260,7 @@
     "grading": "Grading Tool",
     "logbook": "Logbook",
     "logbookHeading": "All times per instructor",
-    "logbookHint": "The same calculation as in “my AAA Logbook”: completed forms plus manual entries, including the instructors' corrections and deletions. “Other Training only” also covers free-text categories.",
+    "logbookHint": "The same calculation as in “my AAA Logbook”: completed forms plus manual entries, including the instructors' corrections and deletions. The “Other Training” column also covers free-text categories.",
     "logbookFilterLabel": "Time filter",
     "logbookFilter": {
       "alle": "With briefing",

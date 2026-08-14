@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { toast } from '../components/Toast'
+import { formatDate } from './Grading'
 import { useStore } from '../store'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
@@ -95,7 +96,8 @@ export function LessonPlans() {
   const [showUpload, setShowUpload] = useState(false)
 
   const mayEdit = can('lessons_manage')
-  const dateLabel = (ts: number) => new Date(ts).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  // App-weites Datumsformat DD.MM.YYYY — nicht das Gebietsschema.
+  const dateLabel = (ts: number) => formatDate(ts)
   const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
 
   // Nur Muster anbieten, für die der Nutzer auch Pläne sieht

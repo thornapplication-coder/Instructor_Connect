@@ -7,14 +7,12 @@ import { useUnsavedWork } from '../editGuard'
 import { navigate } from '../router'
 import { isGroupAdmin, mayAccessGroup, useStore } from '../store'
 import type { Attachment, Message, Poll, PollType } from '../types'
+import { formatDateTime } from './Grading'
 
-function timeLabel(ts: number, lng: string) {
-  return new Date(ts).toLocaleString(lng === 'de' ? 'de-AT' : 'en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+/* App-weites Datumsformat DD.MM.YYYY — formatDateTime liefert es samt Uhrzeit;
+   vorher zeigte Englisch 14/08 und ohne Jahr. */
+function timeLabel(ts: number) {
+  return formatDateTime(ts)
 }
 
 function AttachmentChip({ a }: { a: Attachment }) {
@@ -50,7 +48,7 @@ function MessageBubble({ msg, isOwn, authorName, bold, canDelete, onDelete, lng 
         <p className={`mb-0.5 text-micro font-semibold ${isOwn ? 'text-dim' : 'text-accent'}`}>{authorName}</p>
         <p className={`whitespace-pre-wrap text-body leading-relaxed ${bold ? 'font-bold' : ''}`}>{msg.text}</p>
         {msg.attachment && <AttachmentChip a={msg.attachment} />}
-        <p className="mt-1 text-right text-micro text-dim">{timeLabel(msg.createdAt, lng)}</p>
+        <p className="mt-1 text-right text-micro text-dim">{timeLabel(msg.createdAt)}</p>
         {canDelete && (
           <button
             onClick={onDelete}

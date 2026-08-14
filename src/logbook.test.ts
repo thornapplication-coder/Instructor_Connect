@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  adminZeile,
   BRIEFING_STD_MIN,
   DEBRIEFING_STD_MIN,
   darfLogbuchOeffnen,
@@ -293,5 +294,42 @@ describe('Admin-Auswertung (Zeitfilter)', () => {
   it('liefert die gefilterten Eintraege fuer die Anzeige', () => {
     expect(eintraegeUnterFilter(bestand, 'other').map((x) => x.kategorie)).toEqual(['Other Training', 'CRM Workshop'])
     expect(eintraegeUnterFilter(bestand, 'alle')).toHaveLength(4)
+  })
+})
+
+describe('adminZeile (Detail-Tabelle)', () => {
+  const e = (kategorie: string, muster: string, briefing: number, session: number, debriefing: number): import('./logbook').LogbookEintrag => ({
+    id: `z-${kategorie}-${session}`,
+    quelle: 'manuell',
+    datum: '2026-08-10',
+    aircraftType: muster,
+    kategorie,
+    briefing,
+    session,
+    debriefing,
+    gesamt: briefing + session + debriefing,
+    piloten: [],
+    notiz: '',
+  })
+  const bestand = [
+    e('Simulator Training', 'CL30', 60, 240, 30),
+    e('Ground Training', 'C560 XLS+', 0, 90, 0),
+    e('CRM Workshop', '', 0, 120, 0), // Freitext, ohne Muster
+  ]
+
+  it('schluesselt je Kategorie auf; die Spalten ergeben zusammen die Gesamtspalte', () => {
+    const z = adminZeile(bestand, false)
+    expect(z).toMatchObject({ anzahl: 3, ground: 90, simulator: 330, other: 120, gesamt: 540 })
+    expect(z.ground + z.simulator + z.other).toBe(z.gesamt)
+  })
+
+  it('zaehlt ohne Briefing nur die Session — auch in den Kategoriespalten', () => {
+    const z = adminZeile(bestand, true)
+    expect(z).toMatchObject({ simulator: 240, ground: 90, other: 120, gesamt: 450 })
+    expect(z.ground + z.simulator + z.other).toBe(z.gesamt)
+  })
+
+  it('nennt die vorkommenden Muster sortiert und ohne leere Werte', () => {
+    expect(adminZeile(bestand, false).muster).toEqual(['C560 XLS+', 'CL30'])
   })
 })
