@@ -461,3 +461,51 @@ beim nächsten Durchsehen als Lücke gilt.
 
 Nachgemessen: Superadmin sieht beide Rückmeldungen und meldet „2 offen"; der
 CL30-Admin sieht nur die allgemeine und meldet „1 offen".
+
+## 1.7.0 — 2026-08-14
+
+**my AAA Logbook** — neue Kachel für jeden Nutzer: der persönliche
+Tätigkeitsnachweis als Instruktor, getrackt über die Grading-Formulare.
+
+- Gezählt wird nur, was **fertig** ist (`status === 'signed'`, alle
+  Unterschriften geleistet). 306 und 310 zählen nie.
+- **308** → Kategorie „Simulator Training": Session = Flight Time PF +
+  Flight Time PM aus dem Formularkopf, dazu als änderbare Standardwerte
+  1:00 Briefing und 0:30 Debriefing — je Eintrag einzeln ausgewiesen.
+- **307** → Kategorie „Ground Training": exakt der Wert des
+  Duration-Feldes, nichts hinzugerechnet.
+- **Manuelle Einträge** mit Datum, Muster, Kategorie (feste Liste:
+  Ground/Simulator/Other Training, dazu Freitext), Dauer und Notiz.
+- **Abgeleitete Einträge werden nicht gespeichert** — sie werden bei jedem
+  Öffnen aus `gradingRecords` gerechnet. Korrekturen (Teilzeiten, Notiz)
+  und Löschungen liegen als Overrides daneben, mit einem Weg zurück
+  („Auf Formularwerte zurücksetzen"). Zwei Wahrheiten für dieselbe Stunde
+  gibt es damit nicht, und das Formular selbst bleibt unberührt.
+- **Filter**: Zeitraum, Muster, Kategorie, Formulartyp, Pilot — kombinierbar.
+  Summenkarte mit Gesamtzeit, Aufschlüsselung je Kategorie und CSV-Export.
+- **Sichtbarkeit** folgt der Musterregel: Superadmin und Training Admin
+  sehen jedes Logbuch vollständig, ein Gruppenadmin fremde nur gefiltert
+  auf seine zugewiesenen Muster, ein Member nur sein eigenes. **Schreiben**
+  (Korrektur, manueller Eintrag, Löschung) kann jeder ausschließlich im
+  eigenen — ein Tätigkeitsnachweis, den ein anderer nachbessern kann, ist
+  keiner.
+
+Dazu im **Superadmin-Panel ein neuer Bereich „Logbuch"**: alle Zeiten aller
+Instruktoren in einer Tabelle, aufgeschlüsselt über fünf Zeitfilter — mit
+Briefing, ohne Briefing (nur die Session), Ground Training only, Simulator
+Training only, Other Training only. „Other" fängt dabei auch frei benannte
+Kategorien, damit die drei Kategoriesummen zusammen die Gesamtsumme ergeben.
+Gerechnet wird mit denselben Funktionen wie im einzelnen Logbuch —
+Korrekturen, Löschungen und manuelle Einträge der Instruktoren eingerechnet.
+Der Bereich bleibt dem Superadmin vorbehalten; der Training Admin öffnet
+einzelne Logbücher über die Kachel.
+
+Neu: `src/logbook.ts` (Regeln) mit 27 Testfällen in `src/logbook.test.ts`,
+Seite `src/pages/Logbook.tsx`, Bereich `src/pages/admin/LogbookAdmin.tsx`,
+Store-Aktionen für Overrides und manuelle Einträge, Kachel auf der
+Startseite (als letzte, nach Notes).
+
+Im Browser nachgemessen: Michael sieht im eigenen Logbuch 3 Einträge /
+16:30 (je 308: 4:00 Session + 1:00 + 0:30); Christian im eigenen 3 / 14:30;
+Christian (CL30-Admin) sieht in Michaels C560-Logbuch 0 Einträge; Steven
+(Training Admin) sieht Michaels 3 Einträge, ohne Bearbeiten-Knöpfe.

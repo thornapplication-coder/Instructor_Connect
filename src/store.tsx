@@ -7,6 +7,7 @@ import { SANDBOX } from './sandbox/flag'
 import { musterFehlt, musterPflicht, nachMuster, sichtbarFuer } from './aircraftScope'
 import { adminTabsFor, hatAdminPanel } from './adminAccess'
 import { infoEntryAppliesTo } from './infoAcks'
+import type { LogbookManuell, LogbookOverride, LogbookStand } from './logbook'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type Note, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import { backupPersistedState, clearPersistedState, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
 import type { FeedbackEntry, InfoEntry } from './types'
@@ -107,6 +108,12 @@ export interface Store {
   /** Anlegen ODER aendern: ohne `id` entsteht eine neue Notiz. */
   saveNote: (n: { id?: string; title: string; body: string }) => void
   deleteNote: (id: string) => void
+  /** my AAA Logbook: Korrektur an einem abgeleiteten Eintrag des EIGENEN
+   *  Logbuchs. `null` setzt die Korrektur zurueck auf die Ableitung. */
+  logbookOverride: (recordId: string, ov: LogbookOverride | null) => void
+  logbookAddManual: (e: Omit<LogbookManuell, 'id'>) => void
+  logbookUpdateManual: (id: string, patch: Partial<Omit<LogbookManuell, 'id'>>) => void
+  logbookDeleteManual: (id: string) => void
   toggleNotePin: (id: string) => void
   addLessonPlan: (plan: { title: string; description: string; aircraftType: string; category: string; fileName: string }) => void
   deleteLessonPlan: (id: string) => void
@@ -1249,6 +1256,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
       deleteNote: (id) =>
         patch((s) => ({ notes: (s.notes ?? []).filter((n) => !(n.id === id && n.authorId === s.currentUserId)) })),
+      /* Logbuch-Korrekturen: IMMER nur am eigenen Logbuch. Fremde Logbuecher
+         sind je nach Rolle sichtbar, aber nie schreibbar — ein
+         Taetigkeitsnachweis, den ein anderer nachbessern kann, ist keiner. */
+      logbookOverride: (recordId, ov) =>
+        patch((s) => {
+          if (!s.currentUserId) return null
+          const alle = s.logbook ?? {}
+          const eigenes: LogbookStand = alle[s.currentUserId] ?? { overrides: {}, manuell: [] }
+          const overrides = { ...eigenes.overrides }
+          if (ov === null) delete overrides[recordId]
+          else overrides[recordId] = ov
+          return { logbook: { ...alle, [s.currentUserId]: { ...eigenes, overrides } } }
+        }),
+      logbookAddManual: (e) =>
+        patch((s) => {
+          if (!s.currentUserId) return null
+          const alle = s.logbook ?? {}
+          const eigenes: LogbookStand = alle[s.currentUserId] ?? { overrides: {}, manuell: [] }
+          return { logbook: { ...alle, [s.currentUserId]: { ...eigenes, manuell: [...eigenes.manuell, { ...e, id: uid('lb') }] } } }
+        }),
+      logbookUpdateManual: (id, p) =>
+        patch((s) => {
+          if (!s.currentUserId) return null
+          const alle = s.logbook ?? {}
+          const eigenes = alle[s.currentUserId]
+          if (!eigenes?.manuell.some((m) => m.id === id)) return null
+          return {
+            logbook: {
+              ...alle,
+              [s.currentUserId]: { ...eigenes, manuell: eigenes.manuell.map((m) => (m.id === id ? { ...m, ...p } : m)) },
+            },
+          }
+        }),
+      logbookDeleteManual: (id) =>
+        patch((s) => {
+          if (!s.currentUserId) return null
+          const alle = s.logbook ?? {}
+          const eigenes = alle[s.currentUserId]
+          if (!eigenes) return null
+          return { logbook: { ...alle, [s.currentUserId]: { ...eigenes, manuell: eigenes.manuell.filter((m) => m.id !== id) } } }
+        }),
       toggleNotePin: (id) =>
         patch((s) => {
           const jetzt = Date.now() + s.timeOffsetMs

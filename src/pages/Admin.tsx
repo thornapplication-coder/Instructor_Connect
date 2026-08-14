@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronDown, Clock, ClipboardList, Download, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Upload, Users, UsersRound, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, BookMarked, CheckCircle2, ChevronDown, Clock, ClipboardList, Download, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Upload, Users, UsersRound, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, CardHeading, ChipMultiSelect, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
@@ -13,11 +13,12 @@ import { downloadCsv } from '../csv'
 import { buildImportTemplate, isImportable, parseUserImport, type ImportResult, type ImportRow } from '../userImport'
 import { useStore } from '../store'
 import { GradingAdmin } from './admin/GradingAdmin'
+import { LogbookAdmin } from './admin/LogbookAdmin'
 import { formatDateTime } from './Grading'
 import { APP_VERSION, type FeedbackEntry, PERM_KEYS, type ConfigurableRole, type RetentionKey, type Role } from '../types'
 
 const RETENTION_KEYS: RetentionKey[] = ['24h', '7d', '30d', '90d', 'never']
-type Tab = 'users' | 'permissions' | 'grading' | 'groups' | 'feedback' | 'settings' | 'imprint' | 'changelog'
+type Tab = 'users' | 'permissions' | 'grading' | 'logbook' | 'groups' | 'feedback' | 'settings' | 'imprint' | 'changelog'
 
 function StringListEditor({ label, values, onChange }: { label: string; values: string[]; onChange: (v: string[]) => void }) {
   const { t } = useTranslation()
@@ -1490,6 +1491,7 @@ const TAB_ICONS: Record<Tab, typeof Users> = {
   users: Users,
   permissions: ShieldCheck,
   grading: ClipboardList,
+  logbook: BookMarked,
   groups: UsersRound,
   feedback: MessageSquareText,
   settings: Settings,
@@ -1664,6 +1666,7 @@ export function Admin({ sub = '' }: { sub?: string }) {
             {openTab === 'users' && <UsersTab />}
             {openTab === 'permissions' && <PermissionsTab />}
             {openTab === 'grading' && <GradingAdmin section={sectionSeg} />}
+            {openTab === 'logbook' && <LogbookAdmin />}
             {openTab === 'groups' && <GroupsTab />}
             {openTab === 'feedback' && <FeedbackTab />}
             {openTab === 'settings' && <SettingsTab />}

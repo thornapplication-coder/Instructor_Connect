@@ -15,6 +15,7 @@ import { decodeChain, GradingForm } from './pages/GradingForm'
 import { GradingView } from './pages/GradingView'
 import { Home } from './pages/Home'
 import { LessonPlans } from './pages/LessonPlans'
+import { Logbook } from './pages/Logbook'
 import { Notes } from './pages/Notes'
 import { Imprint } from './pages/Imprint'
 import { InstructorInfo } from './pages/InstructorInfo'
@@ -84,6 +85,7 @@ function Screen() {
   else if (route === '/info') page = <InstructorInfo />
   else if (route === '/contacts') page = <WhoToCall />
   else if (route === '/notes') page = <Notes />
+  else if (route === '/logbook') page = <Logbook />
   else if (route === '/feedback') page = <Feedback />
   // #/admin/<bereich>[/<unterbereich>] — die Verwaltung ist adressierbar
   else if (route.startsWith('/admin')) page = <Admin sub={route.slice('/admin'.length).replace(/^\//, '').split('?')[0]} />

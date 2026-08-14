@@ -1,4 +1,4 @@
-import { BookOpenCheck, LogOut, NotebookPen, MessageSquareText, MessagesSquare, Phone, Plane, GraduationCap, RefreshCw, ShieldCheck, Share } from 'lucide-react'
+import { BookMarked, BookOpenCheck, GraduationCap, LogOut, MessageSquareText, MessagesSquare, NotebookPen, Phone, Plane, RefreshCw, Share, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
@@ -24,6 +24,7 @@ const TILES = [
   { to: '/feedback', label: 'Feedback', icon: MessageSquareText },
   { to: '/contacts', label: 'Who to call', icon: Phone },
   { to: '/notes', label: 'Notes', icon: NotebookPen },
+  { to: '/logbook', label: 'my AAA Logbook', icon: BookMarked },
 ] as const
 
 export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
@@ -79,6 +80,8 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
     '/contacts': hasNewContacts ? 1 : 0,
     // Notizen schreibt man sich selbst — eine „Neu"-Marke waere sinnlos.
     '/notes': 0,
+    // Das Logbuch leitet sich aus dem Bestand ab — es gibt kein „Neu".
+    '/logbook': 0,
   }
 
   // Die Kacheln folgen der Rechte-Matrix: was der Superadmin einer Rolle
@@ -92,6 +95,9 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
     if (tl.to === '/feedback') return moduleAllowed('feedback')
     if (tl.to === '/contacts') return moduleAllowed('contacts')
     if (tl.to === '/notes') return moduleAllowed('notes')
+    // Das Logbuch hat jede Rolle: Wer bewertet, fuehrt ein eigenes; der
+    // Training Admin oeffnet fremde (lesend). Keine Modul-Schranke noetig.
+    if (tl.to === '/logbook') return true
     return true
   })
 

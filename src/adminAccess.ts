@@ -14,7 +14,7 @@ import type { Role } from './types'
  * Statuszeile fuehrt namentlich irgendwohin — steht dieses Irgendwohin der
  * Rolle nicht offen, darf der Punkt gar nicht erst erscheinen.
  */
-export const ADMIN_TABS = ['users', 'permissions', 'grading', 'groups', 'feedback', 'settings', 'imprint', 'changelog'] as const
+export const ADMIN_TABS = ['users', 'permissions', 'grading', 'logbook', 'groups', 'feedback', 'settings', 'imprint', 'changelog'] as const
 export type AdminTab = (typeof ADMIN_TABS)[number]
 
 export function adminTabsFor(role: Role | undefined | null): AdminTab[] {
@@ -23,6 +23,10 @@ export function adminTabsFor(role: Role | undefined | null): AdminTab[] {
   // die Standardisierung sind seine Aufgabe (er fuehrt die Ablage nach
   // ORA.GEN.220). Chats und Feedback gehoeren dem Gruppenadmin: Er verwaltet
   // keine Gruppen, also hat er dort auch nichts zu entscheiden.
+  // Die Logbuch-Auswertung (alle Zeiten aller Instruktoren, aufgeschluesselt)
+  // bleibt dem Superadmin vorbehalten: Der Training Admin oeffnet einzelne
+  // Logbuecher ueber die Kachel, der Ueberblick ueber den ganzen Bestand ist
+  // Leitungsaufgabe.
   if (role === 'training_admin') return ['grading']
   if (role === 'group_admin') return ['groups', 'feedback']
   return []

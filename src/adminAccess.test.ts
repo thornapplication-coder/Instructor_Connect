@@ -19,6 +19,14 @@ describe('adminTabsFor', () => {
     expect(adminTabsFor('training_admin')).toEqual(['grading'])
   })
 
+  it('gibt die Logbuch-Auswertung nur dem Superadmin', () => {
+    // Der Training Admin oeffnet einzelne Logbuecher ueber die Kachel; der
+    // Ueberblick ueber alle Zeiten aller Instruktoren ist Leitungsaufgabe.
+    expect(adminTabsFor('superadmin')).toContain('logbook')
+    expect(adminTabsFor('training_admin')).not.toContain('logbook')
+    expect(adminTabsFor('group_admin')).not.toContain('logbook')
+  })
+
   it('gibt dem Gruppenadmin Chats und Feedback — und nichts vom Grading', () => {
     expect(adminTabsFor('group_admin')).toEqual(['groups', 'feedback'])
   })
