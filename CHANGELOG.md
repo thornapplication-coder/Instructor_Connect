@@ -490,9 +490,20 @@ Tätigkeitsnachweis als Instruktor, getrackt über die Grading-Formulare.
   eigenen — ein Tätigkeitsnachweis, den ein anderer nachbessern kann, ist
   keiner.
 
-Neu: `src/logbook.ts` (Regeln) mit 23 Testfällen in `src/logbook.test.ts`,
-Seite `src/pages/Logbook.tsx`, Store-Aktionen für Overrides und manuelle
-Einträge, Kachel auf der Startseite.
+Dazu im **Superadmin-Panel ein neuer Bereich „Logbuch"**: alle Zeiten aller
+Instruktoren in einer Tabelle, aufgeschlüsselt über fünf Zeitfilter — mit
+Briefing, ohne Briefing (nur die Session), Ground Training only, Simulator
+Training only, Other Training only. „Other" fängt dabei auch frei benannte
+Kategorien, damit die drei Kategoriesummen zusammen die Gesamtsumme ergeben.
+Gerechnet wird mit denselben Funktionen wie im einzelnen Logbuch —
+Korrekturen, Löschungen und manuelle Einträge der Instruktoren eingerechnet.
+Der Bereich bleibt dem Superadmin vorbehalten; der Training Admin öffnet
+einzelne Logbücher über die Kachel.
+
+Neu: `src/logbook.ts` (Regeln) mit 27 Testfällen in `src/logbook.test.ts`,
+Seite `src/pages/Logbook.tsx`, Bereich `src/pages/admin/LogbookAdmin.tsx`,
+Store-Aktionen für Overrides und manuelle Einträge, Kachel auf der
+Startseite (als letzte, nach Notes).
 
 Im Browser nachgemessen: Michael sieht im eigenen Logbuch 3 Einträge /
 16:30 (je 308: 4:00 Session + 1:00 + 0:30); Christian im eigenen 3 / 14:30;

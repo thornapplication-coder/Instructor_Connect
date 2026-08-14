@@ -238,3 +238,37 @@ export function darfLogbuchOeffnen(viewer: { id: string; role: Role }, ownerId: 
   if (viewer.id === ownerId) return true
   return viewer.role === 'superadmin' || viewer.role === 'training_admin' || viewer.role === 'group_admin'
 }
+
+/**
+ * Zeitfilter der Admin-Auswertung (Superadmin-Panel, Bereich „Logbuch").
+ *
+ * Zwei Arten von Filter in EINER Reihe, weil sie sich für den Leser wie eine
+ * Frage anfühlen („welche Zeit will ich sehen?"): „alle" und „ohneBriefing"
+ * ändern, WIE gezählt wird (mit oder ohne Vor- und Nachbereitung), die drei
+ * Kategoriefilter ändern, WAS gezählt wird. „other" fängt alles, was weder
+ * Ground noch Simulator ist — auch Freitext-Kategorien: Sonst fiele ein
+ * manueller Eintrag mit eigener Bezeichnung aus jeder der drei Gruppen und
+ * die Kategoriesummen ergäben zusammen weniger als „alle".
+ */
+export const ADMIN_ZEIT_FILTER = ['alle', 'ohneBriefing', 'ground', 'simulator', 'other'] as const
+export type AdminZeitFilter = (typeof ADMIN_ZEIT_FILTER)[number]
+
+export function eintraegeUnterFilter(eintraege: LogbookEintrag[], filter: AdminZeitFilter): LogbookEintrag[] {
+  if (filter === 'ground') return eintraege.filter((e) => e.kategorie === 'Ground Training')
+  if (filter === 'simulator') return eintraege.filter((e) => e.kategorie === 'Simulator Training')
+  if (filter === 'other') return eintraege.filter((e) => e.kategorie !== 'Ground Training' && e.kategorie !== 'Simulator Training')
+  return eintraege
+}
+
+/**
+ * Summe unter einem Zeitfilter. Bei „ohneBriefing" zählt nur die Session —
+ * bei 307ern und manuellen Einträgen ist das ohnehin die ganze Zeit, bei
+ * 308ern fallen Briefing und Debriefing weg. Die Kategoriefilter zählen die
+ * volle Zeit ihrer Einträge, Briefing eingeschlossen: „Simulator Training
+ * only" fragt nach dem Aufwand der Kategorie, nicht nach der reinen Sim-Zeit.
+ */
+export function summeUnterFilter(eintraege: LogbookEintrag[], filter: AdminZeitFilter): { minuten: number; anzahl: number } {
+  const passend = eintraegeUnterFilter(eintraege, filter)
+  const minuten = passend.reduce((s, e) => s + (filter === 'ohneBriefing' ? e.session : e.gesamt), 0)
+  return { minuten, anzahl: passend.length }
+}

@@ -3,6 +3,7 @@ import {
   BRIEFING_STD_MIN,
   DEBRIEFING_STD_MIN,
   darfLogbuchOeffnen,
+  eintraegeUnterFilter,
   eintragAusFormular,
   filtereEintraege,
   formatDauer,
@@ -10,6 +11,7 @@ import {
   logbuchVon,
   parseDauer,
   sichtbareEintraege,
+  summeUnterFilter,
   summiere,
   zaehltInsLogbuch,
 } from './logbook'
@@ -242,5 +244,54 @@ describe('Wer sieht wessen Logbuch', () => {
     expect(darfLogbuchOeffnen(wer('x', 'member'), 'u1')).toBe(false)
     expect(darfLogbuchOeffnen(wer('x', 'group_admin'), 'u1')).toBe(true)
     expect(darfLogbuchOeffnen(wer('x', 'training_admin'), 'u1')).toBe(true)
+  })
+})
+
+describe('Admin-Auswertung (Zeitfilter)', () => {
+  const e = (kategorie: string, briefing: number, session: number, debriefing: number): import('./logbook').LogbookEintrag => ({
+    id: `e-${kategorie}-${session}`,
+    quelle: 'manuell',
+    datum: '2026-08-10',
+    aircraftType: 'CL30',
+    kategorie,
+    briefing,
+    session,
+    debriefing,
+    gesamt: briefing + session + debriefing,
+    piloten: [],
+    notiz: '',
+  })
+  const bestand = [
+    e('Simulator Training', 60, 240, 30), // wie eine fertige 308
+    e('Ground Training', 0, 90, 0), // wie eine 307
+    e('Other Training', 0, 45, 0),
+    e('CRM Workshop', 0, 120, 0), // Freitext-Kategorie
+  ]
+
+  it('zaehlt „alle" mit Briefing, „ohneBriefing" nur die Session', () => {
+    // 330 + 90 + 45 + 120 = 585; ohne Briefing fallen 60+30 der 308 weg.
+    expect(summeUnterFilter(bestand, 'alle')).toEqual({ minuten: 585, anzahl: 4 })
+    expect(summeUnterFilter(bestand, 'ohneBriefing')).toEqual({ minuten: 495, anzahl: 4 })
+  })
+
+  it('filtert je Kategorie und zaehlt dort die volle Zeit', () => {
+    expect(summeUnterFilter(bestand, 'simulator')).toEqual({ minuten: 330, anzahl: 1 })
+    expect(summeUnterFilter(bestand, 'ground')).toEqual({ minuten: 90, anzahl: 1 })
+  })
+
+  it('faengt Freitext-Kategorien unter „other" — die drei Gruppen decken alles', () => {
+    // Sonst ergaeben die drei Kategoriesummen zusammen weniger als „alle",
+    // und ein manueller Eintrag mit eigener Bezeichnung waere unauffindbar.
+    expect(summeUnterFilter(bestand, 'other')).toEqual({ minuten: 165, anzahl: 2 })
+    const dreiGruppen = (['ground', 'simulator', 'other'] as const).reduce(
+      (s, f) => s + summeUnterFilter(bestand, f).minuten,
+      0,
+    )
+    expect(dreiGruppen).toBe(summeUnterFilter(bestand, 'alle').minuten)
+  })
+
+  it('liefert die gefilterten Eintraege fuer die Anzeige', () => {
+    expect(eintraegeUnterFilter(bestand, 'other').map((x) => x.kategorie)).toEqual(['Other Training', 'CRM Workshop'])
+    expect(eintraegeUnterFilter(bestand, 'alle')).toHaveLength(4)
   })
 })

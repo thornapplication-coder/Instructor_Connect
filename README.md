@@ -181,10 +181,12 @@ verlinken, die Zurück-Taste geht eine Ebene hoch statt aus dem Panel heraus.
 Eine Adresse, die der Rolle nicht offensteht, führt in die Übersicht zurück
 und wird auch in der Adresszeile zurückgesetzt.
 
-Wer welche Bereiche sieht: Superadmin alle acht (Benutzer, Rechte, Grading,
-Chats, Feedback, Einstellungen, Impressum, Changelog); Admin die Bereiche
-Chats und Feedback; der Training Admin arbeitet nicht im Panel, sondern in
-der Formularablage des Grading Tools. Ab 1024 px Breite ist das Panel
+Wer welche Bereiche sieht: Superadmin alle neun (Benutzer, Rechte, Grading,
+Logbuch, Chats, Feedback, Einstellungen, Impressum, Changelog); Admin die
+Bereiche Chats und Feedback; der Training Admin den Grading-Bereich. Der
+Logbuch-Bereich zeigt alle Zeiten aller Instruktoren, aufgeschlüsselt über
+fünf Zeitfilter (mit/ohne Briefing, je Kategorie) — gerechnet mit denselben
+Funktionen wie das einzelne Logbuch. Ab 1024 px Breite ist das Panel
 bedienbar, darunter erscheint ein Hinweis — dieselbe Grenze gilt für den
 Einstieg auf der Startseite.
 
