@@ -471,6 +471,7 @@
     "person": "Logbuch von",
     "me": "{{name}} (ich)",
     "total": "Gesamt",
+    "summary": "Gesamtzeiten",
     "export": "CSV-Export",
     "from": "Von",
     "to": "Bis",

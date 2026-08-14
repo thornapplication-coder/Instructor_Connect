@@ -509,3 +509,26 @@ Im Browser nachgemessen: Michael sieht im eigenen Logbuch 3 Einträge /
 16:30 (je 308: 4:00 Session + 1:00 + 0:30); Christian im eigenen 3 / 14:30;
 Christian (CL30-Admin) sieht in Michaels C560-Logbuch 0 Einträge; Steven
 (Training Admin) sieht Michaels 3 Einträge, ohne Bearbeiten-Knöpfe.
+
+## 1.7.1 — 2026-08-14
+
+Logbuch-Seite an den Hausstil angepasst — gemeldet vom iPad:
+
+- **Datumsfelder (From/To) haben jetzt eine feste Breite.** WebKit gibt
+  einem leeren `<input type="date">` fast keine Eigenbreite — am iPad
+  standen zwei winzige Pillen, die erst beim Antippen aufgingen.
+- **Filterleiste wie in der Formularablage:** eine Zeile kompakter Felder,
+  die sich am Handy umbricht — statt seitenbreiter Auswahlfelder
+  untereinander. Der Pilot-Filter ist ein Suchfeld mit Platzhalter.
+- **Summenkarte strukturiert:** links die Gesamtzeit groß mit
+  Eintragszahl, rechts je Kategorie eine eigene Zeile (absteigend nach
+  Zeit), oben Kartenüberschrift und CSV-Export. Vorher standen alle
+  Zahlen gleichrangig nebeneinander — ab der zweiten Kategorie war nicht
+  zu sehen, was wozu gehört.
+- **Einträge am Desktop zweispaltig** (CardGrid, wie die anderen Listen);
+  der Kopfzeilen-Knopf „Add entry" trägt dieselbe Pille wie „New contact"
+  im Verzeichnis.
+
+Auf fünf Formaten nachgemessen (iPhone hoch/quer, iPad hoch/quer,
+Desktop): Datumsfelder 144 px, kein seitliches Scrollen, Einträge am
+Desktop zweispaltig, sonst einspaltig.

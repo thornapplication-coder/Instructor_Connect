@@ -2,7 +2,7 @@ import { BookOpen, Download, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { musterZurAuswahl } from '../aircraftScope'
-import { Badge, Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { Badge, Button, Card, CardGrid, CardHeading, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { toast } from '../components/Toast'
 import { csvRow, downloadCsv } from '../csv'
 import {
@@ -29,6 +29,14 @@ import { useStore } from '../store'
  * Logbücher sind je nach Rolle sichtbar (Superadmin/Training Admin ganz,
  * Gruppenadmin in seinen Mustern), aber nie schreibbar.
  */
+
+/* Filterleisten-Optik wie in der Formularablage: kompakte Felder, die sich
+   nebeneinander legen — nicht die w-full-Felder der Formulare. Die
+   Datumsfelder brauchen zusaetzlich eine feste Breite: WebKit gibt einem
+   leeren <input type="date"> sonst fast keine Eigenbreite, und am iPad
+   standen zwei winzige Pillen da, die erst beim Antippen aufgingen. */
+const filterCls =
+  'min-h-11 rounded-xl border border-field bg-bg/60 px-3 py-2 text-small text-ink outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
 /** Eingabefeld fuer eine Dauer als HH:MM — dieselbe Schreibweise wie in den
  *  Formularen, damit niemand raten muss, ob 90 Minuten oder 1:30 gemeint ist. */
@@ -219,9 +227,15 @@ export function Logbook() {
         back="/"
         right={
           eigenes ? (
-            <Button onClick={() => setZeigeManuell(true)} className="flex items-center gap-1.5">
+            /* Dieselbe Pille wie „New contact" im Verzeichnis — die Kopfzeile
+               traegt ueberall denselben Aktionsknopf, nicht je Seite einen
+               anderen. */
+            <button
+              onClick={() => setZeigeManuell(true)}
+              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
+            >
               <Plus size={15} /> {t('logbook.addEntry')}
-            </Button>
+            </button>
           ) : undefined
         }
       />
@@ -239,33 +253,49 @@ export function Logbook() {
             </Field>
           )}
 
-          {/* Summen zuerst: Die Frage an ein Logbuch ist „wie viel", nicht „was". */}
-          <Card className="p-4">
-            <div className="flex flex-wrap items-baseline gap-x-6 gap-y-2">
-              <div>
-                <p className="text-micro uppercase tracking-wide text-dim">{t('logbook.total')}</p>
-                <p className="text-title font-bold tabular-nums">{formatDauer(s.gesamt)}</p>
-              </div>
-              {Object.entries(s.jeKategorie).map(([k, min]) => (
-                <div key={k}>
-                  <p className="text-micro uppercase tracking-wide text-dim">{k}</p>
-                  <p className="text-lead font-semibold tabular-nums">{formatDauer(min)}</p>
-                </div>
-              ))}
-              <button onClick={exportiere} className="min-h-11 ml-auto flex items-center gap-1.5 text-small text-dim transition hover:text-accent">
+          {/* Summen zuerst: Die Frage an ein Logbuch ist „wie viel", nicht „was".
+              Links die Gesamtzeit, rechts je Kategorie eine eigene Zeile —
+              vorher standen alle Zahlen gleichrangig nebeneinander, und ab
+              der zweiten Kategorie war nicht mehr zu sehen, was wozu gehoert. */}
+          <Card className="p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardHeading>{t('logbook.summary')}</CardHeading>
+              <button onClick={exportiere} className="flex min-h-11 items-center gap-1.5 text-small text-dim transition hover:text-accent">
                 <Download size={15} /> {t('logbook.export')}
               </button>
             </div>
+            <div className="mt-1 flex flex-col gap-4 sm:flex-row sm:items-center">
+              <div className="shrink-0 sm:border-r sm:border-line/10 sm:pr-8">
+                <p className="text-display font-bold leading-tight tabular-nums">{formatDauer(s.gesamt)}</p>
+                <p className="text-small text-dim">{t('logbook.entries', { count: s.eintraege })}</p>
+              </div>
+              {Object.keys(s.jeKategorie).length > 0 && (
+                <dl className="min-w-0 flex-1 space-y-tight sm:max-w-sm">
+                  {Object.entries(s.jeKategorie)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([k, min]) => (
+                      <div key={k} className="flex items-baseline justify-between gap-3 border-b border-line/[0.06] pb-1.5 last:border-0 last:pb-0">
+                        <dt className="min-w-0 truncate text-small text-dim">{k}</dt>
+                        <dd className="font-semibold tabular-nums">{formatDauer(min)}</dd>
+                      </div>
+                    ))}
+                </dl>
+              )}
+            </div>
           </Card>
 
-          <div className="flex flex-wrap items-end gap-2">
-            <Field label={t('logbook.from')}>
-              <input type="date" className={inputCls} value={filter.von ?? ''} onChange={(e) => setFilter({ ...filter, von: e.target.value || undefined })} />
-            </Field>
-            <Field label={t('logbook.to')}>
-              <input type="date" className={inputCls} value={filter.bis ?? ''} onChange={(e) => setFilter({ ...filter, bis: e.target.value || undefined })} />
-            </Field>
-            <select value={filter.muster ?? ''} onChange={(e) => setFilter({ ...filter, muster: e.target.value || undefined })} aria-label={t('logbook.aircraft')} className={selectCls}>
+          {/* Filter wie in der Formularablage: eine Zeile kompakter Felder,
+              die sich am Handy umbricht — keine seitenbreiten Auswahlfelder. */}
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex min-w-0 items-center gap-1.5 text-small text-dim">
+              {t('logbook.from')}
+              <input type="date" className={`${filterCls} w-36`} value={filter.von ?? ''} onChange={(e) => setFilter({ ...filter, von: e.target.value || undefined })} />
+            </label>
+            <label className="flex min-w-0 items-center gap-1.5 text-small text-dim">
+              {t('logbook.to')}
+              <input type="date" className={`${filterCls} w-36`} value={filter.bis ?? ''} onChange={(e) => setFilter({ ...filter, bis: e.target.value || undefined })} />
+            </label>
+            <select value={filter.muster ?? ''} onChange={(e) => setFilter({ ...filter, muster: e.target.value || undefined })} aria-label={t('logbook.aircraft')} className={filterCls}>
               <option value="">{t('logbook.allAircraft')}</option>
               {musterListe.map((m) => (
                 <option key={m} value={m}>
@@ -273,7 +303,7 @@ export function Logbook() {
                 </option>
               ))}
             </select>
-            <select value={filter.kategorie ?? ''} onChange={(e) => setFilter({ ...filter, kategorie: e.target.value || undefined })} aria-label={t('logbook.category')} className={selectCls}>
+            <select value={filter.kategorie ?? ''} onChange={(e) => setFilter({ ...filter, kategorie: e.target.value || undefined })} aria-label={t('logbook.category')} className={filterCls}>
               <option value="">{t('logbook.allCategories')}</option>
               {kategorien.map((k) => (
                 <option key={k} value={k}>
@@ -281,7 +311,7 @@ export function Logbook() {
                 </option>
               ))}
             </select>
-            <select value={filter.formTyp ?? ''} onChange={(e) => setFilter({ ...filter, formTyp: e.target.value || undefined })} aria-label={t('logbook.formType')} className={selectCls}>
+            <select value={filter.formTyp ?? ''} onChange={(e) => setFilter({ ...filter, formTyp: e.target.value || undefined })} aria-label={t('logbook.formType')} className={filterCls}>
               <option value="">{t('logbook.allForms')}</option>
               {formTypen.map((f) => (
                 <option key={f} value={f}>
@@ -289,9 +319,13 @@ export function Logbook() {
                 </option>
               ))}
             </select>
-            <Field label={t('logbook.pilot')}>
-              <input className={inputCls} value={filter.pilot ?? ''} onChange={(e) => setFilter({ ...filter, pilot: e.target.value || undefined })} />
-            </Field>
+            <input
+              className={`${filterCls} min-w-36 flex-1`}
+              placeholder={t('logbook.pilot')}
+              aria-label={t('logbook.pilot')}
+              value={filter.pilot ?? ''}
+              onChange={(e) => setFilter({ ...filter, pilot: e.target.value || undefined })}
+            />
           </div>
 
           <p role="status" className="sr-only">
@@ -306,7 +340,8 @@ export function Logbook() {
                 {alle.length === 0 ? t('logbook.empty') : t('logbook.noMatch')}
               </Card>
             )}
-            {eintraege.map((e) => (
+            <CardGrid>
+              {eintraege.map((e) => (
               <Card key={`${e.quelle}-${e.id}`} className="p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold tabular-nums">{e.datum}</span>
@@ -344,8 +379,9 @@ export function Logbook() {
                     </button>
                   </div>
                 )}
-              </Card>
-            ))}
+                </Card>
+              ))}
+            </CardGrid>
           </div>
         </div>
       </Page>
