@@ -9,7 +9,7 @@ import { adminTabsFor, hatAdminPanel } from './adminAccess'
 import { infoEntryAppliesTo } from './infoAcks'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type Note, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import { backupPersistedState, clearPersistedState, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
-import type { InfoEntry } from './types'
+import type { FeedbackEntry, InfoEntry } from './types'
 
 const EMPTY_SEEN: SeenState = { chat: {}, info: 0, contacts: 0 }
 
@@ -69,6 +69,8 @@ export interface Store {
   visibleInfoEntries: AppState['infoEntries']
   /** Wie viele gueltige Eintraege wartet der aktuelle Nutzer noch zu bestaetigen? */
   openAcks: number
+  /** Rueckmeldungen, die der aktuelle Nutzer im Panel sehen darf (Gruppe UND Muster). */
+  visibleFeedback: FeedbackEntry[]
   updateUser: (id: string, patch: Partial<User>) => void
   addGroup: (name: string, purpose: string, aircraftType?: string) => void
   setGroupAircraft: (id: string, aircraftType: string) => void
@@ -413,6 +415,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         (darfVerwalten || (infoEntryAppliesTo(e, currentUser.id, state.groups) && infoIsPublished(e, now()))),
     )
   }, [state.infoEntries, state.groups, state.settings, currentUser, now])
+
+  /*
+   * Rueckmeldungen, die diese Person im Panel sehen darf.
+   *
+   * Zwei Schranken, beide notwendig: die Gruppe (ein Gruppenadmin sieht nur
+   * seine Leute) und das Muster (Feedback traegt einen Aircraft Type und
+   * folgt seit 1.6.1 derselben Regel wie Lesson Plans, Info und Chats).
+   *
+   * Sie stehen hier und nicht in der Ansicht, weil die Statuszeile dieselbe
+   * Zahl braucht: Sie meldet „N Rueckmeldungen offen" und springt in die
+   * Liste. Rechnete sie mit dem ganzen Bestand, versprach sie einem
+   * Gruppenadmin mehr, als hinter dem Sprung steht — derselbe Fehler, den
+   * die Statuszeile beim Training Admin schon einmal hatte.
+   */
+  const visibleFeedback = useMemo(() => {
+    if (!currentUser) return []
+    const meineLeute = new Set(
+      state.groups.filter((g) => g.adminIds.includes(currentUser.id)).flatMap((g) => g.memberIds),
+    )
+    return nachMuster(currentUser, state.feedbackEntries, (f) => f.aircraftType).filter(
+      (f) => currentUser.role === 'superadmin' || meineLeute.has(f.authorId),
+    )
+  }, [state.feedbackEntries, state.groups, currentUser])
 
   const latestForeignInfo = visibleInfoEntries.reduce(
     (max, e) => (e.authorId !== state.currentUserId ? Math.max(max, infoPublishedAt(e)) : max),
@@ -765,6 +790,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       starredInfoIds: new Set(state.currentUserId ? state.starredInfo[state.currentUserId] ?? [] : []),
       visibleInfoEntries,
       openAcks,
+      visibleFeedback,
       // Bestätigen erst möglich, wenn der Eintrag auch gilt
       acknowledgeInfo: (id) =>
         patch((s) => {

@@ -186,6 +186,12 @@ function seedState(now: number): AppState {
         recipient: 'SIM Technik (daniel.duesentrieb@aviationacademy.at)',
         urgent: true,
         message: 'Der IOS-Touchscreen rechts im Citation-XLS+-Sim reagiert immer träger — heute Nachmittag sind zwei Sessions geplant.',
+        // Muster gesetzt, weil die Meldung eines nennt: Seit Feedback der
+        // Musterregel folgt, waere sie ohne Angabe „General" und ginge an
+        // jeden Verwalter — auch an den, der mit dem XLS+ nichts zu tun hat.
+        // Zugleich zeigt der Seed damit die Regel ueberhaupt: Vorher trugen
+        // beide Eintraege kein Muster, und der Unterschied war unsichtbar.
+        aircraftType: 'C560 XLS+',
         attachment: { name: 'ios-touchscreen.jpg', kind: 'image', sizeMB: 1.4 },
         createdAt: now - 5 * h,
       },

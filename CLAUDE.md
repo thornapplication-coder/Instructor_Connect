@@ -95,7 +95,13 @@ grün.
   nur, was er auch sieht — sonst legt ein Admin einen Lesson Plan an und
   verliert ihn im selben Moment. Und ein Nachtrag in `migrateState` braucht
   eine **Marke**: Ohne sie lief er bei jedem Start und machte jede bewusste
-  Entziehung wieder rückgängig, und zwar nach oben. Die **Nachweise**
+  Entziehung wieder rückgängig, und zwar nach oben. **Feedback** folgt der
+  Regel ebenfalls — zusätzlich zur Gruppe, beide Schranken müssen passen; die
+  Sicht steht als `visibleFeedback` im Store, weil die Statuszeile dieselbe
+  Zahl braucht. Bewusst NICHT geändert: Bei Info-Eintrag und Chat-Gruppe
+  bleibt „Ohne Muster" der Vorgabewert eines optionalen Feldes — anders als
+  beim Lesson Plan, wo es Pflicht ist. Das ist eine bewusste Entscheidung
+  für den schnellen allgemeinen Aushang, keine Lücke. Die **Nachweise**
   (Ablage, Statistik, Behördenexport) bleiben bewusst rollenbasiert: Die
   Aufbewahrungspflicht gilt für den ganzen Bestand, nicht für den eigenen
   Teil davon. Wer eine neue Ansicht baut, entscheidet zuerst, in welche der

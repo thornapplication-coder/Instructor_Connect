@@ -53,7 +53,7 @@ Nachrichten und Unterschriften zuordenbar bleiben.
 ## Musterbezogene Sichtbarkeit
 
 Wer welchem Aircraft Type zugeordnet ist, entscheidet, was er inhaltlich
-sieht — **Lesson Plans, Instructor Info und Chats**. Die Regel steht an einer
+sieht — **Lesson Plans, Instructor Info, Chats und Feedback**. Die Regel steht an einer
 Stelle (`src/aircraftScope.ts`) und nicht in jeder Ansicht einzeln.
 
 | Rolle | Sieht |
@@ -80,6 +80,13 @@ Drei Festlegungen gehören dazu:
   die den ganzen Betrieb betreffen; wer sie ans eigene Muster bindet, macht
   genau die Rollen blind, die den Überblick brauchen. Ihre Module hängen
   davon unberührt weiter an der Rechte-Matrix.
+- **Feedback trägt zwei Schranken.** Es folgt dem Muster *und* der Gruppe:
+  Ein Gruppenadmin sieht die Rückmeldungen seiner Leute, aber nur zu seinen
+  Mustern. Eine Meldung zu einem fremden Muster liegt dann beim Superadmin.
+- **Info-Eintrag und Chat-Gruppe behalten ein optionales Musterfeld** mit der
+  Vorgabe „Ohne Muster = für alle" — anders als beim Lesson Plan, wo es
+  Pflicht ist. Das ist eine bewusste Entscheidung für den schnellen
+  allgemeinen Aushang.
 - **Die Nachweise sind ausgenommen.** Formularablage, Statistik und
   Behördenexport bleiben rollenbasiert: Die Aufbewahrungspflicht
   (ORA.GEN.220) gilt für den ganzen Bestand, nicht für den eigenen Teil davon.

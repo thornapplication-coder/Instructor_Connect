@@ -430,3 +430,34 @@ vier als Schalter der Sammelbearbeitung.
 Im Browser nachgemessen: Panel und sechs Kacheln für den Training Admin, ein
 Haken auf der Rechte-Seite landet im Bestand, die Nutzerzeile führt nur noch
 hin.
+
+## 1.6.1 — 2026-08-14
+
+Zwei offene Fachentscheidungen aus der Musterregel getroffen.
+
+**Feedback folgt jetzt dem Muster.** Es trug seit jeher einen Aircraft Type,
+stand aber ausserhalb der Regel: Ein CL30-Admin sah Rückmeldungen zu
+C560-Themen, weil der Verfasser zufällig in seiner Gruppe war. Kein Leck —
+die Autoren sind seine Leute —, aber inkonsequent.
+
+- Jetzt gelten **zwei Schranken, beide notwendig**: die Gruppe und das Muster.
+  „General" (kein Muster) bleibt für alle sichtbar, wie überall sonst.
+- Die Kehrseite ist bewusst in Kauf genommen: Eine Meldung zu einem fremden
+  Muster erreicht den Gruppenadmin nicht mehr — sie liegt dann beim
+  Superadmin, der alle Muster sieht.
+- Die Sicht steht als `visibleFeedback` im Store, nicht in der Ansicht: Die
+  Statuszeile braucht dieselbe Zahl. Rechnete sie mit dem ganzen Bestand,
+  versprach sie einem Gruppenadmin mehr, als hinter ihrem Sprung steht —
+  derselbe Fehler, den sie beim Training Admin schon einmal hatte.
+- Eine Seed-Rückmeldung bekommt das Muster, das ihr Text ohnehin nennt
+  (Citation XLS+). Vorher trugen beide keines, und die Regel war in der
+  Sandbox gar nicht zu sehen.
+
+**Info-Eintrag und Chat-Gruppe behalten ihr optionales Musterfeld.** Die
+Vorgabe bleibt „Ohne Muster = für alle" — anders als beim Lesson Plan, wo das
+Muster Pflicht ist. Bewusst so entschieden: für den schnellen allgemeinen
+Aushang. Die Asymmetrie steht jetzt in README und CLAUDE.md, damit sie nicht
+beim nächsten Durchsehen als Lücke gilt.
+
+Nachgemessen: Superadmin sieht beide Rückmeldungen und meldet „2 offen"; der
+CL30-Admin sieht nur die allgemeine und meldet „1 offen".
