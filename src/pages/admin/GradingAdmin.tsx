@@ -606,7 +606,15 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
     toast(t('forms:toast.exported'))
   }
 
-  // Kachel-Navigation im Stil des Dashboards
+  /*
+   * Kachel-Navigation im Stil des Dashboards.
+   *
+   * Der Training Admin hat den Bereich seit Neuestem auch — der Verlauf je
+   * Pilot ist seine Aufgabe. Die Grading-Konfiguration ist es nicht: Dort
+   * werden Kompetenzkataloge geaendert, und das wirkt auf jedes kuenftige
+   * Blatt der ganzen ATO. Sie bleibt dem Superadmin.
+   */
+  const darfKonfigurieren = currentUser?.role === 'superadmin'
   const SECTION_TILES: { key: Section; icon: typeof Gauge; badge?: number }[] = [
     { key: 'dashboard', icon: Gauge, badge: openSignatures.length + failedMails.length + openFollowUps.length },
     { key: 'records', icon: FolderOpen },
@@ -614,7 +622,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
     { key: 'monthly', icon: CalendarRange },
     { key: 'stats', icon: BarChart3 },
     { key: 'standardisation', icon: Scale },
-    { key: 'config', icon: SlidersHorizontal },
+    ...(darfKonfigurieren ? ([{ key: 'config', icon: SlidersHorizontal }] as const) : []),
   ]
 
   return (
@@ -884,7 +892,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
         </div>
       )}
 
-      {section === 'config' && (
+      {section === 'config' && darfKonfigurieren && (
         <div className="space-y-section">
           <Card className="space-y-section p-4">
             <StringList label={t('forms:admin.defaultRecipients')} values={g.defaultRecipients} onChange={(v) => updateGrading({ defaultRecipients: v })} />

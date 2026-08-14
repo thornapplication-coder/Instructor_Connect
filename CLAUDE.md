@@ -100,6 +100,24 @@ grün.
   Aufbewahrungspflicht gilt für den ganzen Bestand, nicht für den eigenen
   Teil davon. Wer eine neue Ansicht baut, entscheidet zuerst, in welche der
   beiden Gruppen sie gehört.
+- **Rechte werden an EINER Stelle vergeben** — `#/admin/permissions`. Dort
+  stehen die Rollen-Matrix und, darunter, dieselben vier personenbezogenen
+  Rechte (bewerten, Pilot, Verzeichnis, Chat-Sperre) für alle Nutzer
+  nebeneinander. Vorher waren es drei Stellen: die Matrix, vier Kästchen in
+  der aufgeklappten Nutzerzeile und dieselben vier als Schalter der
+  Sammelbearbeitung. Wer wissen wollte, was jemand darf, sah an drei Stellen
+  nach. Die Liste steht in `src/adminAccess.ts` (`PERSON_PERMS`), damit
+  Matrix und Sammelbearbeitung dieselben Rechte in derselben Reihenfolge
+  zeigen. Bewusst NICHT dorthin geholt: Rolle und Muster (gehören zur
+  Identität des Nutzers) und die Chat-Administration (gehört an den Chat) —
+  ein Verweis nennt beides.
+- **Wer welchen Verwaltungsbereich öffnet**, sagt `adminTabsFor`
+  (`src/adminAccess.ts`) — Kachel auf der Startseite, Reiterleiste und
+  Zugangsriegel fragen dieselbe Stelle. Sie stand zweimal in derselben
+  Datei, verschieden formuliert, und die beiden waren sich nicht einig: Der
+  Training Admin bekam eine Kachel, hinter der „kein Zugriff" stand. Auch
+  die Statuszeile fragt sie — ein Punkt, der in einen gesperrten Bereich
+  führt, ist schlimmer als kein Punkt.
 - **Statusmarken** kommen aus `Badge` (`src/components/ui.tsx`) — fünf Töne
   mit je *einer* Bedeutung: `ok` erledigt, `wait` wartet oder mahnt, `bad`
   durchgefallen oder kaputt, `accent` neutrale Einordnung, `dim` ruhiger
