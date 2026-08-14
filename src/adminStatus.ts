@@ -33,12 +33,17 @@ export type StatusPunkt = {
 export type StatusQuelle = {
   gradingRecords: GradingRecord[]
   feedbackEntries: FeedbackEntry[]
-  /** Nur der Superadmin sieht das Grading Tool; ein Gruppen-Admin bekaeme
-   *  sonst eine Meldung zu einem Bereich, den er nicht oeffnen kann. */
+  /** Steht der Grading-Bereich dieser Rolle offen? Sonst bekaeme sie eine
+   *  Meldung zu einem Bereich, den sie nicht oeffnen kann. */
   darfGrading: boolean
+  /** Dasselbe fuer das Feedback. Es stand hier lange bedingungslos, weil es
+   *  „auch dem Gruppen-Admin offensteht" — seit der Training Admin ein Panel
+   *  hat, stimmt das nicht mehr: Er sieht Grading, aber kein Feedback, und
+   *  bekam einen Punkt, der ihn in die Uebersicht zurueckwarf. */
+  darfFeedback: boolean
 }
 
-export function adminStatus({ gradingRecords, feedbackEntries, darfGrading }: StatusQuelle): StatusPunkt[] {
+export function adminStatus({ gradingRecords, feedbackEntries, darfGrading, darfFeedback }: StatusQuelle): StatusPunkt[] {
   const punkte: StatusPunkt[] = []
   if (darfGrading) {
     // Reihenfolge ist Dringlichkeit: Ein gescheiterter Versand ist ein
@@ -58,9 +63,9 @@ export function adminStatus({ gradingRecords, feedbackEntries, darfGrading }: St
     if (ohneUnterschrift) punkte.push({ key: 'openSignatures', count: ohneUnterschrift, tone: 'wait', to: '/admin/grading/dashboard' })
   }
 
-  // Feedback steht auch dem Gruppen-Admin offen — deshalb ausserhalb der
-  // Grading-Bedingung.
-  const offenesFeedback = feedbackEntries.filter((f) => !f.resolvedAt).length
+  // Ein Punkt fuehrt irgendwohin — deshalb nur, wenn dieses Irgendwohin
+  // dieser Rolle auch offensteht.
+  const offenesFeedback = darfFeedback ? feedbackEntries.filter((f) => !f.resolvedAt).length : 0
   if (offenesFeedback) punkte.push({ key: 'openFeedback', count: offenesFeedback, tone: 'wait', to: '/admin/feedback' })
 
   return punkte

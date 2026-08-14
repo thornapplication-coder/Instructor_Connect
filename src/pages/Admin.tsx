@@ -10,7 +10,7 @@ import { toast } from '../components/Toast'
 import { storageInfo, type StorageInfo } from '../persist'
 import { downloadCsv } from '../csv'
 import { buildImportTemplate, isImportable, parseUserImport, type ImportResult, type ImportRow } from '../userImport'
-import { useStore } from '../store'
+import { adminTabsFor, useStore } from '../store'
 import { GradingAdmin } from './admin/GradingAdmin'
 import { formatDateTime } from './Grading'
 import { APP_VERSION, type FeedbackEntry, PERM_KEYS, type ConfigurableRole, type RetentionKey, type Role } from '../types'
@@ -1448,10 +1448,14 @@ const TAB_ICONS: Record<Tab, typeof Users> = {
 function StatusZeile() {
   const { t } = useTranslation()
   const { state, currentUser } = useStore()
+  // Aus derselben Freigabeliste wie die Reiter: Ein Punkt, der in einen
+  // gesperrten Bereich fuehrt, ist schlimmer als kein Punkt.
+  const offen = adminTabsFor(currentUser!.role)
   const punkte = adminStatus({
     gradingRecords: state.gradingRecords,
     feedbackEntries: state.feedbackEntries,
-    darfGrading: currentUser!.role === 'superadmin',
+    darfGrading: offen.includes('grading'),
+    darfFeedback: offen.includes('feedback'),
   })
   return (
     <div role="status" className="mb-section">
@@ -1500,10 +1504,11 @@ export function Admin({ sub = '' }: { sub?: string }) {
 
   const isSuper = currentUser!.role === 'superadmin'
   // Maßgeblich ist die Freigabeliste: ein Bereich, den die aktuelle Rolle
-  // nicht öffnen darf, wird gar nicht erst gerendert.
-  const tabs: Tab[] = isSuper
-    ? ['users', 'permissions', 'grading', 'groups', 'feedback', 'settings', 'imprint', 'changelog']
-    : ['groups', 'feedback']
+  // nicht öffnen darf, wird gar nicht erst gerendert. Sie steht im Store
+  // (adminTabsFor) und nicht hier, damit die Startseite dieselbe Antwort
+  // bekommt wie das Panel — sonst zeigt die eine Seite eine Kachel, hinter
+  // der die andere nichts hat.
+  const tabs = adminTabsFor(currentUser!.role) as Tab[]
   const openTab = tab && tabs.includes(tab) ? tab : null
 
   // Eine Adresse, die dieser Rolle nicht offensteht (oder es gar nicht gibt),
@@ -1517,8 +1522,11 @@ export function Admin({ sub = '' }: { sub?: string }) {
 
   // Serverseitig gilt RLS; hier zusätzlich die Client-Absicherung.
   // Admins bekommen ein kleines Panel (Gruppen + Feedback), alles
-  // Weitere bleibt dem Superadmin vorbehalten.
-  if (currentUser!.role !== 'superadmin' && currentUser!.role !== 'group_admin') {
+  // Weitere bleibt dem Superadmin vorbehalten. Massgeblich ist dieselbe
+  // Freigabeliste wie oben: Wer keinen einzigen Bereich hat, hat kein Panel.
+  // Die Rolle hier ein zweites Mal aufzuzaehlen war der Grund, warum der
+  // Training Admin die Kachel bekam und dahinter eine Absage fand.
+  if (tabs.length === 0) {
     return (
       <>
         <TopBar title={t('admin.title')} back="/" />

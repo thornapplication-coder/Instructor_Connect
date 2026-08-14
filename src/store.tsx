@@ -5,6 +5,7 @@ import { createSeedState } from './sandbox/seed'
 import { migrateState } from './migrateState'
 import { SANDBOX } from './sandbox/flag'
 import { musterFehlt, musterPflicht, nachMuster, sichtbarFuer } from './aircraftScope'
+import { adminTabsFor, hatAdminPanel } from './adminAccess'
 import { infoEntryAppliesTo } from './infoAcks'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type Note, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import { backupPersistedState, clearPersistedState, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
@@ -1248,9 +1249,17 @@ export function useStore(): Store {
 
 /** Darf der Nutzer in dieser Gruppe administrieren? */
 /** Admin-Rechte: Superadmin und Admin — NICHT der nur-lesende Training Admin */
+/**
+ * Hat dieser Nutzer ein Admin-Panel? Die Antwort kommt aus adminAccess.ts —
+ * dort steht auch, WELCHE Bereiche. Zwei Aufzaehlungen derselben Freigabe
+ * hatten sich schon einmal widersprochen.
+ */
+export { adminTabsFor }
+
 export function isAdminUser(user: { role: Role } | null | undefined): boolean {
-  return user?.role === 'superadmin' || user?.role === 'group_admin'
+  return hatAdminPanel(user?.role)
 }
+
 
 /**
  * Rechte-Matrix: Superadmin darf immer alles; Mitglieder werden über die
