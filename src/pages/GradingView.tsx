@@ -10,7 +10,8 @@ import { navigate } from '../router'
 import { useStore, userHasPerm } from '../store'
 import type { GradingRecord } from '../types'
 import { isNotCompetent, traineesOf } from '../gradingRules'
-import { formatDate, formatDateTime, gradeColor, missingFollowUps, TrafficIcon, trafficLight } from './Grading'
+import { gradeColor, missingFollowUps, TrafficIcon, trafficLight } from './Grading'
+import { formatDate, formatDateTime } from '../datum'
 
 /**
  * Abgeschicktes Formular: read-only nach beidseitiger Signatur (Spez. 5.5).

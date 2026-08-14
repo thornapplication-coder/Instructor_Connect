@@ -304,15 +304,23 @@ export function adminZeile(eintraege: LogbookEintrag[], ohneBriefing: boolean): 
   }
 }
 
-export type LogbuchMonat = { monat: string /* YYYY-MM */; eintraege: LogbookEintrag[] }
+export type LogbuchAbschnitt =
+  | { art: 'monat'; monat: string; eintraege: LogbookEintrag[] }
+  | { art: 'luecke'; von: string; bis: string; monate: number }
 
 /**
- * Gruppiert Eintraege nach Monat, neuester zuerst — und zwar LUECKENLOS:
- * Ein Monat ohne Eintrag steht als leere Gruppe da. Ein Taetigkeitsnachweis,
- * in dem der Juni einfach fehlt, sieht aus wie ein Uebertragungsfehler;
- * ein Juni mit „keine Eintraege" ist eine Aussage.
+ * Gliedert Eintraege in Monatsabschnitte, neuester zuerst — mit sichtbaren
+ * Luecken. Ein EINZELNER Monat ohne Eintrag steht als leerer Monat da: In
+ * einem Taetigkeitsnachweis sieht ein fehlender Monat aus wie ein
+ * Uebertragungsfehler, ein leerer Monat ist eine Aussage.
+ *
+ * MEHRERE leere Monate am Stueck werden zu einer Zeile zusammengefasst.
+ * Befund aus dem Audit: Ein einzelner Eintrag von 2019 neben einem von 2026
+ * erzeugte 90 Abschnitte, 88 davon leer — am Handy minutenlanges Scrollen
+ * durch „keine Eintraege". Die Aussage bleibt erhalten, sie braucht nur
+ * nicht 88 Zeilen.
  */
-export function nachMonaten(eintraege: LogbookEintrag[]): LogbuchMonat[] {
+export function nachMonaten(eintraege: LogbookEintrag[]): LogbuchAbschnitt[] {
   if (eintraege.length === 0) return []
   const gruppen = new Map<string, LogbookEintrag[]>()
   for (const e of eintraege) {
@@ -324,15 +332,76 @@ export function nachMonaten(eintraege: LogbookEintrag[]): LogbuchMonat[] {
   const schluessel = [...gruppen.keys()].sort()
   const [minJ, minM] = schluessel[0].split('-').map(Number)
   const [maxJ, maxM] = schluessel[schluessel.length - 1].split('-').map(Number)
-  const out: LogbuchMonat[] = []
+  const out: LogbuchAbschnitt[] = []
+  let leer: string[] = []
+  const luecke = () => {
+    if (leer.length === 0) return
+    if (leer.length === 1) out.push({ art: 'monat', monat: leer[0], eintraege: [] })
+    // Neuester zuerst: leer[0] ist der juengste, der letzte der aelteste.
+    else out.push({ art: 'luecke', von: leer[leer.length - 1], bis: leer[0], monate: leer.length })
+    leer = []
+  }
   for (let j = maxJ, m = maxM; j > minJ || (j === minJ && m >= minM); ) {
     const k = `${j}-${String(m).padStart(2, '0')}`
-    out.push({ monat: k, eintraege: gruppen.get(k) ?? [] })
+    const g = gruppen.get(k)
+    if (g) {
+      luecke()
+      out.push({ art: 'monat', monat: k, eintraege: g })
+    } else {
+      leer.push(k)
+    }
     m -= 1
     if (m === 0) {
       m = 12
       j -= 1
     }
   }
+  luecke()
   return out
+}
+
+export type AdminTabelle = {
+  zeilen: (AdminZeile & { id: string; name: string; aktiv: boolean })[]
+  summe: { anzahl: number; ground: number; simulator: number; other: number; gesamt: number }
+  musterListe: string[]
+}
+
+/**
+ * Die ganze Admin-Auswertung in EINER Rechnung — Zeilen, Summenzeile und die
+ * Muster-Auswahl aus demselben Durchlauf.
+ *
+ * Zwei Befunde des Audits stecken hier drin: Die Seite rechnete `logbuchVon`
+ * zweimal je Nutzer (einmal fuer die Tabelle, einmal fuer die Musterliste),
+ * und die Summenzeile stand als fuenf `reduce` in der .tsx — also ausserhalb
+ * jeder Testwache. Die Zusage „die Summenzeile ist die Summe der Spalten"
+ * gehoert getestet, nicht gehofft.
+ */
+export function adminTabelle(
+  nutzer: { id: string; name: string; active: boolean }[],
+  records: GradingRecord[],
+  stand: Record<string, LogbookStand>,
+  filter: LogbookFilter,
+  ohneBriefing: boolean,
+): AdminTabelle {
+  const alleMuster = new Set<string>()
+  const zeilen: AdminTabelle['zeilen'] = []
+  for (const u of nutzer) {
+    const alle = logbuchVon(records, u.id, stand[u.id] ?? LEERES_LOGBUCH)
+    if (alle.length === 0) continue // wer kein Logbuch fuehrt, ist keine Nullzeile wert
+    for (const e of alle) if (e.aircraftType) alleMuster.add(e.aircraftType)
+    zeilen.push({ id: u.id, name: u.name, aktiv: u.active, ...adminZeile(filtereEintraege(alle, filter), ohneBriefing) })
+  }
+  zeilen.sort((a, b) => b.gesamt - a.gesamt || a.name.localeCompare(b.name))
+  const feld = (k: 'anzahl' | 'ground' | 'simulator' | 'other' | 'gesamt') => zeilen.reduce((s, z) => s + z[k], 0)
+  return {
+    zeilen,
+    summe: { anzahl: feld('anzahl'), ground: feld('ground'), simulator: feld('simulator'), other: feld('other'), gesamt: feld('gesamt') },
+    musterListe: [...alleMuster].sort(),
+  }
+}
+
+/** Minuten als Dezimalstunden (150 → 2.5) — damit sich die Zeiten in Excel
+ *  summieren und sortieren lassen. „02:30" ist dort nur Text. */
+export function dezimalStunden(min: number): number {
+  return Math.round((Math.max(0, min) / 60) * 100) / 100
 }

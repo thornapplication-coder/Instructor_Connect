@@ -1,4 +1,5 @@
 import { AlertTriangle, CheckCircle2, Clock, Download, FileDown, FilePen, HelpCircle, Plus, Search, Trash2, XCircle } from 'lucide-react'
+import { formatDate, formatDateTime } from '../datum'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, inputCls, Page, SectionHeading, TopBar } from '../components/ui'
@@ -46,17 +47,7 @@ function byDay(list: GradingRecord[]): [string, GradingRecord[]][] {
   return [...groups.entries()]
 }
 
-/* Einheitliches Datumsformat DD.MM.YYYY für das gesamte Grading-Modul */
-export function formatDate(input: number | string): string {
-  const d = typeof input === 'number' ? new Date(input) : new Date(`${input}T00:00:00`)
-  if (Number.isNaN(d.getTime())) return String(input)
-  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
-}
 
-export function formatDateTime(ts: number): string {
-  const d = new Date(ts)
-  return `${formatDate(ts)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-}
 
 /**
  * Ampelsymbol: Form UND Farbe unterscheiden die Zustände.

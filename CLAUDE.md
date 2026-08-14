@@ -181,6 +181,14 @@ grün.
   Tätigkeitsnachweis, den ein anderer nachbessern kann, ist keiner. Die
   Sichtbarkeit fremder Logbücher folgt der Musterregel (`sichtbareEintraege`,
   `darfLogbuchOeffnen`), nicht einer eigenen Auslegung je Ansicht.
+- **Das Datumsformat steht in `src/datum.ts`** — DD.MM.YYYY in beiden
+  Sprachen, dazu `formatDateTime` und `monatsName`. Es lag einmal in
+  `src/pages/Grading.tsx`: zwölf Module zogen die Regel aus einer
+  Seitendatei, und die Testwache konnte keinen Test verlangen, weil sie nur
+  `src/*.ts` prüft. Deshalb prüft `testGuard` jetzt auch die Kehrseite —
+  **kein Modul in `src/*.ts` importiert aus `src/pages/`**. Die
+  Datums-Eingabefelder folgen weiter dem Gerät; deren Schreibweise bestimmt
+  der Browser.
 - **Kommentare** erklären das *Warum* (gern mit dem Befund, der dahintersteht),
   nicht das *Was*. Deutsch, wie der Bestand.
 - **Auslieferung:** Entwicklung im Feature-Branch, Merge per PR nach `main`;

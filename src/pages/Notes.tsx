@@ -6,7 +6,7 @@ import { toast } from '../components/Toast'
 import { groupNotes, notePreview, PINNED, searchNotes } from '../notes'
 import { useStore } from '../store'
 import type { Note } from '../types'
-import { formatDate } from './Grading'
+import { formatDate } from '../datum'
 
 /**
  * Notizen — die persoenliche Merkliste.

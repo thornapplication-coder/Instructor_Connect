@@ -20,7 +20,7 @@ import {
   type LogbookFilter,
 } from '../logbook'
 import { useStore } from '../store'
-import { formatDate } from './Grading'
+import { formatDate, monatsName } from '../datum'
 
 /**
  * my AAA Logbook — die eigene Instruktorentätigkeit, aus den Formularen
@@ -37,6 +37,13 @@ import { formatDate } from './Grading'
    Datumsfelder brauchen zusaetzlich eine feste Breite: WebKit gibt einem
    leeren <input type="date"> sonst fast keine Eigenbreite, und am iPad
    standen zwei winzige Pillen da, die erst beim Antippen aufgingen. */
+/* Lokaler Tag als YYYY-MM-DD. `toISOString()` waere UTC — oestlich wie
+   westlich von Greenwich landet man damit am falschen Tag. */
+const isoTag = (ts: number) => {
+  const d = new Date(ts)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 const filterCls =
   'min-h-11 rounded-xl border border-field bg-bg/60 px-3 py-2 text-small text-ink outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
@@ -65,7 +72,7 @@ function DauerFeld({ label, wert, onChange }: { label: string; wert: number; onC
 function ManuellModal({ onClose, vorlage }: { onClose: () => void; vorlage?: LogbookEintrag }) {
   const { t } = useTranslation()
   const { state, currentUser, logbookAddManual, logbookUpdateManual } = useStore()
-  const [datum, setDatum] = useState(vorlage?.datum ?? new Date().toISOString().slice(0, 10))
+  const [datum, setDatum] = useState(vorlage?.datum ?? isoTag(Date.now() + state.timeOffsetMs))
   const [muster, setMuster] = useState(vorlage?.aircraftType ?? '')
   const [kategorie, setKategorie] = useState(vorlage?.kategorie ?? 'Other Training')
   const [frei, setFrei] = useState('')
@@ -184,14 +191,10 @@ function KorrekturModal({ eintrag, onClose }: { eintrag: LogbookEintrag; onClose
 
 export function Logbook() {
   const { t, i18n } = useTranslation()
-  /* Monatsueberschrift („August 2026") in der Sprache der Oberflaeche —
-     das ist ein Name, kein Datum; die DD.MM.YYYY-Regel gilt fuer Daten. */
-  const monatsName = (k: string) =>
-    new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)) - 1, 1).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB', {
-      month: 'long',
-      year: 'numeric',
-    })
   const { state, currentUser, logbookOverride, logbookDeleteManual } = useStore()
+  /* Zeitreise der Sandbox beachten: der Rest der App rechnet mit dem
+     versetzten Jetzt, das Logbuch tat es nicht. */
+  const jetzt = () => Date.now() + state.timeOffsetMs
   const [ownerId, setOwnerId] = useState(currentUser!.id)
   const [filter, setFilter] = useState<LogbookFilter>({})
   const [zeigeManuell, setZeigeManuell] = useState(false)
@@ -217,7 +220,16 @@ export function Logbook() {
 
   const exportiere = () => {
     let csv = csvRow(['my AAA Logbook', owner.name])
-    csv += csvRow(['Exported', formatDate(Date.now())])
+    csv += csvRow(['Exported', formatDate(jetzt())])
+    /* Die aktiven Filter gehoeren in den Dateikopf — sonst sieht ein
+       gefilterter Auszug aus wie das vollstaendige Logbuch. Der
+       Grading-Export haelt es seit jeher so. */
+    csv += csvRow(['Period', filter.von || filter.bis ? `${filter.von ? formatDate(filter.von) : '…'} - ${filter.bis ? formatDate(filter.bis) : '…'}` : 'all'])
+    csv += csvRow(['Aircraft type', filter.muster || 'all'])
+    csv += csvRow(['Category', filter.kategorie || 'all'])
+    csv += csvRow(['Form', filter.formTyp || 'all'])
+    csv += csvRow(['Pilot', filter.pilot || 'all'])
+    csv += csvRow(['Entries', `${eintraege.length} of ${alle.length}`])
     csv += csvRow([])
     csv += csvRow(['Date', 'Category', 'Aircraft', 'Form', 'Pilots', 'Briefing', 'Session', 'Debriefing', 'Total', 'Note'])
     eintraege.forEach((e) => {
@@ -350,7 +362,14 @@ export function Logbook() {
               {alle.length === 0 ? t('logbook.empty') : t('logbook.noMatch')}
             </Card>
           )}
-          {nachMonaten(eintraege).map((g) => (
+          {nachMonaten(eintraege).map((g) =>
+            g.art === 'luecke' ? (
+              /* Mehrere leere Monate am Stueck: eine Zeile statt achtzig.
+                 Die Aussage „hier war nichts" bleibt, das Scrollen entfaellt. */
+              <p key={`l-${g.von}`} className="border-l-2 border-line/15 pl-3 text-small text-dim">
+                {t('logbook.gapMonths', { von: monatsName(g.von, i18n.language), bis: monatsName(g.bis, i18n.language), count: g.monate })}
+              </p>
+            ) : (
             <section key={g.monat} className="space-y-stack">
               <SectionHeading
                 right={
@@ -361,7 +380,7 @@ export function Logbook() {
                   ) : undefined
                 }
               >
-                {monatsName(g.monat)}
+                {monatsName(g.monat, i18n.language)}
               </SectionHeading>
               {g.eintraege.length === 0 ? (
                 <p className="text-small text-dim">{t('logbook.emptyMonth')}</p>
@@ -410,7 +429,8 @@ export function Logbook() {
                 </CardGrid>
               )}
             </section>
-          ))}
+            ),
+          )}
         </div>
       </Page>
       {zeigeManuell && <ManuellModal onClose={() => setZeigeManuell(false)} />}

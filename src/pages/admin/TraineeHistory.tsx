@@ -6,7 +6,8 @@ import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { traineeHistories, type CompetencyTrack, type TraineeHistory as History } from '../../traineeHistory'
 import type { GradingRecord } from '../../types'
-import { formatDate, gradeColor } from '../Grading'
+import { gradeColor } from '../Grading'
+import { formatDate } from '../../datum'
 
 /**
  * Verlauf eines Piloten über mehrere Sessions.
