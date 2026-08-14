@@ -252,6 +252,11 @@ export interface AppState {
    *  Altbestand ohne diese Liste gueltig bleibt — migrateState traegt sie
    *  nach. Die Sicht filtert immer auf den eigenen Autor. */
   notes?: Note[]
+  /** my AAA Logbook: Korrekturen und manuelle Eintraege je Nutzer. Die
+   *  abgeleiteten Eintraege selbst stehen hier NICHT — sie werden aus den
+   *  gradingRecords gerechnet (src/logbook.ts), sonst gaebe es zwei
+   *  Wahrheiten ueber dieselbe Session. */
+  logbook?: Record<string, import('./logbook').LogbookStand>
   /** je Nutzer: mit Stern markierte Instructor-Info-Einträge */
   starredInfo: Record<string, string[]>
   /** Lese-Bestätigungen: Eintrag-ID -> Nutzer-ID -> Zeitstempel */

@@ -171,6 +171,16 @@ grün.
   was sich *wirklich* ändert (nicht die Größe der Auswahl), und niemand kann
   sich selbst oder den letzten aktiven Superadmin aussperren. Die **Rolle**
   bleibt bewusst Einzelentscheidung.
+- **Das Logbuch speichert keine abgeleiteten Einträge.** Was aus einem
+  Grading-Formular folgt, rechnet `src/logbook.ts` bei jedem Öffnen neu aus
+  `gradingRecords`; im Store liegen nur Overrides (Teilzeiten, Notiz,
+  Löschmarke) und manuelle Einträge. Wer abgeleitete Einträge materialisiert,
+  baut die zweite Wahrheit für dieselbe Stunde — Formular korrigiert,
+  Logbuch veraltet. Geschrieben wird **ausschließlich ins eigene** Logbuch
+  (die Store-Aktionen kennen gar keinen Ziel-Nutzer): Ein
+  Tätigkeitsnachweis, den ein anderer nachbessern kann, ist keiner. Die
+  Sichtbarkeit fremder Logbücher folgt der Musterregel (`sichtbareEintraege`,
+  `darfLogbuchOeffnen`), nicht einer eigenen Auslegung je Ansicht.
 - **Kommentare** erklären das *Warum* (gern mit dem Befund, der dahintersteht),
   nicht das *Was*. Deutsch, wie der Bestand.
 - **Auslieferung:** Entwicklung im Feature-Branch, Merge per PR nach `main`;

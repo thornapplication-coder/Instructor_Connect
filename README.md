@@ -28,6 +28,18 @@ Twilio oder Kosten. Der Anwendungszustand wird im Browser gespeichert und
   Verfasser; kein Admin und kein Superadmin sieht sie, und sie geht in keinen
   Export. Der Training Admin hat das Modul nicht. Bewusst ohne Musterbezug: Man
   tippt drei Wörter und legt sie ab, statt sie einzuordnen.
+- **my AAA Logbook** — persönlicher Tätigkeitsnachweis je Instruktor,
+  abgeleitet aus den unterschriebenen Grading-Formularen: Jede fertige 308
+  zählt als Simulator Training (Flight Time PF + PM, dazu standardmäßig 1:00
+  Briefing und 0:30 Debriefing, beides nachträglich änderbar), jede fertige
+  307 als Ground Training mit ihrer Duration. 306 und 310 zählen nie.
+  Manuelle Einträge, Filter (Zeitraum, Muster, Kategorie, Formulartyp, Pilot)
+  und CSV-Export. Abgeleitete Einträge werden nicht gespeichert, sondern bei
+  jedem Öffnen aus den Formularen gerechnet; Korrekturen und Löschungen
+  liegen als Overrides daneben — das Formular selbst bleibt unberührt.
+  Superadmin und Training Admin sehen jedes Logbuch, ein Gruppenadmin fremde
+  nur gefiltert auf seine Muster, ein Member nur sein eigenes. Schreiben kann
+  jeder ausschließlich ins eigene.
 - **Admin Panel** — Benutzer, Rechte-Matrix, Grading-Konfiguration, Chats,
   Feedback, Einstellungen, Impressum und Changelog. Der Superadmin sieht alles,
   ein Gruppenadmin nur seine eigenen Gruppen und deren Rückmeldungen. Die
