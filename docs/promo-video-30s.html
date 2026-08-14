@@ -1,0 +1,450 @@
+<title>Erste Session</title>
+<style>
+  /* Dunkel ist der Normalfall: Das Ding wird um halb sechs früh in einer
+     Simulatorhalle benutzt, und die App selbst hat ein dunkelblaues Theme.
+     Die Farben kommen aus dem EFIS — Cyan für Gewähltes, Magenta für die
+     aktive Route, Grün/Amber/Rot für den Zustand. */
+  :root {
+    --bg: #080D14;
+    --surface: #0F1621;
+    --surface-2: #141D2B;
+    --line: #22303F;
+    --line-soft: #1A2534;
+    --ink: #DDE7F2;
+    --dim: #8397AC;
+    --cyan: #3FC7F0;
+    --magenta: #E877CE;
+    --green: #4BD98B;
+    --amber: #F2AD46;
+    --shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 18px 40px -24px rgba(0,0,0,.9);
+
+    --mono: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+    --step--1: clamp(.76rem, .74rem + .1vw, .82rem);
+    --step-0: clamp(.95rem, .92rem + .15vw, 1.03rem);
+    --step-1: clamp(1.12rem, 1.05rem + .3vw, 1.3rem);
+    --step-2: clamp(1.4rem, 1.25rem + .7vw, 1.85rem);
+    --step-3: clamp(1.9rem, 1.5rem + 1.9vw, 3.1rem);
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #E9EDF2;
+      --surface: #FFFFFF;
+      --surface-2: #F4F7FA;
+      --line: #CFD8E2;
+      --line-soft: #E2E8EF;
+      --ink: #0E1826;
+      --dim: #566779;
+      --cyan: #0A6E92;
+      --magenta: #9E2C81;
+      --green: #1B7346;
+      --amber: #8A5A0C;
+      --shadow: 0 1px 0 rgba(255,255,255,.8) inset, 0 14px 34px -26px rgba(16,30,48,.5);
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #E9EDF2;
+    --surface: #FFFFFF;
+    --surface-2: #F4F7FA;
+    --line: #CFD8E2;
+    --line-soft: #E2E8EF;
+    --ink: #0E1826;
+    --dim: #566779;
+    --cyan: #0A6E92;
+    --magenta: #9E2C81;
+    --green: #1B7346;
+    --amber: #8A5A0C;
+    --shadow: 0 1px 0 rgba(255,255,255,.8) inset, 0 14px 34px -26px rgba(16,30,48,.5);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: var(--step-0);
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 70rem; margin: 0 auto; padding: 0 clamp(1rem, 4vw, 2.5rem); }
+  h1, h2, h3 { text-wrap: balance; margin: 0; line-height: 1.15; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: var(--step--1);
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  /* ---------- Kopf ---------- */
+  header { padding: clamp(3rem, 8vw, 5.5rem) 0 2rem; border-bottom: 1px solid var(--line); }
+  .title { font-size: var(--step-3); font-weight: 800; letter-spacing: -.025em; margin: .6rem 0 .5rem; }
+  .title em { font-style: normal; color: var(--magenta); }
+  .lede { color: var(--dim); max-width: 46ch; font-size: var(--step-1); }
+  .facts { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.6rem; }
+  .fact {
+    font-family: var(--mono); font-size: var(--step--1);
+    border: 1px solid var(--line); border-radius: 999px;
+    padding: .3rem .75rem; color: var(--dim); background: var(--surface);
+  }
+  .fact b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- Zeitleiste ---------- */
+  .ruler { margin: 2.4rem 0 0; }
+  .ruler-bar { display: flex; gap: 3px; height: 3.4rem; }
+  .seg {
+    flex-grow: var(--dur); flex-basis: 0;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    border: 1px solid var(--line); border-bottom: 3px solid var(--seg);
+    border-radius: 4px 4px 2px 2px;
+    background: var(--surface);
+    color: var(--dim); text-decoration: none;
+    font-family: var(--mono); font-size: .68rem; line-height: 1.1;
+    padding: .3rem .35rem; overflow: hidden;
+    transition: background .18s ease, color .18s ease, transform .18s ease;
+  }
+  .seg:hover, .seg:focus-visible { background: var(--surface-2); color: var(--ink); transform: translateY(-2px); }
+  .seg b { display: block; color: var(--ink); font-weight: 600; }
+  .ruler-scale {
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: .68rem; color: var(--dim);
+    margin-top: .45rem; letter-spacing: .04em;
+  }
+
+  /* ---------- Abschnitte ---------- */
+  section { padding: clamp(2.6rem, 6vw, 4.2rem) 0; border-bottom: 1px solid var(--line-soft); }
+  .sec-head { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1.6rem; flex-wrap: wrap; }
+  .sec-head h2 { font-size: var(--step-2); font-weight: 700; letter-spacing: -.015em; }
+  .prose { max-width: 62ch; }
+  .prose p { margin: 0 0 1rem; }
+  .prose p:last-child { margin-bottom: 0; }
+  .prose strong { color: var(--ink); font-weight: 650; }
+
+  /* ---------- Einstellungen ---------- */
+  .shots { display: flex; flex-direction: column; gap: 1.1rem; }
+  .shot {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 10px; box-shadow: var(--shadow);
+    display: grid; grid-template-columns: 8.5rem 1fr; scroll-margin-top: 1.5rem;
+  }
+  @media (max-width: 46rem) { .shot { grid-template-columns: 1fr; } }
+  .rail {
+    border-right: 1px solid var(--line); padding: 1.1rem 1rem;
+    display: flex; flex-direction: column; gap: .3rem;
+    font-family: var(--mono); font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 46rem) {
+    .rail { border-right: 0; border-bottom: 1px solid var(--line); flex-direction: row; align-items: baseline; gap: .9rem; }
+  }
+  .rail .no { font-size: 1.5rem; font-weight: 700; color: var(--accent, var(--cyan)); line-height: 1; }
+  .rail .tc { font-size: .78rem; color: var(--ink); }
+  .rail .dur { font-size: .72rem; color: var(--dim); }
+  .body { padding: 1.1rem 1.3rem 1.3rem; min-width: 0; }
+  .shot h3 { font-size: var(--step-1); font-weight: 650; letter-spacing: -.01em; }
+  .shot h3 .slug { font-family: var(--mono); font-size: .72rem; color: var(--dim); display: block; letter-spacing: .1em; text-transform: uppercase; margin-bottom: .3rem; }
+  .shot > .body > p { margin: .7rem 0 0; max-width: 64ch; }
+
+  dl.meta { display: grid; grid-template-columns: 6.5rem 1fr; gap: .35rem 1rem; margin: 1.1rem 0 0; font-size: var(--step--1); }
+  @media (max-width: 34rem) { dl.meta { grid-template-columns: 1fr; gap: .1rem; } }
+  dl.meta dt { font-family: var(--mono); color: var(--dim); letter-spacing: .07em; text-transform: uppercase; font-size: .68rem; padding-top: .18rem; }
+  dl.meta dd { margin: 0; }
+  dl.meta dd .vo-de { color: var(--ink); }
+  dl.meta dd .vo-en { color: var(--dim); font-style: italic; }
+  .super { font-family: var(--mono); font-size: .8rem; color: var(--cyan); }
+
+  details.prompt { margin-top: 1rem; border-top: 1px dashed var(--line); padding-top: .8rem; }
+  details.prompt summary {
+    cursor: pointer; font-family: var(--mono); font-size: .72rem;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--magenta);
+    list-style: none;
+  }
+  details.prompt summary::-webkit-details-marker { display: none; }
+  details.prompt summary::before { content: "▸ "; }
+  details.prompt[open] summary::before { content: "▾ "; }
+  pre {
+    margin: .75rem 0 0; padding: .9rem 1rem; overflow-x: auto;
+    background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: 6px;
+    font-family: var(--mono); font-size: .78rem; line-height: 1.6; color: var(--ink);
+    white-space: pre-wrap; word-break: break-word;
+  }
+
+  /* ---------- Sprechertext ---------- */
+  table { width: 100%; border-collapse: collapse; font-size: var(--step--1); }
+  .table-scroll { overflow-x: auto; }
+  th, td { text-align: left; padding: .6rem .8rem; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  th { font-family: var(--mono); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); font-weight: 500; }
+  td.tc { font-family: var(--mono); color: var(--dim); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* ---------- Hinweiskästen ---------- */
+  .note { border-left: 3px solid var(--amber); background: var(--surface); padding: 1rem 1.2rem; border-radius: 0 8px 8px 0; margin: 1.4rem 0 0; }
+  .note.hard { border-left-color: var(--magenta); }
+  .note h3 { font-size: var(--step-0); font-weight: 650; margin-bottom: .4rem; }
+  .note p { margin: 0 0 .6rem; max-width: 64ch; }
+  .note p:last-child { margin-bottom: 0; }
+
+  ul.checks { list-style: none; padding: 0; margin: 1rem 0 0; display: grid; gap: .5rem; }
+  ul.checks li { display: grid; grid-template-columns: 3.2rem 1fr; gap: .9rem; padding-bottom: .5rem; border-bottom: 1px solid var(--line-soft); font-size: var(--step--1); }
+  ul.checks li span { font-family: var(--mono); color: var(--cyan); font-size: .72rem; padding-top: .15rem; }
+
+  footer { padding: 2.5rem 0 4rem; color: var(--dim); font-size: var(--step--1); }
+
+  a { color: var(--cyan); }
+  :focus-visible { outline: 2px solid var(--magenta); outline-offset: 2px; border-radius: 3px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+<header>
+  <p class="eyebrow">Instructor Connect · Imagefilm · 30 Sekunden</p>
+  <h1 class="title">Erste <em>Session</em></h1>
+  <p class="lede">Ein Arbeitstag vom Blue Hour auf dem Vorfeld bis zur Unterschrift in der Ablage — acht Einstellungen, dreißig Sekunden.</p>
+  <div class="facts">
+    <span class="fact"><b>0:30</b> Laufzeit</span>
+    <span class="fact"><b>8</b> Einstellungen</span>
+    <span class="fact"><b>16:9</b> Master · 9:16 Beschnitt</span>
+    <span class="fact"><b>DE / EN</b> zwei Sprachfassungen</span>
+    <span class="fact"><b>Live-Action</b> + eingesetzte Bildschirme</span>
+  </div>
+
+  <div class="ruler">
+    <div class="ruler-bar">
+      <a class="seg" href="#s1" style="--dur:3; --seg: var(--dim)"><b>01</b>Vorfeld</a>
+      <a class="seg" href="#s2" style="--dur:4; --seg: var(--cyan)"><b>02</b>Briefing</a>
+      <a class="seg" href="#s3" style="--dur:4; --seg: var(--cyan)"><b>03</b>Simulator</a>
+      <a class="seg" href="#s4" style="--dur:4; --seg: var(--green)"><b>04</b>Unterschrift</a>
+      <a class="seg" href="#s5" style="--dur:4; --seg: var(--amber)"><b>05</b>Kein Netz</a>
+      <a class="seg" href="#s6" style="--dur:4; --seg: var(--cyan)"><b>06</b>Muster</a>
+      <a class="seg" href="#s7" style="--dur:4; --seg: var(--magenta)"><b>07</b>Ablage</a>
+      <a class="seg" href="#s8" style="--dur:3; --seg: var(--dim)"><b>08</b>Abflug</a>
+    </div>
+    <div class="ruler-scale"><span>0:00</span><span>0:10</span><span>0:20</span><span>0:30</span></div>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head"><p class="eyebrow">Leitidee</p><h2>Die Kette, die das Papier bricht</h2></div>
+  <div class="prose">
+    <p>Ein Schulungstag ist eine Kette: Briefing, Session, Debriefing, Unterschrift, Ablage. Auf Papier reißt sie an mehreren Stellen — das Blatt bleibt im Simulator liegen, die Unterschrift fehlt, der Nachweis taucht zwei Wochen später auf.</p>
+    <p>Der Film erzählt <strong>eine einzige Session eines Fluglehrers</strong> und lässt die App an genau den Stellen auftauchen, an denen die Kette sonst reißt. Kein Feature-Karussell, keine Hochglanz-Cockpit-Montage: eine Person, ein Morgen, ein durchgehender Vorgang.</p>
+    <p>Der dramaturgische Kern liegt bei <strong>0:15</strong> — in der Halle gibt es kein Netz, und die App arbeitet weiter. Das ist der Punkt, an dem sich das Werkzeug von einer Website unterscheidet, und deshalb bekommt er die ruhigste Einstellung des Films.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><p class="eyebrow">Storyboard</p><h2>Acht Einstellungen</h2></div>
+  <div class="shots">
+
+    <article class="shot" id="s1">
+      <div class="rail" style="--accent: var(--dim)"><span class="no">01</span><span class="tc">0:00 – 0:03</span><span class="dur">3,0 s</span></div>
+      <div class="body">
+        <h3><span class="slug">Außen · Vorfeld · Blaue Stunde</span>Der Weg zum Flugzeug</h3>
+        <p>Nasses Vorfeld, kurz vor Sonnenaufgang. Ein Mid-Size-Businessjet steht mit pulsierendem Anti-Kollisionslicht, die Reflexe ziehen sich über den schwarzen Beton. Eine Fluglehrerin geht von der Kamera weg auf das Flugzeug zu, Flugtasche in der einen Hand, ein Tablet unter dem Arm. Kein Schnitt, kein Text — der Film beginnt mit Ruhe.</p>
+        <dl class="meta">
+          <dt>Kamera</dt><dd>35 mm, tief über dem Boden, langsame Dolly-Fahrt vorwärts. Schärfe auf den Reflexen im Vordergrund, die Figur bleibt weich.</dd>
+          <dt>Insert</dt><dd><span class="super">—</span> (bewusst leer)</dd>
+          <dt>Ton</dt><dd>Klicken des Beacons, entfernter Turbinenlauf, Schritte auf nassem Beton. Musik setzt mit einem Ton ein.</dd>
+          <dt>Sprecher</dt><dd>— (Stille)</dd>
+        </dl>
+        <details class="prompt"><summary>Generator-Prompt</summary><pre>Blue hour on a wet business-aviation apron before sunrise. A mid-size business jet with a T-tail stands with its red anti-collision beacon pulsing; long reflections stretch across black wet concrete. A flight instructor in a dark uniform walks away from camera toward the aircraft, flight bag in one hand, a thin tablet tucked under the arm. Low camera close to the ground, slow dolly push forward, 35mm spherical lens, shallow focus on foreground reflections. Cold blue ambient light with warm sodium ramp lights far in the background. Quiet, unhurried. No text, no logos, no visible screen.</pre></details>
+      </div>
+    </article>
+
+    <article class="shot" id="s2">
+      <div class="rail" style="--accent: var(--cyan)"><span class="no">02</span><span class="tc">0:03 – 0:07</span><span class="dur">4,0 s</span></div>
+      <div class="body">
+        <h3><span class="slug">Innen · Briefingraum · Morgen</span>Ein Gerät statt eines Stapels</h3>
+        <p>Harte, warme Streifen einer Jalousie über dem Tisch. Nahaufnahme über die Schulter: Hände klappen ein dunkles Tablet auf, daneben Headset und Kaffee. <strong>Der Bildschirm wird in der Post eingesetzt</strong> — hier läuft die Startseite mit den Kacheln an, die Kachel „Grading" bekommt den Fingertipp.</p>
+        <dl class="meta">
+          <dt>Kamera</dt><dd>50 mm, geringe Schärfentiefe, sehr langsamer Push-in. Staub im Gegenlicht.</dd>
+          <dt>Insert</dt><dd><span class="super">Instructor Connect</span> — dünn gesetzt, unten links, 0,8 s</dd>
+          <dt>Ton</dt><dd>Jalousie klappert leise, Tablet-Klick, Kaffeetasse auf Holz.</dd>
+          <dt>Sprecher</dt><dd><span class="vo-de">„Der Dienst eines Fluglehrers beginnt vor dem ersten Takeoff."</span><br><span class="vo-en">„A flight instructor's day starts long before the first takeoff."</span></dd>
+        </dl>
+        <details class="prompt"><summary>Generator-Prompt</summary><pre>Interior of a quiet airline briefing room at dawn. Venetian blinds throw hard warm stripes across a wooden table. Close-up over the shoulder of a flight instructor's hands opening a dark tablet on the table, next to an aviation headset and a cup of coffee. THE TABLET SCREEN IS SWITCHED OFF AND PURE MATTE BLACK, no content, no reflections of content. 50mm lens, shallow depth of field, very slow push in. Dust motes drifting in the light. No text, no logos, no visible screen content.</pre></details>
+      </div>
+    </article>
+
+    <article class="shot" id="s3">
+      <div class="rail" style="--accent: var(--cyan)"><span class="no">03</span><span class="tc">0:07 – 0:11</span><span class="dur">4,0 s</span></div>
+      <div class="body">
+        <h3><span class="slug">Innen · Simulatorhalle · Nacht</span>Bewerten, wo geschult wird</h3>
+        <p>Sehr weit: Der Simulator auf seinen sechs Hydraulikzylindern in einer dunklen Halle, Zugangsbrücke angelegt, kaltes Arbeitslicht. Eine einzelne Figur geht mit dem Tablet über die Brücke. Danach harter Schnitt auf den Bildschirm: das Bewertungsraster eines 308A, Kompetenz für Kompetenz.</p>
+        <dl class="meta">
+          <dt>Kamera</dt><dd>24 mm, starr auf Stativ, keine Bewegung — die Halle soll groß wirken und der Mensch klein.</dd>
+          <dt>Insert</dt><dd><span class="super">OM Appendix 5 · 306 · 307 · 308 · 310</span> — mittig unten, 1,2 s</dd>
+          <dt>Ton</dt><dd>Hydraulikzischen, Hallenhall, Schritte auf Metallgitter.</dd>
+          <dt>Sprecher</dt><dd><span class="vo-de">„Bewerten nach OM Appendix 5 — im Simulator, nicht danach."</span><br><span class="vo-en">„Grading to OM Appendix 5 — in the simulator, not after it."</span></dd>
+        </dl>
+        <details class="prompt"><summary>Generator-Prompt</summary><pre>Wide interior of a full-flight simulator hall at night. A large simulator box sits on six hydraulic actuators, the access bridge extended, cold blue work lights, deep black shadows, industrial ceiling far above. One single flight instructor walks across the bridge carrying a thin dark tablet. Very wide 24mm lens, locked-off static camera on a tripod, symmetrical composition, enormous scale against the small human figure. No other people. No text, no logos, no visible screen content.</pre></details>
+      </div>
+    </article>
+
+    <article class="shot" id="s4">
+      <div class="rail" style="--accent: var(--green)"><span class="no">04</span><span class="tc">0:11 – 0:15</span><span class="dur">4,0 s</span></div>
+      <div class="body">
+        <h3><span class="slug">Innen · Instructor Station · Makro</span>Note, Kommentar, Unterschrift</h3>
+        <p>Extreme Nahaufnahme im Instruktorenplatz, grünes und bernsteinfarbenes Instrumentenlicht fällt seitlich auf die Hand. Ein Finger tippt die Notenreihe 1–5, die Ampel springt, dann zieht derselbe Finger die Unterschrift über das Glas — eine langsame, bewusste Bewegung. <strong>Die Ampel und die Unterschrift sind der Beweis des Films</strong>, sie brauchen die Zeit.</p>
+        <dl class="meta">
+          <dt>Kamera</dt><dd>85 mm Makro, sehr flache Schärfe, minimale Handbewegung. Zwei Teilbilder: Notenreihe (2 s) und Unterschriftsstrich (2 s).</dd>
+          <dt>Insert</dt><dd><span class="super">Unterschrift auf dem Gerät</span> / <span class="super">Signed on the device</span></dd>
+          <dt>Ton</dt><dd>Weiches Fingerreiben auf Glas, ein einzelner tiefer Ton beim Umspringen der Ampel.</dd>
+          <dt>Sprecher</dt><dd><span class="vo-de">„Noten, Kommentar und Unterschrift auf demselben Blatt."</span><br><span class="vo-en">„Grades, comments and signature on the same sheet."</span></dd>
+        </dl>
+        <details class="prompt"><summary>Generator-Prompt</summary><pre>Extreme close-up at a simulator instructor operating station in a dark cockpit-lit environment. A flight instructor's hand holds a thin tablet in landscape orientation; THE SCREEN IS SWITCHED OFF AND PURE MATTE BLACK. The index finger draws one slow deliberate stroke across the black glass, as if signing. Green and amber instrument light spills from off-screen panels across the skin and the tablet edge. 85mm macro lens, razor-thin depth of field, almost no camera movement. No text, no logos, no visible screen content.</pre></details>
+      </div>
+    </article>
+
+    <article class="shot" id="s5">
+      <div class="rail" style="--accent: var(--amber)"><span class="no">05</span><span class="tc">0:15 – 0:19</span><span class="dur">4,0 s</span></div>
+      <div class="body">
+        <h3><span class="slug">Innen · Hangar · Halbdunkel</span>Kein Netz — und trotzdem weiter</h3>
+        <p>Die ruhigste Einstellung des Films. Halbdunkler Hangar, im Hintergrund riesig eine Triebwerksgondel. Die Instruktorin steht still, das Tablet in der Hand, blickt kurz nach oben. Auf dem Bildschirm läuft der Offline-Streifen ein: <em>„Offline — 1 Formular im Ausgangskorb"</em>. Dann, nach zwei Sekunden Stille, springt er auf <em>versendet</em>.</p>
+        <dl class="meta">
+          <dt>Kamera</dt><dd>35 mm, ganz leichte Handkamera-Drift, sonst statisch. Kein Schnitt innerhalb der Einstellung.</dd>
+          <dt>Insert</dt><dd><span class="super">Kein Netz? Kein Problem.</span> / <span class="super">No signal? No problem.</span></dd>
+          <dt>Ton</dt><dd>Musik fällt auf einen Ton zurück. Ein tiefes Ticken beim Offline-Streifen, ein kurzes Zwei-Ton-Signal beim Versand.</dd>
+          <dt>Sprecher</dt><dd><span class="vo-de">„In der Halle gibt es kein Netz. Die App arbeitet weiter."</span><br><span class="vo-en">„There's no signal in the hall. The app keeps working."</span></dd>
+        </dl>
+        <details class="prompt"><summary>Generator-Prompt</summary><pre>Handheld shot inside a dark maintenance hangar. A business jet's engine nacelle looms huge and out of focus in the background. A flight instructor in a dark uniform stands still holding a thin dark tablet, glancing briefly upward. Overhead sodium lamps cast isolated warm pools; the rest is deep cool shadow. The mood is quiet and cut off from the world. 35mm lens, very slight handheld drift, no cuts. THE TABLET SCREEN IS SWITCHED OFF AND PURE MATTE BLACK. No text, no logos, no visible screen content.</pre></details>
+      </div>
+    </article>
+
+    <article class="shot" id="s6">
+      <div class="rail" style="--accent: var(--cyan)"><span class="no">06</span><span class="tc">0:19 – 0:23</span><span class="dur">4,0 s</span></div>
+      <div class="body">
+        <h3><span class="slug">Innen · Briefingraum · Zweier</span>Jeder sieht sein Muster</h3>
+        <p>Symmetrische Zweier-Komposition: zwei Instruktoren an gegenüberliegenden Seiten des Raums, jeder mit einem Tablet — der eine im kühlen Fensterlicht, der andere im warmen Lampenlicht. Sie sehen einander nie an. Auf den eingesetzten Bildschirmen laufen <strong>zwei verschiedene Lehrplan-Listen</strong>: links CL30, rechts C560 XLS+.</p>
+        <dl class="meta">
+          <dt>Kamera</dt><dd>40 mm, starr, exakt mittig geteilte Bildaufteilung. Beide Figuren gleich groß im Bild.</dd>
+          <dt>Insert</dt><dd><span class="super">CL30</span> links unten, <span class="super">C560 XLS+</span> rechts unten — gleichzeitig, 1,5 s</dd>
+          <dt>Ton</dt><dd>Zwei versetzte, sehr leise Tastentöne — links, dann rechts.</dd>
+          <dt>Sprecher</dt><dd><span class="vo-de">„Jeder sieht sein Muster — Lehrpläne, Info, Chat."</span><br><span class="vo-en">„Everyone sees their own type — lesson plans, info, chat."</span></dd>
+        </dl>
+        <details class="prompt"><summary>Generator-Prompt</summary><pre>Symmetrical two-shot in a briefing room. Two flight instructors in dark uniforms sit at opposite sides of the frame, each holding a thin dark tablet; the left one lit by cool morning window light, the right one by a warm desk lamp. They never look at each other. Static 40mm lens, perfectly centred composition, both figures the same size in frame, shallow focus falling off behind them. BOTH TABLET SCREENS ARE SWITCHED OFF AND PURE MATTE BLACK. No text, no logos, no visible screen content.</pre></details>
+      </div>
+    </article>
+
+    <article class="shot" id="s7">
+      <div class="rail" style="--accent: var(--magenta)"><span class="no">07</span><span class="tc">0:23 – 0:27</span><span class="dur">4,0 s</span></div>
+      <div class="body">
+        <h3><span class="slug">Innen · Ablage · Abend</span>Wo der Nachweis liegt</h3>
+        <p>Wechsel der Tonart: aufgeräumt, ruhig, offiziell. Ein Schreibtisch am Abend, halb geschlossene Jalousien, dahinter unscharf Reihen von Ordnern. Der Training Admin am großen Bildschirm — die Ablage mit den Ampeln, dann der Export. Der einzige Moment des Films mit einem großen Bildschirm statt eines Tablets.</p>
+        <dl class="meta">
+          <dt>Kamera</dt><dd>50 mm, langsame seitliche Dolly-Fahrt nach rechts, Profil. Warmes Schreibtischlicht als einzige Quelle.</dd>
+          <dt>Insert</dt><dd><span class="super">Ablage · Standardisierung · Behördenexport</span> / <span class="super">Records · Standardisation · Authority export</span></dd>
+          <dt>Ton</dt><dd>Maus-Klick, Papierrascheln außerhalb des Bildes, die Musik nimmt wieder Fahrt auf.</dd>
+          <dt>Sprecher</dt><dd><span class="vo-de">„Und der Nachweis liegt, wo die Behörde ihn erwartet."</span><br><span class="vo-en">„And the record sits where the authority expects it."</span></dd>
+        </dl>
+        <details class="prompt"><summary>Generator-Prompt</summary><pre>A training records office in the evening. A wide tidy desk with a large desktop monitor, rows of archive binders softly out of focus on shelves behind, a low warm desk lamp, half-closed blinds with evening light behind them. A person in a dark blazer sits in profile, one hand resting on a mouse. THE MONITOR SCREEN IS SWITCHED OFF AND PURE MATTE BLACK. 50mm lens, slow lateral dolly move to the right. Calm, orderly, official atmosphere. No text, no logos, no visible screen content.</pre></details>
+      </div>
+    </article>
+
+    <article class="shot" id="s8">
+      <div class="rail" style="--accent: var(--dim)"><span class="no">08</span><span class="tc">0:27 – 0:30</span><span class="dur">3,0 s</span></div>
+      <div class="body">
+        <h3><span class="slug">Außen · Piste · Sonnenaufgang</span>Abflug und Signet</h3>
+        <p>Derselbe Jet rotiert von der nassen Piste in die tiefe Morgensonne, aus langer Brennweite, Hitzeflimmern über dem Asphalt. Das Flugzeug steigt aus dem Bild — und auf dem leeren Himmel steht das Signet. Kein Schlusssatz, kein Call-to-Action-Geschrei.</p>
+        <dl class="meta">
+          <dt>Kamera</dt><dd>200 mm, starr auf Stativ, bodennah. Das Flugzeug verlässt den Bildausschnitt nach oben.</dd>
+          <dt>Insert</dt><dd><span class="super">Instructor Connect</span><br><span class="super">Aviation Academy Austria · AT.ATO.106 / GBR.ATO.0541</span></dd>
+          <dt>Ton</dt><dd>Startlauf, dann abrupte Reduktion auf einen einzelnen Nachhall. Letzte 0,5 s: Stille.</dd>
+          <dt>Sprecher</dt><dd><span class="vo-de">„Instructor Connect."</span><br><span class="vo-en">„Instructor Connect."</span></dd>
+        </dl>
+        <details class="prompt"><summary>Generator-Prompt</summary><pre>A mid-size business jet rotating off a wet runway into a low golden sunrise, seen from ground level through a long lens. Heat shimmer over the asphalt, fine spray thrown from the wheels, the aircraft climbing up and out of the top of the frame leaving empty sky. 200mm telephoto, static tripod, no pan. Warm golden light against a deep blue morning sky. No text, no logos.</pre></details>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><p class="eyebrow">Sprechertext</p><h2>Zwei Fassungen, gleicher Schnitt</h2></div>
+  <div class="prose"><p>54 Wörter auf 30 Sekunden — bewusst wenig. Der Text soll zwischen den Bildern atmen, nicht sie zudecken. Beide Fassungen liegen auf demselben Schnitt; die englische ist etwas länger und braucht ein um eine Spur schnelleres Tempo.</p></div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Zeit</th><th>Deutsch</th><th>English</th></tr></thead>
+      <tbody>
+        <tr><td class="tc">0:00</td><td>— (Stille)</td><td>— (silence)</td></tr>
+        <tr><td class="tc">0:03</td><td>Der Dienst eines Fluglehrers beginnt vor dem ersten Takeoff.</td><td>A flight instructor's day starts long before the first takeoff.</td></tr>
+        <tr><td class="tc">0:07</td><td>Bewerten nach OM Appendix 5 — im Simulator, nicht danach.</td><td>Grading to OM Appendix 5 — in the simulator, not after it.</td></tr>
+        <tr><td class="tc">0:11</td><td>Noten, Kommentar und Unterschrift auf demselben Blatt.</td><td>Grades, comments and signature on the same sheet.</td></tr>
+        <tr><td class="tc">0:15</td><td>In der Halle gibt es kein Netz. Die App arbeitet weiter.</td><td>There's no signal in the hall. The app keeps working.</td></tr>
+        <tr><td class="tc">0:19</td><td>Jeder sieht sein Muster — Lehrpläne, Info, Chat.</td><td>Everyone sees their own type — lesson plans, info, chat.</td></tr>
+        <tr><td class="tc">0:23</td><td>Und der Nachweis liegt, wo die Behörde ihn erwartet.</td><td>And the record sits where the authority expects it.</td></tr>
+        <tr><td class="tc">0:27</td><td>Instructor Connect.</td><td>Instructor Connect.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">
+    <h3>Stimme</h3>
+    <p>Ruhig, tief, ohne Verkaufston — die Tonlage einer Ansage, nicht einer Werbung. Wer schon einmal ein Briefing gehalten hat, klingt richtig. Für die englische Fassung eine Sprecherin oder ein Sprecher mit europäischem Akzent statt US-Broadcast; die Zielgruppe ist eine europäische ATO.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><p class="eyebrow">Prompts</p><h2>Grundeinstellung für den Generator</h2></div>
+  <div class="prose"><p>Dieser Block gehört <strong>vor</strong> jeden Einzel-Prompt, damit die acht Einstellungen wie ein Film aussehen und nicht wie acht Clips. Die Einzel-Prompts stehen bei den jeweiligen Einstellungen oben.</p></div>
+  <pre>STYLE (vor jeden Shot-Prompt setzen)
+Cinematic corporate aviation film, live action, photoreal. Shot on a digital
+cinema camera with vintage spherical prime lenses. 16:9, 24 fps, natural
+motivated light only. Palette: deep navy shadows, cold blue ambient, warm
+sodium and amber practicals — no teal-orange grade. Fine 35mm grain, gentle
+halation on highlights. Camera moves are slow and deliberate; everything is
+either locked off or on a slow dolly. Calm, quiet, professional. Real working
+people, no models, no smiling to camera.
+
+NEGATIVE (überall anhängen)
+no on-screen text, no captions, no subtitles, no logos, no brand marks, no
+readable screen content, no fake user interface, no HUD graphics, no glowing
+holograms, no lens flares, no fisheye, no drone whip-pans, no time-lapse, no
+speed ramps, no crowds, no distorted hands, no extra fingers, no warped
+faces, no airline liveries, no registration numbers</pre>
+  <div class="note hard">
+    <h3>Der wichtigste Satz dieses Dokuments</h3>
+    <p><strong>Kein Generator kann die Oberfläche der App lesbar darstellen.</strong> Jeder Versuch endet mit erfundenen Knöpfen und Buchstabensuppe — und bei einem Werkzeug, das nach OM Appendix 5 bewertet, ist eine erfundene Oberfläche nicht bloß hässlich, sondern falsch.</p>
+    <p>Deshalb steht in jedem Prompt oben, dass der Bildschirm <em>ausgeschaltet und mattschwarz</em> ist. Die echten Aufnahmen werden in der Nachbearbeitung eingesetzt (Eckenverfolgung / Corner-Pin, z. B. Mocha in After Effects). Ein mattschwarzes Display ist eine ideale Trackingfläche; ein von der KI erfundenes Interface ist unbrauchbar.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><p class="eyebrow">Produktion</p><h2>Was aufgenommen werden muss</h2></div>
+  <div class="prose"><p>Acht Bildschirmaufnahmen aus der laufenden App, je 6–8 Sekunden, in der Gerätebreite des Tablets, 60 Bilder pro Sekunde. Aufnehmen im <strong>hellen</strong> Theme für die Tagesszenen und im <strong>dunklen</strong> für Simulator und Hangar — die App kann beides, und der Film sieht dadurch echt aus.</p></div>
+  <ul class="checks">
+    <li><span>01</span>— (keine Aufnahme)</li>
+    <li><span>02</span>Startseite mit den Kacheln, Fingertipp auf „Grading"</li>
+    <li><span>03</span>Formular 308A, Bewertungsraster, langsam gescrollt</li>
+    <li><span>04</span>Notenreihe 1–5 antippen, Ampel springt auf Grün · danach Unterschriftsfeld im Vollbild</li>
+    <li><span>05</span>Offline-Streifen „1 Formular im Ausgangskorb", zwei Sekunden Stand, dann „versendet"</li>
+    <li><span>06</span>Lesson Plans zweimal: einmal als CL30-Instruktor, einmal als C560-XLS+-Instruktor</li>
+    <li><span>07</span>Ablage mit Filtern und Ampeln, Standardisierungsbericht, CSV-Export</li>
+    <li><span>08</span>— (keine Aufnahme)</li>
+  </ul>
+  <div class="note">
+    <h3>Musik</h3>
+    <p>Ein gehaltener Synthflächen-Ton in Moll mit einem langsamen Puls, der wie das Beacon tickt. Ab 0:15 kommt ein weicher tiefer Kick bei etwa 90 bpm dazu, ab 0:23 trägt er den Rest. Bei 0:27 fällt alles weg bis auf einen Nachhall. Keine Trailer-Dramatik, keine Streicher, kein Aufbau auf einen Knall.</p>
+  </div>
+  <div class="note">
+    <h3>9:16-Fassung</h3>
+    <p>Alle Einstellungen so komponieren, dass die Figur in der mittleren Hälfte des Bildes steht — dann trägt derselbe Schnitt beide Formate. Ausnahme ist die Zweier-Einstellung 06: für Hochformat wird sie in zwei kurze Einzelbilder geschnitten, links dann rechts, je 2 Sekunden.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><p class="eyebrow">Grenzen</p><h2>Was der Film nicht behaupten darf</h2></div>
+  <div class="prose">
+    <p><strong>Der aktuelle Stand ist eine Sandbox.</strong> Es gibt kein Backend, keinen echten Mailversand und keine serverseitige Anmeldung. Der Film zeigt einen Sollzustand — das ist bei einem Imagefilm zulässig, aber Formulierungen wie „läuft bereits im Betrieb" wären es nicht.</p>
+    <p><strong>Keine Zulassungs-Behauptung.</strong> Die App ist an OM Appendix 5 gebaut und unterstützt die Aufbewahrung nach ORA.GEN.220 — sie ist deshalb nicht „EASA-zertifiziert" oder „behördlich genehmigt". Ein Werkzeug wird nicht zugelassen, eine Organisation wird es. Kein EASA- oder Behördenlogo im Film.</p>
+    <p><strong>Keine echten Personendaten.</strong> Namen, Lizenznummern und Unterschriften in den Bildschirmaufnahmen kommen aus den Beispieldaten, nicht aus dem Bestand. Auch eine unscharfe echte Unterschrift ist eine echte Unterschrift.</p>
+    <p><strong>Drehgenehmigungen.</strong> Simulator, Hangar und Vorfeld sind kontrollierte Bereiche. Der Betreiber muss dem Dreh zustimmen, das Vorfeld zusätzlich der Flughafen; für die Nachtaufnahme in der Halle ist die Freigabe der Wartungsorganisation nötig.</p>
+  </div>
+</section>
+
+<footer>
+  <p>Instructor Connect · Imagefilm 0:30 · Fassung 1 · 14. August 2026</p>
+</footer>
+
+</div>
