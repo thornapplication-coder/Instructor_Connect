@@ -10,6 +10,7 @@ import {
   formatDauer,
   LEERES_LOGBUCH,
   logbuchVon,
+  nachMonaten,
   parseDauer,
   sichtbareEintraege,
   summeUnterFilter,
@@ -331,5 +332,45 @@ describe('adminZeile (Detail-Tabelle)', () => {
 
   it('nennt die vorkommenden Muster sortiert und ohne leere Werte', () => {
     expect(adminZeile(bestand, false).muster).toEqual(['C560 XLS+', 'CL30'])
+  })
+})
+
+describe('nachMonaten', () => {
+  const e = (datum: string): import('./logbook').LogbookEintrag => ({
+    id: `m-${datum}`,
+    quelle: 'manuell',
+    datum,
+    aircraftType: 'CL30',
+    kategorie: 'Other Training',
+    briefing: 0,
+    session: 60,
+    debriefing: 0,
+    gesamt: 60,
+    piloten: [],
+    notiz: '',
+  })
+
+  it('gruppiert nach Monat, neuester zuerst', () => {
+    const g = nachMonaten([e('2026-08-05'), e('2026-08-01'), e('2026-07-15')])
+    expect(g.map((x) => x.monat)).toEqual(['2026-08', '2026-07'])
+    expect(g[0].eintraege).toHaveLength(2)
+  })
+
+  it('stellt Monate ohne Eintrag als leere Gruppe dazwischen', () => {
+    // Ein fehlender Juni saehe aus wie ein Uebertragungsfehler; ein leerer
+    // Juni ist eine Aussage.
+    const g = nachMonaten([e('2026-08-05'), e('2026-05-20')])
+    expect(g.map((x) => x.monat)).toEqual(['2026-08', '2026-07', '2026-06', '2026-05'])
+    expect(g[1].eintraege).toEqual([])
+    expect(g[2].eintraege).toEqual([])
+  })
+
+  it('ueberbrueckt den Jahreswechsel', () => {
+    const g = nachMonaten([e('2026-01-10'), e('2025-11-30')])
+    expect(g.map((x) => x.monat)).toEqual(['2026-01', '2025-12', '2025-11'])
+  })
+
+  it('liefert fuer einen leeren Bestand keine Gruppen', () => {
+    expect(nachMonaten([])).toEqual([])
   })
 })

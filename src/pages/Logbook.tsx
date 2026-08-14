@@ -12,6 +12,7 @@ import {
   LEERES_LOGBUCH,
   LOGBOOK_KATEGORIEN,
   logbuchVon,
+  nachMonaten,
   parseDauer,
   sichtbareEintraege,
   summiere,
@@ -182,7 +183,14 @@ function KorrekturModal({ eintrag, onClose }: { eintrag: LogbookEintrag; onClose
 }
 
 export function Logbook() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  /* Monatsueberschrift („August 2026") in der Sprache der Oberflaeche —
+     das ist ein Name, kein Datum; die DD.MM.YYYY-Regel gilt fuer Daten. */
+  const monatsName = (k: string) =>
+    new Date(Number(k.slice(0, 4)), Number(k.slice(5, 7)) - 1, 1).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB', {
+      month: 'long',
+      year: 'numeric',
+    })
   const { state, currentUser, logbookOverride, logbookDeleteManual } = useStore()
   const [ownerId, setOwnerId] = useState(currentUser!.id)
   const [filter, setFilter] = useState<LogbookFilter>({})
@@ -333,57 +341,76 @@ export function Logbook() {
             {t('logbook.resultCount', { shown: eintraege.length, total: alle.length })}
           </p>
 
-          <div className="space-y-stack">
-            <SectionHeading>{t('logbook.entries', { count: eintraege.length })}</SectionHeading>
-            {eintraege.length === 0 && (
-              <Card className="p-6 text-center text-small text-dim">
-                <BookOpen size={22} className="mx-auto mb-2 opacity-60" />
-                {alle.length === 0 ? t('logbook.empty') : t('logbook.noMatch')}
-              </Card>
-            )}
-            <CardGrid>
-              {eintraege.map((e) => (
-              <Card key={`${e.quelle}-${e.id}`} className="p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold tabular-nums">{formatDate(e.datum)}</span>
-                  <Badge tone={e.kategorie === 'Simulator Training' ? 'accent' : 'dim'}>{e.kategorie}</Badge>
-                  {e.aircraftType && <Badge tone="dim">{e.aircraftType}</Badge>}
-                  {e.formTypeId && <Badge tone="dim">{e.formTypeId}</Badge>}
-                  {e.quelle === 'manuell' && <Badge tone="wait">{t('logbook.manual')}</Badge>}
-                  <span className="ml-auto text-lead font-bold tabular-nums">{formatDauer(e.gesamt)}</span>
-                </div>
-                <p className="mt-1 text-small text-dim">
-                  {e.kategorie === 'Simulator Training'
-                    ? t('logbook.parts', { briefing: formatDauer(e.briefing), session: formatDauer(e.session), debriefing: formatDauer(e.debriefing) })
-                    : null}
-                  {e.piloten.length > 0 && <span className="block">{e.piloten.join(', ')}</span>}
-                  {e.notiz && <span className="block italic">{e.notiz}</span>}
-                </p>
-                {eigenes && (
-                  <div className="mt-2 flex gap-2">
-                    <button
-                      onClick={() => setBearbeite(e)}
-                      className="min-h-11 flex items-center gap-1 rounded-lg px-2 text-micro text-dim transition hover:bg-line/5 hover:text-ink"
-                    >
-                      <Pencil size={13} /> {t('common.edit')}
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (!window.confirm(t('logbook.deleteConfirm'))) return
-                        if (e.quelle === 'manuell') logbookDeleteManual(e.id)
-                        else logbookOverride(e.id, { geloescht: true })
-                        toast(t('toast.logbookDeleted'))
-                      }}
-                      className="min-h-11 flex items-center gap-1 rounded-lg px-2 text-micro text-danger/80 transition hover:bg-danger/10 hover:text-danger"
-                    >
-                      <Trash2 size={13} /> {t('common.delete')}
-                    </button>
-                  </div>
-                )}
-                </Card>
-              ))}
-            </CardGrid>
-          </div>
+          {/* Monatsweise gegliedert, lueckenlos: Ein Monat ohne Eintrag steht
+              als leere Gruppe da (src/logbook.ts, nachMonaten) — ein fehlender
+              Monat saehe aus wie ein Uebertragungsfehler. */}
+          {eintraege.length === 0 && (
+            <Card className="p-6 text-center text-small text-dim">
+              <BookOpen size={22} className="mx-auto mb-2 opacity-60" />
+              {alle.length === 0 ? t('logbook.empty') : t('logbook.noMatch')}
+            </Card>
+          )}
+          {nachMonaten(eintraege).map((g) => (
+            <section key={g.monat} className="space-y-stack">
+              <SectionHeading
+                right={
+                  g.eintraege.length > 0 ? (
+                    <span className="shrink-0 text-micro font-semibold normal-case tracking-normal text-dim">
+                      {t('logbook.entries', { count: g.eintraege.length })} · {formatDauer(summiere(g.eintraege).gesamt)}
+                    </span>
+                  ) : undefined
+                }
+              >
+                {monatsName(g.monat)}
+              </SectionHeading>
+              {g.eintraege.length === 0 ? (
+                <p className="text-small text-dim">{t('logbook.emptyMonth')}</p>
+              ) : (
+                <CardGrid>
+                  {g.eintraege.map((e) => (
+                    <Card key={`${e.quelle}-${e.id}`} className="p-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-semibold tabular-nums">{formatDate(e.datum)}</span>
+                        <Badge tone={e.kategorie === 'Simulator Training' ? 'accent' : 'dim'}>{e.kategorie}</Badge>
+                        {e.aircraftType && <Badge tone="dim">{e.aircraftType}</Badge>}
+                        {e.formTypeId && <Badge tone="dim">{e.formTypeId}</Badge>}
+                        {e.quelle === 'manuell' && <Badge tone="wait">{t('logbook.manual')}</Badge>}
+                        <span className="ml-auto text-lead font-bold tabular-nums">{formatDauer(e.gesamt)}</span>
+                      </div>
+                      <p className="mt-1 text-small text-dim">
+                        {e.kategorie === 'Simulator Training'
+                          ? t('logbook.parts', { briefing: formatDauer(e.briefing), session: formatDauer(e.session), debriefing: formatDauer(e.debriefing) })
+                          : null}
+                        {e.piloten.length > 0 && <span className="block">{e.piloten.join(', ')}</span>}
+                        {e.notiz && <span className="block italic">{e.notiz}</span>}
+                      </p>
+                      {eigenes && (
+                        <div className="mt-2 flex gap-2">
+                          <button
+                            onClick={() => setBearbeite(e)}
+                            className="min-h-11 flex items-center gap-1 rounded-lg px-2 text-micro text-dim transition hover:bg-line/5 hover:text-ink"
+                          >
+                            <Pencil size={13} /> {t('common.edit')}
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (!window.confirm(t('logbook.deleteConfirm'))) return
+                              if (e.quelle === 'manuell') logbookDeleteManual(e.id)
+                              else logbookOverride(e.id, { geloescht: true })
+                              toast(t('toast.logbookDeleted'))
+                            }}
+                            className="min-h-11 flex items-center gap-1 rounded-lg px-2 text-micro text-danger/80 transition hover:bg-danger/10 hover:text-danger"
+                          >
+                            <Trash2 size={13} /> {t('common.delete')}
+                          </button>
+                        </div>
+                      )}
+                    </Card>
+                  ))}
+                </CardGrid>
+              )}
+            </section>
+          ))}
         </div>
       </Page>
       {zeigeManuell && <ManuellModal onClose={() => setZeigeManuell(false)} />}

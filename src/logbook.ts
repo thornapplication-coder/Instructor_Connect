@@ -303,3 +303,36 @@ export function adminZeile(eintraege: LogbookEintrag[], ohneBriefing: boolean): 
     muster: [...new Set(eintraege.map((e) => e.aircraftType).filter(Boolean))].sort(),
   }
 }
+
+export type LogbuchMonat = { monat: string /* YYYY-MM */; eintraege: LogbookEintrag[] }
+
+/**
+ * Gruppiert Eintraege nach Monat, neuester zuerst — und zwar LUECKENLOS:
+ * Ein Monat ohne Eintrag steht als leere Gruppe da. Ein Taetigkeitsnachweis,
+ * in dem der Juni einfach fehlt, sieht aus wie ein Uebertragungsfehler;
+ * ein Juni mit „keine Eintraege" ist eine Aussage.
+ */
+export function nachMonaten(eintraege: LogbookEintrag[]): LogbuchMonat[] {
+  if (eintraege.length === 0) return []
+  const gruppen = new Map<string, LogbookEintrag[]>()
+  for (const e of eintraege) {
+    const k = e.datum.slice(0, 7)
+    const g = gruppen.get(k)
+    if (g) g.push(e)
+    else gruppen.set(k, [e])
+  }
+  const schluessel = [...gruppen.keys()].sort()
+  const [minJ, minM] = schluessel[0].split('-').map(Number)
+  const [maxJ, maxM] = schluessel[schluessel.length - 1].split('-').map(Number)
+  const out: LogbuchMonat[] = []
+  for (let j = maxJ, m = maxM; j > minJ || (j === minJ && m >= minM); ) {
+    const k = `${j}-${String(m).padStart(2, '0')}`
+    out.push({ monat: k, eintraege: gruppen.get(k) ?? [] })
+    m -= 1
+    if (m === 0) {
+      m = 12
+      j -= 1
+    }
+  }
+  return out
+}

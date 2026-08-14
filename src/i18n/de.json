@@ -485,6 +485,7 @@
     "entries": "Einträge ({{count}})",
     "resultCount": "{{shown}} von {{total}} Einträgen sichtbar",
     "empty": "Noch keine Einträge. Sobald ein Formular vollständig unterschrieben ist, erscheint es hier von selbst — 308 als Simulator Training, 307 als Ground Training.",
+    "emptyMonth": "Keine Einträge in diesem Monat.",
     "noMatch": "Kein Eintrag passt zu den Filtern.",
     "manual": "Manuell",
     "parts": "Briefing {{briefing}} · Session {{session}} · Debriefing {{debriefing}}",
