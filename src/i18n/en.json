@@ -485,6 +485,7 @@
     "entries": "Entries ({{count}})",
     "resultCount": "{{shown}} of {{total}} entries shown",
     "empty": "No entries yet. As soon as a form is fully signed it appears here by itself — 308 as simulator training, 307 as ground training.",
+    "emptyMonth": "No entries this month.",
     "noMatch": "No entry matches the filters.",
     "manual": "Manual",
     "parts": "Briefing {{briefing}} · Session {{session}} · Debriefing {{debriefing}}",

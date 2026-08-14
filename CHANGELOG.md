@@ -567,3 +567,15 @@ Im Browser nachgemessen: Muster-Filter C560 XLS+ → Christian 1 Eintrag /
 05:30; ab 01.08. → 3 Einträge / 15:30; ohne Briefing → 22:00 statt 31:00;
 beide Downloads geprüft (CSV-Kopf mit Filtern, .xlsx öffnet als echte
 Arbeitsmappe).
+
+## 1.8.1 — 2026-08-14
+
+**Logbuch: monatsweise Gliederung.** Die Eintragsliste ist jetzt in
+Monatsabschnitte unterteilt (neuester zuerst), jede Überschrift nennt
+Anzahl und Monatssumme. Die Reihe ist **lückenlos**: Ein Monat ohne
+Eintrag steht als leerer Abschnitt da („Keine Einträge in diesem Monat")
+— ein fehlender Monat sähe in einem Tätigkeitsnachweis aus wie ein
+Übertragungsfehler, ein leerer Monat ist eine Aussage. Die Gruppierung
+rechnet `nachMonaten` in `src/logbook.ts` (4 Testfälle, inkl.
+Jahreswechsel); die Filter wirken davor — gefiltert wird der Bestand,
+gegliedert das Ergebnis.
