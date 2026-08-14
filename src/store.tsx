@@ -5,6 +5,7 @@ import { createSeedState } from './sandbox/seed'
 import { migrateState } from './migrateState'
 import { SANDBOX } from './sandbox/flag'
 import { musterFehlt, musterPflicht, nachMuster, sichtbarFuer } from './aircraftScope'
+import { infoEntryAppliesTo } from './infoAcks'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type Note, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import { backupPersistedState, clearPersistedState, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
 import type { InfoEntry } from './types'
@@ -1317,14 +1318,11 @@ export function infoPublishedAt(entry: { validFrom?: string; createdAt: number }
   return Number.isNaN(from) ? entry.createdAt : Math.max(entry.createdAt, from)
 }
 
-/** Gilt ein Info-Eintrag für diesen Nutzer? (leer = alle Gruppen) — eine
- *  einzige Quelle für Sichtbarkeit UND Bestätigungsziele. */
-export function infoEntryAppliesTo(entry: { groupIds?: string[] }, userId: string, groups: Group[]): boolean {
-  return (
-    !entry.groupIds?.length ||
-    entry.groupIds.some((gid) => groups.find((g) => g.id === gid)?.memberIds.includes(userId))
-  )
-}
+/* `infoEntryAppliesTo` liegt jetzt in src/infoAcks.ts — zusammen mit der
+   Frage, wer bestaetigen muss, und damit dort, wo beide Testwachen sie
+   erreichen. Hier nur durchgereicht, damit die Aufrufstellen unveraendert
+   bleiben und es nicht zwei Fassungen gibt. */
+export { infoEntryAppliesTo } from './infoAcks'
 
 /** Darf der Nutzer diesen Chat betreten? Mitglieder, Gruppen-Admins, Superadmin. */
 export function mayAccessGroup(user: User | null, group: Group): boolean {

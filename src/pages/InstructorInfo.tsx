@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
 import { toast } from '../components/Toast'
-import { infoEntryAppliesTo, infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
+import { ackStand, ackZiele } from '../infoAcks'
+import { infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
 import type { InfoEntry } from '../types'
 import { formatDate, formatDateTime } from './Grading'
 
@@ -165,7 +166,9 @@ export function InstructorInfo() {
   // bisher der internen Reihenfolge der Einstellungen.
   const categories = [...state.settings.infoCategories].sort((a, b) => a.localeCompare(b))
 
-  /** Zielpersonen einer Lese-Bestätigung: aktive Mitglieder der Zielgruppen */
+  /** Zielpersonen einer Lese-Bestätigung — die Regel steht in
+   *  src/infoAcks.ts, damit sie geprüft wird. Quote, Kontrollliste und die
+   *  Frage, wer den Bestätigen-Knopf sieht, hängen alle hier dran. */
   // Bestätigen kann nur, wer die Instructor Info auch erreicht — ein Training
   // Admin ohne Zugang zählte sonst in jeder Quote als dauerhaft säumig.
   //
@@ -176,17 +179,7 @@ export function InstructorInfo() {
   // genannt für etwas, das die App ihm vorenthält, und die Quote erreichte
   // nie 100 %.
   const ackTargets = (entry: (typeof state.infoEntries)[number]) =>
-    state.users
-      .filter(
-        (u) =>
-          u.active &&
-          userMayModule(state.settings, u, 'info') &&
-          sichtbarFuer(u, entry.aircraftType) &&
-          infoEntryAppliesTo(entry, u.id, state.groups),
-      )
-      // Alphabetisch — die interne Reihenfolge war für eine Kontrollliste
-      // nicht nachvollziehbar.
-      .sort((a, b) => a.name.localeCompare(b.name))
+    ackZiele(entry, state.users, state.groups, (u) => userMayModule(state.settings, u, 'info'))
 
   /** Kontrollliste der Lese-Bestätigungen als CSV exportieren (Admins) */
   const exportAckList = (entry: (typeof state.infoEntries)[number]) => {
@@ -388,7 +381,11 @@ export function InstructorInfo() {
                     // nicht als „gelesen" in die Kontrollliste wandern.
                     const amTarget =
                       targets.some((u) => u.id === currentUser!.id) && !isScheduled(entry) && !infoIsExpired(entry, now())
-                    const done = targets.filter((u) => acks[u.id]).length
+                    // Ueber ackStand statt von Hand: Eine Bestaetigung von
+                    // jemandem, der inzwischen kein Ziel mehr ist (etwa nach
+                    // einem Musterentzug), darf die Quote nicht ueber die Zahl
+                    // der Ziele heben — „4 von 3 bestaetigt" ist keine Aussage.
+                    const done = ackStand(targets, acks)
                     return (
                       <div className="mt-2 space-y-tight">
                         {myAck ? (

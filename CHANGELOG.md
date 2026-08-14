@@ -359,3 +359,32 @@ hängen. Die Auswahlfelder bieten jetzt nur noch die eigenen Muster an
 Die Begründung im Seed für die Muster des Training Admins war falsch („sähe
 sonst nichts") und ist ersetzt. `@types/node` ist dazugekommen, weil der Test
 der Excel-Vorlage die Datei liest.
+
+## 1.5.3 — 2026-08-13
+
+Lese-Bestätigungen: die Regel steht jetzt dort, wo sie geprüft wird.
+
+Auf Nachfrage kontrolliert, ob bei einem Instructor-Info-Eintrag mit Muster
+wirklich nur die bestätigen müssen, die für dieses Muster freigeschaltet
+sind. **Sie stimmt** — im Browser gemessen: Ein Eintrag mit „C560 XLS+"
+führt 0/2 (Michael Holy, Patrick Thorn); der CL30-Admin steht weder in der
+Quote noch in der Kontrollliste, noch sieht er den Bestätigen-Knopf. Ein
+Eintrag ohne Muster führt 1/3, also alle.
+
+Es gab dafür aber **keinen Test**: Die Funktion lag als Hilfsfunktion in
+`InstructorInfo.tsx`, und beide Wachen des Projekts globen auf `src/*.ts`.
+Genau das Loch, das der Testwächter unter `LOGIK_IN_TSX` beschreibt.
+
+- `src/infoAcks.ts` (neu) trägt die Regel: aktives Konto, Modulzugang,
+  Musterbereich, Zielgruppe — alle vier notwendig. Dazu `ackStand`, damit die
+  Quote nur Bestätigungen von Zielpersonen zählt; eine Bestätigung von
+  jemandem, der inzwischen kein Ziel mehr ist, ergäbe sonst „4 von 3".
+- `infoEntryAppliesTo` ist mitgezogen; der Store reicht sie durch, damit es
+  nicht zwei Fassungen gibt.
+- 14 Testfälle, unter anderem: Muster UND Zielgruppe müssen passen, nicht
+  eines von beiden; Superadmin und Training Admin fallen nie wegen des
+  Musters heraus; ein stillgelegtes Konto steht nicht für immer als offen.
+
+Warum das zählt: Diese Liste ist ein Nachweisdokument. Ein Fehler darin nennt
+jemanden vor der Behörde als säumig, während die App ihm den Eintrag gar
+nicht zeigt.
