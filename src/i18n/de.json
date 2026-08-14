@@ -270,7 +270,7 @@
     "emailLoginHint": "Die E-Mail-Adresse ist die einzige Anmeldekennung — der Login erfolgt ausschließlich per E-Mail.",
     "permissions": "Berechtigungen",
     "permCapability": "Fähigkeit",
-    "permMatrixHint": "Der Superadmin darf immer alles. Mitglieder werden über die Flags am Nutzer gesteuert („Darf bewerten“, „Darf Who to call bearbeiten“). Diese Matrix legt fest, was die Rollen Admin und Training Admin dürfen — Änderungen gelten sofort.",
+    "permMatrixHint": "Der Superadmin darf immer alles. Diese Matrix legt fest, was die Rollen Admin und Training Admin dürfen. Was an der einzelnen Person hängt — bewerten, Pilot, Verzeichnis pflegen, Chat-Sperre — steht darunter unter „Personen\". Änderungen gelten sofort.",
     "perm": {
       "grading_create": "Grading-Formulare ausfüllen und versenden",
       "grading_view_all": "Alle Grading-Formulare sehen (unbegrenzt)",
@@ -281,7 +281,7 @@
     "lastGroupBlocked": "Jeder Nutzer muss mindestens einer Gruppe angehören — sonst verliert er den Zugang zu Chats und gruppenbezogener Instructor Info. Bitte zuerst eine andere Gruppe zuweisen.",
     "aircraftTypesGlobal": "Muster (alle Formulare und Lesson Plans)",
     "sortBy": "Sortierung",
-    "searchUsers": "Name oder E-Mail suchen …",
+    "searchUsers": "Person suchen",
     "autoSaving": "Wird gespeichert …",
     "autoSaveHint": "Alle Änderungen im Admin Panel werden sofort gespeichert — es gibt keinen Speichern-Knopf.",
     "groupAircraft": "Muster der Gruppe",
@@ -388,7 +388,16 @@
     },
     "aircraftTypesHint": "Steuert, welche Lesson Plans, Info-Einträge und Chats die Person sieht. Mindestens ein Muster.",
     "aircraftTypesFree": "Diese Rolle sieht ohnehin alle Muster. Eine Zuordnung ist möglich, schränkt die Sicht aber nicht ein.",
-    "lastAircraftBlocked": "Das letzte Muster lässt sich nicht entfernen: Diese Rolle sähe danach weder Lesson Plans noch Instructor Info noch musterbezogene Chats. Erst ein anderes Muster zuweisen."
+    "lastAircraftBlocked": "Das letzte Muster lässt sich nicht entfernen: Diese Rolle sähe danach weder Lesson Plans noch Instructor Info noch musterbezogene Chats. Erst ein anderes Muster zuweisen.",
+    "permRoles": "Rollen",
+    "permPeople": "Personen",
+    "permPeopleHint": "Diese vier Rechte hängen an der einzelnen Person, nicht an ihrer Rolle. Sie standen vorher in der aufgeklappten Benutzerzeile — hier stehen sie für alle nebeneinander, damit man sie vergleichen kann. Änderungen wirken sofort.",
+    "permElsewhere": "Was bewusst woanders steht",
+    "permElsewhereHint": "Zwei Dinge sind ebenfalls Rechte, gehören aber zu ihrer Sache und nicht hierher — sie hier zusätzlich zu führen hieße, sie zweimal zu führen.",
+    "permElsewhereUsers": "Rolle und Musterzuordnung gehören zur Identität eines Benutzers.",
+    "permElsewhereGroups": "Wer einen Chat administriert, entscheidet sich am jeweiligen Chat.",
+    "toPermissions": "Rechte dieser Person",
+    "noUsersFound": "Keine Person gefunden."
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",

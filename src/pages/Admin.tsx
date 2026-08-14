@@ -6,11 +6,12 @@ import { navigate } from '../router'
 import { adminStatus } from '../adminStatus'
 import { planBulk, type BulkAktion } from '../bulkUsers'
 import { musterFehlt, musterPflicht, musterZurAuswahl } from '../aircraftScope'
+import { adminTabsFor, istSperre, PERSON_PERMS } from '../adminAccess'
 import { toast } from '../components/Toast'
 import { storageInfo, type StorageInfo } from '../persist'
 import { downloadCsv } from '../csv'
 import { buildImportTemplate, isImportable, parseUserImport, type ImportResult, type ImportRow } from '../userImport'
-import { adminTabsFor, useStore } from '../store'
+import { useStore } from '../store'
 import { GradingAdmin } from './admin/GradingAdmin'
 import { formatDateTime } from './Grading'
 import { APP_VERSION, type FeedbackEntry, PERM_KEYS, type ConfigurableRole, type RetentionKey, type Role } from '../types'
@@ -479,45 +480,20 @@ function UsersTab() {
                 </option>
               ))}
             </select>
-            <label className="flex items-center gap-1.5 text-dim">
-              <input
-                type="checkbox"
-                checked={u.canEditDirectory}
-                onChange={(e) => updateUser(u.id, { canEditDirectory: e.target.checked })}
-                className="h-6 w-6 shrink-0 accent-accent"
-              />
-              {t('admin.canEditDirectory')}
-            </label>
-            {/* Grading Tool greift auf diese Flags zu: wer bewerten darf und
-                wer in der Trainee-Auswahl erscheint. */}
-            <label className="flex items-center gap-1.5 text-dim">
-              <input
-                type="checkbox"
-                checked={u.canGrade}
-                onChange={(e) => updateUser(u.id, { canGrade: e.target.checked })}
-                className="h-6 w-6 shrink-0 accent-accent"
-              />
-              {t('admin.canGrade')}
-            </label>
-            <label className="flex items-center gap-1.5 text-dim">
-              <input
-                type="checkbox"
-                checked={u.isTrainee}
-                onChange={(e) => updateUser(u.id, { isTrainee: e.target.checked })}
-                className="h-6 w-6 shrink-0 accent-accent"
-              />
-              {t('admin.isTrainee')}
-            </label>
-            {/* Chat-Sperre: Nutzer kann mitlesen, aber nichts mehr senden */}
-            <label className={`flex items-center gap-1.5 ${u.chatBlocked ? 'font-semibold text-danger' : 'text-dim'}`}>
-              <input
-                type="checkbox"
-                checked={!!u.chatBlocked}
-                onChange={(e) => updateUser(u.id, { chatBlocked: e.target.checked })}
-                className="h-6 w-6 shrink-0 accent-[#e05252]"
-              />
-              {t('admin.chatBlocked')}
-            </label>
+            {/* Die vier Rechte an der Person (bewerten, Pilot, Verzeichnis
+                pflegen, Chat gesperrt) standen hier als Kaestchen — und
+                dieselben vier noch einmal als Schalter der Sammelbearbeitung,
+                und die Rollen-Matrix daneben in einem eigenen Bereich. Wer
+                wissen wollte, was jemand darf, musste an drei Stellen
+                nachsehen. Sie stehen jetzt zusammen unter Berechtigungen; hier
+                bleibt nur der Weg dorthin. Was hier bleibt, gehoert zur
+                Identitaet des Nutzers: Rolle, Muster, Gruppen, aktiv. */}
+            <button
+              onClick={() => navigate('/admin/permissions')}
+              className="min-h-11 flex items-center gap-1.5 rounded-lg px-2 py-1 text-accent transition hover:bg-accent/10"
+            >
+              <ShieldCheck size={14} /> {t('admin.toPermissions')}
+            </button>
             {/* Konten werden deaktiviert, nicht gelöscht — sonst stünde auf
                 unterschriebenen Formularen und in Chats ein Verweis ins
                 Leere, und die Historie verlöre ihren Urheber. */}
@@ -691,52 +667,147 @@ function UsersTab() {
 }
 
 /**
- * Rechte-Matrix: Zeilen = Fähigkeiten, Spalten = konfigurierbare Rollen.
- * Der Superadmin darf immer alles; Mitglieder werden über die Flags am
- * Nutzer gesteuert (Darf bewerten, Darf „Who to call" bearbeiten).
+ * Berechtigungen — die eine Stelle, an der Rechte vergeben werden.
+ *
+ * Vorher waren es drei: die Rollen-Matrix hier, vier Kaestchen in der
+ * aufgeklappten Nutzerzeile, und dieselben vier noch einmal als Schalter der
+ * Sammelbearbeitung. Wer wissen wollte, was eine Person darf, musste an drei
+ * Stellen nachsehen und die Antworten selbst zusammenlegen — und wer etwas
+ * aendern wollte, musste raten, welche der drei Stellen die richtige ist.
+ *
+ * Die Seite hat deshalb zwei Tabellen und einen Verweis:
+ *
+ *  1. **Rollen** — was eine Rolle grundsaetzlich darf. Gilt fuer alle, die
+ *     sie tragen.
+ *  2. **Personen** — was an der einzelnen Person haengt, unabhaengig von der
+ *     Rolle. Dieselben vier Rechte, dieselbe Reihenfolge, fuer jeden Nutzer.
+ *  3. **Was bewusst woanders steht** — Rolle und Muster gehoeren zur
+ *     Identitaet eines Nutzers, die Chat-Administration zur jeweiligen
+ *     Gruppe. Beides hierher zu holen hiesse, es zweimal zu fuehren.
  */
 function PermissionsTab() {
   const { t } = useTranslation()
-  const { state, setPermission } = useStore()
+  const { state, setPermission, updateUser } = useStore()
   const roles: ConfigurableRole[] = ['group_admin', 'training_admin']
+  const [suche, setSuche] = useState('')
+
+  // Dieselbe Sortierung wie die Benutzerliste: alphabetisch. Eine
+  // Rechtetabelle, in der man jemanden suchen muss, wird nicht gelesen.
+  const personen = [...state.users]
+    .filter((u) => !suche.trim() || `${u.name} ${u.email}`.toLowerCase().includes(suche.trim().toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
-    <div className="space-y-stack">
-      <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small leading-relaxed text-dim">
-        {t('admin.permMatrixHint')}
-      </p>
-      <Card className="overflow-x-auto p-4">
-        <table className="w-full min-w-[26rem] text-small">
-          <thead>
-            <tr className="border-b border-line/15 text-left text-micro uppercase tracking-wide text-dim">
-              <th className="pb-2 pr-3 font-semibold">{t('admin.permCapability')}</th>
-              {roles.map((r) => (
-                <th key={r} className="pb-2 pr-3 text-center font-semibold">
-                  {t(`roles.${r}`)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {PERM_KEYS.map((key) => (
-              <tr key={key} className="border-b border-line/[0.06] last:border-0">
-                <td className="py-2.5 pr-3">{t(`admin.perm.${key}`)}</td>
+    <div className="space-y-section">
+      <div className="space-y-stack">
+        <SectionHeading>{t('admin.permRoles')}</SectionHeading>
+        <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small leading-relaxed text-dim">
+          {t('admin.permMatrixHint')}
+        </p>
+        <Card className="overflow-x-auto p-4">
+          <table className="w-full min-w-[26rem] text-small">
+            <thead>
+              <tr className="border-b border-line/15 text-left text-micro uppercase tracking-wide text-dim">
+                <th className="pb-2 pr-3 font-semibold">{t('admin.permCapability')}</th>
                 {roles.map((r) => (
-                  <td key={r} className="py-2.5 pr-3 text-center">
-                    <input
-                      type="checkbox"
-                      checked={state.settings.permissions[r]?.[key] ?? false}
-                      onChange={(e) => setPermission(r, key, e.target.checked)}
-                      className="h-4 w-4 accent-accent"
-                      aria-label={`${t(`roles.${r}`)}: ${t(`admin.perm.${key}`)}`}
-                    />
-                  </td>
+                  <th key={r} className="pb-2 pr-3 text-center font-semibold">
+                    {t(`roles.${r}`)}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
+            </thead>
+            <tbody>
+              {PERM_KEYS.map((key) => (
+                <tr key={key} className="border-b border-line/[0.06] last:border-0">
+                  <td className="py-2.5 pr-3">{t(`admin.perm.${key}`)}</td>
+                  {roles.map((r) => (
+                    <td key={r} className="py-2.5 pr-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={state.settings.permissions[r]?.[key] ?? false}
+                        onChange={(e) => setPermission(r, key, e.target.checked)}
+                        className="h-6 w-6 accent-accent"
+                        aria-label={`${t(`roles.${r}`)}: ${t(`admin.perm.${key}`)}`}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Card>
+      </div>
+
+      <div className="space-y-stack">
+        <SectionHeading>{t('admin.permPeople')}</SectionHeading>
+        <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small leading-relaxed text-dim">
+          {t('admin.permPeopleHint')}
+        </p>
+        <Field label={t('admin.searchUsers')}>
+          <input className={inputCls} value={suche} onChange={(e) => setSuche(e.target.value)} />
+        </Field>
+        <Card className="overflow-x-auto p-4">
+          <table className="w-full min-w-[34rem] text-small">
+            <thead>
+              <tr className="border-b border-line/15 text-left text-micro uppercase tracking-wide text-dim">
+                <th className="pb-2 pr-3 font-semibold">{t('contacts.name')}</th>
+                {PERSON_PERMS.map((perm) => (
+                  <th key={perm} className="pb-2 pr-3 text-center font-semibold">
+                    {t(`admin.${perm}`)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {personen.map((u) => (
+                <tr key={u.id} className="border-b border-line/[0.06] last:border-0">
+                  <td className="py-2.5 pr-3">
+                    <span className={u.active ? '' : 'text-dim line-through'}>{u.name}</span>
+                    <span className="block text-micro text-dim">{t(`roles.${u.role}`)}</span>
+                  </td>
+                  {PERSON_PERMS.map((perm) => (
+                    <td key={perm} className="py-2.5 pr-3 text-center">
+                      <input
+                        type="checkbox"
+                        checked={!!u[perm]}
+                        onChange={(e) => updateUser(u.id, { [perm]: e.target.checked })}
+                        /* Die Sperre ist das einzige umgekehrt gemeinte Recht:
+                           Ein Haken nimmt etwas weg. Sie bekommt deshalb die
+                           Warnfarbe statt der Akzentfarbe — sonst liest sich
+                           die Zeile falsch herum. */
+                        className={`h-6 w-6 ${istSperre(perm) ? 'accent-[#e05252]' : 'accent-accent'}`}
+                        aria-label={`${u.name}: ${t(`admin.${perm}`)}`}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {personen.length === 0 && <p className="py-4 text-center text-small text-dim">{t('admin.noUsersFound')}</p>}
+        </Card>
+      </div>
+
+      <div className="space-y-stack">
+        <SectionHeading>{t('admin.permElsewhere')}</SectionHeading>
+        <Card className="space-y-tight p-4 text-small">
+          <p className="text-dim">{t('admin.permElsewhereHint')}</p>
+          <button
+            onClick={() => navigate('/admin/users')}
+            className="min-h-11 flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-line/5"
+          >
+            <span>{t('admin.permElsewhereUsers')}</span>
+            <span className="shrink-0 text-accent">{t('admin.users')} →</span>
+          </button>
+          <button
+            onClick={() => navigate('/admin/groups')}
+            className="min-h-11 flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left transition hover:bg-line/5"
+          >
+            <span>{t('admin.permElsewhereGroups')}</span>
+            <span className="shrink-0 text-accent">{t('admin.groups')} →</span>
+          </button>
+        </Card>
+      </div>
     </div>
   )
 }

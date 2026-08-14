@@ -388,3 +388,45 @@ Genau das Loch, das der Testwächter unter `LOGIK_IN_TSX` beschreibt.
 Warum das zählt: Diese Liste ist ein Nachweisdokument. Ein Fehler darin nennt
 jemanden vor der Behörde als säumig, während die App ihm den Eintrag gar
 nicht zeigt.
+
+## 1.6.0 — 2026-08-14
+
+Verwaltung: ein Bereich mehr für den Training Admin, alle Rechte an einer
+Stelle.
+
+**Der Training Admin bekommt den Grading-Bereich im Panel.** Den Verlauf je
+Pilot hatte er bereits — im Grading Tool, und dort schon über alle Muster und
+alle Personen. Gefehlt hat das Panel: Die Kachel erschien nicht,
+`#/admin/grading` warf ihn zurück. Grund war eine doppelt geführte Freigabe —
+einmal in der Reiterleiste, einmal, anders formuliert, im Zugangsriegel
+derselben Datei; beide kannten ihn nicht und waren sich untereinander nicht
+einig. `src/adminAccess.ts` trägt sie jetzt allein.
+
+- Er sieht Übersicht, Formulare, Verlauf je Pilot, Monatsbericht, Auswertung
+  und Standardisierung — **nicht** die Grading-Konfiguration: Dort werden
+  Kompetenzkataloge geändert, und das wirkt auf jedes künftige Blatt der
+  ganzen ATO.
+- Die Statuszeile bot ihm „Rückmeldungen offen" an und warf ihn beim Antippen
+  zurück. Ein Punkt führt namentlich irgendwohin; steht das der Rolle nicht
+  offen, erscheint er nicht mehr.
+
+**Rechte werden nur noch an einer Stelle vergeben.** Vorher waren es drei: die
+Rollen-Matrix, vier Kästchen in der aufgeklappten Nutzerzeile und dieselben
+vier als Schalter der Sammelbearbeitung.
+
+- `#/admin/permissions` hat jetzt **Rollen** und **Personen** untereinander —
+  dieselben vier Rechte für alle Nutzer nebeneinander, mit Suche. So lassen
+  sie sich vergleichen, was in der aufgeklappten Zeile nie ging.
+- Die Kästchen sind aus der Nutzerzeile verschwunden; dort steht der Weg
+  dorthin. Was bleibt, gehört zur Identität: Rolle, Muster, Gruppen, aktiv.
+- Ein eigener Abschnitt nennt, was bewusst **nicht** hierher geholt wurde:
+  Rolle und Musterzuordnung (Identität des Nutzers) und die
+  Chat-Administration (gehört an den Chat). Beides hierher zu holen hieße, es
+  zweimal zu führen.
+- Die Chat-Sperre trägt die Warnfarbe statt der Akzentfarbe — sie ist das
+  einzige umgekehrt gemeinte Recht: Ein Haken nimmt etwas weg.
+
+22 neue Testfälle in `src/adminAccess.test.ts` und `src/adminStatus.test.ts`.
+Im Browser nachgemessen: Panel und sechs Kacheln für den Training Admin, ein
+Haken auf der Rechte-Seite landet im Bestand, die Nutzerzeile führt nur noch
+hin.

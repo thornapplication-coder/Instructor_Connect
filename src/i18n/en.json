@@ -270,7 +270,7 @@
     "emailLoginHint": "The email address is the only sign-in credential — sign-in is by email only.",
     "permissions": "Permissions",
     "permCapability": "Capability",
-    "permMatrixHint": "The superadmin always has every permission. Members are controlled via the flags on each user (“May grade”, “May edit Who to call”). This matrix defines what the Admin and Training Admin roles are allowed to do — changes take effect immediately.",
+    "permMatrixHint": "The superadmin always has every permission. This matrix defines what the Admin and Training Admin roles are allowed to do. What belongs to the individual person — grading, trainee, directory, chat block — is below under “People”. Changes take effect immediately.",
     "perm": {
       "grading_create": "Fill in and send grading forms",
       "grading_view_all": "See all grading forms (unlimited retention)",
@@ -281,7 +281,7 @@
     "lastGroupBlocked": "Every user must belong to at least one group — otherwise they lose access to chats and group-scoped Instructor Info. Assign a different group first.",
     "aircraftTypesGlobal": "Aircraft types (all forms and lesson plans)",
     "sortBy": "Sort by",
-    "searchUsers": "Search name or email …",
+    "searchUsers": "Find person",
     "autoSaving": "Saving …",
     "autoSaveHint": "All changes in the Admin Panel are saved immediately — there is no save button.",
     "groupAircraft": "Aircraft type of this group",
@@ -388,7 +388,16 @@
     },
     "aircraftTypesHint": "Controls which lesson plans, info entries and chats this person sees. At least one type.",
     "aircraftTypesFree": "This role sees every type anyway. An assignment is possible but does not limit what they see.",
-    "lastAircraftBlocked": "The last aircraft type cannot be removed: this role would then see no lesson plans, no instructor info and no type-specific chats. Assign another type first."
+    "lastAircraftBlocked": "The last aircraft type cannot be removed: this role would then see no lesson plans, no instructor info and no type-specific chats. Assign another type first.",
+    "permRoles": "Roles",
+    "permPeople": "People",
+    "permPeopleHint": "These four permissions belong to the individual person, not to their role. They used to sit inside the expanded user row — here they stand side by side for everyone, so they can be compared. Changes take effect immediately.",
+    "permElsewhere": "Deliberately kept elsewhere",
+    "permElsewhereHint": "Two things are permissions as well, but they belong with their subject rather than here — listing them here too would mean maintaining them twice.",
+    "permElsewhereUsers": "Role and aircraft type assignment belong to a user’s identity.",
+    "permElsewhereGroups": "Who administers a chat is decided at that chat.",
+    "toPermissions": "Permissions for this person",
+    "noUsersFound": "No person found."
   },
   "imprint": {
     "title": "Legal notice & terms of use",
