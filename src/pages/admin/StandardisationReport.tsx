@@ -18,7 +18,7 @@ import {
   scopeRecords,
   statsBySet,
 } from '../../gradingStats'
-import { formatDateTime } from '../Grading'
+import { formatDateTime } from '../../datum'
 
 /**
  * Standardisierungsbericht nach ORA.ATO.110: Bewertet ein Instruktor

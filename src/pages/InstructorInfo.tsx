@@ -8,7 +8,7 @@ import { toast } from '../components/Toast'
 import { ackStand, ackZiele } from '../infoAcks'
 import { infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
 import type { InfoEntry } from '../types'
-import { formatDate, formatDateTime } from './Grading'
+import { formatDate, formatDateTime } from '../datum'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
 

@@ -7,7 +7,7 @@ import { useUnsavedWork } from '../editGuard'
 import { navigate } from '../router'
 import { isGroupAdmin, mayAccessGroup, useStore } from '../store'
 import type { Attachment, Message, Poll, PollType } from '../types'
-import { formatDateTime } from './Grading'
+import { formatDateTime } from '../datum'
 
 /* App-weites Datumsformat DD.MM.YYYY — formatDateTime liefert es samt Uhrzeit;
    vorher zeigte Englisch 14/08 und ohne Jahr. */

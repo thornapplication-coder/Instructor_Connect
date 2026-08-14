@@ -579,3 +579,39 @@ Eintrag steht als leerer Abschnitt da („Keine Einträge in diesem Monat")
 rechnet `nachMonaten` in `src/logbook.ts` (4 Testfälle, inkl.
 Jahreswechsel); die Filter wirken davor — gefiltert wird der Bestand,
 gegliedert das Ergebnis.
+
+## 1.8.2 — 2026-08-14
+
+Audit über Funktion, Navigation, UI/UX, Barrierefreiheit, Daten und
+Code — zwei hohe und sieben mittlere Befunde behoben.
+
+- **Monatsansicht bleibt kurz.** Ein Eintrag von 2019 neben einem von
+  2026 erzeugte 90 Abschnitte, 88 davon leer. Ein *einzelner* leerer
+  Monat steht weiter als leerer Monat da; mehrere am Stück werden eine
+  Zeile („87 Monate ohne Eintrag, April 2019 – Juni 2026"). Gemessen:
+  aus 90 Abschnitten wurden 4.
+- **Das Datumsformat hat ein eigenes Modul** (`src/datum.ts`, mit Tests).
+  Es lag in `src/pages/Grading.tsx` — zwölf Module zogen die zentralste
+  Formatregel der App aus einer Seitendatei, ungetestet. `testGuard`
+  prüft jetzt zusätzlich: kein Logik-Modul importiert aus `src/pages/`.
+- **Gesperrte Module räumen die Adresse auf.** `#/notes` beim Training
+  Admin zeigte die Startseite, ließ aber den Hash stehen — Neuladen und
+  Lesezeichen liefen wieder ins Leere.
+- **Der Logbuch-CSV nennt seine Filter** (Zeitraum, Muster, Kategorie,
+  Formular, Pilot, „x von y Einträgen"). Ein gefilterter Auszug sah
+  vorher aus wie das vollständige Logbuch.
+- **Excel rechnet.** Je Zeitspalte zusätzlich Dezimalstunden (16:30 →
+  16,5) — als echte Zahl. Vorher war jede Zeit Text und ließ sich weder
+  summieren noch sortieren.
+- **Die Zeitreise gilt auch im Logbuch**: neuer Eintrag und Exportdatum
+  folgen dem versetzten Jetzt, wie der Rest der App.
+- **Eine Rechnung statt zweier.** Die Admin-Auswertung leitete jedes
+  Logbuch zweimal ab (Tabelle und Musterliste), bei jedem Tastendruck.
+  Jetzt `adminTabelle` in `src/logbook.ts` — gemerkt, und die Summenzeile
+  ist getestet statt gehofft.
+- **Trefferflächen**: „Zur Übersicht" und die Kästchen in
+  Benutzerverwaltung und Rechte-Matrix erreichen 44 px.
+
+19 neue Testfälle (451 gesamt). Geprüft und in Ordnung: Kontraste 6,6–8,9
+in beiden Themes, kein seitliches Scrollen auf fünf Formaten, Dialoge mit
+Fokusführung, Kachel-Sichtbarkeit je Rolle, gültige .xlsx (openpyxl).

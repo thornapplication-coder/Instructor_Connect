@@ -1,19 +1,13 @@
 import { Download } from 'lucide-react'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, CardHeading } from '../../components/ui'
 import { toast } from '../../components/Toast'
-import { csvRow, downloadCsv } from '../../csv'
+import { csvNum, csvRow, downloadCsv } from '../../csv'
 import { downloadXlsx, type XlsxZelle } from '../../xlsxExport'
-import {
-  adminZeile,
-  filtereEintraege,
-  formatDauer,
-  LEERES_LOGBUCH,
-  logbuchVon,
-} from '../../logbook'
+import { adminTabelle, dezimalStunden, formatDauer } from '../../logbook'
 import { useStore } from '../../store'
-import { formatDate } from '../Grading'
+import { formatDate } from '../../datum'
 
 /* Dieselbe Filterleisten-Optik wie auf der Logbuch-Seite — inkl. der festen
    Breite fuer Datumsfelder (WebKit gibt leeren date-Inputs kaum Eigenbreite). */
@@ -36,42 +30,44 @@ export function LogbookAdmin() {
   const [muster, setMuster] = useState('')
   const [ohneBriefing, setOhneBriefing] = useState(false)
 
-  const alleZeilen = state.users.map((u) => {
-    const alle = logbuchVon(state.gradingRecords, u.id, (state.logbook ?? {})[u.id] ?? LEERES_LOGBUCH)
-    const gefiltert = filtereEintraege(alle, { von: von || undefined, bis: bis || undefined, muster: muster || undefined })
-    return { user: u, hatUeberhaupt: alle.length > 0, ...adminZeile(gefiltert, ohneBriefing) }
-  })
-  // Wer gar kein Logbuch fuehrt, steht nicht als Nullzeile in der Liste —
-  // sonst ist die Auswertung so lang wie die Benutzerverwaltung. Wer nur
-  // unter dem aktiven Filter leer ist, bleibt stehen: Das ist eine Aussage.
-  const zeilen = alleZeilen
-    .filter((z) => z.hatUeberhaupt)
-    .sort((a, b) => b.gesamt - a.gesamt || a.user.name.localeCompare(b.user.name))
-  const summe = {
-    anzahl: zeilen.reduce((s, z) => s + z.anzahl, 0),
-    ground: zeilen.reduce((s, z) => s + z.ground, 0),
-    simulator: zeilen.reduce((s, z) => s + z.simulator, 0),
-    other: zeilen.reduce((s, z) => s + z.other, 0),
-    gesamt: zeilen.reduce((s, z) => s + z.gesamt, 0),
-  }
-  // Muster-Auswahl aus dem Bestand: was irgendwo in einem Logbuch vorkommt
-  const musterListe = [...new Set(state.users.flatMap((u) => logbuchVon(state.gradingRecords, u.id, (state.logbook ?? {})[u.id] ?? LEERES_LOGBUCH).map((e) => e.aircraftType)).filter(Boolean))].sort()
+  /* Eine Rechnung fuer Tabelle, Summenzeile und Musterauswahl (src/logbook.ts).
+     Vorher lief `logbuchVon` zweimal je Nutzer, bei jedem Tastendruck im
+     Filter — und die Summenzeile stand ungetestet in dieser Datei. */
+  const { zeilen, summe, musterListe } = useMemo(
+    () =>
+      adminTabelle(
+        state.users,
+        state.gradingRecords,
+        state.logbook ?? {},
+        { von: von || undefined, bis: bis || undefined, muster: muster || undefined },
+        ohneBriefing,
+      ),
+    [state.users, state.gradingRecords, state.logbook, von, bis, muster, ohneBriefing],
+  )
 
   /* Export folgt der Ansicht: aktive Filter in den Dateikopf, dann exakt die
      Tabelle. CSV und Excel schreiben dieselben Zeilen. */
   const exportZeilen = (): XlsxZelle[][] => [
     ['AAA Logbook — all instructors'],
-    ['Exported', formatDate(Date.now())],
+    ['Exported', formatDate(Date.now() + state.timeOffsetMs)],
     ['Period', von || bis ? `${von ? formatDate(von) : '…'} - ${bis ? formatDate(bis) : '…'}` : 'all'],
     ['Aircraft type', muster || 'all'],
     ['Counting', ohneBriefing ? 'without briefing' : 'with briefing'],
     [],
-    ['Instructor', 'Aircraft types', 'Entries', 'Ground Training', 'Simulator Training', 'Other Training', 'Total'],
-    ...zeilen.map((z) => [z.user.name, z.muster.join(', '), z.anzahl, formatDauer(z.ground), formatDauer(z.simulator), formatDauer(z.other), formatDauer(z.gesamt)] as XlsxZelle[]),
-    ['Total', '', summe.anzahl, formatDauer(summe.ground), formatDauer(summe.simulator), formatDauer(summe.other), formatDauer(summe.gesamt)],
+    /* Je Zeit zwei Spalten: HH:MM zum Lesen, Dezimalstunden zum Rechnen.
+       „16:30" ist in Excel Text — damit laesst sich weder summieren noch
+       sortieren, und genau dafuer nimmt jemand Excel statt CSV. */
+    ['Instructor', 'Aircraft types', 'Entries', 'Ground', 'Ground (h)', 'Simulator', 'Simulator (h)', 'Other', 'Other (h)', 'Total', 'Total (h)'],
+    ...zeilen.map(
+      (z) =>
+        [z.name, z.muster.join(', '), z.anzahl, formatDauer(z.ground), dezimalStunden(z.ground), formatDauer(z.simulator), dezimalStunden(z.simulator), formatDauer(z.other), dezimalStunden(z.other), formatDauer(z.gesamt), dezimalStunden(z.gesamt)] as XlsxZelle[],
+    ),
+    ['Total', '', summe.anzahl, formatDauer(summe.ground), dezimalStunden(summe.ground), formatDauer(summe.simulator), dezimalStunden(summe.simulator), formatDauer(summe.other), dezimalStunden(summe.other), formatDauer(summe.gesamt), dezimalStunden(summe.gesamt)],
   ]
   const exportCsv = () => {
-    const csv = exportZeilen().map((r) => csvRow(r)).join('')
+    const csv = exportZeilen()
+      .map((r) => csvRow(r.map((z) => (typeof z === 'number' && !Number.isInteger(z) ? csvNum(z) : z))))
+      .join('')
     downloadCsv('aaa-logbook-instructors.csv', csv)
     toast(t('toast.downloaded'))
   }
@@ -145,10 +141,10 @@ export function LogbookAdmin() {
             </thead>
             <tbody>
               {zeilen.map((z) => (
-                <tr key={z.user.id} className="border-b border-line/[0.06] last:border-0">
+                <tr key={z.id} className="border-b border-line/[0.06] last:border-0">
                   <td className="py-2.5 pr-3">
-                    {z.user.name}
-                    {!z.user.active && <span className="ml-2 text-micro text-dim">({t('admin.inactive')})</span>}
+                    {z.name}
+                    {!z.aktiv && <span className="ml-2 text-micro text-dim">({t('admin.inactive')})</span>}
                   </td>
                   <td className="py-2.5 pr-3">
                     <span className="flex flex-wrap gap-1">

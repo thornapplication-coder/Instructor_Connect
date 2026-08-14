@@ -82,3 +82,20 @@ describe('Jede Logik hat ihren Test', () => {
     expect(verwaist).toEqual([])
   })
 })
+
+/**
+ * Befund aus dem Audit: `formatDate`/`formatDateTime` — das Datumsformat der
+ * ganzen App — standen in `src/pages/Grading.tsx`. Zwoelf Module zogen sie
+ * von dort, ein Test existierte nicht, und diese Wache konnte ihn nicht
+ * verlangen: Sie prueft nur `src/*.ts`. Die Regel „Logik gehoert nach
+ * src/*.ts" braucht deshalb ihre Kehrseite als Pruefung.
+ */
+describe('Logik-Module bleiben unter sich', () => {
+  it('kein Modul in src/*.ts importiert aus src/pages', () => {
+    const verstoesse = Object.entries(module)
+      .filter(([pfad]) => !istTestdatei(pfad.replace('./', '')))
+      .filter(([, inhalt]) => /from '\.\/pages\//.test(inhalt as string))
+      .map(([pfad]) => pfad.replace('./', ''))
+    expect(verstoesse).toEqual([])
+  })
+})

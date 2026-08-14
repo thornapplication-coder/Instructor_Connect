@@ -14,7 +14,7 @@ import { buildImportTemplate, isImportable, parseUserImport, type ImportResult, 
 import { useStore } from '../store'
 import { GradingAdmin } from './admin/GradingAdmin'
 import { LogbookAdmin } from './admin/LogbookAdmin'
-import { formatDateTime } from './Grading'
+import { formatDateTime } from '../datum'
 import { APP_VERSION, type FeedbackEntry, PERM_KEYS, type ConfigurableRole, type RetentionKey, type Role } from '../types'
 
 const RETENTION_KEYS: RetentionKey[] = ['24h', '7d', '30d', '90d', 'never']
@@ -370,7 +370,7 @@ function UsersTab() {
           Auswahl — solange nichts gewaehlt ist, waere sie eine Reihe toter
           Knoepfe ueber der Liste. */}
       <div className="flex flex-wrap items-center gap-3 px-1">
-        <label className="flex items-center gap-2 text-small text-dim">
+        <label className="flex min-h-11 items-center gap-2 text-small text-dim">
           <input
             type="checkbox"
             checked={users.length > 0 && users.every((u) => gewaehlt.includes(u.id))}
@@ -450,6 +450,9 @@ function UsersTab() {
               darin — ein Kaestchen in einem Knopf laesst sich weder
               zuverlaessig antippen noch per Tastatur getrennt erreichen. */}
           <div className="flex items-center gap-3">
+          {/* Das Kaestchen bleibt 24 px gross, die Trefferflaeche wird 44 —
+              das Label traegt sie, damit auch der Rand daneben zieht. */}
+          <label className="flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center">
           <input
             type="checkbox"
             checked={gewaehlt.includes(u.id)}
@@ -457,6 +460,7 @@ function UsersTab() {
             aria-label={`${t('admin.bulk.select')}: ${u.name}`}
             className="h-6 w-6 shrink-0 accent-accent"
           />
+          </label>
           <button onClick={() => setOpenId(openId === u.id ? null : u.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
             <Avatar name={u.name} size={34} />
             <div className="min-w-0 flex-1">
@@ -723,6 +727,7 @@ function PermissionsTab() {
                   <td className="py-2.5 pr-3">{t(`admin.perm.${key}`)}</td>
                   {roles.map((r) => (
                     <td key={r} className="py-2.5 pr-3 text-center">
+                      <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
                       <input
                         type="checkbox"
                         checked={state.settings.permissions[r]?.[key] ?? false}
@@ -730,6 +735,7 @@ function PermissionsTab() {
                         className="h-6 w-6 accent-accent"
                         aria-label={`${t(`roles.${r}`)}: ${t(`admin.perm.${key}`)}`}
                       />
+                      </label>
                     </td>
                   ))}
                 </tr>
@@ -1659,7 +1665,7 @@ export function Admin({ sub = '' }: { sub?: string }) {
           <>
             <button
               onClick={() => navigate('/admin')}
-              className="mb-4 flex items-center gap-1.5 text-small font-medium text-dim transition hover:text-ink"
+              className="mb-4 flex min-h-11 items-center gap-1.5 text-small font-medium text-dim transition hover:text-ink"
             >
               <ArrowLeft size={15} /> {t('admin.backToOverview')}
             </button>

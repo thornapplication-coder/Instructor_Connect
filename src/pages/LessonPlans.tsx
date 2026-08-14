@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { toast } from '../components/Toast'
-import { formatDate } from './Grading'
+import { formatDate } from '../datum'
 import { useStore } from '../store'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'

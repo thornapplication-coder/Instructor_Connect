@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  adminTabelle,
   adminZeile,
+  dezimalStunden,
   BRIEFING_STD_MIN,
   DEBRIEFING_STD_MIN,
   darfLogbuchOeffnen,
@@ -352,25 +354,103 @@ describe('nachMonaten', () => {
 
   it('gruppiert nach Monat, neuester zuerst', () => {
     const g = nachMonaten([e('2026-08-05'), e('2026-08-01'), e('2026-07-15')])
-    expect(g.map((x) => x.monat)).toEqual(['2026-08', '2026-07'])
-    expect(g[0].eintraege).toHaveLength(2)
+    expect(g.map((x) => (x.art === 'monat' ? x.monat : 'luecke'))).toEqual(['2026-08', '2026-07'])
+    expect(g[0].art === 'monat' && g[0].eintraege).toHaveLength(2)
   })
 
-  it('stellt Monate ohne Eintrag als leere Gruppe dazwischen', () => {
-    // Ein fehlender Juni saehe aus wie ein Uebertragungsfehler; ein leerer
-    // Juni ist eine Aussage.
-    const g = nachMonaten([e('2026-08-05'), e('2026-05-20')])
-    expect(g.map((x) => x.monat)).toEqual(['2026-08', '2026-07', '2026-06', '2026-05'])
-    expect(g[1].eintraege).toEqual([])
-    expect(g[2].eintraege).toEqual([])
+  it('zeigt einen EINZELNEN leeren Monat als leeren Monat', () => {
+    // Ein fehlender Monat saehe aus wie ein Uebertragungsfehler.
+    const g = nachMonaten([e('2026-08-05'), e('2026-06-20')])
+    expect(g.map((x) => (x.art === 'monat' ? x.monat : `luecke:${x.monate}`))).toEqual(['2026-08', '2026-07', '2026-06'])
+    expect(g[1].art === 'monat' && g[1].eintraege).toEqual([])
+  })
+
+  it('faltet mehrere leere Monate am Stueck zu einer Zeile', () => {
+    // Befund: ein Eintrag von 2019 neben einem von 2026 ergab 88 leere
+    // Abschnitte. Die Aussage bleibt, sie braucht nur nicht 88 Zeilen.
+    const g = nachMonaten([e('2026-08-05'), e('2026-03-01')])
+    expect(g.map((x) => (x.art === 'monat' ? x.monat : `luecke ${x.von}..${x.bis} (${x.monate})`))).toEqual([
+      '2026-08',
+      'luecke 2026-04..2026-07 (4)',
+      '2026-03',
+    ])
+  })
+
+  it('bleibt auch ueber sieben Jahre kurz', () => {
+    const g = nachMonaten([e('2026-08-05'), e('2019-03-10')])
+    expect(g).toHaveLength(3)
+    expect(g[1].art).toBe('luecke')
+    expect(g[1].art === 'luecke' && g[1].monate).toBe(88)
   })
 
   it('ueberbrueckt den Jahreswechsel', () => {
     const g = nachMonaten([e('2026-01-10'), e('2025-11-30')])
-    expect(g.map((x) => x.monat)).toEqual(['2026-01', '2025-12', '2025-11'])
+    expect(g.map((x) => (x.art === 'monat' ? x.monat : 'luecke'))).toEqual(['2026-01', '2025-12', '2025-11'])
   })
 
-  it('liefert fuer einen leeren Bestand keine Gruppen', () => {
+  it('liefert fuer einen leeren Bestand keine Abschnitte', () => {
     expect(nachMonaten([])).toEqual([])
+  })
+})
+
+describe('adminTabelle', () => {
+  const nutzer = [
+    { id: 'u1', name: 'Anna Instruktor', active: true },
+    { id: 'u2', name: 'Bert Instruktor', active: false },
+    { id: 'u3', name: 'Ohne Logbuch', active: true },
+  ]
+  const records = [
+    blatt({ id: 'a1', instructorId: 'u1' }),
+    blatt({ id: 'a2', instructorId: 'u1', formTypeId: '307A', header: { date: '2026-07-02', aircraftType: 'C560 XLS+', duration: '02:00' }, trainees: [], attendance: [{ name: 'X' } as never] }),
+    blatt({ id: 'b1', instructorId: 'u2' }),
+  ]
+
+  it('laesst weg, wer gar kein Logbuch fuehrt', () => {
+    const t = adminTabelle(nutzer, records, {}, {}, false)
+    expect(t.zeilen.map((z) => z.id)).toEqual(['u1', 'u2'])
+  })
+
+  it('summiert die Zeilen — die Summenzeile ist die Summe der Spalten', () => {
+    const t = adminTabelle(nutzer, records, {}, {}, false)
+    expect(t.summe.gesamt).toBe(t.zeilen.reduce((s, z) => s + z.gesamt, 0))
+    expect(t.summe.ground + t.summe.simulator + t.summe.other).toBe(t.summe.gesamt)
+    expect(t.summe.anzahl).toBe(3)
+  })
+
+  it('nennt die Muster des GANZEN Bestands, nicht nur der gefilterten Sicht', () => {
+    // Sonst verschwindet der eigene Filterwert aus der Auswahl, sobald er greift.
+    const t = adminTabelle(nutzer, records, {}, { muster: 'CL30' }, false)
+    expect(t.musterListe).toEqual(['C560 XLS+', 'CL30'])
+  })
+
+  it('behaelt eine Zeile, die nur unter dem Filter leer ist', () => {
+    const t = adminTabelle(nutzer, records, {}, { muster: 'C560 XLS+' }, false)
+    const anna = t.zeilen.find((z) => z.id === 'u1')!
+    const bert = t.zeilen.find((z) => z.id === 'u2')!
+    expect(anna.gesamt).toBe(120)
+    expect(bert.gesamt).toBe(0) // steht weiter da: „nichts in diesem Muster" ist eine Aussage
+  })
+
+  it('merkt sich, wer deaktiviert ist', () => {
+    expect(adminTabelle(nutzer, records, {}, {}, false).zeilen.find((z) => z.id === 'u2')!.aktiv).toBe(false)
+  })
+
+  it('reicht die Zaehlweise ohne Briefing durch', () => {
+    const mit = adminTabelle(nutzer, records, {}, {}, false).summe.gesamt
+    const ohne = adminTabelle(nutzer, records, {}, {}, true).summe.gesamt
+    expect(mit - ohne).toBe(2 * (BRIEFING_STD_MIN + DEBRIEFING_STD_MIN))
+  })
+})
+
+describe('dezimalStunden', () => {
+  it('rechnet Minuten in Stunden mit zwei Nachkommastellen', () => {
+    expect(dezimalStunden(150)).toBe(2.5)
+    expect(dezimalStunden(90)).toBe(1.5)
+    expect(dezimalStunden(0)).toBe(0)
+    expect(dezimalStunden(65)).toBe(1.08)
+  })
+
+  it('macht aus Negativem 0 statt einer negativen Stundenzahl im Nachweis', () => {
+    expect(dezimalStunden(-30)).toBe(0)
   })
 })

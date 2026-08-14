@@ -52,7 +52,12 @@ function Screen() {
     return null
   }
   const blocked = moduleOfRoute(route)
-  if (blocked && !moduleAllowed(blocked)) return <Home />
+  // Gesperrt heisst: Startseite UND Adresse zurueck. Vorher blieb der Hash auf
+  // `#/notes` stehen, waehrend die Startseite zu sehen war — ein Neuladen oder
+  // ein Lesezeichen fuehrte wieder ins Nichts, und die Adresszeile behauptete
+  // eine Ansicht, die gar nicht offen ist. Das Admin-Panel raeumt seine
+  // Adresse seit jeher auf; die Modulsperre kannte die Regel nicht.
+  if (blocked && !moduleAllowed(blocked)) return <Home unknownRoute />
 
   const chatMatch = route.match(/^\/chat\/([^/]+)(\/info)?$/)
   let page
