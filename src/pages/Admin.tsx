@@ -5,7 +5,7 @@ import { Avatar, Badge, Button, Card, CardHeading, ChipMultiSelect, Field, input
 import { navigate } from '../router'
 import { adminStatus } from '../adminStatus'
 import { planBulk, type BulkAktion } from '../bulkUsers'
-import { musterFehlt, musterPflicht, musterZurAuswahl } from '../aircraftScope'
+import { musterFehlt, musterPflicht, musterZurAuswahl, nachMuster } from '../aircraftScope'
 import { adminTabsFor, istSperre, PERSON_PERMS } from '../adminAccess'
 import { toast } from '../components/Toast'
 import { storageInfo, type StorageInfo } from '../persist'
@@ -1152,20 +1152,19 @@ function FeedbackCard({
 /** Eingegangenes Feedback: bleibt gespeichert, kann hier bei Bedarf gelöscht werden */
 function FeedbackTab() {
   const { t } = useTranslation()
-  const { state, currentUser, deleteFeedback, resolveFeedback, reopenFeedback } = useStore()
+  const { state, currentUser, visibleFeedback, deleteFeedback, resolveFeedback, reopenFeedback } = useStore()
   // Filter: Kategorie, Empfänger, nur Dringendes
   const [fCat, setFCat] = useState('')
   const [fRec, setFRec] = useState('')
   const [fScope, setFScope] = useState('')
   const [onlyUrgent, setOnlyUrgent] = useState(false)
-  // Ein Gruppenadmin sieht nur Rückmeldungen aus seinen eigenen Gruppen —
-  // vorher lag ihm auch das offen, was an HR gerichtet war.
-  const myMemberIds = new Set(
-    state.groups.filter((g) => g.adminIds.includes(currentUser!.id)).flatMap((g) => g.memberIds),
-  )
-  const all = [...state.feedbackEntries]
-    .filter((f) => currentUser!.role === 'superadmin' || myMemberIds.has(f.authorId))
-    .sort((a, b) => b.createdAt - a.createdAt)
+  /*
+   * Die Sicht kommt aus dem Store (visibleFeedback) — Gruppe UND Muster.
+   * Sie stand hier von Hand, und die Statuszeile rechnete daneben mit dem
+   * ganzen Bestand: Sie versprach einem Gruppenadmin mehr, als hinter ihrem
+   * Sprung stand.
+   */
+  const all = [...visibleFeedback].sort((a, b) => b.createdAt - a.createdAt)
   const entries = all.filter((f) => {
     if (fCat && f.category !== fCat) return false
     if (fRec && f.recipient !== fRec) return false
@@ -1518,13 +1517,13 @@ const TAB_ICONS: Record<Tab, typeof Users> = {
  */
 function StatusZeile() {
   const { t } = useTranslation()
-  const { state, currentUser } = useStore()
+  const { state, currentUser, visibleFeedback } = useStore()
   // Aus derselben Freigabeliste wie die Reiter: Ein Punkt, der in einen
   // gesperrten Bereich fuehrt, ist schlimmer als kein Punkt.
   const offen = adminTabsFor(currentUser!.role)
   const punkte = adminStatus({
     gradingRecords: state.gradingRecords,
-    feedbackEntries: state.feedbackEntries,
+    feedbackEntries: visibleFeedback,
     darfGrading: offen.includes('grading'),
     darfFeedback: offen.includes('feedback'),
   })
