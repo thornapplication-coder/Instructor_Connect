@@ -260,7 +260,7 @@
     "grading": "Grading Tool",
     "logbook": "Logbuch",
     "logbookHeading": "Alle Zeiten je Instruktor",
-    "logbookHint": "Dieselbe Rechnung wie in „my AAA Logbook“: fertige Formulare plus manuelle Einträge, Korrekturen und Löschungen der Instruktoren eingerechnet. „Other Training only“ umfasst auch frei benannte Kategorien.",
+    "logbookHint": "Dieselbe Rechnung wie in „my AAA Logbook“: fertige Formulare plus manuelle Einträge, Korrekturen und Löschungen der Instruktoren eingerechnet. Die Spalte „Other Training“ umfasst auch frei benannte Kategorien.",
     "logbookFilterLabel": "Zeitfilter",
     "logbookFilter": {
       "alle": "Mit Briefing",

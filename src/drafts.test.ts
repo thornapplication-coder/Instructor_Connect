@@ -102,12 +102,13 @@ describe('kurzeZeit', () => {
     expect(kurzeZeit(vorgestern, 'en', jetzt)).toMatch(/^Tue/)
   })
 
-  it('zeigt davor das Datum', () => {
+  it('zeigt davor das Datum als DD.MM.YYYY — in beiden Sprachen', () => {
     // Die Grenze liegt bei sechs Tagen — danach sagt ein Wochentag nicht
-    // mehr, welche Woche gemeint ist.
+    // mehr, welche Woche gemeint ist. Das Format ist die app-weite Festlegung
+    // DD.MM.YYYY, nicht das Gebietsschema: Englisch zeigte vorher 20/07.
     const langeHer = new Date(2026, 6, 20, 9, 0).getTime()
-    expect(kurzeZeit(langeHer, 'de', jetzt)).toBe('20.07.')
-    expect(kurzeZeit(langeHer, 'en', jetzt)).toBe('20/07')
+    expect(kurzeZeit(langeHer, 'de', jetzt)).toBe('20.07.2026')
+    expect(kurzeZeit(langeHer, 'en', jetzt)).toBe('20.07.2026')
   })
 
   it('behandelt Mitternacht als heute', () => {

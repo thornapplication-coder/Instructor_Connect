@@ -6,6 +6,7 @@ import { toast } from '../components/Toast'
 import { groupNotes, notePreview, PINNED, searchNotes } from '../notes'
 import { useStore } from '../store'
 import type { Note } from '../types'
+import { formatDate } from './Grading'
 
 /**
  * Notizen — die persoenliche Merkliste.
@@ -75,12 +76,8 @@ export function Notes() {
   /** null = Dialog zu, undefined = neue Notiz, Note = diese aendern */
   const [editor, setEditor] = useState<Note | undefined | null>(null)
 
-  const dateLabel = (ts: number) =>
-    new Date(ts).toLocaleDateString(i18n.language === 'de' ? 'de-AT' : 'en-GB', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
+  // App-weites Datumsformat DD.MM.YYYY — nicht das Gebietsschema.
+  const dateLabel = (ts: number) => formatDate(ts)
 
   const gefiltert = useMemo(() => searchNotes(visibleNotes, query), [visibleNotes, query])
   const gruppen = useMemo(() => groupNotes(gefiltert), [gefiltert])

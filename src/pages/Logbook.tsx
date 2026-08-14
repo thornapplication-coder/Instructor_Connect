@@ -19,6 +19,7 @@ import {
   type LogbookFilter,
 } from '../logbook'
 import { useStore } from '../store'
+import { formatDate } from './Grading'
 
 /**
  * my AAA Logbook — die eigene Instruktorentätigkeit, aus den Formularen
@@ -208,11 +209,11 @@ export function Logbook() {
 
   const exportiere = () => {
     let csv = csvRow(['my AAA Logbook', owner.name])
-    csv += csvRow(['Exported', new Date().toISOString().slice(0, 10)])
+    csv += csvRow(['Exported', formatDate(Date.now())])
     csv += csvRow([])
     csv += csvRow(['Date', 'Category', 'Aircraft', 'Form', 'Pilots', 'Briefing', 'Session', 'Debriefing', 'Total', 'Note'])
     eintraege.forEach((e) => {
-      csv += csvRow([e.datum, e.kategorie, e.aircraftType, e.formTypeId ?? 'manual', e.piloten.join('; '), formatDauer(e.briefing), formatDauer(e.session), formatDauer(e.debriefing), formatDauer(e.gesamt), e.notiz])
+      csv += csvRow([formatDate(e.datum), e.kategorie, e.aircraftType, e.formTypeId ?? 'manual', e.piloten.join('; '), formatDauer(e.briefing), formatDauer(e.session), formatDauer(e.debriefing), formatDauer(e.gesamt), e.notiz])
     })
     csv += csvRow([])
     csv += csvRow(['Total', formatDauer(s.gesamt)])
@@ -344,7 +345,7 @@ export function Logbook() {
               {eintraege.map((e) => (
               <Card key={`${e.quelle}-${e.id}`} className="p-4">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold tabular-nums">{e.datum}</span>
+                  <span className="font-semibold tabular-nums">{formatDate(e.datum)}</span>
                   <Badge tone={e.kategorie === 'Simulator Training' ? 'accent' : 'dim'}>{e.kategorie}</Badge>
                   {e.aircraftType && <Badge tone="dim">{e.aircraftType}</Badge>}
                   {e.formTypeId && <Badge tone="dim">{e.formTypeId}</Badge>}

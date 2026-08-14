@@ -532,3 +532,38 @@ Logbuch-Seite an den Hausstil angepasst — gemeldet vom iPad:
 Auf fünf Formaten nachgemessen (iPhone hoch/quer, iPad hoch/quer,
 Desktop): Datumsfelder 144 px, kein seitliches Scrollen, Einträge am
 Desktop zweispaltig, sonst einspaltig.
+
+## 1.8.0 — 2026-08-14
+
+**Logbuch-Bereich im Superadmin-Panel ausgebaut** und **einheitliches
+Datumsformat DD.MM.YYYY** in der ganzen App.
+
+Logbuch-Auswertung:
+
+- **Detail-Tabelle statt Einzelwert:** je Instruktor die Spalten Muster
+  (als Marken), Einträge, Ground, Simulator, Other und Gesamt — die drei
+  Kategoriespalten ergeben zusammen stets die Gesamtspalte, weil „Other"
+  auch frei benannte Kategorien fängt. Summenzeile darunter.
+- **Filter:** Zeitraum (From/To), Aircraft Type und die Zählweise
+  Mit/Ohne Briefing als Pillen. Wer nur unter dem aktiven Filter leer
+  ist, bleibt als Nullzeile stehen — das ist eine Aussage; wer gar kein
+  Logbuch führt, erscheint nicht.
+- **Export als CSV und Excel**, beide mit denselben Zeilen: aktive Filter
+  im Dateikopf, dann exakt die Tabelle. Das Excel ist ein echtes .xlsx —
+  von Hand geschrieben (`src/xlsxExport.ts`, ZIP + XML ohne
+  Fremdbibliothek, mit eigenem Leser in den Tests und gegen openpyxl
+  verifiziert), Zahlen kommen als Zahlen an.
+
+Datumsformat:
+
+- Überall DD.MM.YYYY (31.08.2026): Logbuch-Einträge und -Exporte, Chat-
+  Nachrichten (vorher 14/08 ohne Jahr auf Englisch), Chatliste bei älteren
+  Nachrichten, Notes, Lesson Plans. Grading und Instructor Info hatten das
+  Format bereits (`formatDate`). Die Datums-EINGABEFELDER zeigen weiter
+  die Schreibweise des Geräts — das bestimmt der Browser, nicht die App.
+
+9 neue Testfälle (adminZeile, XLSX-Schreiber samt ZIP-Leser, kurzeZeit).
+Im Browser nachgemessen: Muster-Filter C560 XLS+ → Christian 1 Eintrag /
+05:30; ab 01.08. → 3 Einträge / 15:30; ohne Briefing → 22:00 statt 31:00;
+beide Downloads geprüft (CSV-Kopf mit Filtern, .xlsx öffnet als echte
+Arbeitsmappe).

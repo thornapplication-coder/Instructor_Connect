@@ -81,5 +81,8 @@ export function kurzeZeit(ts: number, lng: string, jetzt: number): string {
   const heute = new Date(jetzt).setHours(0, 0, 0, 0)
   if (ts >= heute) return new Date(ts).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
   if (ts >= heute - 6 * tagMs) return new Date(ts).toLocaleDateString(locale, { weekday: 'short' })
-  return new Date(ts).toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })
+  // App-weites Datumsformat DD.MM.YYYY — in beiden Sprachen. Vorher kam hier
+  // das Gebietsschema zum Zug, und Englisch zeigte 20/07 statt 20.07.2026.
+  const d = new Date(ts)
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`
 }
