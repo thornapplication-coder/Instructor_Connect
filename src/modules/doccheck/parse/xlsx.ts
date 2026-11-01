@@ -1,4 +1,4 @@
-import JSZip from 'jszip'
+import { teilLesen, zipOeffnen } from './zip'
 import { aufbereiten } from './aufbereiten'
 import { LEERE_LENKUNG, type Rechtscharakter, type Rohdokument } from './model'
 import { xmlEreignisse } from './xml'
@@ -51,8 +51,8 @@ export function blattZeilen(xml: string, geteilt: string[]): string[] {
 }
 
 export async function xlsxLesen(daten: Uint8Array | ArrayBuffer, vorgabe?: Rechtscharakter): Promise<Rohdokument> {
-  const zip = await JSZip.loadAsync(daten)
-  const lies = async (pfad: string) => zip.file(pfad)?.async('string')
+  const zip = await zipOeffnen(daten)
+  const lies = (pfad: string) => teilLesen(zip, pfad)
   const mappe = await lies('xl/workbook.xml')
   if (!mappe) throw new Error('DC-XLSX-INVALID')
   const rels = (await lies('xl/_rels/workbook.xml.rels')) ?? ''
@@ -115,8 +115,8 @@ export function blattRaster(xml: string, geteilt: string[], nummern?: number[]):
 
 /** Alle Blätter als Raster (Referenzlisten, Fremdlisten) — mit Excel-Zeilennummern. */
 export async function xlsxTabellen(daten: Uint8Array | ArrayBuffer): Promise<{ name: string; zeilen: string[][]; zeilenNr: number[] }[]> {
-  const zip = await JSZip.loadAsync(daten)
-  const lies = async (pfad: string) => zip.file(pfad)?.async('string')
+  const zip = await zipOeffnen(daten)
+  const lies = (pfad: string) => teilLesen(zip, pfad)
   const mappe = await lies('xl/workbook.xml')
   if (!mappe) throw new Error('DC-XLSX-INVALID')
   const ziele = new Map<string, string>()

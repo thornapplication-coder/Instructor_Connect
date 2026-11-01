@@ -97,15 +97,24 @@ describe('Rollentest: Matrix der Datenbank = Matrix in access.ts (Spez. 5.1)', (
 })
 
 describe('Profile', () => {
-  it('Aktive sehen Aktive; nur der Superadmin sieht Deaktivierte; Deaktivierte sehen nichts', async () => {
-    const sicht = async (id: string) => {
+  it('volle Profilzeile nur für sich selbst und den Superadmin; alle anderen über das Verzeichnis (Datenminimierung)', async () => {
+    const sicht = async (id: string, quelle: string) => {
       await als(id)
-      return (await db.query<{ email: string }>('select email from public.profiles order by email')).rows.map((r) => r.email)
+      return (await db.query<{ email: string }>(`select email from ${quelle} order by email`)).rows.map((r) => r.email)
     }
-    expect(await sicht(ID.ohne)).not.toContain('alt@example.test')
-    expect(await sicht(ID.ohne)).toHaveLength(5)
-    expect(await sicht(ID.super)).toContain('alt@example.test')
-    expect(await sicht(ID.inaktiv)).toEqual([])
+    expect(await sicht(ID.ohne, 'public.profiles')).toEqual(['sam@example.test'])
+    expect(await sicht(ID.super, 'public.profiles')).toContain('alt@example.test')
+    expect(await sicht(ID.inaktiv, 'public.profiles')).toEqual([])
+    // Verzeichnis: alle Aktiven, ohne Deaktivierte — und ohne Rechte-Spalten
+    expect(await sicht(ID.ohne, 'public.directory')).toHaveLength(5)
+    expect(await sicht(ID.ohne, 'public.directory')).not.toContain('alt@example.test')
+    expect(await sicht(ID.inaktiv, 'public.directory')).toEqual([])
+    await als(ID.ohne)
+    expect(await fehler('select doccheck_access from public.directory')).toMatch(/does not exist/)
+    // anon (nicht angemeldet) sieht nichts — trotz der Supabase-Standardrechte
+    await db.exec(`reset role; set role anon;`)
+    expect(await fehler('select * from public.profiles')).toMatch(/permission denied/)
+    expect(await fehler('select * from public.directory')).toMatch(/permission denied/)
   })
 
   it('eigene Kontaktdaten ja; eigene Rolle, Muster, Rechte nein', async () => {
@@ -120,11 +129,28 @@ describe('Profile', () => {
     expect((await db.query<{ name: string }>('select name from public.profiles where id = $1', [ID.ohne])).rows[0].name).toBe('Sam')
   })
 
-  it('DocCheck-Rechte nie per UPDATE — auch nicht vom Superadmin', async () => {
+  it('DocCheck-Rechte und E-Mail nie per UPDATE — auch nicht vom Superadmin, auch nicht mit Supabase-Standardrechten', async () => {
     await als(ID.super)
     expect(await fehler('update public.profiles set doccheck_access = true where id = $1', [ID.ohne])).toMatch(/permission denied/)
+    expect(await fehler("update public.profiles set email = 'x@y.test' where id = $1", [ID.ohne])).toMatch(/permission denied/)
+    // Angriff aus der Sicherheitsprüfung: früher öffnete eine selbst gesetzte Sitzungseinstellung den Trigger
     await als(ID.ohne)
+    await db.query("select set_config('doccheck.rights_call', 'on', false)")
     expect(await fehler('update public.profiles set doccheck_admin = true where id = $1', [ID.ohne])).toMatch(/permission denied/)
+    // Zweite Absicherung: Selbst wenn jemand das Spaltenrecht versehentlich vergibt, hält der Trigger
+    await alsDienst()
+    await db.exec('grant update (doccheck_access, doccheck_admin) on public.profiles to authenticated')
+    await als(ID.ohne)
+    expect(await fehler('update public.profiles set doccheck_admin = true where id = $1', [ID.ohne])).toContain('IC-DOCCHECK')
+    await alsDienst()
+    await db.exec('revoke update (doccheck_access, doccheck_admin) on public.profiles from authenticated')
+  })
+
+  it('E-Mail kommt aus der Anmeldung', async () => {
+    await alsDienst()
+    await db.query("update auth.users set email = 'sam.neu@example.test' where id = $1", [ID.ohne])
+    expect((await db.query('select email from public.profiles where id = $1', [ID.ohne])).rows[0]).toEqual({ email: 'sam.neu@example.test' })
+    await db.query("update auth.users set email = 'sam@example.test' where id = $1", [ID.ohne])
   })
 
   it('Superadmin pflegt Nutzer, ändert aber nicht die eigene Rolle; der letzte Superadmin bleibt', async () => {
@@ -135,6 +161,8 @@ describe('Profile', () => {
     // Auch außerhalb einer Nutzersitzung: der letzte aktive Superadmin bleibt
     await alsDienst()
     expect(await fehler("update public.profiles set role = 'member' where id = $1", [ID.super])).toContain('IC-LAST-SUPERADMIN')
+    // Auch nicht durch Löschen des Kontos (Kaskade aus auth.users) — Sicherheitsprüfung 01.11.2026
+    expect(await fehler('delete from auth.users where id = $1', [ID.super])).toContain('IC-LAST-SUPERADMIN')
     // Mit einem zweiten Superadmin geht es
     await einladen(ID.super2, 'zweit@example.test', { role: 'superadmin' })
     await als(ID.super2)
@@ -191,11 +219,13 @@ describe('DocCheck', () => {
     expect((await db.query('select data from doccheck.settings')).rows).toEqual([])
     await als(ID.nutzer)
     expect((await db.query('select data from doccheck.settings')).rows).toHaveLength(1)
-    expect((await db.query(`update doccheck.settings set data = '{"x":1}'`)).affectedRows).toBe(0)
+    // Kein direktes UPDATE — auch der Superadmin nicht, sonst ginge es am Audit vorbei
+    expect(await fehler(`update doccheck.settings set data = '{"x":1}'`)).toMatch(/permission denied/)
     expect(await fehler(`select doccheck.update_settings('{"gateSperrt":true}')`)).toContain('IC-RIGHTS')
     await als(ID.super)
     await db.query(`select doccheck.update_settings('{"gateSperrt":true,"features":{"recheck":true}}')`)
     await db.query(`select doccheck.update_settings('{"features":{"chat":false}}')`)
+    expect(await fehler(`update doccheck.settings set data = '{}'`)).toMatch(/permission denied/)
     const d = (await db.query<{ data: Record<string, unknown> }>('select data from doccheck.settings')).rows[0].data
     expect(d).toEqual({ gateSperrt: true, features: { recheck: true, chat: false } })
     const a = (await db.query<{ action: string; target: string; value: string }>("select action, target, value from doccheck.audit where action in ('feature','einstellung') order by id")).rows
@@ -225,16 +255,37 @@ describe('DocCheck', () => {
     expect((await db.query('delete from doccheck.documents where id = $1', [id])).affectedRows).toBe(1)
   })
 
-  it('Re-Check bestätigen: wer prüfen darf; Text gekürzt; Deaktivierte nicht', async () => {
+  it('Re-Check bestätigen: wer prüfen darf; nur strukturierte Einträge, kein freier Text; Deaktivierte nicht', async () => {
+    const eintraege = JSON.stringify([{ ref: '12', status: 'Resolved' }, { ref: 'A-3', status: 'Not resolved' }])
     await als(ID.ohne)
-    expect(await fehler("select doccheck.log_recheck('fl.xlsx', '1: Resolved')")).toContain('IC-RIGHTS')
+    expect(await fehler('select doccheck.log_recheck($1, $2)', ['fl.xlsx', eintraege])).toContain('IC-RIGHTS')
     await als(ID.inaktiv)
-    expect(await fehler("select doccheck.log_recheck('fl.xlsx', '1: Resolved')")).toContain('IC-RIGHTS')
+    expect(await fehler('select doccheck.log_recheck($1, $2)', ['fl.xlsx', eintraege])).toContain('IC-RIGHTS')
     await als(ID.nutzer)
-    await db.query('select doccheck.log_recheck($1, $2)', ['fl.xlsx', 'x'.repeat(400)])
+    await db.query('select doccheck.log_recheck($1, $2)', ['fl\u0007.xlsx', eintraege])
+    // Freier Text statt Nummer oder Status — abgewiesen (Sicherheitsprüfung: Audit ließ sich beliebig beschreiben)
+    expect(await fehler('select doccheck.log_recheck($1, $2)', ['fl.xlsx', JSON.stringify([{ ref: 'Closed by Alex Beispiel (superadmin)', status: 'Resolved' }])])).toContain('IC-INPUT')
+    expect(await fehler('select doccheck.log_recheck($1, $2)', ['fl.xlsx', JSON.stringify([{ ref: '1', status: 'Erledigt laut Chef' }])])).toContain('IC-INPUT')
+    expect(await fehler('select doccheck.log_recheck($1, $2)', ['fl.xlsx', '[]'])).toContain('IC-INPUT')
+    expect(await fehler('select doccheck.log_recheck($1, $2)', ['fl.xlsx', JSON.stringify(Array.from({ length: 501 }, (_, i) => ({ ref: String(i), status: 'Resolved' })))])).toContain('IC-INPUT')
     await als(ID.super)
-    const r = (await db.query<{ actor: string; value: string }>("select actor, value from doccheck.audit where action = 'recheckBestaetigt'")).rows[0]
-    expect([r.actor, r.value.length]).toEqual([ID.nutzer, 300])
+    const r = (await db.query<{ actor: string; target: string; value: string }>("select actor, target, value from doccheck.audit where action = 'recheckBestaetigt'")).rows
+    expect(r).toEqual([{ actor: ID.nutzer, target: 'fl.xlsx', value: '12: Resolved, A-3: Not resolved' }])
+  })
+
+  it('Mengenbegrenzung: höchstens 60 Audit-Zeilen je Minute und Nutzer', async () => {
+    await als(ID.nutzer)
+    const e = JSON.stringify([{ ref: '1', status: 'Resolved' }])
+    for (let i = 0; i < 59; i++) await db.query('select doccheck.log_recheck($1, $2)', ['fl.xlsx', e])
+    expect(await fehler('select doccheck.log_recheck($1, $2)', ['fl.xlsx', e])).toContain('IC-RATE')
+  })
+
+  it('Konto löschen geht (Löschrecht); Audit-Zeilen bleiben ohne Personenbezug', async () => {
+    await alsDienst()
+    const vorher = (await db.query<{ n: number }>('select count(*)::int as n from doccheck.audit where actor = $1', [ID.nutzer])).rows[0].n
+    expect(vorher).toBeGreaterThan(0)
+    await db.query('delete from auth.users where id = $1', [ID.nutzer])
+    expect((await db.query<{ n: number }>('select count(*)::int as n from doccheck.audit where actor is null')).rows[0].n).toBe(vorher)
   })
 })
 
@@ -247,8 +298,8 @@ describe('Zuordnung der App passt zur Migration', () => {
     const r = await db.query(`update public.profiles set ${spalten.map((s, i) => `${s} = $${i + 2}`).join(', ')} where id = $1`, [ID.gruppe, ...Object.values(patch)])
     expect(r.affectedRows).toBe(1)
     const z = (await db.query<ProfilZeile>('select * from public.profiles where id = $1', [ID.gruppe])).rows[0]
-    // DocCheck-Rechte kamen NICHT über das UPDATE
-    expect(zuNutzer(z)).toMatchObject({ ...alles, docCheckAccess: false, docCheckAdmin: false })
+    // DocCheck-Rechte und E-Mail kamen NICHT über das UPDATE (E-Mail gehört der Anmeldung)
+    expect(zuNutzer(z)).toMatchObject({ ...alles, email: 'gruppe@example.test', docCheckAccess: false, docCheckAdmin: false })
   })
 })
 

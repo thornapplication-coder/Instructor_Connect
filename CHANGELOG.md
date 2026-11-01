@@ -907,3 +907,23 @@ Einlesen jedes Prüfdokuments und erneut nach OCR oder Word-PDF-Paar.
 - Noch nicht: Anmeldemaske an das Backend anschließen, Einladen von
   Nutzern in der Verwaltung, Daten der App (Chats, Grading, Logbuch) in die
   Datenbank — folgen, sobald ein Projekt angelegt ist.
+
+## 1.18.0 — 2026-11-01
+
+Ergebnis einer Sicherheits- und Datenschutzprüfung (vier unabhängige
+Prüfungen: UI/UX, Barrierefreiheit, Spezifikation, Sicherheit).
+
+- **Datenschutz:** echte Namen, persönliche E-Mail-Adressen und
+  Mobilnummern in Code, Tests und Doku durch Platzhalter ersetzt.
+- **Schlüssel:** nur öffentliche Supabase-Schlüssel; Build bricht bei
+  Geheimnissen in `VITE_*` ab, Veröffentlichung prüft das Bundle;
+  `.env*` ignoriert.
+- **Datenbank gehärtet:** Supabase-Standardrechte entzogen (Testumgebung
+  bildet sie jetzt nach), Rechte-Schutz ohne setzbare Sitzungseinstellung,
+  letzter Superadmin auch gegen Löschen und gleichzeitiges Herabstufen
+  geschützt, Einstellungen nur mit Audit, Re-Check-Audit strukturiert und
+  begrenzt, Verzeichnis-Sicht statt voller Profile, E-Mail aus der
+  Anmeldung, Löschen von Konten möglich (Audit ohne Personenbezug).
+  Gegenprobe mit Postgres 16.
+- **Dateien:** Grenzen gegen Zip-Bomben (angegebene und tatsächlich
+  entpackte Größe); ungültige Zeichenreferenzen brechen kein Dokument mehr ab.

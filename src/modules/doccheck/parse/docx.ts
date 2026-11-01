@@ -1,4 +1,4 @@
-import JSZip from 'jszip'
+import { teilLesen as zipTeilLesen, zipOeffnen } from './zip'
 import { LEERE_LENKUNG, type Lenkung, type Rechtscharakter, type Rohdokument, type WordExtrakt, type WortAbschnitt } from './model'
 import { seitenAusEinheiten, tocEintrag, tocZuordnung } from './seitenzuordnung'
 import { stileLesen } from './wordStile'
@@ -61,8 +61,8 @@ export function eigenschaftenLesen(coreXml?: string, customXml?: string, appXml?
 }
 
 export async function docxLesen(daten: Uint8Array | ArrayBuffer, vorgabe?: Rechtscharakter): Promise<Rohdokument> {
-  const zip = await JSZip.loadAsync(daten)
-  const lies = async (pfad: string) => zip.file(pfad)?.async('string')
+  const zip = await zipOeffnen(daten)
+  const lies = (pfad: string) => zipTeilLesen(zip, pfad)
   const doc = await lies('word/document.xml')
   if (!doc) throw new Error('DC-DOCX-INVALID')
   const stile = stileLesen((await lies('word/styles.xml')) ?? '')

@@ -216,14 +216,30 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
   `src/backend/rls.test.ts` prüft jede Aktion mit jeder Rolle gegen `darf()`
   aus `access.ts` (über `AKTIONEN`). Wer eine Zeile der Matrix ändert, ändert
   beide — sonst wird der Test rot.
-- **Schutzregeln als Trigger** (`profiles_guard`), damit sie für JEDEN Weg
-  gelten: Rolle, Status und Rechte nur vom Superadmin; niemand ändert die
-  eigene Rolle oder deaktiviert sich; der letzte aktive Superadmin bleibt.
-  DocCheck-Rechte nur über `doccheck.set_rights` (mit Audit) — es gibt
-  dafür bewusst kein Spalten-Update-Recht.
+- **Supabase-Standardrechte zuerst entziehen.** Supabase gibt neuen
+  Objekten in `public` ALLE Rechte für `anon`/`authenticated`; jede Migration
+  beginnt je Tabelle/View/Funktion mit `revoke all … from anon,
+  authenticated` und gibt dann gezielt. `auth_stub.sql` bildet diese
+  Standardrechte nach — ohne das prüfte der Rollentest gegen eine strengere
+  Datenbank als die echte (Sicherheitsprüfung 01.11.2026).
+- **Schutzregeln als Trigger** (`profiles_guard`, bei UPDATE UND DELETE),
+  damit sie für JEDEN Weg gelten: Rolle, Status und Rechte nur vom
+  Superadmin; niemand ändert die eigene Rolle oder deaktiviert sich; der
+  letzte aktive Superadmin bleibt — auch beim Löschen über `auth.users`,
+  und mit Transaktionssperre gegen gleichzeitiges Herabstufen.
+  DocCheck-Rechte und E-Mail nur über Funktionen: erkannt am ausführenden
+  Datenbanknutzer (`authenticated` = App, Eigentümer = `set_rights` bzw.
+  Anmeldung), NIE an einer Sitzungseinstellung — die kann jeder setzen.
+- **Volle Profile sieht nur der Nutzer selbst und der Superadmin**; alle
+  anderen lesen `public.directory` (Name, Kontakt, Rolle, Muster,
+  bewerten/Trainee) — Datenminimierung.
 - **Audit-Zeilen schreibt nur die Datenbank** (Funktionen mit dem Aufrufer
-  als Akteur); niemand hat INSERT auf `doccheck.audit`. Wahrheitswerte
-  stehen als „true/false" darin, wie im Audit der App.
+  als Akteur); niemand hat INSERT auf `doccheck.audit`. Einträge sind
+  strukturiert (Re-Check: Nummer + Status aus fester Liste, max. 500 je
+  Aufruf, 60 Aufrufe/Minute) — kein freier Text, also kein Befundinhalt.
+  Einstellungen nur über `doccheck.update_settings`, nie per UPDATE.
+  Wird ein Konto gelöscht (Löschrecht), bleibt die Audit-Zeile ohne
+  Akteur stehen. Wahrheitswerte stehen als „true/false" darin.
 - **Tests ohne Docker:** PGlite (Postgres als WebAssembly) lädt die
   Migrationen so, wie Supabase sie ausführt; `supabase/tests/auth_stub.sql`
   ersetzt nur, was Supabase mitbringt (`auth.users`, `auth.uid()`, Rollen).
@@ -234,9 +250,28 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
   `shouldCreateUser: false`). Eine unbekannte Adresse wird wie eine bekannte
   quittiert, ein falscher Code wie eine unbekannte Adresse — niemand soll
   durch Ausprobieren erfahren, wer ein Konto hat.
-- Der **service_role-Schlüssel** gehört nie in die App; `backendKonfig`
-  weist ihn ab. Der Anthropic-Schlüssel kommt später als Secret in eine
-  Edge Function, nie in den Browser.
+- **In die App gehört nur ein öffentlicher Schlüssel** (`sb_publishable_…`
+  oder JWT `anon`); `backendKonfig` weist alles andere ab, auch unbekannte
+  Formate. Weil Vite `VITE_*`-Werte fest ins Bundle schreibt, bricht
+  zusätzlich der **Build** ab (`geheimeVariablen` in `vite.config.ts`), und
+  `deploy.yml` durchsucht `dist/` nach Schlüsselwerten. `.env*` steht in
+  `.gitignore`.
+- **KI-Proxy (Edge Function, folgt):** Der Anthropic-Schlüssel ist ein
+  Secret der Function, nie im Browser. Die Function folgt dem Browser
+  NICHT blind: JWT prüfen und `doccheck.can('pruefen')`, Systemprompt und
+  erlaubte Modelle serverseitig je Zweck, Größen- und Ratenbegrenzung,
+  Monatsbudget, keine Inhalte im Protokoll. Sonst ist sie ein offener
+  Zugang zu Claude auf Kosten der ATO.
+
+## Dateien von außen (DocCheck)
+
+- **DOCX/XLSX öffnen nur über `parse/zip.ts`** (`zipOeffnen`, `teilLesen`):
+  Grenzen für Einträge, angegebene UND tatsächlich entpackte Größe je Teil
+  und je Datei. Die Angaben im ZIP-Verzeichnis lassen sich fälschen — erst
+  das Mitzählen beim Entpacken stoppt eine Zip-Bombe. Wer `JSZip.loadAsync`
+  direkt auf eine hochgeladene Datei ansetzt, öffnet die Lücke wieder.
+- Ungültige Zeichenreferenzen werden zu U+FFFD, statt das ganze Dokument
+  abzubrechen.
 
 ## Sonstiges
 

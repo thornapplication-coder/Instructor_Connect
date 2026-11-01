@@ -15,7 +15,7 @@ describe('Profil ↔ User', () => {
   })
 
   it('Änderung → Spalten; DocCheck-Rechte und id fallen weg, undefined auch', () => {
-    expect(zuAenderung({ name: 'N', aircraftTypes: ['A'], canGrade: false, docCheckAccess: true, docCheckAdmin: true, id: 'x', phone: undefined })).toEqual({ name: 'N', aircraft_types: ['A'], can_grade: false })
+    expect(zuAenderung({ name: 'N', email: 'x@y.test', aircraftTypes: ['A'], canGrade: false, docCheckAccess: true, docCheckAdmin: true, id: 'x', phone: undefined })).toEqual({ name: 'N', aircraft_types: ['A'], can_grade: false })
   })
 
   it('Schutzregeln der Datenbank → Gründe', () => {

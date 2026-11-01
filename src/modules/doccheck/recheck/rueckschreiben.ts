@@ -1,4 +1,5 @@
 import JSZip from 'jszip'
+import { teilLesen, zipOeffnen } from '../parse/zip'
 import { vergleichsform } from '../parse/seitenzuordnung'
 import { blattRaster, geteilteTexte, spalte } from '../parse/xlsx'
 import { entitaeten, xmlEreignisse } from '../parse/xml'
@@ -178,8 +179,8 @@ interface Mappe {
 }
 
 async function mappeLesen(daten: Uint8Array): Promise<Mappe> {
-  const zip = await JSZip.loadAsync(daten)
-  const lies = async (p: string) => (await zip.file(p)?.async('string')) ?? ''
+  const zip = await zipOeffnen(daten)
+  const lies = async (p: string) => (await teilLesen(zip, p)) ?? ''
   const wb = await lies('xl/workbook.xml')
   if (!wb) throw new Error('DC-XLSX-INVALID')
   const ziele = new Map<string, string>()
@@ -202,7 +203,7 @@ async function bereichWerte(m: Mappe, formel: string, eigenesBlatt: string): Pro
   const blatt = m.blaetter.find((x) => x.name === (b[1] ?? eigenesBlatt))
   if (!blatt) return []
   const nr: number[] = []
-  const raster = blattRaster((await m.zip.file(blatt.pfad)?.async('string')) ?? '', m.geteilt, nr)
+  const raster = blattRaster((await teilLesen(m.zip, blatt.pfad)) ?? '', m.geteilt, nr)
   const [s1, s2] = [spalte(b[2]), spalte(b[4] ?? b[2])]
   const [z1, z2] = [Number(b[3]), Number(b[5] ?? b[3])]
   const out: string[] = []
@@ -228,7 +229,7 @@ const imBereich = (sqref: string, sp: number, zeile: number) =>
 export async function listenWerte(daten: Uint8Array, blattName: string, sp: number, zeile: number, vorhandene: string[]): Promise<string[]> {
   const m = await mappeLesen(daten)
   const blatt = m.blaetter.find((b) => b.name === blattName)
-  const xml = blatt ? ((await m.zip.file(blatt.pfad)?.async('string')) ?? '') : ''
+  const xml = blatt ? ((await teilLesen(m.zip, blatt.pfad)) ?? '') : ''
   const pruefungen = [
     ...[...xml.matchAll(/<dataValidation\b([^>]*)>([\s\S]*?)<\/dataValidation>/g)].map((d) => ({ typ: attr(d[1], 'type'), sqref: attr(d[1], 'sqref') ?? '', formel: d[2].match(/<formula1>([\s\S]*?)<\/formula1>/)?.[1] ?? '' })),
     ...[...xml.matchAll(/<x14:dataValidation\b([^>]*)>([\s\S]*?)<\/x14:dataValidation>/g)].map((d) => ({ typ: attr(d[1], 'type'), sqref: d[2].match(/<xm:sqref>([\s\S]*?)<\/xm:sqref>/)?.[1] ?? '', formel: d[2].match(/<xm:f>([\s\S]*?)<\/xm:f>/)?.[1] ?? '' })),
@@ -322,7 +323,7 @@ export async function rueckschreiben(daten: Uint8Array, a: RueckschreibAuftrag):
   const m = await mappeLesen(daten)
   const blatt = m.blaetter.find((b) => b.name === a.blatt)
   if (!blatt) throw new Error('DC-XLSX-SHEET')
-  const lies = async (p: string) => (await m.zip.file(p)?.async('string')) ?? ''
+  const lies = async (p: string) => (await teilLesen(m.zip, p)) ?? ''
   let xml = await lies(blatt.pfad)
   let styles = await lies('xl/styles.xml')
   const geaendert = new Set<string>([blatt.pfad])

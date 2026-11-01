@@ -11,3 +11,11 @@ create function auth.uid() returns uuid language sql stable as $$
 $$;
 grant usage on schema auth to authenticated, anon;
 grant usage on schema public to authenticated, anon;
+
+-- Wie bei Supabase: neue Objekte in public bekommen ALLE Rechte für anon
+-- und authenticated (Default Privileges). Ohne diese Nachbildung prüfte der
+-- Rollentest gegen eine strengere Datenbank als die echte — die
+-- Sicherheitsprüfung vom 01.11.2026 hat genau so eine Lücke gefunden.
+alter default privileges in schema public grant all on tables to anon, authenticated;
+alter default privileges in schema public grant all on sequences to anon, authenticated;
+alter default privileges in schema public grant all on functions to anon, authenticated;

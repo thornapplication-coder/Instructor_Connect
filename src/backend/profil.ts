@@ -40,11 +40,14 @@ export function zuNutzer(z: ProfilZeile): User {
   }
 }
 
-/** Spalten, die der Superadmin per UPDATE ändern darf — DocCheck-Rechte NICHT (nur doccheck.set_rights). */
+/**
+ * Spalten, die der Superadmin per UPDATE ändern darf. NICHT dabei: DocCheck-
+ * Rechte (nur doccheck.set_rights, mit Audit) und die E-Mail (gehört der
+ * Anmeldung und wird von dort übernommen).
+ */
 const SPALTEN: Partial<Record<keyof User, keyof ProfilZeile>> = {
   name: 'name',
   phone: 'phone',
-  email: 'email',
   role: 'role',
   active: 'active',
   aircraftTypes: 'aircraft_types',

@@ -22,7 +22,9 @@ export function entitaeten(s: string): string {
     if (e === 'quot') return '"'
     if (e === 'apos') return "'"
     const code = e.startsWith('#x') ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)
-    return String.fromCodePoint(code)
+    // Ungültige Zeichenreferenz (&#x110000;) → Ersatzzeichen. Vorher brach
+    // ein einziges solches Zeichen das ganze Dokument ab (RangeError).
+    return code >= 0 && code <= 0x10ffff ? String.fromCodePoint(code) : '\uFFFD'
   })
 }
 

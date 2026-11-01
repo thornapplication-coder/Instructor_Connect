@@ -22,4 +22,9 @@ describe('XML-Ereignisstrom', () => {
     const xml = '<w:p><w:r><w:t>Hallo</w:t><w:tab/><w:t>Welt</w:t></w:r></w:p><w:p><w:r><w:t>zwei</w:t><w:br/></w:r></w:p>'
     expect(texteIn(xml, 'w:p')).toEqual(['Hallo Welt', 'zwei'])
   })
+
+  it('ungültige Zeichenreferenz wird Ersatzzeichen, statt das Dokument abzubrechen (Sicherheitsprüfung)', () => {
+    expect(entitaeten('a&#x110000;b&#65;')).toBe('a\uFFFDbA')
+  })
 })
+

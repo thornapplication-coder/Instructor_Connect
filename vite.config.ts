@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { defineConfig, type Plugin } from 'vite'
+import { defineConfig, loadEnv, type Plugin } from 'vite'
+import { geheimeVariablen } from './src/backend/konfig'
 import react from '@vitejs/plugin-react'
 
 /** Alle Dateien aus public/ (rekursiv) — sie landen unverändert in dist/. */
@@ -233,9 +234,16 @@ self.addEventListener('fetch', (e) => {
 // Relativer Basispfad: dank Hash-Routing funktioniert die App unter jedem
 // Unterpfad (GitHub Pages, Repo-Umbenennungen) ohne Anpassung.
 // AC_BASE kann das bei Bedarf weiterhin überschreiben.
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // Alle VITE_*-Werte landen fest im öffentlichen Bundle. Steht dort ein
+  // Geheimnis (sb_secret_…, service_role, sk-ant-…), bricht der Build ab —
+  // bevor es auf GitHub Pages liegt.
+  const geheim = geheimeVariablen(loadEnv(mode, process.cwd(), 'VITE_'))
+  if (geheim.length) throw new Error(`Build abgebrochen: ${geheim.join(', ')} enthält einen geheimen Schlüssel. In die App gehört nur der öffentliche (publishable/anon) Schlüssel.`)
+  return {
   base: process.env.AC_BASE || './',
   // Der DocCheck-Worker ist ein ES-Modul (er lädt pdf.js dynamisch nach).
   worker: { format: 'es' },
   plugins: [react(), docCheckDateien(), serviceWorker()],
+  }
 })
