@@ -1,5 +1,5 @@
 import { ArrowLeft, Home as HomeIcon, Moon, Sun, X } from 'lucide-react'
-import { Children, useCallback, useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { Children, useCallback, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { navigate } from '../router'
 
@@ -474,12 +474,15 @@ export function Badge({ children, tone = 'accent', strong = false }: { children:
   /* Akzentfarbe auf 15-%-Flaeche ergab gemessene 3,86:1 — unter den
      geforderten 4,5:1 fuer normalen Text. Die Flaeche traegt den Akzent,
      die Schrift bleibt Text (12,4:1). Dasselbe gilt fuer den aktiven
-     Zustand jedes Umschalters in der App. */
+     Zustand jedes Umschalters in der App.
+     Gleiches Bild bei ok/wait/bad (nachgemessen 01.11.2026): hell 3,4–4,3:1
+     fuer wait und ok, dunkel 3,6:1 fuer bad auf getoenten Flaechen. Jetzt
+     Schrift in ink (8:1 und mehr), die Farbe tragen Flaeche und Rand. */
   const soft: Record<BadgeTone, string> = {
     accent: 'bg-accent/15 text-ink',
-    ok: 'bg-ok/15 text-ok',
-    wait: 'bg-wait/15 text-wait',
-    bad: 'bg-bad/15 text-bad',
+    ok: 'bg-ok/15 text-ink ring-1 ring-inset ring-ok/50',
+    wait: 'bg-wait/15 text-ink ring-1 ring-inset ring-wait/50',
+    bad: 'bg-bad/15 text-ink ring-1 ring-inset ring-bad/50',
     dim: 'bg-line/10 text-dim',
   }
   /* Die Ink-Toene wechseln mit dem Theme mit — auf der hellen Ampelflaeche
@@ -514,33 +517,19 @@ function focusableIn(panel: HTMLElement | null): HTMLElement[] {
   )
 }
 
-export function Modal({
-  title,
-  onClose,
-  children,
-  confirmDiscard,
-}: {
-  title: string
-  onClose: () => void
-  children: ReactNode
-  /** Rückfrage vor dem Verwerfen (Text); ohne Angabe schließt der Dialog sofort */
-  confirmDiscard?: string
-}) {
-  const { t } = useTranslation()
-  const panelRef = useRef<HTMLDivElement>(null)
-  const openerRef = useRef<Element | null>(null)
-
-  const close = useCallback(() => {
-    if (confirmDiscard && !window.confirm(confirmDiscard)) return
-    onClose()
-  }, [confirmDiscard, onClose])
-
-  // Die Aufrufer übergeben onClose als Inline-Funktion, close ändert sich
-  // daher bei jedem Rendern. Über die Referenz bleibt der Tasten-Effekt
-  // trotzdem stabil — sonst würde er sich bei jedem Tastendruck neu
-  // aufhängen und dabei den Fokus mitreißen.
-  const closeRef = useRef(close)
-  closeRef.current = close
+/**
+ * Fokusführung eines Dialogs: beim Öffnen hinein (erstes Eingabefeld, sonst
+ * erstes bedienbares Element), Tab läuft im Kreis, Escape schließt, beim
+ * Schließen zurück auf das auslösende Element. EINE Stelle für Modal und
+ * DocCheck-Viewer — der Viewer hatte das nicht, und wer ihn per Tastatur
+ * öffnete, landete hinter ihm (Barrierefreiheitsprüfung 01.11.2026).
+ */
+export function useDialogFokus(panelRef: RefObject<HTMLElement>, onEscape: () => void): void {
+  // Aufrufer übergeben Inline-Funktionen; über die Referenz bleibt der
+  // Tasten-Effekt stabil — sonst hinge er sich bei jedem Rendern neu auf und
+  // risse den Fokus mit.
+  const escRef = useRef(onEscape)
+  escRef.current = onEscape
 
   // Fokus genau einmal setzen: beim Öffnen in den Dialog, beim Schließen
   // zurück auf das auslösende Element. Hing das früher an close, sprang der
@@ -548,7 +537,7 @@ export function Modal({
   // die Seite ruckelte und es kam nur der erste Buchstabe an.
   useEffect(() => {
     const panel = panelRef.current
-    openerRef.current = document.activeElement
+    const opener = document.activeElement
     // Das erste Eingabefeld ist der sinnvolle Startpunkt; erst wenn der
     // Dialog keines hat, zählt das erste bedienbare Element. Der
     // Schließen-Knopf steht im Quelltext vorne, ist als Startpunkt aber
@@ -559,16 +548,7 @@ export function Modal({
     if (target) target.focus()
     else panel?.focus()
     return () => {
-      ;(openerRef.current as HTMLElement | null)?.focus?.()
-    }
-  }, [])
-
-  // Solange der Dialog offen ist, darf die Seite dahinter nicht mitscrollen.
-  useEffect(() => {
-    const prev = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      document.body.style.overflow = prev
+      ;(opener as HTMLElement | null)?.focus?.()
     }
   }, [])
 
@@ -576,7 +556,7 @@ export function Modal({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        closeRef.current()
+        escRef.current()
         return
       }
       if (e.key !== 'Tab') return
@@ -595,6 +575,38 @@ export function Modal({
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
+  }, [panelRef])
+}
+
+export function Modal({
+  title,
+  onClose,
+  children,
+  confirmDiscard,
+}: {
+  title: string
+  onClose: () => void
+  children: ReactNode
+  /** Rückfrage vor dem Verwerfen (Text); ohne Angabe schließt der Dialog sofort */
+  confirmDiscard?: string
+}) {
+  const { t } = useTranslation()
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  const close = useCallback(() => {
+    if (confirmDiscard && !window.confirm(confirmDiscard)) return
+    onClose()
+  }, [confirmDiscard, onClose])
+
+  useDialogFokus(panelRef, close)
+
+  // Solange der Dialog offen ist, darf die Seite dahinter nicht mitscrollen.
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = prev
+    }
   }, [])
 
   return (

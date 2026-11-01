@@ -57,6 +57,21 @@ export function revisionFinden(text: string): string | undefined {
   return m[3] ? `${teil1} ${wort(m[3])} ${m[4]}` : teil1
 }
 
+/**
+ * Revision aus dem Dateinamen — Rückfall, wenn das Deckblatt keine nennt.
+ * „TM_E2R0.1.docx" → „Edition 2 Rev 0.1", „OMM Rev 3.pdf" / „PLM_R0.1.pdf"
+ * → „Rev 0.1". Vorher erschien „Revision ist Pflicht" rot, obwohl die
+ * Revision im Namen stand (UX-Prüfung 01.11.2026). „R" nur nach einem
+ * Trenner und direkt vor der Zahl: „Report 2" ist keine Revision.
+ */
+export function revisionAusDateiname(name: string): string | undefined {
+  const stamm = name.replace(/\.[a-z0-9]{2,5}$/i, '')
+  const er = stamm.match(/(?:^|[\s_.-])E(?:d(?:ition)?)?[\s_-]?(\d+)[\s_-]?R(?:ev)?[\s_-]?(\d+(?:\.\d+)*)(?=$|[\s_-])/i)
+  if (er) return `Edition ${er[1]} Rev ${er[2]}`
+  const r = stamm.match(/(?:^|[\s_.-])(?:Rev(?:ision)?\.?|R)[\s_-]?(\d+(?:\.\d+)*)(?=$|[\s_-])/i)
+  return r ? `Rev ${r[1]}` : undefined
+}
+
 export function nummerFinden(text: string): string | undefined {
   const m = text.match(/\b(?:Doc(?:ument)?\.?\s*(?:No\.?|Nr\.?|Number|ID)|P\/N|Part\s*No\.?|Manual\s*No\.?|Reference|Ref\.)\s*:?\s*([A-Z0-9][A-Z0-9\-./]{2,})/i)
   return m?.[1]

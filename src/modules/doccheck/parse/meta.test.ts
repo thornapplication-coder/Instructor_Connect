@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { datumFinden, metaErkennen, nummerFinden, revisionFinden, titelFinden, typFinden } from './meta'
+import { datumFinden, metaErkennen, nummerFinden, revisionAusDateiname, revisionFinden, titelFinden, typFinden } from './meta'
 
 describe('Datum', () => {
   it('erkennt ISO, DD.MM.YYYY und ausgeschriebene Monate (de/en)', () => {
@@ -84,5 +84,18 @@ describe('metaErkennen (Abnahme Phase 2: Revision und Datum eines Beispiel-Manua
 
   it('leere Eingabe ergibt leere Felder statt geratener', () => {
     expect(metaErkennen([])).toEqual({ titel: undefined, nummer: undefined, revision: undefined, datum: undefined, typ: undefined })
+  })
+})
+
+describe('Revision aus dem Dateinamen (UX-Prüfung 01.11.2026)', () => {
+  it('Edition+Revision, Rev, R mit Trenner; keine Revision in Wörtern', () => {
+    expect(revisionAusDateiname('TM_E2R0.1.docx')).toBe('Edition 2 Rev 0.1')
+    expect(revisionAusDateiname('TM Ed2 Rev1.pdf')).toBe('Edition 2 Rev 1')
+    expect(revisionAusDateiname('OMM Rev 3.pdf')).toBe('Rev 3')
+    expect(revisionAusDateiname('PLM_R0.1.pdf')).toBe('Rev 0.1')
+    expect(revisionAusDateiname('APX-5_Rev.2_draft.docx')).toBe('Rev 2')
+    expect(revisionAusDateiname('Report 2.pdf')).toBeUndefined()
+    expect(revisionAusDateiname('TM.docx')).toBeUndefined()
+    expect(revisionAusDateiname('R2D2.pdf')).toBeUndefined()
   })
 })

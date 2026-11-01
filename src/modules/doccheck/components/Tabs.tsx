@@ -15,7 +15,33 @@ import { PaketPanel, PaketUmschalter } from './Paket'
 
 /* ------------------------------ Prüfung ------------------------------ */
 
-export function PruefungTab({ modell }: { modell: string }) {
+/**
+ * Was HEUTE schon prüft, steht zuoberst: Vorher öffnete DocCheck mit einem
+ * KI-Formular, dessen Startknopf gesperrt ist — die regelbasierte Prüfung,
+ * die beim Einlesen längst gelaufen war, fand man nur über „Findings"
+ * (UX-Prüfung 01.11.2026).
+ */
+function RegelStand({ zuFindings }: { zuFindings: () => void }) {
+  const { t } = useTranslation('doccheck')
+  const geprueft = useSitzung().docs.filter((d) => d.rolle === 'review' && d.z?.pruefung)
+  const befunde = geprueft.flatMap((d) => d.z!.pruefung!.befunde)
+  const hoch = befunde.filter((b) => b.prioritaet === 'High').length
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-stack rounded-2xl border border-accent/30 bg-accent/5 p-4">
+      <div className="min-w-0 text-small">
+        <p className="flex items-center gap-1.5 font-semibold">
+          <CheckCircle2 size={16} className="text-ok" aria-hidden /> {t('pruefung.regel.titel')}
+        </p>
+        <p className="text-dim">
+          {geprueft.length ? t('pruefung.regel.stand', { count: geprueft.length, befunde: befunde.length, hoch }) : t('pruefung.regel.leer')}
+        </p>
+      </div>
+      {geprueft.length > 0 && <Button onClick={zuFindings}>{t('pruefung.regel.zuFindings')}</Button>}
+    </div>
+  )
+}
+
+export function PruefungTab({ modell, zuFindings }: { modell: string; zuFindings: () => void }) {
   const { t } = useTranslation('doccheck')
   const { t: tApp } = useTranslation()
   const { currentUser, docCheckSettings } = useStore()
@@ -27,6 +53,7 @@ export function PruefungTab({ modell }: { modell: string }) {
   const { paketModus } = useSitzung()
   return (
     <div className="space-y-section">
+      <RegelStand zuFindings={zuFindings} />
       {aktiv(docCheckSettings, 'packageCheck') && (
         <>
           <Field label={t('paket.modus')} group>
@@ -35,6 +62,10 @@ export function PruefungTab({ modell }: { modell: string }) {
           {paketModus && <PaketPanel />}
         </>
       )}
+      <div className="flex items-center gap-2 border-t border-line/10 pt-section">
+        <CardHeading>{t('pruefung.ki')}</CardHeading>
+        <Phase n={4} />
+      </div>
       <Field label={t('pruefung.arten')} group>
         <div className="grid gap-tight sm:grid-cols-2">
           {(['technik', 'regulatorik', 'redaktion', 'konsistenz'] as const).map((k) => {
@@ -181,8 +212,9 @@ export function ExportTab() {
         {formate.map(([feat, k, Icon]) => {
           const an = aktiv(docCheckSettings, feat)
           return (
-            <div key={k} className={`flex items-center gap-3 rounded-2xl border border-line/10 p-4 ${an ? '' : 'opacity-50'}`}>
-              <Icon size={22} className="shrink-0 text-accent" aria-hidden />
+            // Abgeschaltet: gestrichelt und Symbol gedämpft — nicht per Deckkraft, die drückte den Hinweistext unter 3:1
+            <div key={k} className={`flex items-center gap-3 rounded-2xl border p-4 ${an ? 'border-line/10' : 'border-dashed border-line/25'}`}>
+              <Icon size={22} className={`shrink-0 ${an ? 'text-accent' : 'text-dim'}`} aria-hidden />
               <div className="min-w-0 flex-1">
                 <p className="text-small font-semibold">{t(`export.${k}`)}</p>
                 <p className="text-micro text-dim">{an ? t(`export.${k}Hint`) : t('export.off')}</p>

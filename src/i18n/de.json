@@ -513,6 +513,8 @@
   "docCheck": {
     "maintenanceTitle": "Wartung – vorübergehend nicht verfügbar",
     "maintenanceBody": "DocCheck ist vom Superadmin abgeschaltet. Alle anderen Bereiche von Instructor Connect stehen wie gewohnt zur Verfügung.",
+    "maintenanceOn": "DocCheck wieder einschalten",
+    "maintenanceOnDone": "DocCheck ist wieder eingeschaltet.",
     "errorTitle": "DocCheck konnte nicht geladen werden",
     "errorBody": "Der Fehler betrifft nur DocCheck. Alle anderen Kacheln funktionieren weiter.",
     "errorCode": "Fehlercode",

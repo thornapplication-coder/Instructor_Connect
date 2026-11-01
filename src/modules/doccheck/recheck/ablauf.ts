@@ -22,6 +22,8 @@ export interface Bestaetigung {
   at: number
   /** Pflicht, wenn vom Vorschlag abgewichen oder „Closed – justification required" bestätigt wird (N11) */
   begruendung?: string
+  /** Vorschlag zum Zeitpunkt der Bestätigung — daran misst `nachLauf`, ob sie einen neuen Lauf überlebt */
+  vorschlag?: ReStatus
 }
 
 export interface ReCheckSitzung {
@@ -124,7 +126,7 @@ export function bestaetigen(r: ReCheckSitzung, zeilen: number[], von: string, at
   const neu = { ...r.bestaetigt }
   for (const z of zeilen) {
     const e = r.ergebnisse.find((x) => x.zeile === z)
-    if (e) neu[z] = { status: e.status, von, at }
+    if (e) neu[z] = { status: e.status, von, at, vorschlag: e.status }
   }
   return { ...r, bestaetigt: neu }
 }
@@ -140,7 +142,26 @@ export function bestaetigenMit(r: ReCheckSitzung, zeile: number, von: string, at
   if (!e) return 'unbekannt'
   const text = begruendung.trim()
   if ((status !== e.status || status === 'justify') && text.length < 5) return 'begruendungFehlt'
-  return { ...r, bestaetigt: { ...r.bestaetigt, [zeile]: { status, von, at, ...(text ? { begruendung: text } : {}) } } }
+  return { ...r, bestaetigt: { ...r.bestaetigt, [zeile]: { status, von, at, vorschlag: e.status, ...(text ? { begruendung: text } : {}) } } }
+}
+
+/**
+ * Neuer Prüflauf: Eine Bestätigung bleibt, solange der Vorschlag für ihre
+ * Zeile derselbe ist, auf den sie sich bezog. Vorher löschte „Erneut
+ * prüfen" ALLE Bestätigungen ohne Rückfrage (UX-Prüfung 01.11.2026) —
+ * stundenlange Freigabearbeit war mit einem Klick weg. Hat sich der
+ * Vorschlag geändert, wäre die alte Freigabe eine Freigabe für etwas
+ * anderes; sie fällt weg und wird gezählt, damit die Oberfläche es sagt.
+ */
+export function nachLauf(r: ReCheckSitzung, ergebnisse: ReErgebnis[], stand: string): { r: ReCheckSitzung; aufgehoben: number } {
+  const bestaetigt: Record<number, Bestaetigung> = {}
+  let aufgehoben = 0
+  for (const [z, ok] of Object.entries(r.bestaetigt)) {
+    const e = ergebnisse.find((x) => x.zeile === Number(z))
+    if (e && ok.vorschlag === e.status) bestaetigt[Number(z)] = ok
+    else aufgehoben++
+  }
+  return { r: { ...r, ergebnisse, geprueftGegen: stand, bestaetigt }, aufgehoben }
 }
 
 /** Remark samt Bestätigung: Bei Abweichung oder Begründung steht beides dabei. */

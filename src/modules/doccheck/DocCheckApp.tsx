@@ -1,5 +1,16 @@
 import { MonitorSmartphone, ShieldAlert } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type KeyboardEvent } from 'react'
+
+/** Pfeiltasten in einer Reiterleiste: wechseln UND den Fokus mitnehmen. */
+function reiterTasten<T extends string>(liste: readonly T[], aktuell: T, setze: (r: T) => void) {
+  return (e: KeyboardEvent<HTMLDivElement>) => {
+    const n = naechsterReiter(liste, aktuell, e.key)
+    if (n === null) return
+    e.preventDefault()
+    setze(n)
+    e.currentTarget.querySelector<HTMLElement>(`[data-reiter="${n}"]`)?.focus()
+  }
+}
 import i18n from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useStore } from '../../store'
@@ -11,6 +22,7 @@ import { aktiv } from './settings'
 import { registriereDocCheckTexte } from './i18n'
 import { aktuellerStand, nachSammlung, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EMPFEHLUNGEN, SANDBOX_SAMMLUNGEN, SANDBOX_STAENDE, standLabel } from './library'
 import { useAnsichtsmodus } from './viewMode'
+import { naechsterReiter } from './reiter'
 import { aktualisiert, fuerNutzer, setzen } from './sitzung'
 import { standardVerbindung } from './verbindung'
 import { ViewerProvider } from './components/Viewer'
@@ -148,19 +160,28 @@ function Desktop() {
         {/* Verwaltung und Administration nehmen die volle Breite: Die
             Seitenspalten gehoeren zur Pruefung, und zwischen ihnen blieben
             fuer Tabellen keine 40 Zeichen. */}
-        <div className={`grid items-start gap-stack ${verwaltung ? '' : nurLinks ? 'xl:grid-cols-[15rem_minmax(0,1fr)]' : 'xl:grid-cols-[15rem_minmax(0,1fr)_18rem]'}`}>
+        {/* Unter 1280 px stand alles untereinander — die Reiter erst unter
+            sämtlichen Dokumentkarten (UX-Prüfung 01.11.2026). Jetzt ab 1024 px
+            zwei Spalten: Prüfdokumente links über beide Zeilen, rechts die
+            Reiter und darunter Bibliothek/Sitzung; schmaler stehen die Reiter
+            zuerst. Ab 1280 px wie bisher drei Spalten. */}
+        <div className={`grid items-start gap-stack ${verwaltung ? '' : nurLinks ? 'lg:grid-cols-[15rem_minmax(0,1fr)]' : 'lg:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_18rem]'}`}>
           {!verwaltung && (
-            <div className="space-y-stack">
+            <div className="space-y-stack lg:row-span-2 xl:row-span-1">
               <ReviewDocsPanel />
               {!nurLinks && <ReferenzPanel />}
             </div>
           )}
-          <Card className="min-w-0 p-0">
-            <div role="tablist" aria-label="DocCheck" className="flex gap-1 overflow-x-auto border-b border-line/10 px-2 pt-2">
+          <Card className={`min-w-0 p-0 ${verwaltung ? '' : 'order-first lg:order-none lg:col-start-2 lg:row-start-1'}`}>
+            <div role="tablist" aria-label="DocCheck" onKeyDown={reiterTasten(reiterListe, reiter, setReiter)} className="flex gap-1 overflow-x-auto border-b border-line/10 px-2 pt-2">
               {reiterListe.map((r) => (
                 <button
                   key={r}
                   role="tab"
+                  id={`dc-tab-${r}`}
+                  data-reiter={r}
+                  aria-controls="dc-panel"
+                  tabIndex={reiter === r ? 0 : -1}
                   aria-selected={reiter === r}
                   onClick={() => setReiter(r)}
                   className={`min-h-11 shrink-0 rounded-t-xl border-b-2 px-2.5 text-small transition ${reiter === r ? 'border-accent font-semibold text-ink' : 'border-transparent text-dim hover:text-ink'}`}
@@ -169,8 +190,10 @@ function Desktop() {
                 </button>
               ))}
             </div>
-            <div role="tabpanel" className="p-4 xl:p-section">
-              {reiter === 'pruefung' && <PruefungTab modell={modell} />}
+            <div role="tabpanel" id="dc-panel" aria-labelledby={`dc-tab-${reiter}`} className="p-4 xl:p-section">
+              {/* h2 zwischen Seitentitel (h1) und Kartenüberschriften (h3) — sonst fehlte eine Ebene */}
+              <h2 className="sr-only">{t(`tabs.${reiter}`)}</h2>
+              {reiter === 'pruefung' && <PruefungTab modell={modell} zuFindings={() => setReiter('findings')} />}
               {reiter === 'findings' && <FindingsTab />}
               {reiter === 'recheck' && reiterListe.includes('recheck') && <ReCheckTab />}
               {reiter === 'chat' && <ChatTab />}
@@ -181,7 +204,7 @@ function Desktop() {
               {probe && <Wurf />}
             </div>
           </Card>
-          <div className={`space-y-stack ${verwaltung || nurLinks ? 'hidden' : ''}`}>
+          <div className={`space-y-stack ${verwaltung || nurLinks ? 'hidden' : 'lg:col-start-2 xl:col-start-3 xl:row-start-1'}`}>
             <LibraryPanel darfPflegen={darf(docCheckRolle, 'bibliothekPflegen')} auswahl={auswahl} setAuswahl={setAuswahl} />
             <SessionDocsPanel />
           </div>
@@ -211,11 +234,13 @@ function Ansicht() {
           </p>
           {/* 2 x 2 am Handy: Vier Segmente in einer Reihe liessen „Nachpruefungen"
               mitten im Wort umbrechen (gemessen am iPhone 13, 390 px). */}
-          <div role="tablist" className={`grid grid-cols-2 gap-1 rounded-2xl bg-line/5 p-1 ${segmente.length === 5 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
+          <div role="tablist" aria-label="DocCheck" onKeyDown={reiterTasten(segmente, seg, setSeg)} className={`grid grid-cols-2 gap-1 rounded-2xl bg-line/5 p-1 ${segmente.length === 5 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
             {segmente.map((s, i) => (
               <button
                 key={s}
                 role="tab"
+                data-reiter={s}
+                tabIndex={seg === s ? 0 : -1}
                 aria-selected={seg === s}
                 onClick={() => setSeg(s)}
                 // Ungerade Anzahl: das letzte Segment nimmt am Handy die ganze Zeile.
@@ -225,6 +250,7 @@ function Ansicht() {
               </button>
             ))}
           </div>
+          <h2 className="sr-only">{t(`mobile.${seg}`)}</h2>
           {seg === 'bibliothek' &&
             nachSammlung(
               SANDBOX_DOKUMENTE.filter((d) => d.status === 'aktiv'),

@@ -1,5 +1,5 @@
-import { CheckCheck, Eye, FilePlus2, FileUp, Link2, ScanText, X } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { CheckCheck, ChevronDown, ChevronRight, Eye, FilePlus2, FileUp, Link2, ScanText, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button } from '../../../components/ui'
 import { toast } from '../../../components/Toast'
@@ -87,6 +87,27 @@ function DokKarte({ d }: { d: SitzungsDok }) {
   const oeffnen = useViewer()
   const [ocr, setOcr] = useState<{ fertig: number; gesamt: number } | null>(null)
   const offen = offenePflichtfelder(d)
+  // Angaben eingeklappt, sobald nichts mehr zu tun ist (Pflichtfelder voll,
+  // Erkanntes bestätigt) — vorher wuchs jede Karte auf volle Formularhöhe
+  // und schob die nächsten aus dem Blick (UX-Prüfung 01.11.2026).
+  const [angabenAuf, setAngabenAuf] = useState(false)
+  const angabenZeigen = angabenAuf || offen.length > 0 || d.erkannt.length > 0
+  // Fertig gelesen ansagen: Der Fortschrittsbalken verschwand still, und wer
+  // nicht hinsah oder eine Sprachausgabe nutzt, erfuhr es nie
+  // (Barrierefreiheitsprüfung 01.11.2026). Der Toast trägt role="status".
+  const statusVorher = useRef(d.status)
+  useEffect(() => {
+    if (statusVorher.current === 'liest' && d.status === 'fertig') toast(t('upload.gelesen', { name: d.name, count: d.z?.pruefung?.befunde.length ?? 0 }))
+    else if (statusVorher.current === 'liest' && d.status === 'fehler') toast(t('upload.nichtGelesen', { name: d.name }), 'bad')
+    statusVorher.current = d.status
+  }, [d.status, d.name, d.z, t])
+  // Entfernen in zwei Schritten: Gelesenes und Prüfergebnis sind danach weg
+  const [wegFragen, setWegFragen] = useState(false)
+  useEffect(() => {
+    if (!wegFragen) return
+    const uhr = setTimeout(() => setWegFragen(false), 4000)
+    return () => clearTimeout(uhr)
+  }, [wegFragen])
   const dup = d.status === 'fertig' ? duplikatFuer(d, zustand, bibliotheksVergleich()) : null
   const format = d.z?.format ?? d.name.split('.').pop()?.toLowerCase()
 
@@ -140,7 +161,7 @@ function DokKarte({ d }: { d: SitzungsDok }) {
       </span>
       <input
         type={typ}
-        className={`${feldCls} ${offen.includes(k) ? '!border-bad' : ''}`}
+        className={`${feldCls} ${offen.includes(k) ? '!border-wait' : ''}`}
         value={d.felder[k]}
         min={typ === 'number' ? 1 : undefined}
         aria-invalid={offen.includes(k) || undefined}
@@ -157,9 +178,22 @@ function DokKarte({ d }: { d: SitzungsDok }) {
       <div className="flex items-start gap-2">
         <span className="mt-0.5 rounded-md bg-accent/15 px-1.5 text-micro font-bold uppercase">{format}</span>
         <p className="min-w-0 flex-1 break-all text-small font-medium">{d.name}</p>
-        <button onClick={weg} aria-label={t('upload.entfernen', { name: d.name })} className="-m-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-dim hover:bg-line/5 hover:text-ink">
-          <X size={16} />
-        </button>
+        {wegFragen ? (
+          <button
+            autoFocus
+            onClick={() => {
+              weg()
+              toast(t('upload.entfernt', { name: d.name }))
+            }}
+            className="-my-1 shrink-0 rounded-full bg-bad/15 px-2.5 py-1 text-micro font-semibold text-ink hover:bg-bad/25"
+          >
+            {t('upload.entfernenFrage')}
+          </button>
+        ) : (
+          <button onClick={() => (d.status === 'fertig' ? setWegFragen(true) : weg())} aria-label={t('upload.entfernen', { name: d.name })} className="-m-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-dim hover:bg-line/5 hover:text-ink">
+            <X size={16} />
+          </button>
+        )}
       </div>
 
       {d.status === 'liest' && (
@@ -259,7 +293,22 @@ function DokKarte({ d }: { d: SitzungsDok }) {
               )}
             </div>
           )}
+          {!angabenZeigen && (
+            <button onClick={() => setAngabenAuf(true)} aria-expanded={false} className="flex w-full items-center gap-1.5 rounded-lg py-1 text-left text-micro text-dim hover:text-ink">
+              <ChevronRight size={13} aria-hidden />
+              <span className="min-w-0 flex-1 truncate">
+                {[d.felder.typ && t(`typen.${d.felder.typ}`, { defaultValue: d.felder.typ }), d.felder.titel, d.felder.revision].filter(Boolean).join(' · ')}
+              </span>
+              <span className="shrink-0 text-accent">{t('upload.angabenBearbeiten')}</span>
+            </button>
+          )}
+          {angabenZeigen && (
           <div className="space-y-tight">
+            {angabenAuf && offen.length === 0 && d.erkannt.length === 0 && (
+              <button onClick={() => setAngabenAuf(false)} aria-expanded className="flex items-center gap-1.5 text-micro text-dim hover:text-ink">
+                <ChevronDown size={13} aria-hidden /> {t('upload.angabenZu')}
+              </button>
+            )}
             <label className="block">
               <span className="mb-0.5 flex items-center gap-1.5 text-micro text-dim">
                 {t('upload.typ')}
@@ -280,10 +329,12 @@ function DokKarte({ d }: { d: SitzungsDok }) {
             {feld('titel', t('upload.titel'))}
             {feld('nummer', t('upload.nummer'))}
             {feld('revision', t('upload.revision'))}
-            {offen.includes('revision') && <p className="text-micro text-bad">{t('upload.pflicht')}</p>}
+            {/* wait, nicht bad: ein fehlendes Pflichtfeld mahnt, kaputt ist nichts */}
+            {offen.includes('revision') && <p className="text-micro text-wait">{t('upload.pflicht')}</p>}
             {feld('datum', t('upload.datum'), 'date')}
             {d.rolle === 'master' && feld('rang', t('upload.rang'), 'number')}
           </div>
+          )}
           <div className="flex flex-wrap gap-2 pt-1">
             <Button variant="ghost" className="!min-h-9 !py-1 text-small" onClick={() => oeffnen({ docId: d.id, seite: 1 })}>
               <span className="flex items-center gap-1.5">

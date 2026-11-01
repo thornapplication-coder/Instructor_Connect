@@ -60,6 +60,14 @@
     "hint": "Wird nicht gespeichert und im Bericht als „Session document – not released“ gekennzeichnet."
   },
   "pruefung": {
+    "regel": {
+      "titel": "Regelbasierte Prüfung – läuft automatisch beim Einlesen",
+      "stand_one": "1 Prüfdokument geprüft: {{befunde}} Befunde, davon {{hoch}} hoch.",
+      "stand_other": "{{count}} Prüfdokumente geprüft: {{befunde}} Befunde, davon {{hoch}} hoch.",
+      "leer": "Prüfdokumente in der linken Spalte laden – Formalprüfung, Word-Check, Sprache, Rechnen und Verweise laufen dann von selbst.",
+      "zuFindings": "Zu den Findings"
+    },
+    "ki": "KI-Prüfung",
     "arten": "Prüfarten",
     "technik": "Technik gegen OEM",
     "regulatorik": "Regulatorik gegen EASA",
@@ -114,6 +122,7 @@
     "fundstellen_one": "1 Fundstelle",
     "fundstellen_other": "{{count}} Fundstellen",
     "seiteAnzeigen": "Seite anzeigen",
+    "aufklappen": "Befund {{id}}: Fundstellen anzeigen",
     "anleitung": "So beheben",
     "weitere": "Other affected documents"
   },
@@ -162,7 +171,7 @@
   },
   "admin": {
     "features": "Feature-Schalter",
-    "featuresHint": "Wirken sofort, ohne neue Version. „DocCheck gesamt“ aus zeigt in der Kachel den Wartungshinweis.",
+    "featuresHint": "Wirken sofort, ohne neue Version. „DocCheck gesamt“ aus zeigt in der Kachel den Wartungshinweis – auch dir. Einschalten kannst du dort wieder.",
     "models": "Modelle und Preise",
     "modelName": "Name",
     "prices": "Preise je Mio. Tokens",
@@ -230,7 +239,7 @@
     "recheck": "Re-Check",
     "chat": "Chat",
     "startOnDesktop": "Nachprüfung am Desktop starten",
-    "openState": "Prüfstand-Datei (.doccheck.json) öffnen, Befunde ansehen und exportieren.",
+    "openState": "Noch nicht verfügbar. Mit Phase 6 öffnest du hier einen am Desktop gespeicherten Prüfstand (.doccheck.json), siehst die Befunde und exportierst sie. Bis dahin: Befunde am Desktop im Reiter „Findings“.",
     "chatLimit": "Fragen-Chat gegen ausgewählte Bibliotheksdokumente, höchstens 3 000 Seiten gleichzeitig."
   },
   "upload": {
@@ -241,6 +250,13 @@
     },
     "erkannt": "erkannt",
     "entfernen": "{{name}} entfernen",
+    "entfernenFrage": "Wirklich entfernen?",
+    "gelesen_one": "{{name}} gelesen und geprüft – 1 Befund.",
+    "gelesen_other": "{{name}} gelesen und geprüft – {{count}} Befunde.",
+    "nichtGelesen": "{{name}} konnte nicht gelesen werden.",
+    "entfernt": "{{name}} entfernt.",
+    "angabenBearbeiten": "Angaben",
+    "angabenZu": "Angaben einklappen",
     "seiteVon": "Seite {{seite}} von {{gesamt}}",
     "startet": "wird gelesen …",
     "abbrechen": "Abbrechen",
@@ -425,6 +441,7 @@
   },
   "gate": {
     "titel": "Submission gate",
+    "zusammenfassung": "Alle Prüfpunkte ({{ok}} in Ordnung, {{na}} nicht anwendbar)",
     "ok": "einreichungsfähig",
     "nichtOk_one": "1 Hoch-Befund offen",
     "nichtOk_other": "{{count}} Hoch-Befunde offen",
@@ -549,6 +566,8 @@
     "keinPaket": "Erst Prüfdokumente laden (linke Spalte).",
     "fertig_one": "{{count}} Befund nachgeprüft",
     "fertig_other": "{{count}} Befunde nachgeprüft",
+    "aufgehoben_one": "1 Bestätigung aufgehoben – der Vorschlag hat sich geändert.",
+    "aufgehoben_other": "{{count}} Bestätigungen aufgehoben – der Vorschlag hat sich geändert.",
     "schritt4": "Vorschläge prüfen und bestätigen",
     "veraltet": "Das Prüfpaket hat sich seit der Prüfung geändert – bitte erneut prüfen.",
     "status": {

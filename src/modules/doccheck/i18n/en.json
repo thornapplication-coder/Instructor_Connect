@@ -60,6 +60,14 @@
     "hint": "Not stored; marked as “Session document – not released” in the report."
   },
   "pruefung": {
+    "regel": {
+      "titel": "Rule-based check – runs automatically on reading",
+      "stand_one": "1 document under review checked: {{befunde}} findings, {{hoch}} high.",
+      "stand_other": "{{count}} documents under review checked: {{befunde}} findings, {{hoch}} high.",
+      "leer": "Load documents under review in the left column – formal check, Word check, language, calculations and references then run by themselves.",
+      "zuFindings": "Go to findings"
+    },
+    "ki": "AI review",
     "arten": "Checks",
     "technik": "Technical vs. OEM",
     "regulatorik": "Regulatory vs. EASA",
@@ -114,6 +122,7 @@
     "fundstellen_one": "1 location",
     "fundstellen_other": "{{count}} locations",
     "seiteAnzeigen": "Show page",
+    "aufklappen": "Finding {{id}}: show locations",
     "anleitung": "How to fix",
     "weitere": "Other affected documents"
   },
@@ -162,7 +171,7 @@
   },
   "admin": {
     "features": "Feature switches",
-    "featuresHint": "Take effect immediately, without a new version. Turning off “DocCheck overall” shows the maintenance notice on the tile.",
+    "featuresHint": "Take effect immediately, without a new version. Turning off “DocCheck overall” shows the maintenance notice on the tile – to you as well. You can switch it back on there.",
     "models": "Models and prices",
     "modelName": "Name",
     "prices": "Prices per M tokens",
@@ -230,7 +239,7 @@
     "recheck": "Re-check",
     "chat": "Chat",
     "startOnDesktop": "Start the re-check on a desktop",
-    "openState": "Open a review state file (.doccheck.json), view and export findings.",
+    "openState": "Not available yet. With phase 6 you open a review state saved on the desktop (.doccheck.json) here, view the findings and export them. Until then: findings on the desktop in the “Findings” tab.",
     "chatLimit": "Q&A chat against selected library documents, at most 3,000 pages at a time."
   },
   "upload": {
@@ -241,6 +250,13 @@
     },
     "erkannt": "detected",
     "entfernen": "Remove {{name}}",
+    "entfernenFrage": "Really remove?",
+    "gelesen_one": "{{name}} read and checked – 1 finding.",
+    "gelesen_other": "{{name}} read and checked – {{count}} findings.",
+    "nichtGelesen": "{{name}} could not be read.",
+    "entfernt": "{{name}} removed.",
+    "angabenBearbeiten": "Details",
+    "angabenZu": "Collapse details",
     "seiteVon": "Page {{seite}} of {{gesamt}}",
     "startet": "reading …",
     "abbrechen": "Cancel",
@@ -425,6 +441,7 @@
   },
   "gate": {
     "titel": "Submission gate",
+    "zusammenfassung": "All checkpoints ({{ok}} fine, {{na}} not applicable)",
     "ok": "ready for submission",
     "nichtOk_one": "1 high finding open",
     "nichtOk_other": "{{count}} high findings open",
@@ -549,6 +566,8 @@
     "keinPaket": "Load review documents first (left column).",
     "fertig_one": "{{count}} finding re-checked",
     "fertig_other": "{{count}} findings re-checked",
+    "aufgehoben_one": "1 confirmation withdrawn – the proposal has changed.",
+    "aufgehoben_other": "{{count}} confirmations withdrawn – the proposal has changed.",
     "schritt4": "Review and confirm proposals",
     "veraltet": "The review package has changed since the check — please check again.",
     "status": {

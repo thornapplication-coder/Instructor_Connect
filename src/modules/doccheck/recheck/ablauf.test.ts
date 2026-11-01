@@ -3,7 +3,7 @@ import { formatDateTime } from '../../../datum'
 import { csvLesen } from '../referenz/liste'
 import type { SitzungsDok } from '../sitzung'
 import { sbxFl01 } from '../benchmark/sbx'
-import { auftraege, bestaetigen, bestaetigenMit, remarkBestaetigt, korrekturen, kannZurueckschreiben, paketStand, rueckschreibAuftrag, blattWaehlen, csvExport, dokNamen, listeLesen, sammelKandidaten, zaehlen, zeilen, zielAendern, zieleAuffrischen, zuordnungAendern, zuruecknehmen, type ReCheckSitzung } from './ablauf'
+import { auftraege, bestaetigen, bestaetigenMit, nachLauf, remarkBestaetigt, korrekturen, kannZurueckschreiben, paketStand, rueckschreibAuftrag, blattWaehlen, csvExport, dokNamen, listeLesen, sammelKandidaten, zaehlen, zeilen, zielAendern, zieleAuffrischen, zuordnungAendern, zuruecknehmen, type ReCheckSitzung } from './ablauf'
 import { befundPruefen, remark } from './pruefen'
 import { PROFIL_KEY } from './profil'
 
@@ -108,9 +108,27 @@ describe('Re-Check-Ablauf (N3.1)', () => {
     expect(bestaetigen(await laden(), [1], 'u', 1).bestaetigt).toEqual({})
     expect(sammelKandidaten(r)).toEqual([2])
     const b = bestaetigen(r, [...sammelKandidaten(r), 1, 99], 'u-p', 5)
-    expect(b.bestaetigt).toEqual({ 2: { status: 'resolved', von: 'u-p', at: 5 }, 1: { status: 'open', von: 'u-p', at: 5 } })
+    expect(b.bestaetigt).toEqual({ 2: { status: 'resolved', von: 'u-p', at: 5, vorschlag: 'resolved' }, 1: { status: 'open', von: 'u-p', at: 5, vorschlag: 'open' } })
     expect(sammelKandidaten(b)).toEqual([])
-    expect(zuruecknehmen(b, 1).bestaetigt).toEqual({ 2: { status: 'resolved', von: 'u-p', at: 5 } })
+    expect(zuruecknehmen(b, 1).bestaetigt).toEqual({ 2: { status: 'resolved', von: 'u-p', at: 5, vorschlag: 'resolved' } })
+  })
+
+  it('„Erneut prüfen" behält Bestätigungen, deren Vorschlag gleich blieb, und zählt die übrigen (UX-Prüfung 01.11.2026)', async () => {
+    const r = pruefen(await laden())
+    const b = bestaetigen(r, [1, 2], 'u-p', 5)
+    // gleicher Lauf: nichts geht verloren
+    const gleich = nachLauf(b, r.ergebnisse!, 'neu')
+    expect(gleich.aufgehoben).toBe(0)
+    expect(Object.keys(gleich.r.bestaetigt)).toEqual(['1', '2'])
+    expect(gleich.r.geprueftGegen).toBe('neu')
+    // Zeile 2 hat jetzt einen anderen Vorschlag, Zeile 1 fehlt ganz
+    const anders = r.ergebnisse!.filter((e) => e.zeile === 2).map((e) => ({ ...e, status: 'partial' as const }))
+    const n = nachLauf(b, anders, 'neu')
+    expect(n.aufgehoben).toBe(2)
+    expect(n.r.bestaetigt).toEqual({})
+    // abweichend bestätigt: maßgeblich ist der Vorschlag von damals, nicht der bestätigte Status
+    const mit = bestaetigenMit(r, 2, 'u-p', 6, 'open', 'Fix not accepted by CMM') as ReCheckSitzung
+    expect(nachLauf(mit, r.ergebnisse!, 'x').r.bestaetigt[2]).toMatchObject({ status: 'open', vorschlag: 'resolved' })
   })
 
   it('CSV-Export: englischer Kopf, Remark in gewählter Sprache, bestätigt von UND am (N11)', async () => {
@@ -176,10 +194,10 @@ describe('Re-Check-Ablauf (N3.1)', () => {
     expect(bestaetigenMit(r, 1, 'u', 5, 'resolved', '  ')).toBe('begruendungFehlt')
     expect(bestaetigenMit(r, 99, 'u', 5, 'resolved', 'x')).toBe('unbekannt')
     const gleich = bestaetigenMit(r, 1, 'u', 5, e1.status, '') as ReCheckSitzung
-    expect(gleich.bestaetigt[1]).toEqual({ status: e1.status, von: 'u', at: 5 })
+    expect(gleich.bestaetigt[1]).toEqual({ status: e1.status, von: 'u', at: 5, vorschlag: e1.status })
     expect(bestaetigenMit(r, 1, 'u', 5, 'justify', 'kurz')).toBe('begruendungFehlt')
     const anders = bestaetigenMit(r, 1, 'u', 5, 'resolved', 'Wording changed in Rev 2, approved by HT') as ReCheckSitzung
-    expect(anders.bestaetigt[1]).toEqual({ status: 'resolved', von: 'u', at: 5, begruendung: 'Wording changed in Rev 2, approved by HT' })
+    expect(anders.bestaetigt[1]).toEqual({ status: 'resolved', von: 'u', at: 5, vorschlag: e1.status, begruendung: 'Wording changed in Rev 2, approved by HT' })
     // Remark und Export tragen die Abweichung
     expect(remarkBestaetigt(e1, anders.bestaetigt[1], '2026-11-01', 'de')).toMatch(/\nAbweichend bestätigt als „Resolved" – Begründung: Wording changed in Rev 2, approved by HT$/)
     expect(remarkBestaetigt(e1, anders.bestaetigt[1], '2026-11-01', 'en')).toMatch(/\nConfirmed as "Resolved" \(deviating from the proposal\) – justification: Wording/)

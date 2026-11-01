@@ -25,6 +25,7 @@ import {
   rueckschreibAuftrag,
   type Filter,
   type ReCheckSitzung,
+  nachLauf,
 } from '../recheck/ablauf'
 import { werteLaden, werteSpeichern } from '../recheck/profil'
 import { ausgabeName, listenWerte, rueckschreiben, werteVorschlagen, type WerteZuordnung } from '../recheck/rueckschreiben'
@@ -235,8 +236,13 @@ export function ReCheckTab() {
     const erg = await standardVerbindung().nachpruefen(auftraege(r, localStorage))
     setLaeuft(false)
     if (!erg) return
-    aendernRe((x) => ({ ...x, ergebnisse: erg, geprueftGegen: stand0, bestaetigt: {} }))
-    toast(t('recheck.fertig', { count: erg.length }))
+    let aufgehoben = 0
+    aendernRe((x) => {
+      const n = nachLauf(x, erg, stand0)
+      aufgehoben = n.aufgehoben
+      return n.r
+    })
+    toast(aufgehoben ? `${t('recheck.fertig', { count: erg.length })} ${t('recheck.aufgehoben', { count: aufgehoben })}` : t('recheck.fertig', { count: erg.length }), aufgehoben ? 'wait' : 'ok')
   }
 
   const bestaetigenZeilen = useBestaetigen()

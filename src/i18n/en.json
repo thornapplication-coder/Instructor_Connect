@@ -513,6 +513,8 @@
   "docCheck": {
     "maintenanceTitle": "Maintenance – temporarily unavailable",
     "maintenanceBody": "DocCheck has been switched off by the superadmin. All other areas of Instructor Connect are available as usual.",
+    "maintenanceOn": "Switch DocCheck back on",
+    "maintenanceOnDone": "DocCheck is switched on again.",
     "errorTitle": "DocCheck could not be loaded",
     "errorBody": "The error affects DocCheck only. All other tiles keep working.",
     "errorCode": "Error code",

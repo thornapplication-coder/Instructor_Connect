@@ -33,6 +33,14 @@ describe('Sitzungsübergänge', () => {
     expect(z.docs[0].erkannt).toEqual([])
   })
 
+  it('Revision fehlt im Dokument → aus dem Dateinamen, als „erkannt" markiert', () => {
+    let z = neu(LEER, { id: 'a', rolle: 'review', name: 'TM_E2R0.1.docx', groesse: 1 })
+    z = fertig(z, 'a', zf('a', { titel: 'TM' }))
+    expect(z.docs[0].felder.revision).toBe('Edition 2 Rev 0.1')
+    expect(z.docs[0].erkannt).toContain('revision')
+    expect(offenePflichtfelder(z.docs[0])).toEqual([])
+  })
+
   it('fehler, aktualisiert, entfernen', () => {
     let z = neu(neu(LEER, { id: 'a', rolle: 'review', name: 'a', groesse: 1 }), { id: 'b', rolle: 'review', name: 'b', groesse: 1 })
     z = fehler(z, 'a', 'DC-PDF-PASSWORD')

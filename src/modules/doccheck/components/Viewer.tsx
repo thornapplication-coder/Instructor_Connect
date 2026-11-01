@@ -5,6 +5,7 @@ import { pdfjsLaden } from '../pdfjsLaden'
 import { datei, useSitzung } from '../sitzung'
 import { standardVerbindung } from '../verbindung'
 import { istGesperrteTaste } from '../viewerTasten'
+import { useDialogFokus } from '../../../components/ui'
 
 /**
  * Viewer (Spez. 6.3, 9): „Seite anzeigen" öffnet das Dokument an der
@@ -83,11 +84,14 @@ function Viewer({ ziel, onClose }: { ziel: ViewerZiel; onClose: () => void }) {
   const rahmen = useRef<HTMLDivElement>(null)
   const dokRef = useRef<{ dok: Promise<PdfDokAnzeige>; destroy: () => Promise<void> } | null>(null)
 
-  // Escape schließt; gesperrte Dokumente fangen Speichern/Drucken ab.
+  // Fokus hinein, Tab im Kreis, Escape schließt, Fokus zurück — wie jeder Dialog
+  const dialog = useRef<HTMLDivElement>(null)
+  useDialogFokus(dialog, onClose)
+
+  // Gesperrte Dokumente fangen Speichern/Drucken ab.
   useEffect(() => {
     const taste = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-      else if (ziel.gesperrt && istGesperrteTaste(e)) e.preventDefault()
+      if (ziel.gesperrt && istGesperrteTaste(e)) e.preventDefault()
     }
     window.addEventListener('keydown', taste)
     return () => window.removeEventListener('keydown', taste)
@@ -156,7 +160,7 @@ function Viewer({ ziel, onClose }: { ziel: ViewerZiel; onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-bg/95 backdrop-blur" role="dialog" aria-modal="true" aria-label={t('viewer.titel')}>
+    <div ref={dialog} tabIndex={-1} className="fixed inset-0 z-50 flex flex-col bg-bg/95 backdrop-blur" role="dialog" aria-modal="true" aria-label={t('viewer.titel')}>
       <div className="flex flex-wrap items-center gap-2 border-b border-line/10 px-4 py-2">
         <p className="min-w-0 flex-1 truncate text-small font-semibold">
           {d?.felder.titel || d?.name}
@@ -165,7 +169,7 @@ function Viewer({ ziel, onClose }: { ziel: ViewerZiel; onClose: () => void }) {
         <button aria-label={t('viewer.zurueck')} disabled={seite <= 1} onClick={() => setSeite(seite - 1)} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/5 disabled:opacity-30">
           <ChevronLeft size={18} />
         </button>
-        <span className="text-small tabular-nums text-dim">{t('viewer.seite', { seite, gesamt })}</span>
+        <span className="text-small tabular-nums text-dim" aria-live="polite">{t('viewer.seite', { seite, gesamt })}</span>
         <button aria-label={t('viewer.weiter')} disabled={seite >= gesamt} onClick={() => setSeite(seite + 1)} className="flex h-9 w-9 items-center justify-center rounded-full hover:bg-line/5 disabled:opacity-30">
           <ChevronRight size={18} />
         </button>

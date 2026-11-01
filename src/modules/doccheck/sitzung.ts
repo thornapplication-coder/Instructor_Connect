@@ -3,6 +3,7 @@ import { duplikatPruefen, type Duplikat, type Vergleichsdokument } from './parse
 import type { Zusammenfassung } from './kern'
 import type { ReferenzListe } from './referenz/liste'
 import type { ReCheckSitzung } from './recheck/ablauf'
+import { revisionAusDateiname } from './parse/meta'
 import { gruppenVorschlagen, varianteAusKuerzel, vorbelegen, type PaketAngaben } from './paket/struktur'
 import type { Mitglied, PaketErgebnis } from './paket/pruefen'
 
@@ -79,7 +80,7 @@ export function fertig(z: Zustand, id: string, zf: Zusammenfassung): Zustand {
   return paketVorbelegen(aendern(z, id, (d) => {
     const felder = { ...d.felder }
     const erkannt: Feld[] = [...d.erkannt]
-    const vorschlag: Partial<Record<Feld, string | undefined>> = { typ: zf.meta.typ, titel: zf.meta.titel, nummer: zf.meta.nummer, revision: zf.meta.revision, datum: zf.meta.datum }
+    const vorschlag: Partial<Record<Feld, string | undefined>> = { typ: zf.meta.typ, titel: zf.meta.titel, nummer: zf.meta.nummer, revision: zf.meta.revision ?? revisionAusDateiname(d.name), datum: zf.meta.datum }
     for (const [k, v] of Object.entries(vorschlag) as [Feld, string | undefined][]) {
       if (v && !felder[k]) {
         felder[k] = v

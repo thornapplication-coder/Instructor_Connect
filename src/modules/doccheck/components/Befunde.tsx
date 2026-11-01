@@ -27,24 +27,59 @@ const PRIO_FARBE: Record<Prioritaet, string> = { High: 'text-prioHigh', Medium: 
 const PRIO_PUNKT: Record<Prioritaet, string> = { High: 'bg-prioHigh', Medium: 'bg-prioMed', Low: 'bg-prioLow' }
 const AMPEL: Record<Exclude<Ampel, 'na'>, 'green' | 'yellow' | 'red'> = { ok: 'green', wait: 'yellow', bad: 'red' }
 
-function Ampelzeile({ titel, punkte, ampel }: { titel: string; punkte: readonly string[]; ampel: Record<string, Ampel> }) {
+type Gruppe = { titel: string; punkte: readonly string[]; ampel: Record<string, Ampel> }
+
+function Chip({ p, a }: { p: string; a: Ampel }) {
   const { t } = useTranslation('doccheck')
-  if (!Object.keys(ampel).length) return null
+  // „nicht anwendbar" in text-dim OHNE zusätzliche Deckkraft: opacity-60
+  // drückte den Kontrast unter 4,5:1 (Barrierefreiheitsprüfung 01.11.2026)
+  return (
+    <span className={`flex items-center gap-1 rounded-full border border-line/15 px-2 py-0.5 text-micro ${a === 'na' ? 'text-dim' : ''}`} title={a === 'na' ? t('gate.na') : undefined}>
+      {a === 'na' ? <span className="h-3 w-3 rounded-full border border-dashed border-dim" aria-hidden /> : <TrafficIcon color={AMPEL[a]} size={13} stumm />}
+      {t(`punkt.${p}`)}
+      <span className="sr-only">: {t(`gate.ampel.${a}`)}</span>
+    </span>
+  )
+}
+
+/**
+ * Ampel je Dokument, kompakt: Vorher standen sieben Zeilen mit allen
+ * Prüfpunkten je Dokument über der Tabelle und schoben die Befunde bei
+ * einem Paket tausende Pixel nach unten (UX-Prüfung 01.11.2026). Jetzt
+ * stehen nur die auffälligen Punkte da, der Rest als Zählung; „Alle
+ * Prüfpunkte" klappt die volle Ansicht auf.
+ */
+function Ampelblock({ gruppen }: { gruppen: Gruppe[] }) {
+  const { t } = useTranslation('doccheck')
+  const [alle, setAlle] = useState(false)
+  const da = gruppen.filter((g) => Object.keys(g.ampel).length)
+  const punkte = da.flatMap((g) => g.punkte.map((p) => ({ g, p, a: g.ampel[p] ?? 'na' })))
+  const auffaellig = punkte.filter((x) => x.a === 'bad' || x.a === 'wait')
+  const zahl = (a: Ampel) => punkte.filter((x) => x.a === a).length
   return (
     <div className="space-y-tight">
-      <p className="text-micro font-semibold uppercase tracking-wide text-dim">{titel}</p>
-      <div className="flex flex-wrap gap-1.5">
-        {punkte.map((p) => {
-          const a = ampel[p] ?? 'na'
-          return (
-            <span key={p} className={`flex items-center gap-1 rounded-full border border-line/10 px-2 py-0.5 text-micro ${a === 'na' ? 'text-dim opacity-60' : ''}`} title={a === 'na' ? t('gate.na') : undefined}>
-              {a === 'na' ? <span className="h-3 w-3 rounded-full border border-line/30" aria-hidden /> : <TrafficIcon color={AMPEL[a]} size={13} stumm />}
-              {t(`punkt.${p}`)}
-              <span className="sr-only">: {t(`gate.ampel.${a}`)}</span>
-            </span>
-          )
-        })}
-      </div>
+      {auffaellig.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {auffaellig.map((x) => (
+            <Chip key={`${x.g.titel}:${x.p}`} p={x.p} a={x.a} />
+          ))}
+        </div>
+      )}
+      <button onClick={() => setAlle(!alle)} aria-expanded={alle} className="flex items-center gap-1 text-micro text-dim hover:text-ink">
+        {alle ? <ChevronDown size={13} aria-hidden /> : <ChevronRight size={13} aria-hidden />}
+        {t('gate.zusammenfassung', { ok: zahl('ok'), na: zahl('na') })}
+      </button>
+      {alle &&
+        da.map((g) => (
+          <div key={g.titel} className="space-y-tight">
+            <p className="text-micro font-semibold uppercase tracking-wide text-dim">{g.titel}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {g.punkte.map((p) => (
+                <Chip key={p} p={p} a={g.ampel[p] ?? 'na'} />
+              ))}
+            </div>
+          </div>
+        ))}
     </div>
   )
 }
@@ -92,13 +127,17 @@ export function FindingsTab() {
               <p className="text-small font-semibold">
                 {d.felder.titel || d.name} <span className="font-normal text-dim">· {d.felder.revision || '—'}</span>
               </p>
-              <Ampelzeile titel={t('gate.formal')} punkte={FORMAL_PUNKTE} ampel={d.z!.pruefung!.ampel.formal} />
-              <Ampelzeile titel={t('gate.word')} punkte={WORD_PUNKTE} ampel={d.z!.pruefung!.ampel.word} />
-              <Ampelzeile titel={t('gate.sprache')} punkte={SPRACH_PUNKTE} ampel={d.z!.pruefung!.ampel.sprache} />
-              <Ampelzeile titel={t('gate.referenz')} punkte={REFERENZ_PUNKTE} ampel={d.z!.pruefung!.ampel.referenz ?? {}} />
-              <Ampelzeile titel={t('gate.rechnen')} punkte={RECHEN_PUNKTE} ampel={d.z!.pruefung!.ampel.rechnen ?? {}} />
-              <Ampelzeile titel={t('gate.verweis')} punkte={VERWEIS_PUNKTE} ampel={d.z!.pruefung!.ampel.verweis ?? {}} />
-              <Ampelzeile titel={t('gate.regelwerk')} punkte={REGELWERK_PUNKTE} ampel={d.z!.pruefung!.ampel.regelwerk ?? {}} />
+              <Ampelblock
+                gruppen={[
+                  { titel: t('gate.formal'), punkte: FORMAL_PUNKTE, ampel: d.z!.pruefung!.ampel.formal },
+                  { titel: t('gate.word'), punkte: WORD_PUNKTE, ampel: d.z!.pruefung!.ampel.word },
+                  { titel: t('gate.sprache'), punkte: SPRACH_PUNKTE, ampel: d.z!.pruefung!.ampel.sprache },
+                  { titel: t('gate.referenz'), punkte: REFERENZ_PUNKTE, ampel: d.z!.pruefung!.ampel.referenz ?? {} },
+                  { titel: t('gate.rechnen'), punkte: RECHEN_PUNKTE, ampel: d.z!.pruefung!.ampel.rechnen ?? {} },
+                  { titel: t('gate.verweis'), punkte: VERWEIS_PUNKTE, ampel: d.z!.pruefung!.ampel.verweis ?? {} },
+                  { titel: t('gate.regelwerk'), punkte: REGELWERK_PUNKTE, ampel: d.z!.pruefung!.ampel.regelwerk ?? {} },
+                ]}
+              />
               {d.z!.pruefung!.regelwerk && d.z!.pruefung!.regelwerk.quellen.length > 0 && (
                 <p className="text-micro text-dim">{t('gate.regelwerkStand', { ...d.z!.pruefung!.regelwerk, quellen: d.z!.pruefung!.regelwerk.quellen.join(', ') })}</p>
               )}
@@ -107,7 +146,7 @@ export function FindingsTab() {
           {paket && (
             <div className="space-y-tight border-t border-line/10 pt-3">
               <p className="text-small font-semibold">{t('gate.paket')}</p>
-              <Ampelzeile titel={t('gate.paketPunkte')} punkte={PAKET_PUNKTE} ampel={paket.ampel} />
+              <Ampelblock gruppen={[{ titel: t('gate.paketPunkte'), punkte: PAKET_PUNKTE, ampel: paket.ampel }]} />
             </div>
           )}
         </Card>
@@ -139,7 +178,8 @@ export function FindingsTab() {
         <table className="w-full min-w-[46rem] text-small">
           <thead>
             <tr className="border-b border-line/15 bg-bg/40 text-left text-micro uppercase tracking-wide text-dim">
-              {(['id', 'doc', 'page', 'category', 'priority', 'finding', 'status', 'verification'] as const).map((s) => (
+              {/* Keine Status-Spalte: Ohne Bearbeitungsablauf stand dort immer „Open" — eine Attrappe (UX-Prüfung 01.11.2026) */}
+              {(['id', 'doc', 'page', 'category', 'priority', 'finding', 'verification'] as const).map((s) => (
                 <th key={s} className="whitespace-nowrap px-2 py-2 font-semibold break-normal">{t(`findings.col.${s}`)}</th>
               ))}
             </tr>
@@ -147,16 +187,30 @@ export function FindingsTab() {
           <tbody>
             {liste.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-major text-center text-dim">{geprueft.length ? t('findings.keineTreffer') : t('findings.empty')}</td>
+                <td colSpan={7} className="px-3 py-major text-center text-dim">{geprueft.length ? t('findings.keineTreffer') : t('findings.empty')}</td>
               </tr>
             )}
             {liste.map((b) => {
               const auf = offen === schluessel(b)
               return (
                 <Fragment key={schluessel(b)}>
-                  <tr className="cursor-pointer border-b border-line/[0.06] align-top hover:bg-line/5" onClick={() => setOffen(auf ? null : schluessel(b))} aria-expanded={auf}>
+                  <tr className="cursor-pointer border-b border-line/[0.06] align-top hover:bg-line/5" onClick={() => setOffen(auf ? null : schluessel(b))}>
                     <td className="whitespace-nowrap px-2 py-2 font-mono text-micro">
-                      <span className="flex items-center gap-1">{auf ? <ChevronDown size={13} /> : <ChevronRight size={13} />}{b.id}</span>
+                      {/* Ein echter Knopf: Die Zeile allein war nur mit der Maus aufklappbar, Fundstellen
+                          und Viewer ohne Maus unerreichbar (Barrierefreiheitsprüfung 01.11.2026) */}
+                      <button
+                        className="-m-1 flex items-center gap-1 rounded p-1"
+                        aria-expanded={auf}
+                        aria-controls={`fs-${schluessel(b)}`}
+                        aria-label={t('findings.aufklappen', { id: b.id })}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setOffen(auf ? null : schluessel(b))
+                        }}
+                      >
+                        {auf ? <ChevronDown size={13} aria-hidden /> : <ChevronRight size={13} aria-hidden />}
+                        {b.id}
+                      </button>
                     </td>
                     <td className="px-2 py-2">{b.dokName}</td>
                     <td className="whitespace-nowrap px-2 py-2 text-dim">{b.fundstellen.find((f) => f.seite)?.seite ?? '—'}</td>
@@ -164,8 +218,8 @@ export function FindingsTab() {
                     <td className={`whitespace-nowrap px-2 py-2 font-semibold ${PRIO_FARBE[b.prioritaet]}`}>
                       <span className="flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${PRIO_PUNKT[b.prioritaet]}`} aria-hidden />{t(`prio.${b.prioritaet}`)}</span>
                     </td>
-                    <td className="px-2 py-2">{b.text}</td>
-                    <td className="whitespace-nowrap px-2 py-2"><Badge tone="wait">{t('status.Open')}</Badge></td>
+                    {/* Befundtexte sind immer englisch (Export) — Sprachausgabe soll sie englisch lesen */}
+                    <td className="px-2 py-2" lang="en">{b.text}</td>
                     <td className="whitespace-nowrap px-2 py-2">
                       {/* Nicht prüfbar darf nie als „verifiziert" erscheinen (N8, N11). „Regelbasiert
                           belegt" in accent, nicht ok: Es ordnet den Befund ein, erledigt ist er damit nicht. */}
@@ -181,8 +235,8 @@ export function FindingsTab() {
                     </td>
                   </tr>
                   {auf && (
-                    <tr className="border-b border-line/[0.06] bg-bg/40">
-                      <td colSpan={8} className="space-y-stack px-4 py-3">
+                    <tr id={`fs-${schluessel(b)}`} className="border-b border-line/[0.06] bg-bg/40">
+                      <td colSpan={7} className="space-y-stack px-4 py-3">
                         <p className="text-micro font-semibold uppercase tracking-wide text-dim">{t('findings.fundstellen', { count: b.fundstellen.length })}</p>
                         <ul className="space-y-tight">
                           {b.fundstellen.map((f, i) => (

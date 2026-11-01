@@ -207,12 +207,25 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   nur Regeln, die in einem Nicht-Prüfdokument als ÜBERSCHRIFT stehen —
   eine Erwähnung im Fließtext definiert nichts. Kein Schalter: läuft, sobald
   ein Regelwerk geladen ist; ohne Regelwerk „nicht anwendbar" statt
-  hunderter „To verify". Eine Regel ohne erfasste Absätze lässt sich nicht
-  widerlegen und gilt als verifiziert. Ändert sich das Regelwerk, prüft der
+  hunderter „To verify". Eine Regel ohne erfasste Absätze lässt sich weder
+  belegen noch widerlegen und heißt „nicht widerlegbar", nicht „verifiziert". Ändert sich das Regelwerk, prüft der
   Kern alle Prüfdokumente neu und schickt sie von sich aus — dafür hört
   `DocCheckApp` DAUERHAFT auf `beiOcr`; vorher gab es nur vorübergehende
   Hörer, und solche Aktualisierungen gingen verloren. CS-Kennungen erkennt
   die v1.1-Regex nur als ganzes Regelwerk („CS-FCD"), nicht je Artikel.
+- **Bedienung (UX-/Barrierefreiheitsprüfung 01.11.2026):** Der
+  Wartungshinweis bietet dem Superadmin „wieder einschalten" — der Schalter
+  liegt IM Modul, ohne den Knopf sperrte er sich selbst aus. „Erneut
+  prüfen" behält eine Bestätigung, solange der Vorschlag ihrer Zeile gleich
+  bleibt (`nachLauf`, gemessen an `Bestaetigung.vorschlag`), und sagt, wie
+  viele wegfielen. Ab 1024 px zwei Spalten mit den Reitern oben, ab 1280 px
+  drei. Das Gate zeigt je Dokument nur auffällige Prüfpunkte, der Rest auf
+  Klick; Dokumentkarten klappen ihre Angaben ein, sobald nichts mehr offen
+  ist; Revision notfalls aus dem Dateinamen (`revisionAusDateiname`).
+  Befundzeilen klappen über einen echten Knopf auf (Tastatur), Reiter
+  folgen dem ARIA-Muster (`reiter.ts`), Befundtext trägt `lang="en"`.
+  „Nicht anwendbar" nie per Deckkraft dämpfen — das drückte den Kontrast
+  unter 3:1.
 - **Submission gate** warnt ab Werk (`gateSperrt: false`, Entscheidung
   vom 01.11.2026); Sperre ist Einstellung des Superadmins.
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise
@@ -355,7 +368,9 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
 - **Statusmarken** kommen aus `Badge` (`src/components/ui.tsx`) — fünf Töne
   mit je *einer* Bedeutung: `ok` erledigt, `wait` wartet oder mahnt, `bad`
   durchgefallen oder kaputt, `accent` neutrale Einordnung, `dim` ruhiger
-  Nebenzustand; `strong` schaltet auf die volle Fläche. Keine handgebaute
+  Nebenzustand; `strong` schaltet auf die volle Fläche. In der weichen Form
+  trägt die getönte Fläche (mit Rand) die Farbe, die Schrift bleibt `ink`:
+  farbige Schrift auf eigener 15-%-Fläche lag nachgemessen bei 3,4–4,3:1. Keine handgebaute
   Pille mehr: „Not Competent" stand vorher in drei Farben nebeneinander.
 - **Die Ampel** hat EINE Gestalt: `TrafficIcon` (`src/pages/Grading.tsx`) —
   Haken, Fragezeichen, Kreuz in `text-ok`/`text-wait`/`text-bad`. Vorher gab
@@ -387,6 +402,10 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
   die Leiste meldete „Alles erledigt", das Absenden verweigerte. Jetzt leitet
   sich `validate()` aus `openItems` ab. Wer eine neue Bedingung einbaut, baut
   sie in die Liste, nicht daneben.
+- **Dialoge** führen den Fokus über `useDialogFokus` (`src/components/ui.tsx`):
+  hinein beim Öffnen, Tab im Kreis, Escape, zurück zum Auslöser. `Modal`
+  und der DocCheck-Viewer nutzen denselben Hook — der Viewer hatte die
+  Regel nicht, und wer ihn per Tastatur öffnete, stand dahinter.
 - **Bestätigungen** kommen aus `toast(text, tone)` (`src/components/Toast.tsx`),
   nicht aus einem Dialog: Eine Rückmeldung darf den nächsten Handgriff nicht
   aufhalten. Der Streifen trägt `role="status"`, damit Sprachausgaben ihn

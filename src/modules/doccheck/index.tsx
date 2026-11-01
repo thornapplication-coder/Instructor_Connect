@@ -5,6 +5,8 @@ import { ErrorBoundary } from '../../components/ErrorBoundary'
 import { Button, Page, TopBar } from '../../components/ui'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
+import { toast } from '../../components/Toast'
+import { darf } from './access'
 
 /**
  * Einstieg der DocCheck-Kachel (Spez. 3.2).
@@ -39,11 +41,32 @@ function Meldung({ icon, titel, text, code, aktion }: { icon: React.ReactNode; t
 
 export function DocCheckRoute() {
   const { t } = useTranslation()
-  const { docCheckSettings } = useStore()
+  const { docCheckSettings, docCheckRolle, updateDocCheckSettings } = useStore()
   // Feature-Schalter „DocCheck aus" (Spez. 13.2): Wartungshinweis, ohne dass
-  // das Modul ueberhaupt geladen wird.
+  // das Modul ueberhaupt geladen wird. Der Schalter selbst liegt IM Modul —
+  // ohne den Knopf hier sperrte sich der Superadmin mit dem Ausschalten
+  // selbst aus und kaeme nur ueber den Datenbestand zurueck (UX-Pruefung
+  // 01.11.2026).
   if (!docCheckSettings.features.doccheck) {
-    return <Meldung icon={<Wrench size={26} />} titel={t('docCheck.maintenanceTitle')} text={t('docCheck.maintenanceBody')} />
+    return (
+      <Meldung
+        icon={<Wrench size={26} />}
+        titel={t('docCheck.maintenanceTitle')}
+        text={t('docCheck.maintenanceBody')}
+        aktion={
+          darf(docCheckRolle, 'konfigurieren') ? (
+            <Button
+              onClick={() => {
+                updateDocCheckSettings({ features: { doccheck: true } as never })
+                toast(t('docCheck.maintenanceOnDone'), 'ok')
+              }}
+            >
+              {t('docCheck.maintenanceOn')}
+            </Button>
+          ) : undefined
+        }
+      />
+    )
   }
   return (
     <ErrorBoundary

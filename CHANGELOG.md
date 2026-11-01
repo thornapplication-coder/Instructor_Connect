@@ -952,3 +952,28 @@ DocCheck: fachliche Fehlalarme aus der Prüfung vom 01.11.2026 behoben.
 - „Verified (rule-based)" als Einordnung (Akzent), nicht als „erledigt".
 - Doku: offene Punkte N3.1.6 (Blatt „New findings", Nummerierung neuer
   Befunde) ausdrücklich genannt.
+
+## 1.20.0 — 2026-11-01
+
+DocCheck: Bedienung und Barrierefreiheit (Punkte C und D der Prüfung vom
+01.11.2026).
+
+- **Keine Selbstaussperrung:** Der Wartungshinweis bietet dem Superadmin
+  „DocCheck wieder einschalten".
+- **„Erneut prüfen"** behält Bestätigungen, deren Vorschlag gleich blieb,
+  und meldet, wie viele aufgehoben wurden.
+- **Layout ab 1024 px** zweispaltig mit den Reitern oben (vorher unter
+  allen Dokumentkarten).
+- **Kompakter:** Submission gate zeigt nur auffällige Prüfpunkte;
+  Dokumentkarten klappen fertige Angaben ein; Entfernen mit Rückfrage.
+- **Startreiter** zeigt zuerst die laufende regelbasierte Prüfung mit
+  Sprung zu den Findings; die KI-Prüfung ist als „folgt" gekennzeichnet.
+- **Revision** aus dem Dateinamen, wenn das Dokument keine nennt; ein
+  fehlendes Pflichtfeld mahnt (gelb) statt rot.
+- **Tastatur:** Befundzeilen per Knopf aufklappbar, Reiter mit Pfeiltasten,
+  Viewer führt den Fokus wie jeder Dialog.
+- **Kontrast:** Statusmarken mit Schrift in Textfarbe (vorher 3,4–4,3:1),
+  „nicht anwendbar" ohne Deckkraftabsenkung.
+- **Ansagen und Sprache:** Einlesen fertig/fehlgeschlagen wird angesagt,
+  Befundtext als Englisch ausgezeichnet, fehlende Überschriftenebene ergänzt.
+- Status-Spalte der Befundtabelle entfernt (stand ohne Ablauf immer „Open").
