@@ -927,3 +927,28 @@ Prüfungen: UI/UX, Barrierefreiheit, Spezifikation, Sicherheit).
   Gegenprobe mit Postgres 16.
 - **Dateien:** Grenzen gegen Zip-Bomben (angegebene und tatsächlich
   entpackte Größe); ungültige Zeichenreferenzen brechen kein Dokument mehr ab.
+
+## 1.19.0 — 2026-11-01
+
+DocCheck: fachliche Fehlalarme aus der Prüfung vom 01.11.2026 behoben.
+
+- **Regel-IDs:** „ORA.ATO.230(a)" und „CS FCD.420" werden vollständig
+  erkannt, „AT.ATO.106" ist keine Regel. Eine Regel ohne erfasste Absätze
+  heißt „nicht widerlegbar", nicht „verifiziert".
+- **Re-Check:** „Resolved" allein aufgrund eines fehlenden Zitats wird als
+  solches ausgewiesen und nicht in die Sammelbestätigung genommen; ein vom
+  Vorschlag abweichender Status braucht eine Begründung; Weitergabe ins
+  Paket nur für bestätigte Korrekturen.
+- **Rechnen/Wetter:** Zwischensummen, Einheiten nur bei verknüpften
+  Paaren, METAR mit MIFG, Pistenangaben und variablem Wind.
+- **Nicht anwendbar statt grün**, wo nichts prüfbar war: Word-Check
+  (Sprache, Edition, Felder, Fragmente), Nummerierung, Summen, Kumuliert,
+  Sitzungsdauer, Wettermeldung, Hierarchie.
+- **Paket:** feste Wendungen („cabin crew", „Crew Resource Management")
+  sind kein Rest der Gegenfassung; Angaben je Einheit werden nicht mit
+  Programmsummen verglichen; Hierarchiebefunde Medium.
+- **Verweise** in fremde Regelwerke („Appendix 9 to Part-FCL") sind kein
+  fehlendes Ziel.
+- „Verified (rule-based)" als Einordnung (Akzent), nicht als „erledigt".
+- Doku: offene Punkte N3.1.6 (Blatt „New findings", Nummerierung neuer
+  Befunde) ausdrücklich genannt.

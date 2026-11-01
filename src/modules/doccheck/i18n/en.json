@@ -446,7 +446,7 @@
     "rechnen": "Calculation check",
     "verweis": "References",
     "regelwerk": "Rule references",
-    "regelwerkStand": "Regulation: {{quellen}} · {{verweise}} references, {{verifiziert}} verified, {{zuPruefen}} to verify, {{ohneQuelle}} without source"
+    "regelwerkStand": "Regulation: {{quellen}} · {{verweise}} references, {{verifiziert}} verified, {{nichtWiderlegbar}} paragraph not captured, {{zuPruefen}} to verify, {{ohneQuelle}} without source"
   },
   "prio": {
     "High": "High",
@@ -566,7 +566,8 @@
       "nurEmpfehlung": "Raised as a recommendation (“could”, “consider”) and not implemented — closing requires a justification.",
       "quelleFehlt": "The referenced document is not in the package.",
       "keinText": "The document has no searchable text — run OCR first.",
-      "keineAnweisung": "No quoted text against which the correction could be checked. Content findings will be checked by the AI later; until then, review them manually."
+      "keineAnweisung": "No quoted text against which the correction could be checked. Content findings will be checked by the AI later; until then, review them manually.",
+      "nurAbwesend": "The quoted text no longer occurs – which does not show that the issue itself is resolved. Check individually; excluded from bulk confirmation."
     },
     "filterStatus": "Proposal",
     "filterDok": "Document",
@@ -620,6 +621,14 @@
       "zitat": "Quotation – not counted",
       "bibliothek": "Found in source – not counted",
       "bibliothekVon": "Quotation from {{quelle}} – not counted"
+    },
+    "freigabe": {
+      "status": "Status",
+      "vorschlag": "proposal",
+      "begruendung": "Justification",
+      "begruendungPh": "Why deviating / why closed?",
+      "begruendungFehlt": "Please enter a justification (at least 5 characters).",
+      "abweichendAls": "as “{{status}}”"
     }
   },
   "paket": {

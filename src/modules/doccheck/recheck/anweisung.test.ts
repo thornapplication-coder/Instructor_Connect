@@ -40,4 +40,18 @@ describe('Prüfanweisung aus Befundtext (N3.1 Schritt 4)', () => {
   it('was da sein soll, steht nicht zugleich auf der Weg-Liste', () => {
     expect(a('„Alt" → „Neu"; „Neu" streichen', '„Neu" ergänzen')).toMatchObject({ weg: ['Alt'], da: ['Neu'] })
   })
+
+  it('Gegenbeispiele der Fachprüfung (01.11.2026)', () => {
+    // Apostroph im Wort ist kein Anführungszeichen
+    expect(a("The examiner's checklist doesn't list \"IPT\".")).toMatchObject({ weg: ['IPT'] })
+    // „could" mitten im Befund macht keine Empfehlung; am Anfang oder in der Empfehlungsspalte schon
+    expect(a('Delete "TBD" — it could lead to a finding.').nurEmpfehlung).toBe(false)
+    expect(a('Could you delete "TBD"').nurEmpfehlung).toBe(true)
+    // Prosa mit Pfeil: links beanstandet, rechts die Korrektur — nicht beide als Rest
+    expect(a("'check list' → bitte einheitlich 'checklist'")).toMatchObject({ weg: ['check list'], da: ['checklist'], ausZitat: false })
+    // Nur ein Zitat ohne Handlungswort: als solches markiert
+    expect(a('"The FI shall hold a CPL" is incorrect, a valid CPL is required')).toMatchObject({ weg: ['The FI shall hold a CPL'], ausZitat: true })
+    expect(a('Delete "TBD"').ausZitat).toBe(false)
+  })
 })
+

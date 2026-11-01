@@ -1,13 +1,14 @@
 import { CheckCheck, ChevronDown, ChevronRight, Download, Eye, FileDown, FileSpreadsheet, RotateCcw, SearchCheck, Undo2 } from 'lucide-react'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, CardHeading, Field, selectCls } from '../../../components/ui'
+import { Badge, Button, Card, CardHeading, Field, inputCls, selectCls } from '../../../components/ui'
 import { toast } from '../../../components/Toast'
 import { downloadCsv } from '../../../csv'
 import { useStore } from '../../../store'
 import {
   auftraege,
   bestaetigen,
+  bestaetigenMit,
   blattWaehlen,
   csvExport,
   dokNamen,
@@ -69,6 +70,50 @@ function useBestaetigen() {
     docCheckRecheckConfirm(r.datei, zs.map((z) => ({ ref: r.befunde.find((b) => b.zeile === z)!.ref, status: STATUS_NAME[r.ergebnisse!.find((e) => e.zeile === z)!.status] })))
     toast(t('recheck.bestaetigtToast', { count: zs.length }))
   }
+}
+
+/**
+ * Freigabe einer Zeile (N11): Vorschlag übernehmen oder einen anderen
+ * Status wählen. Bei Abweichung oder „Begründung erforderlich" ist die
+ * Begründung Pflicht. Ins Audit gehen nur Nummer und Status — die
+ * Begründung ist freier Text und steht im Export, nicht im Protokoll.
+ */
+function Freigabe({ r, zeile, vorschlag }: { r: ReCheckSitzung; zeile: number; vorschlag: ReStatus }) {
+  const { t } = useTranslation('doccheck')
+  const { currentUser, now, docCheckRecheckConfirm } = useStore()
+  const [status, setStatus] = useState<ReStatus>(vorschlag)
+  const [text, setText] = useState('')
+  const pflicht = status !== vorschlag || status === 'justify'
+  const bestaetigen = () => {
+    const neu = bestaetigenMit(r, zeile, currentUser!.id, now(), status, text)
+    if (neu === 'begruendungFehlt') return toast(t('recheck.freigabe.begruendungFehlt'), 'wait')
+    if (neu === 'unbekannt') return
+    aendernRe((x) => {
+      const n = bestaetigenMit(x, zeile, currentUser!.id, now(), status, text)
+      return typeof n === 'string' ? x : n
+    })
+    docCheckRecheckConfirm(r.datei, [{ ref: r.befunde.find((b) => b.zeile === zeile)!.ref, status: STATUS_NAME[status] }])
+    toast(t('recheck.bestaetigtToast', { count: 1 }))
+  }
+  return (
+    <div className="flex flex-wrap items-end justify-end gap-2">
+      <Field label={t('recheck.freigabe.status')}>
+        <select className={selectCls} value={status} onChange={(e) => setStatus(e.target.value as ReStatus)} onClick={(e) => e.stopPropagation()}>
+          {STATI.map((s) => (
+            <option key={s} value={s}>{`${t(`recheck.status.${s}`)}${s === vorschlag ? ` (${t('recheck.freigabe.vorschlag')})` : ''}`}</option>
+          ))}
+        </select>
+      </Field>
+      {pflicht && (
+        <Field label={t('recheck.freigabe.begruendung')}>
+          <input className={`${inputCls} min-w-[18rem]`} value={text} onChange={(e) => setText(e.target.value)} onClick={(e) => e.stopPropagation()} placeholder={t('recheck.freigabe.begruendungPh')} />
+        </Field>
+      )}
+      <Button onClick={bestaetigen} disabled={pflicht && text.trim().length < 5}>
+        <span className="flex items-center gap-1.5"><CheckCheck size={15} /> {t('recheck.bestaetigen', { status: t(`recheck.status.${status}`) })}</span>
+      </Button>
+    </div>
+  )
 }
 
 /**
@@ -418,7 +463,16 @@ export function ReCheckTab() {
                           <Badge tone={TON[e.status]}>{t(`recheck.status.${e.status}`)}</Badge>
                           {e.abweichung && <span className="mt-1 block text-micro text-wait">{t('recheck.abweichung')}</span>}
                         </td>
-                        <td className="whitespace-nowrap px-2 py-2.5 text-micro">{ok ? <span className="text-ok">{t('recheck.bestaetigtVon', { name: name(ok.von) })}</span> : <span className="text-dim">—</span>}</td>
+                        <td className="whitespace-nowrap px-2 py-2.5 text-micro">
+                          {ok ? (
+                            <>
+                              <span className="text-ok">{t('recheck.bestaetigtVon', { name: name(ok.von) })}</span>
+                              {ok.status !== e.status && <span className="block text-wait">{t('recheck.freigabe.abweichendAls', { status: t(`recheck.status.${ok.status}`) })}</span>}
+                            </>
+                          ) : (
+                            <span className="text-dim">—</span>
+                          )}
+                        </td>
                       </tr>
                       {auf && (
                         <tr className="border-b border-line/[0.06] bg-bg/40">
@@ -454,9 +508,7 @@ export function ReCheckTab() {
                                   <span className="flex items-center gap-1.5"><Undo2 size={15} /> {t('recheck.zuruecknehmen')}</span>
                                 </Button>
                               ) : (
-                                <Button onClick={() => bestaetigenZeilen([b.zeile])}>
-                                  <span className="flex items-center gap-1.5"><CheckCheck size={15} /> {t('recheck.bestaetigen', { status: t(`recheck.status.${e.status}`) })}</span>
-                                </Button>
+                                <Freigabe r={r} zeile={b.zeile} vorschlag={e.status} />
                               )}
                             </div>
                           </td>

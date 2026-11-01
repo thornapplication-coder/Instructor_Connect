@@ -19,6 +19,7 @@ export type ReStatus = 'resolved' | 'partial' | 'open' | 'unverifiable' | 'justi
 /** Warum dieser Vorschlag — damit die Tabelle es ohne Raten erklären kann. */
 export type Grund =
   | 'wegUndDa' // alles Geforderte umgesetzt
+  | 'nurAbwesend' // nur ein Zitat ohne Handlungswort, und das fehlt jetzt — kein Nachweis der Korrektur
   | 'restAnderesDok' // im genannten Dokument behoben, anderswo im Paket noch da
   | 'teilweise' // einige Varianten/Ergänzungen fehlen noch
   | 'unveraendert' // nichts umgesetzt
@@ -268,7 +269,11 @@ export function befundPruefen(b: FremdBefund, ziel: Ziel, paket: PaketDok[], que
   const soll = anweisung.weg.length + anweisung.da.length
   const umgesetzt = wegErledigt + belegt.length
 
-  if (!rest.length && !fehlt.length) return restAnders.length ? fertig('partial', 'restAnderesDok', x) : fertig('resolved', 'wegUndDa', x)
+  if (!rest.length && !fehlt.length) {
+    if (restAnders.length) return fertig('partial', 'restAnderesDok', x)
+    // Nur ein Zitat ist verschwunden: der Satz lautet anders — ob der Mangel behoben ist, sagt das nicht
+    return fertig('resolved', anweisung.ausZitat && !belegt.length ? 'nurAbwesend' : 'wegUndDa', x)
+  }
   if (umgesetzt === 0) return anweisung.nurEmpfehlung ? fertig('justify', 'nurEmpfehlung', x) : fertig('open', 'unveraendert', x)
   return umgesetzt < soll ? fertig('partial', 'teilweise', x) : fertig('open', 'unveraendert', x)
 }
@@ -294,6 +299,7 @@ export const STATUS_NAME: Record<ReStatus, string> = {
 const SATZ: Record<RemarkSprache, Record<Grund, string>> = {
   de: {
     wegUndDa: 'Korrektur im gesamten Paket umgesetzt.',
+    nurAbwesend: 'Beanstandeter Text kommt im Paket nicht mehr vor; ob der Mangel inhaltlich behoben ist, ist damit nicht belegt – bitte prüfen.',
     restAnderesDok: 'Im genannten Dokument behoben, im Paket aber noch vorhanden:',
     teilweise: 'Nur teilweise umgesetzt.',
     unveraendert: 'Beanstandeter Text unverändert vorhanden.',
@@ -304,6 +310,7 @@ const SATZ: Record<RemarkSprache, Record<Grund, string>> = {
   },
   en: {
     wegUndDa: 'Correction implemented throughout the package.',
+    nurAbwesend: 'The quoted text no longer occurs in the package; this does not show that the issue itself is resolved – please verify.',
     restAnderesDok: 'Fixed in the referenced document, but still present elsewhere in the package:',
     teilweise: 'Only partially implemented.',
     unveraendert: 'Text objected to is still present unchanged.',

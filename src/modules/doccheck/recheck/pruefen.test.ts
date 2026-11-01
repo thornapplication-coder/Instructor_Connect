@@ -153,5 +153,18 @@ describe('Restfundstellen-Regel: Ausnahmen (N3.4)', () => {
     expect(inZitat('"x" y "z', 4, 1)).toBe(false)
     expect(inZitat('" | a b"', 4, 1, 3)).toBe(false)
   })
+
+})
+
+describe('Resolved nur mit Nachweis (Fachprüfung 01.11.2026)', () => {
+  it('verschwundenes Zitat ohne Handlungswort: Resolved, aber Grund „nurAbwesend" und ehrlicher Remark', () => {
+    const dok: PaketDok[] = [{ id: 'd', titel: 'D', pages: [{ index: 1, text: 'The FI shall hold a valid CPL.' }] }]
+    const r = befundPruefen(b({ befund: '"The FI shall hold a CPL" is incorrect' }), { art: 'paket' }, dok)
+    expect(r).toMatchObject({ status: 'resolved', grund: 'nurAbwesend' })
+    expect(remark(r, '2026-11-01')).toBe('BEHOBEN (Re-Check 01.11.2026): Beanstandeter Text kommt im Paket nicht mehr vor; ob der Mangel inhaltlich behoben ist, ist damit nicht belegt – bitte prüfen.')
+    expect(remark(r, '2026-11-01', 'en')).toContain('does not show that the issue itself is resolved')
+    // Mit Handlungswort ist das Fehlen der Nachweis
+    expect(befundPruefen(b({ befund: 'Delete "hold a CPL"' }), { art: 'paket' }, dok).grund).toBe('wegUndDa')
+  })
 })
 

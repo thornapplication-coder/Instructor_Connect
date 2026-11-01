@@ -3,8 +3,8 @@ import { formatDateTime } from '../../../datum'
 import { csvLesen } from '../referenz/liste'
 import type { SitzungsDok } from '../sitzung'
 import { sbxFl01 } from '../benchmark/sbx'
-import { auftraege, bestaetigen, korrekturen, kannZurueckschreiben, paketStand, rueckschreibAuftrag, blattWaehlen, csvExport, dokNamen, listeLesen, sammelKandidaten, zaehlen, zeilen, zielAendern, zieleAuffrischen, zuordnungAendern, zuruecknehmen, type ReCheckSitzung } from './ablauf'
-import { befundPruefen } from './pruefen'
+import { auftraege, bestaetigen, bestaetigenMit, remarkBestaetigt, korrekturen, kannZurueckschreiben, paketStand, rueckschreibAuftrag, blattWaehlen, csvExport, dokNamen, listeLesen, sammelKandidaten, zaehlen, zeilen, zielAendern, zieleAuffrischen, zuordnungAendern, zuruecknehmen, type ReCheckSitzung } from './ablauf'
+import { befundPruefen, remark } from './pruefen'
 import { PROFIL_KEY } from './profil'
 
 const ablage = () => {
@@ -117,11 +117,11 @@ describe('Re-Check-Ablauf (N3.1)', () => {
     const am = Date.UTC(2026, 10, 1, 9, 30)
     const r = bestaetigen(pruefen(await laden()), [2], 'u-p', am)
     const zeilenCsv = csvLesen(csvExport(r, '2026-11-01', (id) => (id === 'u-p' ? 'Alex' : id)))
-    expect(zeilenCsv[0]).toEqual(['Row', 'No.', 'Document', 'Page (list)', 'Team status', 'Proposed status', 'Deviation', 'Confirmed status', 'Confirmed by', 'Confirmed on', 'Remark'])
+    expect(zeilenCsv[0]).toEqual(['Row', 'No.', 'Document', 'Page (list)', 'Team status', 'Proposed status', 'Deviation', 'Confirmed status', 'Confirmed by', 'Confirmed on', 'Justification', 'Remark'])
     expect(zeilenCsv[1].slice(0, 10)).toEqual(['2', '1', 'TM', '', 'Closed', 'Not resolved', 'yes', '', '', ''])
-    expect(zeilenCsv[1][10]).toMatch(/^NICHT BEHOBEN \(Re-Check 01\.11\.2026\)/)
+    expect(zeilenCsv[1][11]).toMatch(/^NICHT BEHOBEN \(Re-Check 01\.11\.2026\)/)
     expect(zeilenCsv[2].slice(5, 10)).toEqual(['Resolved', 'yes', 'Resolved', 'Alex', formatDateTime(am)])
-    expect(csvLesen(csvExport({ ...r, sprache: 'en' }, '2026-11-01', String))[3][10]).toMatch(/^NOT VERIFIABLE/)
+    expect(csvLesen(csvExport({ ...r, sprache: 'en' }, '2026-11-01', String))[3][11]).toMatch(/^NOT VERIFIABLE/)
     expect(csvExport({ ...r, ergebnisse: null }, '2026-11-01', String).split('\n').filter(Boolean)).toHaveLength(1)
   })
 
@@ -151,13 +151,42 @@ describe('Re-Check-Ablauf (N3.1)', () => {
   })
 
   it('Korrekturen für die Fix-Propagation: nur, was im Zieldokument behoben ist, und nur bei Dokumentzielen', async () => {
-    const r = pruefen(await laden())
+    const roh = pruefen(await laden())
+    // Unbestätigt: keine Korrektur — erst eine Person macht aus dem Vorschlag eine Feststellung (N11)
+    expect(korrekturen(roh)).toEqual([])
+    const r = bestaetigen(roh, roh.befunde.map((b) => b.zeile), 'u', 1)
     // #1 TM: Revsion noch da → keine Korrektur; #2 APX 4: TBD weg → Korrektur; #3 OSD: Quelle fehlt
     expect(korrekturen(r)).toEqual([{ ref: '2', dokId: 'apx', weg: 'TBD' }])
     // Paketweites Ziel: kein einzelnes Dokument, dessen Geschwister zu prüfen wären (Ergebnisse bleiben stehen)
     expect(korrekturen({ ...r, ziele: { ...r.ziele, 'APX 4': { art: 'paket' } } })).toEqual([])
     expect(korrekturen(undefined)).toEqual([])
     expect(korrekturen({ ...r, ergebnisse: null })).toEqual([])
+  })
+
+  it('Sammelbestätigung nimmt „Resolved" ohne Nachweis aus', async () => {
+    const r = pruefen(await laden())
+    const ohneNachweis = { ...r, ergebnisse: r.ergebnisse!.map((e) => (e.status === 'resolved' ? { ...e, grund: 'nurAbwesend' as const } : e)) }
+    expect(sammelKandidaten(r).length).toBeGreaterThan(0)
+    expect(sammelKandidaten(ohneNachweis)).toEqual([])
+  })
+
+  it('Einzelbestätigung mit eigenem Status: Begründung Pflicht bei Abweichung und bei „justify" (N11)', async () => {
+    const r = pruefen(await laden())
+    const e1 = r.ergebnisse!.find((e) => e.zeile === 1)! // Vorschlag: Not resolved
+    expect(bestaetigenMit(r, 1, 'u', 5, 'resolved', '  ')).toBe('begruendungFehlt')
+    expect(bestaetigenMit(r, 99, 'u', 5, 'resolved', 'x')).toBe('unbekannt')
+    const gleich = bestaetigenMit(r, 1, 'u', 5, e1.status, '') as ReCheckSitzung
+    expect(gleich.bestaetigt[1]).toEqual({ status: e1.status, von: 'u', at: 5 })
+    expect(bestaetigenMit(r, 1, 'u', 5, 'justify', 'kurz')).toBe('begruendungFehlt')
+    const anders = bestaetigenMit(r, 1, 'u', 5, 'resolved', 'Wording changed in Rev 2, approved by HT') as ReCheckSitzung
+    expect(anders.bestaetigt[1]).toEqual({ status: 'resolved', von: 'u', at: 5, begruendung: 'Wording changed in Rev 2, approved by HT' })
+    // Remark und Export tragen die Abweichung
+    expect(remarkBestaetigt(e1, anders.bestaetigt[1], '2026-11-01', 'de')).toMatch(/\nAbweichend bestätigt als „Resolved" – Begründung: Wording changed in Rev 2, approved by HT$/)
+    expect(remarkBestaetigt(e1, anders.bestaetigt[1], '2026-11-01', 'en')).toMatch(/\nConfirmed as "Resolved" \(deviating from the proposal\) – justification: Wording/)
+    expect(remarkBestaetigt(e1, { status: e1.status, von: 'u', at: 1, begruendung: 'Siehe Protokoll' }, '2026-11-01', 'de')).toMatch(/\nBestätigt – Begründung: Siehe Protokoll$/)
+    expect(remarkBestaetigt(e1, { status: e1.status, von: 'u', at: 1, begruendung: 'Seen' }, '2026-11-01', 'en')).toMatch(/\nConfirmed – justification: Seen$/)
+    expect(remarkBestaetigt(e1, undefined, '2026-11-01', 'de')).toBe(remark(e1, '2026-11-01', 'de'))
+    expect(csvLesen(csvExport(anders, '2026-11-01', String))[1][10]).toBe('Wording changed in Rev 2, approved by HT')
   })
 })
 

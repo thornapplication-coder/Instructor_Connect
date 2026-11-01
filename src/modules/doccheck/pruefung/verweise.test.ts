@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LEERE_LENKUNG, type Rohdokument } from '../parse/model'
 import { REGELN } from './kontext'
-import { abschnitte, kapitelNummern, kreise, nurVerweis, uebungsNummern, verweiseIn, verweisPruefung, vorhanden } from './verweise'
+import { abschnitte, kapitelNummern, kreise, nurVerweis, uebungsNummern, verweiseIn, verweisPruefung, vorhanden, fremdesRegelwerk } from './verweise'
 
 describe('Verweise erkennen (N7)', () => {
   it('mit Dokument, mit Schlüsselwort, intern mit „see"', () => {
@@ -14,6 +14,12 @@ describe('Verweise erkennen (N7)', () => {
   it('kein Verweis: „see 4" ohne Schlüsselwort, Daten, „tm" klein, Zahl direkt hinter Kürzel ohne Punkt', () => {
     expect(verweiseIn('see 4 pilots; dated 01.11.2026; chapter 2026.1; the tm unit; ANX 2B 16 hours')).toEqual([expect.objectContaining({ dok: 'ANX 2B' })])
     expect(verweiseIn('ANX 2B 16 hours')[0].nummer).toBeUndefined()
+  })
+
+  it('Ziel in einem fremden Regelwerk ist kein Verweis ins Paket (Fachprüfung 01.11.2026)', () => {
+    expect(verweiseIn('IAW Appendix 9 to Part-FCL; Annex 2 of Regulation (EU) 2018/1139; Annex 3 (Part-ORA)')).toEqual([])
+    expect(fremdesRegelwerk(' to the TM')).toBe(false)
+    expect(verweiseIn('see Appendix 2A to the TM').map((x) => x.dok)).toEqual(['Appendix 2A', 'TM'])
   })
 })
 

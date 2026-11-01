@@ -209,7 +209,7 @@ describe('Abnahme N1.3 / N2.3: Paketprüfung an SBX-PKG-01', () => {
       'ANX 2B gegenfassung Medium', // „PM" in SP
       'ANX 2B geschwister Medium', // 3 h statt 4 h
       'ANX 2B geschwister Medium', // recieve
-      'ANX 2B hierarchie High', // 12 h statt 16 h
+      'ANX 2B hierarchie Medium', // 12 h statt 16 h
       'ANX 3 liste Low', // Titel weicht ab
       'APX 5 stand Low', // R0.0
       'TM liste Medium', // Appendix 6 fehlt
@@ -230,7 +230,7 @@ describe('Abnahme N1.3 / N2.3: Paketprüfung an SBX-PKG-01', () => {
     // Keine Doppelmeldung: Die Stundenzeile ist Hierarchie-, kein Geschwisterbefund
     expect(e.befunde.filter((b) => b.fundstellen.some((f) => f.auszug === 'FFS training: 12 hours'))).toHaveLength(1)
     expect(e.uebersicht.map((z) => [z.kuerzel, z.abweichung])).toEqual([['TM', []], ['APX 4', []], ['APX 5', ['revision']], ['ANX 2A', []], ['ANX 2B', []], ['ANX 3', []], ['ANX 4', []]])
-    expect(e.ampel).toMatchObject({ liste: 'wait', stand: 'wait', hierarchie: 'bad', geschwister: 'wait', gegenfassung: 'wait', propagation: 'na', verweise: 'wait' })
+    expect(e.ampel).toMatchObject({ liste: 'wait', stand: 'wait', hierarchie: 'wait', geschwister: 'wait', gegenfassung: 'wait', propagation: 'na', verweise: 'wait' })
 
     // N7: Verweise zwischen Dokumenten — Werte im Text, Ziel unter Other affected documents
     const v = e.befunde.filter((b) => b.pruefpunkt === 'verweise').map((b) => [b.text, b.verifizierung, b.weitere?.map((w) => w.dokId)])

@@ -50,8 +50,18 @@ describe('Revisionsstand und Hierarchie', () => {
       m('APX 1', 2, 'WBT: 3 h'),
       m('ANX 1', 3, 'WBT: 4 h\nFFS: 16 h'),
     ])
-    expect(r.befunde.map((b) => [b.dokId, b.weitere?.[0].dokId, b.prioritaet])).toEqual([['APX 1', 'TM', 'High'], ['ANX 1', 'APX 1', 'High']])
-    expect(r.ampel.hierarchie).toBe('bad')
+    expect(r.befunde.map((b) => [b.dokId, b.weitere?.[0].dokId, b.prioritaet])).toEqual([['APX 1', 'TM', 'Medium'], ['ANX 1', 'APX 1', 'Medium']])
+    expect(r.ampel.hierarchie).toBe('wait')
+  })
+
+  it('Angaben je Einheit („per session") sind keine Programmsumme und werden nicht verglichen (Fachprüfung 01.11.2026)', () => {
+    const r = paketPruefen([m('TM', 1, 'FFS per session: 4 h'), m('APX 1', 2, 'FFS per session: 2 h')])
+    expect(r.befunde).toEqual([])
+  })
+
+  it('Hierarchie nicht anwendbar, wenn höhere und tiefere Dokumente keine gemeinsame Stundenangabe haben', () => {
+    expect(paketPruefen([m('TM', 1, 'WBT: 2 h'), m('APX 1', 2, 'FFS: 4 h')]).ampel.hierarchie).toBe('na')
+    expect(paketPruefen([m('TM', 1, 'WBT: 2 h'), m('APX 1', 2, 'WBT: 2 h')]).ampel.hierarchie).toBe('ok')
   })
 
   it('Einzeldokument: Stand und Hierarchie nicht anwendbar, Geschwister auch nicht', () => {
@@ -78,6 +88,14 @@ describe('Geschwister (N2)', () => {
     const r = paketPruefen([mp('Annex 2A FFS Training MP version text\nThe Captain and the First Officer review the briefing notes together.'), sp('Annex 2B FFS Training SP version text\nThe and the review the briefing notes together.')])
     expect(r.befunde).toEqual([])
     expect(r.ampel).toMatchObject({ geschwister: 'ok', gegenfassung: 'ok', propagation: 'na' })
+  })
+
+  it('feste Wendungen („cabin crew", „Crew Resource Management") sind kein Rest der Gegenfassung', () => {
+    const r = paketPruefen([mp('Inform the cabin crew before engine start.'), sp('Inform the cabin crew before engine start. Crew Resource Management applies.')])
+    expect(r.ampel.gegenfassung).toBe('ok')
+    // das nackte Wort bleibt ein Befund
+    const s = paketPruefen([mp('Brief the crew.'), sp('Brief the crew.')])
+    expect(s.befunde.map((b) => [b.dokId, b.pruefpunkt])).toEqual([['ANX 2B', 'gegenfassung']])
   })
 
   it('verdächtiger Unterschied beim zweiten Mitglied, mit Verweis aufs erste', () => {

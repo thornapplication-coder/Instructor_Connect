@@ -125,8 +125,10 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   laufen im Worker bei JEDER Zusammenfassung neu — nach OCR oder Word-PDF
   stimmen alte Fundstellen sonst nicht mehr. Befundtexte sind englisch
   (Export), Handlungsanweisungen in der Sprache der Oberfläche. Keine
-  erfundenen Regelzitate. Ein Prüfpunkt, der für ein Format nicht passt,
-  ist „nicht anwendbar", nicht grün.
+  erfundenen Regelzitate. Ein Prüfpunkt, der für ein Format nicht passt
+  oder für den das Dokument nichts Prüfbares enthält (kein Verzeichnis, keine
+  Nummerierung, keine Summenzeile, keine Wettermeldung …), ist „nicht
+  anwendbar", nicht grün.
 - **Referenzlisten** (`referenz/`) werden an den Spaltenköpfen erkannt
   (`SPALTEN` in `referenz/liste.ts`); nicht erkannt heißt: der Nutzer
   wählt, es wird nicht geraten. Die Listen liegen wie Prüfdokumente nur im
@@ -148,6 +150,12 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   Das Kapitel einer Fundstelle ist die letzte Überschrift VOR ihr, nicht
   das der Seite — ein DOCX ohne Umbrüche ist sonst eine Seite mit dem
   letzten Kapitel. Bestätigen schreibt eine Audit-Zeile ohne Befundtext.
+  Status abweichend vom Vorschlag oder „Justify" nur mit Begründung
+  (mind. 5 Zeichen); im Audit stehen nur Nummer und Status.
+  **Noch nicht umgesetzt** (N3.1.6, Nachtrag Kap. 7): das zusätzliche Blatt
+  „New findings" beim Rückschreiben und die Nummerierung neuer Befunde in
+  der Systematik der Liste — neue Befunde gibt es bisher nur im
+  DocCheck-Export. Wer die Abnahme N3 erklärt, nennt diese Lücke.
   Schalter `recheck` ab Werk **aus** (Nachtrag Kap. 17), bis die Abnahme
   inkl. Rückschreiben (N3.5) bestanden ist — offen ist allein die
   Öffnungsprobe in Microsoft Excel (hier nicht verfügbar).
@@ -169,7 +177,12 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   Ergebnis stehen lässt. Hierarchieregel: Befund beim TIEFEREN Dokument,
   das höhere unter „Other affected documents" (`Befund.weitere`).
   Dublettenregel: Eine Zeile ist nicht zugleich Hierarchie- und
-  Geschwisterbefund. Erlaubte Geschwister-Unterschiede stehen in
+  Geschwisterbefund. Propagation und Paketprüfung übernehmen nur
+  **bestätigte** Re-Check-Korrekturen — ein bloßer Vorschlag ändert kein
+  anderes Ergebnis. Hierarchiebefunde sind Medium (gleiche Bezeichnung heißt
+  nicht sicher gleicher Umfang); Angaben je Einheit („per session") werden
+  nicht mit Programmsummen verglichen. Feste Wendungen wie „cabin crew"
+  stehen als `exceptPhrases` in `sibling-rules.json`. Erlaubte Geschwister-Unterschiede stehen in
   `config/sibling-rules.json` (Beispiel der Spezifikation, Erstbefüllung
   beim Superadmin); Variantenbezeichnungen und Kürzel sind immer erlaubt.
   Bei einem Tippfehler zwischen Geschwistern gilt das Wort als falsch, das
@@ -185,7 +198,9 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   prüft die Formalprüfung (`querverweise`, v1.1); `pruefung/verweise.ts`
   prüft je Dokument nur Übungsnummern und Zirkel, die Paketprüfung alle
   Verweise auf ein anderes Dokument. Fehlt das Ziel, heißt der Befund
-  „Not verifiable – source missing" und erscheint nie als verifiziert.
+  „Not verifiable – source missing" und erscheint nie als verifiziert. Ein
+  Ziel in einem fremden Regelwerk („Appendix 9 to Part-FCL", „Annex I
+  (Part-FCL)") ist kein Verweis ins Dokument (`fremdesRegelwerk`).
   Kapitelnummern kommen aus der Gliederung UND aus nummerierten Absätzen —
   sonst wäre jeder Verweis auf „1.4.1.1 The PIC …" kaputt.
 - **Regelwerksverweise** (`pruefung/regelwerk.ts`, N8): Der Index enthält

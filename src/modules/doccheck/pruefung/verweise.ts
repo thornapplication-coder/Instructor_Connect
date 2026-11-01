@@ -37,6 +37,15 @@ const NUMMER = String.raw`(\d+(?:\.\d+)*)`
 const RE = new RegExp(String.raw`\b${PREFIX}\b(?:,?\s*${SCHLUESSEL}?\s*${NUMMER})?|\b(see|refer to|siehe|according to|in accordance with|iaw|gemäß)\s+(?:${SCHLUESSEL}\s+)?${NUMMER}|\b${SCHLUESSEL}\s+${NUMMER}`, 'giu')
 
 const UEBUNG = /^(exercise|ex\.|übung)$/i
+
+/**
+ * „Appendix 9 to Part-FCL", „Annex I (Part-FCL)", „Annex 2 of Regulation
+ * (EU) 2018/1139": Das Ziel steht in einem fremden Regelwerk, nicht im
+ * Dokument oder Paket — als kaputter Verweis gemeldet wäre es ein Fehlalarm
+ * (Fachprüfung 01.11.2026). Geprüft wird der Text DIREKT hinter dem Treffer.
+ */
+const FREMD = /^\s*(?:\(\s*Part[- ][A-Z]|(?:to|of|zu|der|des|in)\s+(?:the\s+)?(?:Part[- ][A-Z]|Regulation|Commission|Verordnung|ICAO|EASA|Basic\s+Regulation|\(EU\)|EU\b|CS[- ]|AMC|GM\d*\b))/i
+export const fremdesRegelwerk = (danach: string) => FREMD.test(danach)
 /** Jahreszahlen und Daten sind keine Kapitel („01.11.2026"). */
 const datumAehnlich = (n: string) => n.split('.').some((t) => t.length === 4)
 
@@ -44,6 +53,7 @@ export function verweiseIn(zeile: string, seite = ''): Verweis[] {
   const out: Verweis[] = []
   for (const m of zeile.matchAll(RE)) {
     const [text, pre, k1, n1, , k2, n2, k3, n3] = m
+    if (fremdesRegelwerk(zeile.slice(m.index! + text.length))) continue
     if (pre) {
       // „tm" in Kleinschreibung ist kein Training Manual
       if (/^tm$/i.test(pre) && pre !== 'TM') continue

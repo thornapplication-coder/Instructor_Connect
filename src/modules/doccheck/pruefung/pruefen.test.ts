@@ -60,7 +60,8 @@ describe('Abnahme N4.4: Word-Check an SBX-WORD-01 — alle Fälle gefunden, der 
 
   it('Ampel: Hoch bei unsichtbarem Text', () => {
     expect(p.ampel.word.unsichtbar).toBe('bad')
-    expect(p.ampel.word.felder).toBe('ok')
+    // SBX-WORD-01 hat kein Inhaltsverzeichnis — Felder sind nicht anwendbar, nicht grün
+    expect(p.ampel.word.felder).toBe('na')
   })
 })
 

@@ -34,7 +34,7 @@ describe('Formalprüfung — Grenzfälle', () => {
   it('Dokument ohne Gliederung, Labels und Listen: viele Punkte nicht anwendbar, keine Befunde', () => {
     const p = pruefe(roh(['Just a short text page.']))
     expect(p.befunde).toEqual([])
-    expect(p.ampel).toMatchObject({ revisionsstand: 'na', lep: 'na', seiten: 'na', revisionen: 'na', inhalt: 'na', querverweise: 'na', abkuerzungen: 'na', reste: 'ok', nummerierung: 'ok' })
+    expect(p.ampel).toMatchObject({ revisionsstand: 'na', lep: 'na', seiten: 'na', revisionen: 'na', inhalt: 'na', querverweise: 'na', abkuerzungen: 'na', reste: 'ok', nummerierung: 'na' })
   })
 
   it('Revision > 0 ohne Highlights of Change; „x of y" mit wechselnder Gesamtzahl; Doppelte Seite', () => {
@@ -85,6 +85,12 @@ describe('Formalprüfung — Verweisarten, Revisionsverzeichnis, Datum', () => {
     ]))
     const a = p.befunde.find((b) => b.pruefpunkt === 'querverweise')!.fundstellen.map((f) => f.auszug.split(' — ')[0])
     expect(a).toEqual(['See Appendix B', 'see Figure 3', 'see Table 4'])
+  })
+
+  it('Verweis in ein fremdes Regelwerk ist kein fehlendes Ziel (Fachprüfung 01.11.2026)', () => {
+    const p = pruefe(roh(['Appendix A Forms', 'See Annex I (Part-FCL). Refer to Appendix 9 to Part-FCL. See Appendix B.']))
+    const a = p.befunde.find((b) => b.pruefpunkt === 'querverweise')!.fundstellen.map((f) => f.auszug.split(' — ')[0])
+    expect(a).toEqual(['See Appendix B'])
   })
 
   it('Revisionsverzeichnis: letzter Eintrag passt nicht zur Dokumentrevision; mit HoC kein Zusatzbefund', () => {

@@ -10,23 +10,39 @@ import type { Rechtscharakter } from './model'
  * „FIG.123" oder „REV.001" kein Regelverweis wird.
  */
 
-const PRAEFIX_KURZ = 'FCL|MED|SERA|ARA|ORA|ORO|CAT|SPA|NCC|NCO|SPO|DTO|ATO|ADR|ATCO|FSTD'
+const PRAEFIX_KURZ = 'FCL|MED|SERA|ARA|ARO|ORA|ORO|CAT|SPA|NCC|NCO|SPO|DTO|ATO|ADR|ATCO|FSTD|CAMO|CAO'
 const KLAMMERN = '(?:\\([a-z0-9]+\\))*'
+/**
+ * Rumpf einer IR-ID: bis zu zwei Mittelglieder („ORA.ATO", „CAT.OP.MPA"),
+ * drei- oder vierstellige Nummer („FCL.1015", „SERA.5001"), optional ein
+ * Buchstaben-Suffix („FCL.740.A"). Am Ende keine weitere Ziffer — sonst
+ * würde „FCL.1015" als „FCL.101" abgeschnitten (Fachprüfung 01.11.2026).
+ */
+const RUMPF = '(?:\\.[A-Z]{1,4}){0,2}\\.\\d{3,4}[A-Z]?(?:\\.[A-Z](?![A-Za-z]))?(?!\\d)'
+/** CS als ganzes Regelwerk („CS-FCD", „CS-FSTD(A)") oder Artikel („CS FCD.420", „CS-25.1309"). */
+const CS_ID = 'CS-(?:[A-Z]{2,5}|\\d{2})(?:\\([A-Z]\\))?(?:\\.\\d{2,4}[A-Z]?|\\s+[A-Z]+\\.\\d+[A-Z]?)?|CS (?:[A-Z]{2,5}|\\d{2})(?:\\([A-Z]\\))?\\.\\d{2,4}[A-Z]?'
 
-export const AMC_GM = new RegExp(`\\b(?:AMC|GM)\\d*\\s+(?:[A-Z]{2,4}(?:\\.[A-Z]{1,4})*\\.\\d{3}[A-Z]?|CS[- ][A-Z]+(?:\\([A-Z]\\))?\\.?\\d*)${KLAMMERN}`, 'g')
-export const IR = new RegExp(`\\b(?:[A-Z]{3}\\.[A-Z]{3,4}\\.\\d{3}[A-Z]?|(?:${PRAEFIX_KURZ})\\.(?:[A-Z]\\.)?\\d{3}[A-Z]?)${KLAMMERN}`, 'g')
-export const CS = /\bCS-[A-Z]+(?:\([A-Z]\))?(?:\s+[A-Z]+\.\d+[A-Z]?)?/g
+export const AMC_GM = new RegExp(`\\b(?:AMC|GM)\\d*\\s+(?:[A-Z]{2,5}${RUMPF}|${CS_ID})${KLAMMERN}`, 'g')
+// Nicht innerhalb einer gepunkteten Kennung: „AT.ATO.106" ist eine
+// Zulassungsnummer, keine Regel „ATO.106".
+export const IR = new RegExp(`(?<![A-Za-z0-9.])(?:${PRAEFIX_KURZ})${RUMPF}${KLAMMERN}`, 'g')
+export const CS = new RegExp(`\\b(?:${CS_ID})`, 'g')
+
+/** Einheitliche Schreibweise: „CS FCD.420" → „CS-FCD.420", Leerraum einfach. */
+export function normalisieren(id: string): string {
+  return id.replace(/\s+/g, ' ').replace(/\bCS (?=[A-Z0-9])/, 'CS-')
+}
 
 /** Alle Regel-IDs einer Seite, ohne Dubletten, in Reihenfolge des Auftretens. */
 export function regelIds(text: string): string[] {
   const treffer: { i: number; s: string }[] = []
-  const amcGm = [...text.matchAll(AMC_GM)].map((m) => ({ i: m.index!, s: m[0].replace(/\s+/g, ' ') }))
+  const amcGm = [...text.matchAll(AMC_GM)].map((m) => ({ i: m.index!, s: normalisieren(m[0]) }))
   treffer.push(...amcGm)
   // Ein IR-Treffer INNERHALB eines AMC/GM-Treffers ist derselbe Verweis —
   // „AMC1 ORA.ATO.230" soll nicht zusätzlich als „ORA.ATO.230" zählen.
   const innen = (i: number) => amcGm.some((a) => i >= a.i && i < a.i + a.s.length)
   for (const m of text.matchAll(IR)) if (!innen(m.index!)) treffer.push({ i: m.index!, s: m[0] })
-  for (const m of text.matchAll(CS)) if (!innen(m.index!)) treffer.push({ i: m.index!, s: m[0] })
+  for (const m of text.matchAll(CS)) if (!innen(m.index!)) treffer.push({ i: m.index!, s: normalisieren(m[0]) })
   return [...new Set(treffer.sort((a, b) => a.i - b.i).map((t) => t.s))]
 }
 

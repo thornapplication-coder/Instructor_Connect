@@ -1,5 +1,5 @@
 import type { DocPage } from '../parse/model'
-import { AMC_GM, IR, CS, regelIds } from '../parse/regeln'
+import { AMC_GM, IR, CS, normalisieren, regelIds } from '../parse/regeln'
 import { ampelAus, type Ampel, type Befund, type Fundstelle } from './befund'
 import { befund, editierabstand, type PruefKontext } from './kontext'
 
@@ -58,13 +58,15 @@ export function zerlegen(id: string): Verweis {
 
 /** Regelwerksfamilie: „ORA.ATO.125" → „ORA.ATO", „FCL.725" → „FCL", „MED.B.001" → „MED.B", „CS-FCD.100" → „CS-FCD". */
 export function familie(basis: string): string {
-  if (basis.startsWith('CS')) return basis.match(/^CS-[A-Z]+/)?.[0] ?? basis
-  return basis.replace(/\.\d{3}[A-Z]?$/, '')
+  if (basis.startsWith('CS')) return basis.match(/^CS-(?:[A-Z]+|\d+)/)?.[0] ?? basis
+  // Alles ab der Nummer weg: „FCL.740.A" → „FCL", „CAT.OP.MPA.150" → „CAT.OP.MPA"
+  return basis.replace(/\.\d{3,4}.*$/, '')
 }
 
 const schluessel = (v: Pick<Verweis, 'art' | 'basis'>) => (v.art ? `${v.art} ${v.basis}` : v.basis)
 const REGEL_AM_ANFANG = new RegExp(`^(?:${AMC_GM.source}|${IR.source}|${CS.source})`)
-const ABSATZ = /^((?:\((?:[a-z]|[ivx]+|\d+)\))+)\s/
+// Absatzmarke am Zeilenanfang — auch allein auf der Zeile, wie in PDF-Auszügen üblich
+const ABSATZ = /^((?:\((?:[a-z]|[ivx]+|\d+)\))+)(?:\s|$)/
 const ROEMISCH = /^\((?:i|ii|iii|iv|v|vi|vii|viii|ix|x)\)$/
 
 /**
@@ -84,22 +86,31 @@ export function regelIndex(quellen: RegelQuelle[]): RegelIndex {
         const z = roh.trim()
         const kopf = z.match(REGEL_AM_ANFANG)
         if (kopf) {
-          const v = zerlegen(kopf[0].replace(/\s+/g, ' ').replace(/(?:\([a-z0-9]+\))+$/i, ''))
+          const v = zerlegen(normalisieren(kopf[0]).replace(/(?:\([a-z0-9]+\))+$/i, ''))
           const k = schluessel(v)
           akt = eintraege.get(k) ?? { schluessel: k, familie: familie(v.basis), absaetze: new Set(), quelle: q.titel }
           eintraege.set(k, akt)
+          // „GM1 ORA.ATO.230(a)" ist die Leitlinie ZU Absatz (a) — dieser Absatz existiert
+          const inKopf = normalisieren(kopf[0]).match(/(?:\([a-z0-9]+\))+$/i)?.[0]
+          if (inKopf) akt.absaetze.add(inKopf)
           e1 = e2 = ''
           continue
         }
         const a = akt && z.match(ABSATZ)
         if (!a || !akt) continue
         for (const t of a[1].match(/\([^)]+\)/g)!) {
-          // (i) nach einer Ziffer ist römisch (Ebene 3), sonst ein Buchstabe
+          // (i) nach einer Ziffer ist römisch (Ebene 3), sonst ein Buchstabe.
+          // Mehrdeutig ist der Buchstabe, der auf den aktuellen folgt — etwa
+          // (i) nach (h)(2): Dann gelten beide Lesarten, statt einen echten
+          // Absatz (i) als „not found" zu melden (Fachprüfung 01.11.2026).
+          const naechster = e1 ? `(${String.fromCharCode(e1.charCodeAt(1) + 1)})` : ''
           if (/^\(\d+\)$/.test(t) && e1) {
             e2 = `${e1}${t}`
             akt.absaetze.add(e2)
-          } else if (ROEMISCH.test(t) && e2) akt.absaetze.add(`${e2}${t}`)
-          else if (/^\([a-z]\)$/.test(t)) {
+          } else if (ROEMISCH.test(t) && e2) {
+            akt.absaetze.add(`${e2}${t}`)
+            if (t === naechster) akt.absaetze.add(t)
+          } else if (/^\([a-z]\)$/.test(t)) {
             e1 = t
             e2 = ''
             akt.absaetze.add(e1)
@@ -111,7 +122,7 @@ export function regelIndex(quellen: RegelQuelle[]): RegelIndex {
   return { eintraege, familien, quellen: [...new Set([...eintraege.values()].map((e) => e.quelle))] }
 }
 
-export type Ergebnis = { status: 'verified' } | { status: 'fehlt'; naechste?: string } | { status: 'absatz'; vorhanden: string[] } | { status: 'quelle' }
+export type Ergebnis = { status: 'verified' } | { status: 'unbelegt' } | { status: 'fehlt'; naechste?: string } | { status: 'absatz'; vorhanden: string[] } | { status: 'quelle' }
 
 /** Nächstliegende ID derselben Art und Familie — Hinweis, kein Ersatz. */
 function naechste(v: Verweis, index: RegelIndex): string | undefined {
@@ -125,8 +136,9 @@ export function verweisPruefen(id: string, index: RegelIndex): Ergebnis {
   const e = index.eintraege.get(schluessel(v))
   if (!e) return { status: 'fehlt', naechste: naechste(v, index) }
   if (!v.absaetze.length) return { status: 'verified' }
-  // Ohne erfasste Absätze lässt sich ein Absatzverweis nicht widerlegen
-  if (!e.absaetze.size) return { status: 'verified' }
+  // Ohne erfasste Absätze lässt sich ein Absatzverweis weder widerlegen noch
+  // belegen — „nicht widerlegbar", nicht „verified" (Fachprüfung 01.11.2026)
+  if (!e.absaetze.size) return { status: 'unbelegt' }
   const pfad = v.absaetze.join('')
   return e.absaetze.has(pfad) ? { status: 'verified' } : { status: 'absatz', vorhanden: [...e.absaetze].filter((a) => !a.slice(3).includes('(')).sort() }
 }
@@ -135,13 +147,15 @@ export interface RegelwerkStand {
   quellen: string[]
   verweise: number
   verifiziert: number
+  /** Regel vorhanden, Absatz im Auszug nicht erfasst — weder belegt noch widerlegt */
+  nichtWiderlegbar: number
   zuPruefen: number
   ohneQuelle: number
 }
 
 export function regelwerkPruefung(k: PruefKontext, index: RegelIndex): { befunde: Omit<Befund, 'id'>[]; ampel: Record<string, Ampel>; stand: RegelwerkStand } {
   const befunde: Omit<Befund, 'id'>[] = []
-  const stand: RegelwerkStand = { quellen: index.quellen, verweise: 0, verifiziert: 0, zuPruefen: 0, ohneQuelle: 0 }
+  const stand: RegelwerkStand = { quellen: index.quellen, verweise: 0, verifiziert: 0, nichtWiderlegbar: 0, zuPruefen: 0, ohneQuelle: 0 }
   // Ohne geladenes Regelwerk ist nichts prüfbar — nicht anwendbar statt hunderter „To verify"
   if (!index.eintraege.size) return { befunde, ampel: ampelAus([...REGELWERK_PUNKTE], [], [...REGELWERK_PUNKTE]), stand }
   const ohne = new Map<string, Fundstelle[]>()
@@ -153,6 +167,7 @@ export function regelwerkPruefung(k: PruefKontext, index: RegelIndex): { befunde
         const r = verweisPruefen(id, index)
         const fs: Fundstelle = { seite: p.label ?? String(p.index), auszug: z.trim() }
         if (r.status === 'verified') stand.verifiziert++
+        else if (r.status === 'unbelegt') stand.nichtWiderlegbar++
         else if (r.status === 'quelle') {
           stand.ohneQuelle++
           const f = familie(zerlegen(id).basis)

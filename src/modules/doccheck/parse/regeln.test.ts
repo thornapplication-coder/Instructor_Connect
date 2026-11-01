@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rechtscharakter, regelIds } from './regeln'
+import { normalisieren, rechtscharakter, regelIds } from './regeln'
 
 describe('Regel-IDs (Spez. 7.5)', () => {
   it('erkennt AMC/GM mit Unterabsatz und zählt die eingebettete IR nicht doppelt', () => {
@@ -20,6 +20,21 @@ describe('Regel-IDs (Spez. 7.5)', () => {
 
   it('kein Treffer für Abbildungs- oder Revisionsnummern', () => {
     expect(regelIds('FIG.123 shows REV.001 of ABC.12')).toEqual([])
+  })
+
+  it('vierstellige Nummern, Buchstaben-Suffix, zwei Mittelglieder — nicht abgeschnitten (Fachprüfung 01.11.2026)', () => {
+    expect(regelIds('FCL.1015, SERA.5001, AMC1 FCL.1015, FCL.740.A(b)(1), ORO.FC.220, CAT.OP.MPA.150(a)')).toEqual(['FCL.1015', 'SERA.5001', 'AMC1 FCL.1015', 'FCL.740.A(b)(1)', 'ORO.FC.220', 'CAT.OP.MPA.150(a)'])
+    // Satzpunkt und Folgewort sind kein Suffix
+    expect(regelIds('see FCL.740. A pilot shall FCL.740.Additional')).toEqual(['FCL.740'])
+  })
+
+  it('CS-Artikel mit Bindestrich oder Leerzeichen, einheitlich geschrieben', () => {
+    expect(regelIds('CS FCD.420 and CS-25.1309, AMC1 CS FCD.420')).toEqual(['CS-FCD.420', 'CS-25.1309', 'AMC1 CS-FCD.420'])
+    expect(normalisieren('AMC1   CS FCD.420')).toBe('AMC1 CS-FCD.420')
+  })
+
+  it('Zulassungsnummern sind keine Regeln: „AT.ATO.106" ist nicht „ATO.106"', () => {
+    expect(regelIds('The ATO AT.ATO.106 applies ORA.ATO.125.')).toEqual(['ORA.ATO.125'])
   })
 
   it('normalisiert Leerraum und entfernt Dubletten', () => {

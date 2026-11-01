@@ -24,10 +24,30 @@ describe('Word-Check — Bausteine', () => {
     expect(Object.keys(r.ampel)).toEqual([...WORD_PUNKTE])
   })
 
-  it('sauberes Dokument: alle Punkte grün', () => {
+  it('sauberes Dokument ohne Verzeichnis, Überschrift und Edition: diese Punkte nicht anwendbar, nicht grün', () => {
+    // Fachprüfung 01.11.2026: Grün hieß hier „geprüft, in Ordnung", obwohl es nichts zu prüfen gab
     const r = pruefe(roh(word({ absaetze: [{ nr: 0, text: 'The pilot shall check the system and the crew.', ort: 'body', teil: 'word/document.xml', sektion: 1, seiteCa: 1 }] })))
     expect(r.befunde).toEqual([])
-    expect(Object.values(r.ampel).every((a) => a === 'ok')).toBe(true)
+    expect(Object.values(r.ampel).every((a) => a === 'ok' || a === 'na')).toBe(true)
+    expect(r.ampel).toMatchObject({ editionRevision: 'na', felder: 'na', fragmente: 'na' })
+  })
+
+  it('sauberes Dokument MIT Verzeichnis, Überschrift und zwei Editionsangaben: alle Punkte grün', () => {
+    const w = word({
+      absaetze: [
+        { nr: 0, text: '1 General', ort: 'body', teil: 'word/document.xml', sektion: 1, seiteCa: 1, ebene: 1 },
+        { nr: 1, text: 'The pilot shall check the system and the crew.', ort: 'body', teil: 'word/document.xml', sektion: 1, seiteCa: 1 },
+      ],
+      toc: [{ titel: 'A', seite: 2, ebene: 1 }, { titel: 'B', seite: 5, ebene: 1 }],
+    })
+    const r = wordCheck({ dokId: 'd', dokName: 'D', roh: roh(w), meta: { revision: 'Edition 2' }, regeln: REGELN }, 'TM_E2R0.docx')
+    expect(r.befunde).toEqual([])
+    expect(Object.entries(r.ampel).filter(([, a]) => a !== 'ok')).toEqual([])
+  })
+
+  it('ohne erkennbare Dokumentsprache ist die Korrektursprache nicht anwendbar', () => {
+    const r = pruefe(roh(word({ absaetze: [{ nr: 0, text: '12 34 56', ort: 'body', teil: 'word/document.xml', sektion: 1, seiteCa: 1 }] })))
+    expect(r.ampel.korrektursprache).toBe('na')
   })
 
   it('abweichender Titel, unplausibles Inhaltsverzeichnis, Standardsprache, nur verwaiste Kopfzeile', () => {

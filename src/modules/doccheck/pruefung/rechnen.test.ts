@@ -71,6 +71,41 @@ describe('Prüfungen', () => {
   it('Doppelte Wörter: erlaubte Doppelungen nicht; PDF: Tabellenpunkte nicht anwendbar', () => {
     expect(punkte('He had had enough. That that is.')).toEqual([])
     expect(punkte('Check the the checklist.')).toEqual(['doppelt'])
-    expect(rechenPruefung(k('x', 'pdf')).ampel).toEqual({ summen: 'na', kumuliert: 'na', session: 'na', einheiten: 'ok', metar: 'ok', doppelt: 'ok' })
+    expect(rechenPruefung(k('x', 'pdf')).ampel).toEqual({ summen: 'na', kumuliert: 'na', session: 'na', einheiten: 'ok', metar: 'na', doppelt: 'ok' })
+  })
+
+  it('nicht anwendbar, wo die Grundlage fehlt; anwendbar, sobald sie da ist (Fachprüfung 01.11.2026)', () => {
+    // Tabelle ohne Summenzeile, ohne Kumuliert-Spalte, ohne Sitzungsangabe, ohne Wettermeldung
+    expect(rechenPruefung(k('Item | Hours\nWBT | 2\nFFS | 4', 'docx')).ampel).toMatchObject({ summen: 'na', kumuliert: 'na', session: 'na', metar: 'na' })
+    const voll = rechenPruefung(k('Item | Hours | Cumulative\nWBT | 2 | 2\nFFS | 4 | 6\nTotal | 6 | 6\nLOWW 27010KT 9999 12/05', 'docx')).ampel
+    expect(voll).toMatchObject({ summen: 'ok', kumuliert: 'ok', metar: 'ok' })
+  })
+
+  it('Fehlalarme der Fachprüfung (01.11.2026): verschiedene Größen im selben Satz sind keine Umrechnung', () => {
+    const e = (x: string) => einheitenPruefen(k(x)).map((b) => b.text)
+    expect(e('DH not lower than 200 ft and RVR not less than 550 m.')).toEqual([])
+    expect(e('MTOW 5670 kg, max fuel 2,500 lbs.')).toEqual([])
+    expect(e('Visibility 5 km and range 12 NM.')).toEqual([])
+    // Direkt verbunden — in beiden Reihenfolgen und mit / = „or"
+    // 12,500 lbs = 5669.9 kg — innerhalb der Toleranz, rückwärts gelesen
+    expect(e('MTOW 5670 kg (12,500 lbs)')).toEqual([])
+    expect(e('MTOW 5834 kg (11930 lbs)')).toEqual(['Unit conversion does not match: 11930 lbs = 5411.4 kg, stated 5834 kg (tolerance 1 %).'])
+    expect(e('10000 ft = 3500 m')).toHaveLength(1)
+    expect(e('250 kt or 463 km/h')).toEqual([])
+  })
+
+  it('METAR: MIFG/BCFG/PRFG/VCFG sind kein Nebel im Sinne der 1000-m-Regel; Bahnangabe ist keine Temperatur; variable Windrichtung', () => {
+    expect(metarMaengel('METAR LOWW 121250Z 27010KT 8000 MIFG 12/10 FEW030')).toEqual([])
+    expect(metarMaengel('METAR LOWW 121250Z 27010KT 3000 BCFG 12/10 FEW030')).toEqual([])
+    expect(metarMaengel('LOWW 27010KT 0500 FZFG M02/M02 VV002')).toEqual([])
+    expect(metarMaengel('LOWW 27010KT 9999 RWY 09/27 15/05')).toEqual([])
+    expect(metarMaengel('LOWW 27010KT 240V300 3000 12/08 FEW030')).toEqual(['Visibility 3000 m without a present weather group (BR, HZ, FG …).'])
+  })
+
+  it('Zwischensummen: geprüft und nicht doppelt in der Gesamtsumme (Fachprüfung 01.11.2026)', () => {
+    const t = 'Item | Hours\nA | 2:00\nB | 1:00\nSubtotal | 3:00\nC | 3:00\nTotal | 6:00'
+    expect(punkte(t)).toEqual([])
+    expect(rechenPruefung(k('Item | Hours\nA | 2:00\nB | 1:00\nSubtotal | 4:00\nC | 3:00\nTotal | 6:00')).befunde.map((b) => b.text)).toEqual(['Table subtotal does not match: sum of rows 3:00, stated 4:00.'])
   })
 })
+

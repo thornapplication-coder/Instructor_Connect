@@ -1,6 +1,7 @@
 import { datumFinden, revisionFinden } from '../parse/meta'
 import { vergleichsform } from '../parse/seitenzuordnung'
 import { ampelAus, type Befund, type Fundstelle, type Prioritaet } from './befund'
+import { fremdesRegelwerk } from './verweise'
 import { absaetze, befund, fundstelle, kurz, seitenName, verwendeteAbkuerzungen, type PruefKontext } from './kontext'
 
 /**
@@ -164,6 +165,7 @@ export function formalPruefung(k: PruefKontext): { befunde: Ergebnis[]; ampel: R
   /* 6 Nummerierung — Überschriften, Abbildungen, Tabellen */
   const nummernU = ueberschriften.map((t) => t.match(/^(\d+(?:\.\d+)*)\s/)?.[1]).filter((x): x is string => !!x)
   const fsNr: Fundstelle[] = []
+  let nummeriert = nummernU.length >= 2
   if (nummernU.length >= 2) {
     const r = nummernPruefen(nummernU)
     fsNr.push(...r.luecken.map((l) => ({ ort: 'Headings', auszug: `Gap in heading numbering: ${l} missing` })), ...r.doppelt.map((d) => ({ ort: 'Headings', auszug: `Duplicate heading number: ${d}` })))
@@ -174,11 +176,14 @@ export function formalPruefung(k: PruefKontext): { befunde: Ergebnis[]; ampel: R
     // Ein Verweis im Fließtext („Table 3 shows …") ist keine Beschriftung — nur kurze Zeilen zählen.
     const nr = unterschriften.filter((x) => x.a.text.length <= 120).map((x) => x.m![1].replace(/-/g, '.'))
     if (nr.length >= 2) {
+      nummeriert = true
       const r = nummernPruefen(nr)
       fsNr.push(...r.luecken.map((l) => ({ auszug: `${art} numbering gap: ${art} ${l} missing` })), ...r.doppelt.map((d) => ({ ...fundstelle(unterschriften.find((x) => x.m![1].replace(/-/g, '.') === d)!.a), auszug: `Duplicate ${art.toLowerCase()} number: ${art} ${d}` })))
     }
   }
   if (fsNr.length) neu('nummerierung', 'Editorial', 'Low', `Numbering of headings, figures or tables has gaps or duplicates (${fsNr.length}).`, fsNr, 'nummerierung')
+  // Nichts Nummeriertes → nichts geprüft: nicht anwendbar, nicht grün
+  if (!nummeriert) na.push('nummerierung')
 
   /* 7 Querverweise — existiert das Ziel? */
   const kapitel = new Set(nummernU)
@@ -188,6 +193,8 @@ export function formalPruefung(k: PruefKontext): { befunde: Ergebnis[]; ampel: R
   const fsVerweis: Fundstelle[] = []
   for (const a of alle) {
     for (const m of a.text.matchAll(/\b(?:see|refer to|refer|siehe|gemäß)\s+(chapter|section|para(?:graph)?|appendix|annex|figure|fig\.|table|kapitel|abschnitt|anhang|abbildung|abb\.|tabelle)\s+([A-Z]?\d+(?:\.\d+)*[A-Z]?|[A-Z])\b/gi)) {
+      // Ziel in einem fremden Regelwerk („Annex I (Part-FCL)") — nicht im Dokument zu suchen
+      if (fremdesRegelwerk(a.text.slice(m.index! + m[0].length))) continue
       const art = m[1].toLowerCase()
       const ziel = m[2].replace(/-/g, '.')
       const ok = /^(chapter|section|para|paragraph|kapitel|abschnitt)$/.test(art)

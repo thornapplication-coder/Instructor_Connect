@@ -80,23 +80,31 @@ function wertSpalten(t: Tabelle, von: number, bis: number): number[] {
     })
 }
 
+/** Zwischensumme — sie prüft die Zeilen seit der letzten (Zwischen-)Summe und zählt selbst nicht zur Gesamtsumme. */
+const ZWISCHEN = /^(sub-?totals?|zwischensumme|teilsumme)\b/i
+
 function summenPruefen(k: PruefKontext, tabs: Tabelle[]): Omit<Befund, 'id'>[] {
   const out: Omit<Befund, 'id'>[] = []
   for (const t of tabs) {
-    let start = 0
+    let abGesamt = 0
+    let abZwischen = 0
     t.zeilen.forEach((z, i) => {
-      if (!SUMME.test(z[0] ?? '')) return
-      // Kopfzeile überspringen: erste Zeile ohne Wert in den Wertspalten
+      const zwischen = ZWISCHEN.test(z[0] ?? '')
+      if (!zwischen && !SUMME.test(z[0] ?? '')) return
+      const start = zwischen ? abZwischen : abGesamt
+      // Kopfzeile überspringen: erste Zeile mit einem Wert
       const von = t.zeilen.slice(start, i).findIndex((r) => r.slice(1).some((c) => wertLesen(c))) + start
+      // Datenzeilen: ohne Zwischensummen — sonst zählte die Gesamtsumme sie doppelt (Fachprüfung 01.11.2026)
+      const daten = t.zeilen.slice(von, i).filter((r) => !ZWISCHEN.test(r[0] ?? ''))
       // Eine Kumuliert-Spalte summiert man nicht — ihre Summenzeile ist der letzte Stand.
       for (const s of wertSpalten(t, von, i).filter((s) => !KUMULIERT.test(t.zeilen[0][s] ?? ''))) {
         const soll = wertLesen(z[s] ?? '')
         if (!soll) continue
-        const summe = t.zeilen.slice(von, i).reduce((a, r) => a + (wertLesen(r[s] ?? '')?.n ?? 0), 0)
-        const ist: Wert = { n: summe, zeit: soll.zeit }
-        if (!gleich(ist, soll)) out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'summen', kategorie: 'Inconsistency', prioritaet: 'High', text: `Table total does not match: sum of rows ${zeigen(ist)}, stated ${zeigen(soll)}.`, fundstellen: [{ seite: t.seite, ort: 'Table', auszug: zeile(z) }] }))
+        const ist: Wert = { n: daten.reduce((a, r) => a + (wertLesen(r[s] ?? '')?.n ?? 0), 0), zeit: soll.zeit }
+        if (!gleich(ist, soll)) out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'summen', kategorie: 'Inconsistency', prioritaet: 'High', text: `Table ${zwischen ? 'subtotal' : 'total'} does not match: sum of rows ${zeigen(ist)}, stated ${zeigen(soll)}.`, fundstellen: [{ seite: t.seite, ort: 'Table', auszug: zeile(z) }] }))
       }
-      start = i + 1
+      abZwischen = i + 1
+      if (!zwischen) abGesamt = i + 1
     })
   }
   return out
@@ -161,20 +169,34 @@ const PAARE: { a: string; b: string; nach: (x: number) => number; abs?: number }
   { a: '°C', b: '°F', nach: (x) => x * 1.8 + 32, abs: 1 },
 ]
 
+/**
+ * Nur DIREKT verbundene Paare zählen: „11930 lbs (5834 kg)", „11930 lb /
+ * 5834 kg", „10000 ft = 3048 m", in beiden Reihenfolgen. Zwei Größen im
+ * selben Satz („DH not lower than 200 ft and RVR not less than 550 m")
+ * sind keine Umrechnung — die Fachprüfung vom 01.11.2026 fand genau diesen
+ * Fehlalarm, und solche Sätze stehen in jedem TM.
+ */
+const VERBINDUNG = String.raw`\s*(?:\(\s*|\/\s*|=\s*|≈\s*|~\s*|or\s+|bzw\.\s+|i\.\s?e\.\s+)`
+
 export function einheitenPruefen(k: PruefKontext): Omit<Befund, 'id'>[] {
   const out: Omit<Befund, 'id'>[] = []
+  const ende = '(?![\\p{L}/])'
   for (const p of k.roh.pages) {
-    for (const satz of p.text.split(/\n|(?<=[.;])\s+(?=[A-Z])/)) {
+    for (const zeile of p.text.split('\n')) {
       for (const pr of PAARE) {
-        const a = satz.match(new RegExp(`${ZAHL}\\s*(?:${pr.a})(?![\\p{L}/])`, 'u'))
-        const b = satz.match(new RegExp(`${ZAHL}\\s*(?:${pr.b})(?![\\p{L}/])`, 'u'))
-        if (!a || !b) continue
-        const [x, y] = [zahl(a[1]), zahl(b[1])]
-        const erwartet = pr.nach(x)
-        const ok = pr.abs !== undefined ? Math.abs(erwartet - y) <= pr.abs : Math.abs(erwartet - y) <= Math.abs(erwartet) * 0.01
-        if (ok) continue
-        const einheit = (m: RegExpMatchArray) => m[0].slice(m[1].length).trim()
-        out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'einheiten', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Unit conversion does not match: ${a[1]} ${einheit(a)} = ${Math.round(erwartet * 10) / 10} ${einheit(b)}, stated ${b[1]} ${einheit(b)} (tolerance 1 %).`, fundstellen: [{ seite: p.label ?? String(p.index), auszug: satz.trim() }] }))
+        const vor = new RegExp(`${ZAHL}\\s*(${pr.a})${ende}${VERBINDUNG}${ZAHL}\\s*(${pr.b})${ende}`, 'gu')
+        const rueck = new RegExp(`${ZAHL}\\s*(${pr.b})${ende}${VERBINDUNG}${ZAHL}\\s*(${pr.a})${ende}`, 'gu')
+        const paare = [
+          ...[...zeile.matchAll(vor)].map((m) => ({ x: m[1], ea: m[2], y: m[3], eb: m[4] })),
+          ...[...zeile.matchAll(rueck)].map((m) => ({ x: m[3], ea: m[4], y: m[1], eb: m[2] })),
+        ]
+        for (const q of paare) {
+          const erwartet = pr.nach(zahl(q.x))
+          const y = zahl(q.y)
+          const ok = pr.abs !== undefined ? Math.abs(erwartet - y) <= pr.abs : Math.abs(erwartet - y) <= Math.abs(erwartet) * 0.01
+          if (ok) continue
+          out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'einheiten', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Unit conversion does not match: ${q.x} ${q.ea} = ${Math.round(erwartet * 10) / 10} ${q.eb}, stated ${q.y} ${q.eb} (tolerance 1 %).`, fundstellen: [{ seite: p.label ?? String(p.index), auszug: zeile.trim() }] }))
+        }
       }
     }
   }
@@ -189,12 +211,16 @@ const WETTER = /(?:^|\s)[+-]?(?:VC)?(?:MI|BC|PR|DR|BL|SH|TS|FZ)?(?:DZ|RA|SN|SG|P
 /** Eine METAR-ähnliche Zeile auf Plausibilität prüfen — liefert die Mängel als englische Sätze. */
 export function metarMaengel(z: string): string[] {
   const m: string[] = []
-  const nachWind = z.slice((z.match(WIND)?.index ?? 0) + (z.match(WIND)?.[0].length ?? 0))
+  // Variable Windrichtung („240V300") steht zwischen Wind und Sicht — überspringen
+  const nachWind = z.slice((z.match(WIND)?.index ?? 0) + (z.match(WIND)?.[0].length ?? 0)).replace(/^\s+\d{3}V\d{3}\b/, '')
   const sicht = nachWind.match(/^\s+(\d{4})\b/)?.[1]
   const vis = sicht !== undefined ? Number(sicht) : null
   const wetter = nachWind.match(WETTER)?.[0].trim() ?? ''
-  const nebel = /FG/.test(wetter)
-  const tt = z.match(/(?:^|\s)(M?\d{1,2})\/(M?\d{1,2})(?=\s|$)/)
+  // Nur echter Nebel: MIFG, BCFG, PRFG und VCFG sind nach ICAO Annex 3
+  // von der 1000-m-Grenze ausgenommen (Fachprüfung 01.11.2026)
+  const nebel = /^[+-]?(?:FZ)?FG$/.test(wetter)
+  // Temperatur/Taupunkt: die LETZTE passende Gruppe — „RWY 09/27" weiter vorn ist eine Bahn
+  const tt = [...z.matchAll(/(?:^|(?<!RWY)\s)(M?\d{1,2})\/(M?\d{1,2})(?=\s|$)/g)].at(-1)
   if (tt) {
     const t = (s: string) => (s.startsWith('M') ? -Number(s.slice(1)) : Number(s))
     if (tt[1].replace('M', '').length !== 2 || tt[2].replace('M', '').length !== 2) m.push(`Temperature/dew point group "${tt[1]}/${tt[2]}" is not in ICAO format (two digits each, e.g. 15/04).`)
@@ -241,6 +267,12 @@ function doppeltPruefen(k: PruefKontext): Omit<Befund, 'id'>[] {
 export function rechenPruefung(k: PruefKontext): { befunde: Omit<Befund, 'id'>[]; ampel: Record<string, Ampel> } {
   const tabs = tabellen(k.roh)
   const befunde = [...summenPruefen(k, tabs), ...kumuliertPruefen(k, tabs), ...sessionPruefen(k, tabs), ...einheitenPruefen(k), ...metarPruefen(k), ...doppeltPruefen(k)]
-  const na: Punkt[] = k.roh.format === 'pdf' ? ['summen', 'kumuliert', 'session'] : []
+  // Nicht anwendbar, wo es nichts zu prüfen gab — Grün hieße sonst „geprüft, in Ordnung" (Fachprüfung 01.11.2026)
+  const na: Punkt[] = []
+  const zellen0 = (t: Tabelle) => t.zeilen.map((z) => z[0] ?? '')
+  if (!tabs.some((t) => zellen0(t).some((c) => SUMME.test(c) || ZWISCHEN.test(c)))) na.push('summen')
+  if (!tabs.some((t) => t.zeilen[0].some((c) => KUMULIERT.test(c)))) na.push('kumuliert')
+  if (!tabs.some((t) => t.davor.some((z) => SESSION.test(z)))) na.push('session')
+  if (!k.roh.pages.some((p) => p.text.split('\n').some((z) => WIND.test(z)))) na.push('metar')
   return { befunde, ampel: ampelAus([...RECHEN_PUNKTE], befunde as Befund[], na) }
 }

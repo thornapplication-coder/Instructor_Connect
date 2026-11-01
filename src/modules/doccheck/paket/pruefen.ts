@@ -184,11 +184,16 @@ export function stundenangaben(m: Mitglied): Stundenangabe[] {
  * dieselbe Größe nennt. Die Ausnahme (höheres Dokument selbst regelwidrig)
  * braucht den Abgleich mit der Bibliothek und folgt mit Phase 3.
  */
+const JE_EINHEIT = /\b(?:per|each|je|pro)\b|\b(?:session|lesson|einheit|sitzung)\b/i
+
 function hierarchiePruefen(alle: Mitglied[]): Roh[] {
   const angaben = new Map(alle.map((m) => [m.id, stundenangaben(m)]))
   const out: Roh[] = []
   for (const m of alle) {
     for (const a of angaben.get(m.id)!) {
+      // Angaben je Einheit („per session", „each lesson") sind keine Programmsumme —
+      // ein Vergleich mit der Gesamtangabe des höheren Dokuments wäre ein Fehlalarm
+      if (JE_EINHEIT.test(a.bezeichnung)) continue
       const hoeher = alle
         .filter((h) => h.ebene < m.ebene)
         .sort((x, y) => y.ebene - x.ebene)
@@ -199,8 +204,10 @@ function hierarchiePruefen(alle: Mitglied[]): Roh[] {
         befund(m, {
           pruefpunkt: 'hierarchie',
           kategorie: 'Inconsistency',
-          prioritaet: 'High',
-          text: `${a.bezeichnung}: ${name(m)} states ${a.stunden} h, the higher-level document ${name(hoeher.h)} states ${hoeher.a!.stunden} h. ${name(hoeher.h)} governs; correct ${name(m)}.`,
+          // Medium: Die Zuordnung „gleiche Bezeichnung = gleiche Größe" ist eine
+          // Annahme; eine Teilmenge (z. B. nur ein Modul) wäre kein Widerspruch
+          prioritaet: 'Medium',
+          text: `${a.bezeichnung}: ${name(m)} states ${a.stunden} h, the higher-level document ${name(hoeher.h)} states ${hoeher.a!.stunden} h. If both refer to the same scope, ${name(hoeher.h)} governs and ${name(m)} should be corrected.`,
           fundstellen: [{ seite: a.seite, auszug: a.auszug }],
           weitere: [{ dokId: hoeher.h.id, dokName: hoeher.h.dokName, fundstelle: { seite: hoeher.a!.seite, auszug: hoeher.a!.auszug } }],
         }),
@@ -243,7 +250,7 @@ export function wortDiff(a: string[], b: string[]): { weg: string[]; neu: string
   return { weg: [...weg, ...a.slice(i)], neu: [...neu, ...b.slice(j)] }
 }
 
-type Regeln = Record<string, { onlyIn: Record<string, string[]> }>
+type Regeln = Record<string, { onlyIn: Record<string, string[]>; exceptPhrases?: string[] }>
 export const GESCHWISTER_REGELN = Object.fromEntries(Object.entries(geschwisterRegeln).filter(([k]) => !k.startsWith('_'))) as Regeln
 
 /** Gruppentyp aus den Varianten: alle Varianten in der Regel genannt → dieser Typ. */
@@ -279,9 +286,11 @@ function geschwisterPruefen(alle: Mitglied[], regeln: Regeln): Roh[] {
     if (typ) {
       for (const m of ms) {
         const eigene = new Set(nurIn[m.variante] ?? [])
+        // Feste Wendungen wie „cabin crew" gehören jeder Fassung (Fachprüfung 01.11.2026)
+        const wendungen = [...(regeln[typ].exceptPhrases ?? [])].sort((a, b) => b.length - a.length)
         const fremd = Object.entries(nurIn).filter(([v]) => v !== m.variante).flatMap(([, b]) => b).filter((b) => !eigene.has(b))
         for (const b of new Set(fremd)) {
-          const treffer = absaetze(m).filter((a) => begriffRe(b).test(a.text))
+          const treffer = absaetze(m).filter((a) => begriffRe(b).test(ohne(a.text, wendungen)))
           if (!treffer.length) continue
           const quelle = Object.entries(nurIn).find(([v, bs]) => v !== m.variante && bs.includes(b))![0]
           out.push(befund(m, { pruefpunkt: 'gegenfassung', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `"${b}" belongs to the ${quelle} version but appears in the ${m.variante} version ${name(m)} (${treffer.length}×).`, fundstellen: treffer.slice(0, 5).map((a) => ({ seite: a.seite, auszug: a.text })) }))
@@ -446,6 +455,12 @@ export function paketPruefen(alle: Mitglied[], korrekturen: Korrektur[] = [], re
   const na: string[] = []
   if (!m1 || !anhangListe(m1).length) na.push('liste')
   if (alle.length < 2) na.push('stand', 'hierarchie')
+  else {
+    // Hierarchie nur anwendbar, wenn ein höheres und ein tieferes Dokument dieselbe Größe nennen
+    const angaben = alle.map((m) => ({ m, s: new Set(stundenangaben(m).map((a) => a.schluessel)) }))
+    const paar = angaben.some((x) => angaben.some((y) => y.m.ebene < x.m.ebene && [...x.s].some((k) => y.s.has(k))))
+    if (!paar) na.push('hierarchie')
+  }
   if (!hatGruppe) na.push('geschwister', 'gegenfassung', 'propagation')
   else if (!alle.some((m) => m.gruppe && gruppenTyp(alle.filter((x) => x.gruppe === m.gruppe).map((x) => x.variante), regeln))) na.push('gegenfassung')
   if (!korrekturen.length && !na.includes('propagation')) na.push('propagation')

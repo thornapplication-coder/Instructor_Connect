@@ -446,7 +446,7 @@
     "rechnen": "Rechenprüfung",
     "verweis": "Verweise",
     "regelwerk": "Regelwerksverweise",
-    "regelwerkStand": "Regelwerk: {{quellen}} · {{verweise}} Verweise, {{verifiziert}} verifiziert, {{zuPruefen}} zu prüfen, {{ohneQuelle}} ohne Quelle"
+    "regelwerkStand": "Regelwerk: {{quellen}} · {{verweise}} Verweise, {{verifiziert}} verifiziert, {{nichtWiderlegbar}} ohne erfassten Absatz, {{zuPruefen}} zu prüfen, {{ohneQuelle}} ohne Quelle"
   },
   "prio": {
     "High": "Hoch",
@@ -566,7 +566,8 @@
       "nurEmpfehlung": "Als Empfehlung formuliert („evtl.“, „could“) und nicht umgesetzt – schließen geht nur mit Begründung.",
       "quelleFehlt": "Das genannte Dokument ist nicht im Paket.",
       "keinText": "Das Dokument hat keinen durchsuchbaren Text – erst OCR ausführen.",
-      "keineAnweisung": "Kein zitierter Text, an dem sich die Korrektur prüfen ließe. Inhaltliche Befunde prüft später die KI; bis dahin fachlich prüfen."
+      "keineAnweisung": "Kein zitierter Text, an dem sich die Korrektur prüfen ließe. Inhaltliche Befunde prüft später die KI; bis dahin fachlich prüfen.",
+      "nurAbwesend": "Beanstandeter Text kommt nicht mehr vor – das belegt aber nicht, dass der Mangel inhaltlich behoben ist. Einzeln prüfen; von der Sammelbestätigung ausgenommen."
     },
     "filterStatus": "Vorschlag",
     "filterDok": "Dokument",
@@ -620,6 +621,14 @@
       "zitat": "Zitat – nicht gezählt",
       "bibliothek": "In Quelle belegt – nicht gezählt",
       "bibliothekVon": "Zitat aus {{quelle}} – nicht gezählt"
+    },
+    "freigabe": {
+      "status": "Status",
+      "vorschlag": "Vorschlag",
+      "begruendung": "Begründung",
+      "begruendungPh": "Warum abweichend bzw. warum geschlossen?",
+      "begruendungFehlt": "Bitte eine Begründung eintragen (mind. 5 Zeichen).",
+      "abweichendAls": "als „{{status}}“"
     }
   },
   "paket": {

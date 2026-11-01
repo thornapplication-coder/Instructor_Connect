@@ -192,5 +192,14 @@ export function wordCheck(k: PruefKontext, dateiname: string): { befunde: Omit<B
   const vorher = (erstes < 0 ? [] : w.absaetze.slice(0, erstes)).filter((a) => (a.ort === 'body' || a.ort === 'textfeld') && !a.toc && /^[\d.\s]{1,12}$|^[^\p{L}\d]{1,3}$/u.test(a.text.trim()) && a.text.trim())
   if (vorher.length) out.push(befund(k, { quelle: 'word', pruefpunkt: 'fragmente', kategorie: 'Editorial', prioritaet: 'Medium', text: `[Word check] ${vorher.length} stray fragment(s) before the first chapter (cover/title page).`, fundstellen: vorher.map((a) => ({ ...ortVon(a.nr), auszug: a.text.trim() })), anleitung: 'fragmente' }))
 
-  return { befunde: out, ampel: ampelAus([...WORD_PUNKTE], out as Befund[]) }
+  // Was mangels Grundlage nicht geprüft werden konnte, ist „nicht anwendbar",
+  // nicht grün (Fachprüfung 01.11.2026)
+  const editionQuellen = [deckblatt, datei.edition, ...kopfEditionen].filter((x) => x !== undefined).length
+  const na = [
+    ...(!dokSprache ? ['korrektursprache'] : []),
+    ...(editionQuellen < 2 ? ['editionRevision'] : []),
+    ...(w.toc.length < 2 ? ['felder'] : []),
+    ...(erstes < 0 ? ['fragmente'] : []),
+  ]
+  return { befunde: out, ampel: ampelAus([...WORD_PUNKTE], out as Befund[], na) }
 }

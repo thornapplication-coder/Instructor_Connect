@@ -167,7 +167,8 @@ export function FindingsTab() {
                     <td className="px-2 py-2">{b.text}</td>
                     <td className="whitespace-nowrap px-2 py-2"><Badge tone="wait">{t('status.Open')}</Badge></td>
                     <td className="whitespace-nowrap px-2 py-2">
-                      {/* Nicht prüfbar darf nie als „verifiziert" erscheinen (N8, N11) */}
+                      {/* Nicht prüfbar darf nie als „verifiziert" erscheinen (N8, N11). „Regelbasiert
+                          belegt" in accent, nicht ok: Es ordnet den Befund ein, erledigt ist er damit nicht. */}
                       {b.verifizierung === 'Not verifiable – source missing' ? (
                         <Badge tone="dim">{t('verifizierung.quelleFehlt')}</Badge>
                       ) : b.verifizierung === 'To verify – source not in library' ? (
@@ -175,7 +176,7 @@ export function FindingsTab() {
                       ) : b.verifizierung === 'To verify' ? (
                         <Badge tone="wait">{t('verifizierung.zuPruefen')}</Badge>
                       ) : (
-                        <Badge tone="ok">{t('verifizierung.regel')}</Badge>
+                        <Badge tone="accent">{t('verifizierung.regel')}</Badge>
                       )}
                     </td>
                   </tr>

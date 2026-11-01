@@ -20,6 +20,8 @@ export interface Bestaetigung {
   status: ReStatus
   von: string
   at: number
+  /** Pflicht, wenn vom Vorschlag abgewichen oder „Closed – justification required" bestätigt wird (N11) */
+  begruendung?: string
 }
 
 export interface ReCheckSitzung {
@@ -127,15 +129,42 @@ export function bestaetigen(r: ReCheckSitzung, zeilen: number[], von: string, at
   return { ...r, bestaetigt: neu }
 }
 
+/**
+ * Einzelbestätigung mit eigenem Status (N11): Die Person ist nicht an den
+ * Vorschlag gebunden. Weicht sie ab — oder bestätigt sie „Closed –
+ * justification required" —, ist eine Begründung Pflicht; sie steht im
+ * Export und im Remark der zurückgeschriebenen Liste.
+ */
+export function bestaetigenMit(r: ReCheckSitzung, zeile: number, von: string, at: number, status: ReStatus, begruendung: string): ReCheckSitzung | 'begruendungFehlt' | 'unbekannt' {
+  const e = r.ergebnisse?.find((x) => x.zeile === zeile)
+  if (!e) return 'unbekannt'
+  const text = begruendung.trim()
+  if ((status !== e.status || status === 'justify') && text.length < 5) return 'begruendungFehlt'
+  return { ...r, bestaetigt: { ...r.bestaetigt, [zeile]: { status, von, at, ...(text ? { begruendung: text } : {}) } } }
+}
+
+/** Remark samt Bestätigung: Bei Abweichung oder Begründung steht beides dabei. */
+export function remarkBestaetigt(e: ReErgebnis, ok: Bestaetigung | undefined, datum: string, sprache: RemarkSprache): string {
+  const basis = remark(e, datum, sprache)
+  if (!ok || (ok.status === e.status && !ok.begruendung)) return basis
+  const de = sprache === 'de'
+  const kopf = ok.status !== e.status ? (de ? `Abweichend bestätigt als „${STATUS_NAME[ok.status]}"` : `Confirmed as "${STATUS_NAME[ok.status]}" (deviating from the proposal)`) : de ? 'Bestätigt' : 'Confirmed'
+  return `${basis}\n${kopf}${ok.begruendung ? (de ? ` – Begründung: ${ok.begruendung}` : ` – justification: ${ok.begruendung}`) : ''}`
+}
+
 export function zuruecknehmen(r: ReCheckSitzung, zeile: number): ReCheckSitzung {
   const { [zeile]: _weg, ...rest } = r.bestaetigt
   return { ...r, bestaetigt: rest }
 }
 
-/** Sammelbestätigung (N11): alle noch offenen Vorschläge „Resolved". Nur
- *  die — ein „Not resolved" bestätigt man nicht im Vorbeigehen. */
+/**
+ * Sammelbestätigung (N11): „alle Resolved MIT NACHWEIS". Ein „Resolved",
+ * das nur auf dem Fehlen eines Zitats beruht (`nurAbwesend`), gehört nicht
+ * dazu — das prüft jemand einzeln. Und ein „Not resolved" bestätigt man
+ * ohnehin nicht im Vorbeigehen.
+ */
 export function sammelKandidaten(r: ReCheckSitzung): number[] {
-  return (r.ergebnisse ?? []).filter((e) => e.status === 'resolved' && !r.bestaetigt[e.zeile]).map((e) => e.zeile)
+  return (r.ergebnisse ?? []).filter((e) => e.status === 'resolved' && e.grund !== 'nurAbwesend' && !r.bestaetigt[e.zeile]).map((e) => e.zeile)
 }
 
 export interface Filter {
@@ -169,11 +198,11 @@ export function zaehlen(r: ReCheckSitzung): Record<ReStatus, number> {
  */
 export function csvExport(r: ReCheckSitzung, datum: string, name: (id: string) => string): string {
   // N11: „Confirmed by / on" — wer und wann, beides.
-  const kopf = ['Row', 'No.', 'Document', 'Page (list)', 'Team status', 'Proposed status', 'Deviation', 'Confirmed status', 'Confirmed by', 'Confirmed on', 'Remark']
+  const kopf = ['Row', 'No.', 'Document', 'Page (list)', 'Team status', 'Proposed status', 'Deviation', 'Confirmed status', 'Confirmed by', 'Confirmed on', 'Justification', 'Remark']
   const reihen = (r.ergebnisse ?? []).map((e) => {
     const b = r.befunde.find((x) => x.zeile === e.zeile)!
     const ok = r.bestaetigt[e.zeile]
-    return csvRow([b.excelZeile ?? e.zeile + 1, b.ref, b.dokument, b.seite, b.teamStatus, STATUS_NAME[e.status], e.abweichung ? 'yes' : '', ok ? STATUS_NAME[ok.status] : '', ok ? name(ok.von) : '', ok ? formatDateTime(ok.at) : '', remark(e, datum, r.sprache)])
+    return csvRow([b.excelZeile ?? e.zeile + 1, b.ref, b.dokument, b.seite, b.teamStatus, STATUS_NAME[e.status], e.abweichung ? 'yes' : '', ok ? STATUS_NAME[ok.status] : '', ok ? name(ok.von) : '', ok ? formatDateTime(ok.at) : '', ok?.begruendung ?? '', remarkBestaetigt(e, ok, datum, r.sprache)])
   })
   return [csvRow(kopf), ...reihen].join('')
 }
@@ -197,7 +226,7 @@ export function rueckschreibAuftrag(r: ReCheckSitzung, werte: WerteZuordnung, da
     .filter((e) => r.bestaetigt[e.zeile])
     .map((e) => {
       const f = r.befunde.find((x) => x.zeile === e.zeile)!
-      return { excelZeile: f.excelZeile!, status: werte[r.bestaetigt[e.zeile].status], remark: remark(e, datum, r.sprache) }
+      return { excelZeile: f.excelZeile!, status: werte[r.bestaetigt[e.zeile].status], remark: remarkBestaetigt(e, r.bestaetigt[e.zeile], datum, r.sprache) }
     })
     .filter((z) => z.excelZeile)
   return {
@@ -210,13 +239,18 @@ export function rueckschreibAuftrag(r: ReCheckSitzung, werte: WerteZuordnung, da
 }
 
 /**
- * Korrekturen, die der Re-Check im genannten Dokument bestätigt hat — für
- * die Fix-Propagation (N2.1): Im Zieldokument ist der alte Text weg, also
- * muss er auch aus dessen Geschwistern verschwunden sein.
+ * Korrekturen für die Fix-Propagation (N2.1): Im Zieldokument ist der alte
+ * Text weg, also muss er auch aus dessen Geschwistern verschwunden sein.
+ * Nur BESTÄTIGTE Vorschläge (N11) — ein unbestätigter Vorschlag ist noch
+ * keine Feststellung, aus der DocCheck weitere Befunde ableiten dürfte.
+ * Das stand so in der Doku; der Code nahm bis zur Fachprüfung vom
+ * 01.11.2026 auch unbestätigte.
  */
 export function korrekturen(r: ReCheckSitzung | undefined): Korrektur[] {
   if (!r?.ergebnisse) return []
   return r.ergebnisse.flatMap((e) => {
+    const ok = r.bestaetigt[e.zeile]
+    if (!ok || (ok.status !== 'resolved' && ok.status !== 'partial')) return []
     if (e.grund !== 'wegUndDa' && e.grund !== 'restAnderesDok') return []
     const b = r.befunde.find((x) => x.zeile === e.zeile)!
     const ziel = r.ziele[b.dokument]
