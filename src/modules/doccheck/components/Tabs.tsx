@@ -1,4 +1,4 @@
-import { CheckCircle2, FileSpreadsheet, FileText, MessageSquareText, Presentation, Sheet, Archive, Save, FolderOpen } from 'lucide-react'
+import { CheckCircle2, MessageSquareText } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDate } from '../../../datum'
@@ -196,49 +196,6 @@ export function RevisionenTab() {
 }
 
 /* -------------------------------- Export ----------------------------- */
-
-export function ExportTab() {
-  const { t } = useTranslation('doccheck')
-  const { docCheckSettings } = useStore()
-  const formate = [
-    ['exportExcel', 'excel', FileSpreadsheet],
-    ['exportWord', 'word', FileText],
-    ['exportCsv', 'csv', Sheet],
-    ['exportPptx', 'pptx', Presentation],
-  ] as const
-  return (
-    <div className="space-y-section">
-      <div className="grid gap-stack sm:grid-cols-2">
-        {formate.map(([feat, k, Icon]) => {
-          const an = aktiv(docCheckSettings, feat)
-          return (
-            // Abgeschaltet: gestrichelt und Symbol gedämpft — nicht per Deckkraft, die drückte den Hinweistext unter 3:1
-            <div key={k} className={`flex items-center gap-3 rounded-2xl border p-4 ${an ? 'border-line/10' : 'border-dashed border-line/25'}`}>
-              <Icon size={22} className={`shrink-0 ${an ? 'text-accent' : 'text-dim'}`} aria-hidden />
-              <div className="min-w-0 flex-1">
-                <p className="text-small font-semibold">{t(`export.${k}`)}</p>
-                <p className="text-micro text-dim">{an ? t(`export.${k}Hint`) : t('export.off')}</p>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="ghost" disabled>
-          <span className="flex items-center gap-1.5"><Archive size={16} /> {t('export.zip')}</span>
-        </Button>
-        <Button variant="ghost" disabled>
-          <span className="flex items-center gap-1.5"><Save size={16} /> {t('export.save')}</span>
-        </Button>
-        <Button variant="ghost" disabled>
-          <span className="flex items-center gap-1.5"><FolderOpen size={16} /> {t('export.load')}</span>
-        </Button>
-        <Phase n={6} />
-      </div>
-      <p className="text-micro text-dim">{t('export.language')}</p>
-    </div>
-  )
-}
 
 /* -------------------------- Bibliothek verwalten --------------------- */
 

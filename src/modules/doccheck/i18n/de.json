@@ -151,7 +151,26 @@
     "zip": "Alle Formate (ZIP)",
     "save": "Prüfstand speichern",
     "load": "Prüfstand laden",
-    "language": "Exporte sind immer englisch beschriftet; Zitate bleiben im Original."
+    "language": "Exporte sind immer englisch beschriftet; Zitate bleiben im Original.",
+    "laeuft": "Wird erzeugt …",
+    "fertig": "{{name}} erzeugt.",
+    "fehler": "Der Export konnte nicht erzeugt werden.",
+    "stand_one": "{{count}} Befund aus {{dokumente}} Prüfdokument(en) – jeder Export friert den aktuellen Stand mit eigener Export-ID ein.",
+    "stand_other": "{{count}} Befunde aus {{dokumente}} Prüfdokument(en) – jeder Export friert den aktuellen Stand mit eigener Export-ID ein.",
+    "keineDokumente": "Noch keine geprüften Prüfdokumente. Prüfdokumente links laden – oder einen gespeicherten Prüfstand öffnen.",
+    "ladenHinweis": "Ein Prüfstand enthält nur Metadaten, Befunde und kurze Auszüge – keine Dokumentinhalte.",
+    "geladen_one": "{{name}} geöffnet: 1 Befund.",
+    "geladen_other": "{{name}} geöffnet: {{count}} Befunde.",
+    "geladenTitel": "Geöffneter Prüfstand",
+    "schliessen": "Prüfstand schließen",
+    "hashOk": "geladen, Hash stimmt",
+    "hashFehlt": "nicht geladen",
+    "ladefehler": {
+      "DC-STATE-SIZE": "Die Datei ist zu groß für einen Prüfstand.",
+      "DC-STATE-JSON": "Die Datei ist kein gültiges JSON.",
+      "DC-STATE-VERSION": "Der Prüfstand stammt aus einer neueren DocCheck-Version.",
+      "DC-STATE-FORMAT": "Die Datei ist kein DocCheck-Prüfstand oder unvollständig."
+    }
   },
   "verwalten": {
     "neu": "Neues Dokument veröffentlichen",
@@ -204,6 +223,8 @@
     "errorProbe": "Fehlerprobe (nur Sandbox)",
     "errorProbeHint": "Löst absichtlich einen Fehler im DocCheck-Modul aus. Erwartet: Meldung mit Fehlercode, die übrigen Kacheln laufen weiter.",
     "errorProbeBtn": "Fehler auslösen",
+    "organisation": "Organisation in Exporten",
+    "organisationPh": "z. B. Name der ATO – leer lassen, um keinen Namen zu setzen",
     "gateSperrt": "Export „einreichungsfähig“ bei offenem Hoch-Befund sperren",
     "gateSperrtHint": "Ab Werk aus: Es wird nur gewarnt (Nachtrag N4.3)."
   },
@@ -239,7 +260,7 @@
     "recheck": "Re-Check",
     "chat": "Chat",
     "startOnDesktop": "Nachprüfung am Desktop starten",
-    "openState": "Noch nicht verfügbar. Mit Phase 6 öffnest du hier einen am Desktop gespeicherten Prüfstand (.doccheck.json), siehst die Befunde und exportierst sie. Bis dahin: Befunde am Desktop im Reiter „Findings“.",
+    "openState": "Prüfstand-Datei (.doccheck.json) öffnen – Befunde ansehen und exportieren. Gespeichert wird sie am Desktop im Reiter „Export“.",
     "chatLimit": "Fragen-Chat gegen ausgewählte Bibliotheksdokumente, höchstens 3 000 Seiten gleichzeitig."
   },
   "upload": {

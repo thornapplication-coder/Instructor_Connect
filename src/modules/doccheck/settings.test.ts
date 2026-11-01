@@ -34,6 +34,13 @@ describe('einstellungen — Vorgaben und Zusammenführung', () => {
     expect([s.standardModell, s.ausweichModell, s.echteKiInSandbox, s.monatsbudgetUsd]).toEqual(['claude-opus-5-5', 'claude-sonnet-5-5', true, 200])
   })
 
+  it('Organisation: ab Werk leer (nie hart codiert, Spez. 10.1 Nr. 3), gespeicherter Name begrenzt, Fremdtyp verworfen', () => {
+    expect(einstellungen(undefined).organisation).toBe('')
+    expect(einstellungen({ organisation: 'Example ATO' }).organisation).toBe('Example ATO')
+    expect(einstellungen({ organisation: 'x'.repeat(200) }).organisation).toHaveLength(120)
+    expect(einstellungen({ organisation: 42 as unknown as string }).organisation).toBe('')
+  })
+
   it('eine leere Modellliste zählt als nicht gepflegt', () => {
     expect(einstellungen({ modelle: [] }).modelle).toEqual(VORGABE.modelle)
   })

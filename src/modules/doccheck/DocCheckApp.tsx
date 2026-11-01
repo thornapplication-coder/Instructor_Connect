@@ -28,7 +28,8 @@ import { standardVerbindung } from './verbindung'
 import { ViewerProvider } from './components/Viewer'
 import { AdminTab } from './components/AdminTab'
 import { LibraryPanel, Phase, ReviewDocsPanel, SessionDocsPanel } from './components/Panels'
-import { ChatTab, ExportTab, PruefungTab, RevisionenTab, VerwaltenTab } from './components/Tabs'
+import { ChatTab, PruefungTab, RevisionenTab, VerwaltenTab } from './components/Tabs'
+import { BefundeMobil, ExportTab } from './components/Export'
 import { FindingsTab } from './components/Befunde'
 import { ReCheckMobil, ReCheckTab } from './components/ReCheck'
 import { usePaketPruefung } from './components/Paket'
@@ -288,12 +289,7 @@ function Ansicht() {
                 <p className="text-micro text-dim">{t('mobile.startOnDesktop')}</p>
               </Card>
             ))}
-          {seg === 'befunde' && (
-            <Card className="space-y-stack p-4 text-center text-small text-dim">
-              <p>{t('mobile.openState')}</p>
-              <Phase n={6} />
-            </Card>
-          )}
+          {seg === 'befunde' && <BefundeMobil />}
           {seg === 'recheck' && <ReCheckMobil />}
           {seg === 'chat' && (
             <Card className="space-y-stack p-4 text-center text-small text-dim">

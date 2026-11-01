@@ -151,7 +151,26 @@
     "zip": "All formats (ZIP)",
     "save": "Save review state",
     "load": "Load review state",
-    "language": "Exports are always labelled in English; quotations stay in the original."
+    "language": "Exports are always labelled in English; quotations stay in the original.",
+    "laeuft": "Generating …",
+    "fertig": "{{name}} created.",
+    "fehler": "The export could not be created.",
+    "stand_one": "{{count}} finding from {{dokumente}} document(s) under review – each export freezes the current state with its own export ID.",
+    "stand_other": "{{count}} findings from {{dokumente}} document(s) under review – each export freezes the current state with its own export ID.",
+    "keineDokumente": "No checked documents under review yet. Load documents on the left – or open a saved review state.",
+    "ladenHinweis": "A review state contains only metadata, findings and short excerpts – no document content.",
+    "geladen_one": "{{name}} opened: 1 finding.",
+    "geladen_other": "{{name}} opened: {{count}} findings.",
+    "geladenTitel": "Opened review state",
+    "schliessen": "Close review state",
+    "hashOk": "loaded, hash matches",
+    "hashFehlt": "not loaded",
+    "ladefehler": {
+      "DC-STATE-SIZE": "The file is too large for a review state.",
+      "DC-STATE-JSON": "The file is not valid JSON.",
+      "DC-STATE-VERSION": "The review state comes from a newer DocCheck version.",
+      "DC-STATE-FORMAT": "The file is not a DocCheck review state or is incomplete."
+    }
   },
   "verwalten": {
     "neu": "Publish a new document",
@@ -204,6 +223,8 @@
     "errorProbe": "Error probe (sandbox only)",
     "errorProbeHint": "Deliberately triggers an error in the DocCheck module. Expected: a message with an error code, all other tiles keep working.",
     "errorProbeBtn": "Trigger error",
+    "organisation": "Organisation in exports",
+    "organisationPh": "e.g. name of the ATO – leave empty to set no name",
     "gateSperrt": "Block export “ready for submission” while a high finding is open",
     "gateSperrtHint": "Off by default: only a warning is shown (addendum N4.3)."
   },
@@ -239,7 +260,7 @@
     "recheck": "Re-check",
     "chat": "Chat",
     "startOnDesktop": "Start the re-check on a desktop",
-    "openState": "Not available yet. With phase 6 you open a review state saved on the desktop (.doccheck.json) here, view the findings and export them. Until then: findings on the desktop in the “Findings” tab.",
+    "openState": "Open a review state file (.doccheck.json) – view and export its findings. It is saved on the desktop in the “Export” tab.",
     "chatLimit": "Q&A chat against selected library documents, at most 3,000 pages at a time."
   },
   "upload": {

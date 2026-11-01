@@ -78,6 +78,9 @@ export interface DocCheckSettings {
   /** Submission gate (N4.3): sperrt ein offener Hoch-Befund den Export
    *  „einreichungsfähig"? Ab Werk nein — nur Warnung. */
   gateSperrt: boolean
+  /** Organisationsname für Exporte (Spez. 10.1 Nr. 3: aus dem Branding,
+   *  nie hart codiert). Leer → kein Organisationsfeld im Export. */
+  organisation: string
 }
 
 export type DocCheckAuditAktion = 'zugang' | 'admin' | 'feature' | 'einstellung' | 'standBestaetigt' | 'recheckBestaetigt'

@@ -994,3 +994,25 @@ N3.5) — damit ist N3 vollständig.
 - Neue Spaltenrolle „Priorität“ in der Zuordnung.
 - Gegenprobe: LibreOffice öffnet und speichert die Datei ohne Verlust.
   Offen bleibt die Öffnungsprobe in Microsoft Excel.
+
+## 1.22.0 — 2026-11-01
+
+DocCheck: Exporte und Prüfstand (Spezifikation v1.1 Kap. 10, 12; Phase 6).
+
+- **Ein Datenstand, alle Formate:** Excel (Summary, Findings, Compliance
+  Matrix, Documents & Sources), Word-Prüfbericht, CSV-Befundliste,
+  PowerPoint-Kurzbriefing (8 Folien, natives Diagramm) und ZIP-Paket —
+  gleiche IDs, Zahlen und Reihenfolge in allen Formaten, Export-ID je Export.
+- **Excel:** COUNTIFS-Formeln, Dropdowns, Zeilenfarbe nach Priorität,
+  fixierte Kopfzeile, Filter, A4 quer mit Fußzeile und Drucktiteln.
+- **Word:** Deckblatt, Dokumentlenkung, verlinkte Inhaltsübersicht ohne
+  Aktualisierungsdialog, Befunde quer nach Kapitel, Freigabefelder.
+- **CSV:** UTF-8 mit BOM, Semikolon, Schutz vor Formel-Injektion.
+- **Prüfstand `.doccheck.json`:** speichern und wieder öffnen, auch am
+  iPhone/iPad (Bereich „Befunde“); geprüft beim Laden, Hash-Abgleich mit
+  geladenen Dokumenten; keine Dokumentinhalte.
+- **Organisation** für Exporte in der DocCheck-Administration.
+- Neue Bibliotheken `docx` und `pptxgenjs`, nur beim Export nachgeladen.
+- Gegenprobe: LibreOffice öffnet alle Formate. Offen: Probe in Microsoft
+  Office und die Pixel-Layouttests aus Kap. 10.8 (brauchen LibreOffice in
+  der CI).

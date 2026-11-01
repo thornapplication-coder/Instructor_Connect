@@ -235,6 +235,28 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   folgen dem ARIA-Muster (`reiter.ts`), Befundtext trägt `lang="en"`.
   „Nicht anwendbar" nie per Deckkraft dämpfen — das drückte den Kontrast
   unter 3:1.
+- **Exporte** (`export/`, Spez. v1.1 Kap. 10, 12): EIN eingefrorener
+  Datenstand (`datenstand.ts`), aus dem Excel, Word, CSV, PowerPoint und
+  Prüfstand entstehen — wer einen Wert in einem Format selbst ausrechnet,
+  baut die zweite Wahrheit. Befund-IDs sind über Dokumente eindeutig
+  (`TM-001`, `TM2-001`, `PKG-001`), Sortierung Dokument → Seite → Priorität.
+  Alles englisch aus `labels.en.json` bzw. dem englischen Sprachpaket,
+  unabhängig von der Oberfläche. Excel von Hand wie das Rückschreiben
+  (COUNTIFS mit mitgeliefertem Ergebnis, Dropdowns, Zeilenfarbe nach
+  Priorität, Druck A4 quer mit Fußzeile); gleiche Eingabe → byte-gleiche
+  Datei (JSZip `createFolders: false`, sonst Ordner mit Uhrzeit). Word mit
+  `docx`, PowerPoint mit `pptxgenjs` — beide NUR per `import()` in
+  `ausgabe.ts`, also nie im Startbundle. Word ohne Inhaltsverzeichnis-FELD
+  (Aktualisierungsdialog); Links auf Textmarken. Gesamtbewertung ist ein
+  VORSCHLAG aus den Regeln (High offen → nicht einreichungsfähig) und im
+  Excel ein Dropdown. Die Compliance Matrix bleibt ehrlich leer, bis die
+  KI-Prüfung sie füllt. Organisationsname aus `organisation` der
+  Einstellungen, nie hart codiert. `pptxgenjs` zieht `image-size` mit einer
+  bekannten Schwachstelle — `overrides` in package.json erzwingt die
+  bereinigte Fassung. Prüfstand `.doccheck.json`: nur Metadaten, Hashes,
+  Befunde, kurze Auszüge; beim Laden geprüft (Schema, Werte, Größe) und bei
+  Abweichung abgewiesen; gleiche Befund-IDs nach dem Laden. Der mobile
+  Bereich „Befunde" öffnet Prüfstände und exportiert daraus.
 - **Submission gate** warnt ab Werk (`gateSperrt: false`, Entscheidung
   vom 01.11.2026); Sperre ist Einstellung des Superadmins.
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise

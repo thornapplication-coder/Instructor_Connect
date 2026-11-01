@@ -49,6 +49,8 @@ export const VORGABE: DocCheckSettings = {
   monatsbudgetUsd: null,
   // Entscheidung des Superadmins (01.11.2026): warnen, nicht sperren.
   gateSperrt: false,
+  // Kein Organisationsname ab Werk (Spez. 10.1 Nr. 3) — der Superadmin trägt ihn ein
+  organisation: '',
 }
 
 export function einstellungen(gespeichert: Partial<DocCheckSettings> | undefined): DocCheckSettings {
@@ -68,6 +70,7 @@ export function einstellungen(gespeichert: Partial<DocCheckSettings> | undefined
     echteKiInSandbox: g.echteKiInSandbox ?? VORGABE.echteKiInSandbox,
     monatsbudgetUsd: g.monatsbudgetUsd ?? VORGABE.monatsbudgetUsd,
     gateSperrt: g.gateSperrt ?? VORGABE.gateSperrt,
+    organisation: typeof g.organisation === 'string' ? g.organisation.slice(0, 120) : VORGABE.organisation,
   }
 }
 

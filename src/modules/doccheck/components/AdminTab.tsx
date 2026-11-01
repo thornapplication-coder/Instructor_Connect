@@ -111,6 +111,15 @@ export function AdminTab({ onFehlerProbe }: { onFehlerProbe: () => void }) {
               onBlur={(e) => updateDocCheckSettings({ monatsbudgetUsd: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })}
             />
           </Field>
+          <Field label={t('admin.organisation')}>
+            <input
+              className={inputCls}
+              defaultValue={s.organisation}
+              maxLength={120}
+              placeholder={t('admin.organisationPh')}
+              onBlur={(e) => e.target.value.trim() !== s.organisation && updateDocCheckSettings({ organisation: e.target.value.trim() })}
+            />
+          </Field>
           <label className="flex items-start gap-2.5 text-small">
             <input type="checkbox" className="mt-0.5 h-5 w-5 accent-accent" checked={s.gateSperrt} onChange={(e) => updateDocCheckSettings({ gateSperrt: e.target.checked })} />
             <span>
