@@ -48,6 +48,10 @@ export default {
         okInk: 'rgb(var(--c-ok-ink) / <alpha-value>)',
         waitInk: 'rgb(var(--c-wait-ink) / <alpha-value>)',
         badInk: 'rgb(var(--c-bad-ink) / <alpha-value>)',
+        // DocCheck-Prioritaet — eigene Toene, Begruendung in src/index.css.
+        prioHigh: 'rgb(var(--c-prio-high) / <alpha-value>)',
+        prioMed: 'rgb(var(--c-prio-med) / <alpha-value>)',
+        prioLow: 'rgb(var(--c-prio-low) / <alpha-value>)',
       },
       /**
        * SCHRIFTSKALA — abgeschlossen, nicht erweiterbar per Einzelfall.

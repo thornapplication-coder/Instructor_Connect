@@ -1,4 +1,4 @@
-import { BookMarked, BookOpenCheck, GraduationCap, LogOut, MessageSquareText, MessagesSquare, NotebookPen, Phone, Plane, RefreshCw, Share, ShieldCheck } from 'lucide-react'
+import { BookMarked, BookOpenCheck, FileCheck2, GraduationCap, LogOut, MessageSquareText, MessagesSquare, NotebookPen, Phone, Plane, RefreshCw, Share, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
@@ -25,6 +25,9 @@ const TILES = [
   { to: '/contacts', label: 'Who to call', icon: Phone },
   { to: '/notes', label: 'Notes', icon: NotebookPen },
   { to: '/logbook', label: 'my AAA Logbook', icon: BookMarked },
+  // DocCheck steht zuletzt: Es ist ein Werkzeug fuer wenige, und wer es
+  // nicht hat, sieht die Kachel gar nicht — die Reihe der anderen bleibt.
+  { to: '/doccheck', label: 'DocCheck', icon: FileCheck2 },
 ] as const
 
 export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
@@ -34,7 +37,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
   useEffect(() => {
     if (unknownRoute) navigate('/')
   }, [unknownRoute])
-  const { state, currentUser, logout, unreadGroups, hasNewInfo, hasNewContacts, openAcks, visibleGradingRecords, can, moduleAllowed } = useStore()
+  const { state, currentUser, logout, unreadGroups, hasNewInfo, hasNewContacts, openAcks, visibleGradingRecords, can, moduleAllowed, docCheckRolle, docCheckBadge } = useStore()
   const isDesktop = useIsDesktop()
   const [showInstall, setShowInstall] = useState(false)
   // Öffnet das iOS-Share-Sheet (dort: „Zum Home-Bildschirm") — sonst Anleitung
@@ -82,6 +85,9 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
     '/notes': 0,
     // Das Logbuch leitet sich aus dem Bestand ab — es gibt kein „Neu".
     '/logbook': 0,
+    // Offene Nachpruef-Empfehlungen, fuer Admins zusaetzlich faellige
+    // Revisionserinnerungen (Spez. DocCheck 3.2).
+    '/doccheck': docCheckBadge,
   }
 
   // Die Kacheln folgen der Rechte-Matrix: was der Superadmin einer Rolle
@@ -98,6 +104,9 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
     // Das Logbuch hat jede Rolle: Wer bewertet, fuehrt ein eigenes; der
     // Training Admin oeffnet fremde (lesend). Keine Modul-Schranke noetig.
     if (tl.to === '/logbook') return true
+    // Nur fuer Freigeschaltete (Spez. DocCheck 3.4) — fuer alle anderen
+    // erscheint die Kachel nicht, auch nicht ausgegraut.
+    if (tl.to === '/doccheck') return docCheckRolle !== 'keine'
     return true
   })
 
@@ -189,7 +198,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
               ) : (
                 <CountBadge
                   count={news[to]}
-                  label={to === '/info' && openAcks > 0 ? t('home.openAcks') : t('common.new')}
+                  label={to === '/info' && openAcks > 0 ? t('home.openAcks') : to === '/doccheck' ? t('docCheck.badge') : t('common.new')}
                   className="right-2.5 top-2.5"
                 />
               )}

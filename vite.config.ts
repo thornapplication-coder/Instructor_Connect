@@ -22,12 +22,47 @@ function listPublicFiles(dir = 'public', prefix = ''): string[] {
  * UpdateBanner-Komponente. Der Cache-Name hängt an der Dateiliste — jede
  * neue Version (gehashte Asset-Namen) ergibt einen neuen Worker.
  */
+/**
+ * Dateien, die NUR ueber ein nachgeladenes Modul erreichbar sind (DocCheck).
+ *
+ * Der Service Worker lud bisher JEDE gebaute Datei bei der Installation vorab.
+ * Mit DocCheck kommen Parser, OCR und Exportbibliotheken dazu — Megabytes,
+ * die sonst jedes Geraet laedt, auch das iPhone eines Instruktors, der die
+ * Kachel nie sieht. Diese Dateien fehlen deshalb im Vorab-Cache; der Abruf-
+ * Zweig unten legt sie beim ersten Oeffnen trotzdem in den Cache, offline
+ * geht DocCheck danach also auch.
+ *
+ * Ermittelt ueber den Importgraphen, nicht ueber Dateinamen: Was das
+ * Startbundle statisch braucht, bleibt drin — auch wenn DocCheck es ebenfalls
+ * nutzt. Ein Dateinamens-Muster haette eine gemeinsam genutzte Datei
+ * still mit ausgeschlossen.
+ */
+function nurNachgeladen(bundle: Record<string, { type: string; isEntry?: boolean; imports?: string[]; dynamicImports?: string[]; facadeModuleId?: string | null }>): Set<string> {
+  const huelle = (start: string[]) => {
+    const gesehen = new Set<string>()
+    const offen = [...start]
+    while (offen.length) {
+      const f = offen.pop()!
+      if (gesehen.has(f)) continue
+      gesehen.add(f)
+      const c = bundle[f]
+      if (c?.type === 'chunk') offen.push(...(c.imports ?? []))
+    }
+    return gesehen
+  }
+  const eintritt = Object.keys(bundle).filter((f) => bundle[f].type === 'chunk' && bundle[f].isEntry)
+  const statisch = huelle(eintritt)
+  const modul = Object.keys(bundle).filter((f) => bundle[f].type === 'chunk' && (bundle[f].facadeModuleId ?? '').includes('/src/modules/'))
+  return new Set([...huelle(modul)].filter((f) => !statisch.has(f)))
+}
+
 function serviceWorker(): Plugin {
   return {
     name: 'ic-service-worker',
     apply: 'build',
     generateBundle(_options, bundle) {
       const built = Object.keys(bundle).filter((f) => !f.endsWith('.map') && f !== 'sw.js')
+      const nachgeladen = nurNachgeladen(bundle)
       // public/ wird vollständig eingelesen, damit neue Dateien (Icons u. Ä.)
       // nicht vergessen werden.
       const extras = listPublicFiles()
@@ -37,7 +72,7 @@ function serviceWorker(): Plugin {
       // byteweise, hielt ihn deshalb für neu und lud die Seite neu — ohne
       // dass sich etwas geändert hätte, denn der Cache-Name (unten, über
       // die sortierte Liste gebildet) blieb gleich.
-      const files = [...new Set(['./', './index.html', ...[...built, ...extras].sort().map((f) => './' + f)])]
+      const files = [...new Set(['./', './index.html', ...[...built.filter((f) => !nachgeladen.has(f)), ...extras].sort().map((f) => './' + f)])]
 
       // Cache-Name über den INHALT aller ausgelieferten Dateien: eine
       // Version, die nur index.html oder ein Icon ändert, ergibt damit

@@ -413,7 +413,12 @@
     "permElsewhereUsers": "Role and aircraft type assignment belong to a user’s identity.",
     "permElsewhereGroups": "Who administers a chat is decided at that chat.",
     "toPermissions": "Permissions for this person",
-    "noUsersFound": "No person found."
+    "noUsersFound": "No person found.",
+    "docCheckHeading": "DocCheck",
+    "docCheckHint": "Who sees DocCheck and who maintains the master library. Only the superadmin grants these permissions; “DocCheck admin” requires “DocCheck access” and switches it on as well. The superadmin has DocCheck automatically. Every change is recorded in the DocCheck audit log.",
+    "docCheckAccess": "DocCheck access",
+    "docCheckAdmin": "DocCheck admin",
+    "docCheckAuto": "automatic"
   },
   "imprint": {
     "title": "Legal notice & terms of use",
@@ -504,5 +509,16 @@
     "derivedHint": "This entry comes from a signed form. Only the logbook times are changed here — the form itself stays untouched.",
     "resetToForm": "Reset to form values",
     "deleteConfirm": "Remove this entry from the logbook?"
+  },
+  "docCheck": {
+    "maintenanceTitle": "Maintenance – temporarily unavailable",
+    "maintenanceBody": "DocCheck has been switched off by the superadmin. All other areas of Instructor Connect are available as usual.",
+    "errorTitle": "DocCheck could not be loaded",
+    "errorBody": "The error affects DocCheck only. All other tiles keep working.",
+    "errorCode": "Error code",
+    "toHome": "Back to home",
+    "retry": "Try again",
+    "loading": "Loading DocCheck …",
+    "badge": "open items in DocCheck"
   }
 }

@@ -60,6 +60,35 @@ Die Trennung der Ebenen ist Absicht: Liefe Ebene 1 ebenfalls unter `jsdom`,
 könnte ein Logik-Modul unbemerkt vom DOM abhängig werden und der Lauf bliebe
 grün.
 
+## DocCheck (`src/modules/doccheck/`)
+
+Eigenes Modul nach der Spezifikation `DocCheck_Spezifikation_v1_1.md`.
+Stand: **Phase 1a (Sandbox)** — kein Backend, KI simuliert. Festlegungen:
+
+- **Die Testwachen gelten auch hier.** `testGuard` globt `src/modules/**`,
+  die Abdeckungsschwelle ebenso. Ansichten (`*.tsx`) sind wie `src/pages`
+  von der Schwelle ausgenommen; Logik gehört in `*.ts`.
+- **Wer was darf, sagt `darf()` in `access.ts`** — Matrix Zeile für Zeile
+  aus Spez. Kap. 5.1, im Test ausgeschrieben. Ohne Backend ist das
+  Bedienkomfort; mit Phase 1b wird sie Vorlage für RLS und Rollentest.
+- **Rechte nur über `setDocCheckRights`** (Superadmin, mit Audit-Zeile).
+  `updateUser` lässt `docCheckAccess`/`docCheckAdmin` fallen.
+- **Statisch geladen wird nur `index.tsx`**; alles andere per `lazy`
+  hinter einer `ErrorBoundary`. Der Service Worker nimmt Dateien, die nur
+  über das Modul erreichbar sind, aus dem Vorab-Cache (`nurNachgeladen` in
+  `vite.config.ts`). Wer DocCheck aus dem Startbundle importiert, holt
+  Parser und Exportbibliotheken auf jedes Gerät.
+- **Texte** im Namensraum `doccheck` (`i18n/de.json`, `i18n/en.json`),
+  nachgereicht beim Laden des Moduls. Die Hülle (Wartung, Ladefehler) steht
+  im App-Bundle unter `docCheck`, weil sie gerade dann gebraucht wird, wenn
+  das Modul nicht geladen ist.
+- **Ansichtsmodus** nach `pointer: coarse` (`viewMode.ts`), bewusst getrennt
+  von `useIsDesktop` (Breite) — beide Regeln gelten je für ihren Bereich.
+- **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise
+  keine Kostenschätzung und kein Start.
+- **Keine echten OEM-Dokumente im Repo** — der Sandbox-Bestand ist
+  synthetisch (`SBX-…`), der Test prüft das.
+
 ## Sonstiges
 
 - **Sprache:** Oberfläche DE/EN über i18next. Grading-Formulare und der

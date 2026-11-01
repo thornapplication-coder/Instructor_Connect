@@ -615,3 +615,35 @@ Code — zwei hohe und sieben mittlere Befunde behoben.
 19 neue Testfälle (451 gesamt). Geprüft und in Ordnung: Kontraste 6,6–8,9
 in beiden Themes, kein seitliches Scrollen auf fünf Formaten, Dialoge mit
 Fokusführung, Kachel-Sichtbarkeit je Rolle, gültige .xlsx (openpyxl).
+
+## 1.6.0 — 2026-11-01
+
+- **DocCheck: Phase 1a (Sandbox).** Neue Kachel für die Prüfung eigener
+  Dokumente vor der Einreichung bei der Behörde. Sichtbar nur mit
+  Berechtigung; Kachelzahl = offene Nachprüf-Empfehlungen, für
+  DocCheck-Admins zusätzlich fällige Revisionserinnerungen.
+- **DocCheck: Modul wird erst beim Öffnen geladen** und liegt hinter einer
+  Fehlergrenze. Die Fehlerprobe in der Administration zeigt eine Meldung mit
+  Fehlercode; Startseite und alle anderen Kacheln laufen weiter. Der Service
+  Worker lädt die DocCheck-Dateien nicht mehr auf jedes Gerät vorab.
+- **DocCheck: Berechtigungen** („DocCheck access", „DocCheck admin") unter
+  Admin Panel → Berechtigungen; nur der Superadmin vergibt sie, jede
+  Änderung steht im DocCheck-Audit-Log. Der Superadmin hat DocCheck
+  automatisch.
+- **DocCheck: Oberfläche** mit drei Spalten (Prüfdokumente, Master-
+  Bibliothek, Sitzungsdokumente), Reitern je Rolle, Feature-Schaltern,
+  Modellwahl und einem Proxy-Testaufruf mit simulierter KI im Format der
+  Messages API. iPhone/iPad laufen im Ansichtsmodus (`pointer: coarse`).
+  Parser, Prüf-Engine und Exporte sind als „Folgt in Phase n" markiert.
+- **DocCheck: Revisionserinnerung** je Bibliotheksdokument (12 Monate),
+  „Stand bestätigt" setzt die Frist zurück; folgt dem Zeitraffer.
+- **Prioritätsfarben** Hoch/Mittel/Niedrig als eigene Tokens, Kontrast
+  ≥ 4,5:1 in beiden Themen, mechanisch geprüft.
+- **Testwache erweitert:** `testGuard` und die Abdeckungsschwelle erfassen
+  jetzt auch `src/modules/**`. Vorher wäre ein ganzes Modul in einem
+  Unterordner von beiden Wachen befreit gewesen.
+
+Bewusst noch NICHT enthalten: Backend, Anmeldung über Supabase,
+serverseitige Rechte (RLS) und der echte KI-Proxy — Phase 1b, sobald die
+Backend-Entscheidung gefallen ist. Bis dahin sind die DocCheck-Rechte
+Bedienkomfort, keine Durchsetzung.

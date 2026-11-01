@@ -43,8 +43,8 @@ function seedState(now: number): AppState {
   return {
     users: [
       { id: 'u-patrick', name: 'Patrick Thorn', email: 'patrick.thorn@aviationacademy.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
-      { id: 'u-christian', name: 'Christian Terler', email: 'christian.terler@aviationacademy.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30'], active: true },
-      { id: 'u-michael', name: 'Michael Holy', email: 'michael.holy@aviationacademy.at', phone: '+43 664 1000003', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['C560 XLS+'], active: true },
+      { id: 'u-christian', name: 'Christian Terler', email: 'christian.terler@aviationacademy.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30'], docCheckAccess: true, docCheckAdmin: true, active: true },
+      { id: 'u-michael', name: 'Michael Holy', email: 'michael.holy@aviationacademy.at', phone: '+43 664 1000003', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['C560 XLS+'], docCheckAccess: true, active: true },
       // Der Training Admin fuehrt Muster, obwohl seine Sicht nicht daran
       // haengt (er steht in OHNE_SCHRANKE). Hier stand als Begruendung, er
       // saehe sonst nichts — das war schlicht falsch und beim Gegenlesen

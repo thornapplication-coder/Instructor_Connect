@@ -24,7 +24,15 @@ import { describe, expect, it } from 'vitest'
 
 // Ueber Vite einlesen statt ueber Node-Dateizugriff — der Glob erfasst
 // automatisch jede neue Datei, ohne dass jemand eine Liste pflegen muss.
-const module = import.meta.glob('./*.ts', { query: '?raw', import: 'default', eager: true })
+//
+// Dazu die Logik der Module unter src/modules/ (DocCheck). Der Glob stand
+// nur auf `./*.ts` — ein ganzes Modul in einem Unterordner waere damit von
+// der Regel befreit gewesen, ohne dass es jemand merkt. Genau die Luecke,
+// die diese Datei schliessen soll, nur eine Ebene tiefer.
+const module = {
+  ...import.meta.glob('./*.ts', { query: '?raw', import: 'default', eager: true }),
+  ...import.meta.glob('./modules/**/*.ts', { query: '?raw', import: 'default', eager: true }),
+}
 const dateien = Object.keys(module).map((p) => p.replace('./', ''))
 
 /**
@@ -48,6 +56,7 @@ const OHNE_TEST: Record<string, string> = {
   'types.ts': 'nur Typen und Konstanten, keine Logik',
   'vite-env.d.ts': 'Typdeklaration',
   'net.ts': 'Ebene 2 offen: braucht eine Service-Worker-Registrierung, nicht nur fetch',
+  'modules/doccheck/types.ts': 'nur Typen, keine Logik',
 }
 
 const istTestdatei = (f: string) => f.endsWith('.test.ts') || f.endsWith('.dom.test.ts')
@@ -55,6 +64,8 @@ const istTestdatei = (f: string) => f.endsWith('.test.ts') || f.endsWith('.dom.t
 describe('Jede Logik hat ihren Test', () => {
   it('findet ueberhaupt Module (sonst prueft der Glob ins Leere)', () => {
     expect(dateien.filter((f) => !istTestdatei(f)).length).toBeGreaterThan(10)
+    // ... und zwar auch die in Unterordnern der Module.
+    expect(dateien.filter((f) => f.startsWith('modules/doccheck/llm/') && !istTestdatei(f)).length).toBeGreaterThan(0)
   })
 
   it('laesst kein Logik-Modul ohne Testdatei', () => {
@@ -91,10 +102,10 @@ describe('Jede Logik hat ihren Test', () => {
  * src/*.ts" braucht deshalb ihre Kehrseite als Pruefung.
  */
 describe('Logik-Module bleiben unter sich', () => {
-  it('kein Modul in src/*.ts importiert aus src/pages', () => {
+  it('kein Modul in src/*.ts oder src/modules/ importiert aus src/pages', () => {
     const verstoesse = Object.entries(module)
       .filter(([pfad]) => !istTestdatei(pfad.replace('./', '')))
-      .filter(([, inhalt]) => /from '\.\/pages\//.test(inhalt as string))
+      .filter(([, inhalt]) => /from '(\.\/|(\.\.\/)+)pages\//.test(inhalt as string))
       .map(([pfad]) => pfad.replace('./', ''))
     expect(verstoesse).toEqual([])
   })

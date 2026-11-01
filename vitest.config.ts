@@ -59,8 +59,14 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      include: ['src/*.ts'],
+      // src/modules/: DocCheck. Dieselbe Schwelle wie fuer den Bestand —
+      // ein Modul, das spaeter dazukam, bekommt keinen leichteren Massstab.
+      include: ['src/*.ts', 'src/modules/**/*.ts'],
       exclude: [
+        'src/modules/doccheck/types.ts', // nur Typen, keine Logik
+        // Ansichten des Moduls — wie src/pages nicht unter der Schwelle; sie
+        // erschienen sonst mit 0 von 0 Anweisungen als „100 %".
+        'src/modules/**/*.tsx',
         'src/types.ts', // nur Typen und Konstanten, keine Logik
         'src/vite-env.d.ts', // Typdeklaration
         'src/net.ts', // Ebene 2 offen: braucht Service-Worker-Registrierung, nicht nur fetch

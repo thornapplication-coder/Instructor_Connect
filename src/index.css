@@ -45,6 +45,14 @@
   --c-ok-ink: 255 255 255;
   --c-wait-ink: 255 255 255;
   --c-bad-ink: 255 255 255;
+  /* DocCheck: Prioritaet eines Befunds (Hoch/Mittel/Niedrig). Eigene Toene,
+     NICHT bad/wait: Die tragen in der App schon je eine Bedeutung
+     („durchgefallen", „wartet"), und ein hoch eingestufter Befund ist weder
+     das eine noch das andere. Kontrast >= 4,5:1 auf Hintergrund und Karte,
+     geprueft in src/modules/doccheck/prioTokens.test.ts. */
+  --c-prio-high: 190 18 60;   /* #BE123C */
+  --c-prio-med: 154 52 18;    /* #9A3412 */
+  --c-prio-low: 71 85 105;    /* #475569 */
   --sh-soft: 0 6px 18px rgba(22, 37, 61, 0.10);
   --sh-tile: 0 10px 26px rgba(22, 37, 61, 0.14);
   --grad-a: rgb(var(--c-accent) / 0.07);
@@ -70,6 +78,9 @@
   --c-ok-ink: 6 26 20;
   --c-wait-ink: 32 22 2;
   --c-bad-ink: 40 10 10;
+  --c-prio-high: 253 164 175; /* #FDA4AF */
+  --c-prio-med: 253 186 116;  /* #FDBA74 */
+  --c-prio-low: 203 213 225;  /* #CBD5E1 */
   --sh-soft: 0 8px 24px rgba(3, 10, 22, 0.35);
   --sh-tile: 0 10px 30px rgba(3, 10, 22, 0.45);
   --grad-a: rgb(var(--c-raised) / 0.35);
@@ -299,6 +310,9 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
     --c-ok-ink: 255 255 255;
     --c-wait-ink: 255 255 255;
     --c-bad-ink: 255 255 255;
+    --c-prio-high: 190 18 60;
+    --c-prio-med: 154 52 18;
+    --c-prio-low: 71 85 105;
     --sh-soft: none;
     --sh-tile: none;
     --grad-a: transparent;
