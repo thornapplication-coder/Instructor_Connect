@@ -68,8 +68,8 @@ bestehender Findinglisten, Dokumentpakete, Word-Check). Der Nachtrag geht
 für die dort geregelten Punkte vor; seine Phasenzuordnung steht in Kap. 19.
 Stand: **Phase 2 + Word-Check (Sandbox)** — Dokumente einlesen und
 durchsuchen, Word-Extrakt, Seitenangaben bei DOCX, Formalprüfung, Word-Check
-(N4), Sprache/Platzhalter (N9), Referenzlisten als Soll; kein Backend, KI
-simuliert. Festlegungen:
+(N4), Sprache/Platzhalter (N9), Referenzlisten als Soll, Re-Check fremder
+Findinglisten (N3, regelbasiert); kein Backend, KI simuliert. Festlegungen:
 
 - **Die Testwachen gelten auch hier.** `testGuard` globt `src/modules/**`,
   die Abdeckungsschwelle ebenso. Ansichten (`*.tsx`) sind wie `src/pages`
@@ -129,6 +129,18 @@ simuliert. Festlegungen:
   (`SPALTEN` in `referenz/liste.ts`); nicht erkannt heißt: der Nutzer
   wählt, es wird nicht geraten. Die Listen liegen wie Prüfdokumente nur im
   Speicher; jede Änderung prüft alle Prüfdokumente im Worker neu.
+- **Re-Check fremder Findinglisten** (`recheck/`, N3): Die Liste behält
+  ihr Layout; DocCheck schlägt die Spaltenzuordnung vor (Profil im Browser,
+  nur Spaltennummern) und ordnet „Dokument/Bereich" nur ganzen Wörtern zu —
+  „TM" steckt nicht in „ATM". Unbekannte Quelle heißt „Not verifiable",
+  nicht raten. **Resolved nur, wenn der beanstandete Text im ganzen Paket
+  fehlt** (N3.4); die Korrektur selbst ist kein Rest („ATO.106" in
+  „AT.ATO.106"). Team-Kommentare sind Behauptungen, die geprüft werden.
+  Das Kapitel einer Fundstelle ist die letzte Überschrift VOR ihr, nicht
+  das der Seite — ein DOCX ohne Umbrüche ist sonst eine Seite mit dem
+  letzten Kapitel. Bestätigen schreibt eine Audit-Zeile ohne Befundtext.
+  Schalter `recheck` ab Werk **aus** (Nachtrag Kap. 17), bis die Abnahme
+  inkl. Rückschreiben (N3.5) bestanden ist.
 - **Submission gate** warnt ab Werk (`gateSperrt: false`, Entscheidung
   vom 01.11.2026); Sperre ist Einstellung des Superadmins.
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise

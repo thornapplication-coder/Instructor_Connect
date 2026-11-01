@@ -65,6 +65,9 @@ describe('Verbindung zum Worker', () => {
     w.antworten({ typ: 'treffer', nr: nrS, treffer: [{ docId: 'd' } as never] })
     await expect(s).resolves.toEqual([{ docId: 'd' }])
     await expect(t).resolves.toBe('Seite 2')
+    const n = v.nachpruefen([])
+    w.antworten({ typ: 'nachgeprueft', nr: (gesendet.at(-1)!.a as { nr: number }).nr, ergebnisse: [{ ref: '7' } as never] })
+    await expect(n).resolves.toEqual([{ ref: '7' }])
   })
 
   it('OCR-Ergebnis an die Hörer; titel/entfernen werden gesendet', () => {

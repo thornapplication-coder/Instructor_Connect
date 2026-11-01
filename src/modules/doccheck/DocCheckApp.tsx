@@ -7,6 +7,7 @@ import { APP_VERSION } from '../../types'
 import { SANDBOX } from '../../sandbox/flag'
 import { Badge, Button, Card, CardHeading, Modal, Page, selectCls, TopBar } from '../../components/ui'
 import { darf } from './access'
+import { aktiv } from './settings'
 import { registriereDocCheckTexte } from './i18n'
 import { aktuellerStand, nachSammlung, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EMPFEHLUNGEN, SANDBOX_SAMMLUNGEN, SANDBOX_STAENDE, standLabel } from './library'
 import { useAnsichtsmodus } from './viewMode'
@@ -17,13 +18,14 @@ import { AdminTab } from './components/AdminTab'
 import { LibraryPanel, Phase, ReviewDocsPanel, SessionDocsPanel } from './components/Panels'
 import { ChatTab, ExportTab, PruefungTab, RevisionenTab, VerwaltenTab } from './components/Tabs'
 import { FindingsTab } from './components/Befunde'
+import { ReCheckTab } from './components/ReCheck'
 import { ReferenzPanel } from './components/Referenzen'
 
 // Die Texte kommen erst mit dem Modul — wer DocCheck nie oeffnet, laedt sie
 // nie. Registriert wird beim Laden dieses Bundles, also vor dem ersten Render.
 registriereDocCheckTexte(i18n)
 
-type Reiter = 'pruefung' | 'findings' | 'chat' | 'revisionen' | 'export' | 'verwalten' | 'admin'
+type Reiter = 'pruefung' | 'findings' | 'recheck' | 'chat' | 'revisionen' | 'export' | 'verwalten' | 'admin'
 
 const HINWEIS_KEY = 'dc-notice-seen'
 
@@ -127,12 +129,15 @@ function Desktop() {
   const [reiter, setReiter] = useState<Reiter>('pruefung')
   const [auswahl, setAuswahl] = useState<Set<string>>(new Set())
   const [probe, setProbe] = useState(false)
-  const reiterListe: Reiter[] = ['pruefung', 'findings', 'chat', 'revisionen', 'export']
+  const reiterListe: Reiter[] = ['pruefung', 'findings', ...(aktiv(docCheckSettings, 'recheck') ? (['recheck'] as const) : []), 'chat', 'revisionen', 'export']
   if (darf(docCheckRolle, 'bibliothekPflegen')) reiterListe.push('verwalten')
   if (darf(docCheckRolle, 'konfigurieren')) reiterListe.push('admin')
   // Findings braucht die Breite der Tabelle; die Seitenspalten bleiben in
   // den anderen Reitern erreichbar.
   const verwaltung = reiter === 'verwalten' || reiter === 'admin' || reiter === 'findings'
+  // Re-Check: die Prüfdokumente bilden das Paket — ihre Spalte bleibt, die
+  // Bibliothek rechts wird für die Vorschlagstabelle nicht gebraucht.
+  const nurLinks = reiter === 'recheck'
 
   return (
     <div className="flex flex-1 flex-col">
@@ -141,11 +146,11 @@ function Desktop() {
         {/* Verwaltung und Administration nehmen die volle Breite: Die
             Seitenspalten gehoeren zur Pruefung, und zwischen ihnen blieben
             fuer Tabellen keine 40 Zeichen. */}
-        <div className={`grid items-start gap-stack ${verwaltung ? '' : 'xl:grid-cols-[15rem_minmax(0,1fr)_18rem]'}`}>
+        <div className={`grid items-start gap-stack ${verwaltung ? '' : nurLinks ? 'xl:grid-cols-[15rem_minmax(0,1fr)]' : 'xl:grid-cols-[15rem_minmax(0,1fr)_18rem]'}`}>
           {!verwaltung && (
             <div className="space-y-stack">
               <ReviewDocsPanel />
-              <ReferenzPanel />
+              {!nurLinks && <ReferenzPanel />}
             </div>
           )}
           <Card className="min-w-0 p-0">
@@ -165,6 +170,7 @@ function Desktop() {
             <div role="tabpanel" className="p-4 xl:p-section">
               {reiter === 'pruefung' && <PruefungTab modell={modell} />}
               {reiter === 'findings' && <FindingsTab />}
+              {reiter === 'recheck' && reiterListe.includes('recheck') && <ReCheckTab />}
               {reiter === 'chat' && <ChatTab />}
               {reiter === 'revisionen' && <RevisionenTab />}
               {reiter === 'export' && <ExportTab />}
@@ -173,7 +179,7 @@ function Desktop() {
               {probe && <Wurf />}
             </div>
           </Card>
-          <div className={`space-y-stack ${verwaltung ? 'hidden' : ''}`}>
+          <div className={`space-y-stack ${verwaltung || nurLinks ? 'hidden' : ''}`}>
             <LibraryPanel darfPflegen={darf(docCheckRolle, 'bibliothekPflegen')} auswahl={auswahl} setAuswahl={setAuswahl} />
             <SessionDocsPanel />
           </div>

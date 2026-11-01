@@ -11,7 +11,7 @@
     "Open": "Offen"
   },
   "footer": {
-    "phase": "Phase 2 + Word-Check (Sandbox)"
+    "phase": "Phase 2 + Word-Check + Re-Check (Sandbox)"
   },
   "notice": {
     "title": "Hinweis zu DocCheck",
@@ -23,6 +23,7 @@
   "tabs": {
     "pruefung": "Prüfung",
     "findings": "Findings",
+    "recheck": "Re-Check",
     "chat": "Chat",
     "revisionen": "Revisionen",
     "export": "Export",
@@ -207,14 +208,16 @@
     "exportCsv": "Export CSV",
     "exportPptx": "Export PowerPoint",
     "pdfPairing": "Word-PDF-Paar (Seitenangaben)",
-    "wordCheck": "Word-Check und Sprache"
+    "wordCheck": "Word-Check und Sprache",
+    "recheck": "Re-Check externer Findinglisten"
   },
   "auditAction": {
     "zugang": "DocCheck access",
     "admin": "DocCheck admin",
     "feature": "Feature-Schalter",
     "einstellung": "Einstellung",
-    "standBestaetigt": "Stand bestätigt"
+    "standBestaetigt": "Stand bestätigt",
+    "recheckBestaetigt": "Re-Check bestätigt"
   },
   "mobile": {
     "desktopOnly": "Prüfungen und Bibliothekspflege am Desktop oder Laptop",
@@ -465,5 +468,98 @@
     "eintraege_one": "1 Eintrag",
     "eintraege_other": "{{count}} Einträge",
     "spaltenFehlen": "passende Spalten fehlen"
+  },
+  "recheck": {
+    "einleitung": "Fremde Findingliste (Excel oder CSV des Teams, einer Behörde oder eines Audits) gegen das aktuelle Prüfpaket nachprüfen. Gesucht wird im ganzen Paket, nicht nur auf der genannten Seite – die Seitenzahlen der Liste beziehen sich auf die Vorrevision. Die Liste bleibt wie alle Dokumente nur in diesem Tab.",
+    "schritt1": "Findingliste laden",
+    "drop": "Findingliste hier ablegen oder auswählen (XLSX, CSV)",
+    "andereListe": "Andere Liste laden",
+    "leer": "{{name}} enthält keine Zeilen.",
+    "format": "{{name}} konnte nicht gelesen werden – erwartet wird XLSX oder CSV.",
+    "profilGeladen": "Spaltenzuordnung aus dem gespeicherten Listenprofil übernommen",
+    "befunde_one": "{{count}} Befund · Kopfzeile in Zeile {{zeile}}",
+    "befunde_other": "{{count}} Befunde · Kopfzeile in Zeile {{zeile}}",
+    "blatt": "Blatt",
+    "ausProfil": "Listenprofil",
+    "schritt2": "Spalten zuordnen",
+    "spaltenHinweis": "Vorschlag nach den Spaltenköpfen. Beim Start der Prüfung wird die Zuordnung als Listenprofil gemerkt und beim nächsten Import derselben Liste verwendet – gespeichert werden nur Spaltennummern, keine Inhalte.",
+    "rolle": {
+      "id": "Nr. / ID",
+      "dokument": "Dokument / Bereich",
+      "seite": "Seite",
+      "kapitel": "Kapitel",
+      "befund": "Befundtext",
+      "empfehlung": "Empfehlung",
+      "status": "Team-Status",
+      "kommentar": "Team-Kommentar",
+      "verantwortlich": "Verantwortlich"
+    },
+    "keineSpalte": "— keine —",
+    "befundFehlt": "Ohne Spalte „Befundtext“ lässt sich nichts nachprüfen.",
+    "schritt3": "Dokumente zuordnen und prüfen",
+    "dokHinweis": "Jeder Wert der Spalte „Dokument / Bereich“ zeigt auf ein Prüfdokument, auf das ganze Paket oder auf eine fehlende Quelle. Fehlt die Quelle, lautet der Vorschlag „Nicht prüfbar“ – geraten wird nicht.",
+    "wertInListe": "Wert in der Liste",
+    "pruefenGegen": "Prüfen gegen",
+    "ohneWert": "(leer)",
+    "paketweit": "Ganzes Paket",
+    "quelleFehlt": "Quelle fehlt",
+    "sprache": "Sprache der Remarks",
+    "spracheDe": "Deutsch (Korrekturvorschlag in Manual-Sprache)",
+    "spracheEn": "Englisch",
+    "start_one": "{{count}} Befund nachprüfen",
+    "start_other": "{{count}} Befunde nachprüfen",
+    "erneut_one": "{{count}} Befund erneut prüfen",
+    "erneut_other": "{{count}} Befunde erneut prüfen",
+    "laeuft": "Prüft …",
+    "keinPaket": "Erst Prüfdokumente laden (linke Spalte).",
+    "fertig_one": "{{count}} Befund nachgeprüft",
+    "fertig_other": "{{count}} Befunde nachgeprüft",
+    "schritt4": "Vorschläge prüfen und bestätigen",
+    "veraltet": "Das Prüfpaket hat sich seit der Prüfung geändert – bitte erneut prüfen.",
+    "status": {
+      "resolved": "Behoben",
+      "partial": "Teilweise behoben",
+      "open": "Nicht behoben",
+      "justify": "Begründung erforderlich",
+      "unverifiable": "Nicht prüfbar"
+    },
+    "grund": {
+      "wegUndDa": "Beanstandeter Text kommt im ganzen Paket nicht mehr vor; geforderter Text ist vorhanden.",
+      "restAnderesDok": "Im genannten Dokument behoben, aber in einem anderen Dokument des Pakets noch vorhanden.",
+      "teilweise": "Ein Teil ist umgesetzt, ein Teil fehlt noch (Varianten oder Ergänzungen).",
+      "unveraendert": "Nichts davon ist umgesetzt.",
+      "nurEmpfehlung": "Als Empfehlung formuliert („evtl.“, „could“) und nicht umgesetzt – schließen geht nur mit Begründung.",
+      "quelleFehlt": "Das genannte Dokument ist nicht im Paket.",
+      "keinText": "Das Dokument hat keinen durchsuchbaren Text – erst OCR ausführen.",
+      "keineAnweisung": "Kein zitierter Text, an dem sich die Korrektur prüfen ließe. Inhaltliche Befunde prüft später die KI; bis dahin fachlich prüfen."
+    },
+    "filterStatus": "Vorschlag",
+    "filterDok": "Dokument",
+    "alle": "Alle",
+    "nurAbweichung": "Nur Abweichungen zum Team-Status",
+    "sammel_one": "{{count}} „Behoben“ bestätigen",
+    "sammel_other": "Alle {{count}} „Behoben“ bestätigen",
+    "csv": "Als CSV exportieren",
+    "exportiert": "Re-Check exportiert",
+    "col": {
+      "nr": "Nr.",
+      "dok": "Dokument",
+      "befund": "Befund",
+      "team": "Team",
+      "vorschlag": "Vorschlag",
+      "bestaetigt": "Bestätigt"
+    },
+    "keineTreffer": "Keine Befunde für diesen Filter.",
+    "widerlegt": "Behauptung nicht belegt",
+    "abweichung": "weicht vom Team-Status ab",
+    "bestaetigtVon": "von {{name}}",
+    "rest": "Noch da",
+    "belegt": "Beleg",
+    "remark": "Remark",
+    "bestaetigen": "„{{status}}“ bestätigen",
+    "zuruecknehmen": "Bestätigung zurücknehmen",
+    "bestaetigtToast_one": "{{count}} Vorschlag bestätigt",
+    "bestaetigtToast_other": "{{count}} Vorschläge bestätigt",
+    "folgt": "Folgt: KI-Prüfung inhaltlicher Befunde und Rückschreiben in die Originaldatei (Layout, Dropdowns und Diagramme bleiben erhalten)."
   }
 }

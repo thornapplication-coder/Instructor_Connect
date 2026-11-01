@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { aktiv, ausweichFuer, einstellungen, FEATURES, preiseVollstaendig, VORGABE } from './settings'
 
 describe('einstellungen — Vorgaben und Zusammenführung', () => {
-  it('ohne gespeicherten Stand gelten die Vorgaben, alle Funktionen an', () => {
+  it('ohne gespeicherten Stand gelten die Vorgaben, alle Funktionen an außer Re-Check (Nachtrag Kap. 17)', () => {
     const s = einstellungen(undefined)
     expect(s.standardModell).toBe('claude-sonnet-5-5')
     expect(s.ausweichModell).toBe('claude-opus-5-5')
-    expect(FEATURES.every((f) => s.features[f])).toBe(true)
+    expect(FEATURES.filter((f) => !s.features[f])).toEqual(['recheck'])
     expect(s.echteKiInSandbox).toBe(false)
     expect(s.monatsbudgetUsd).toBeNull()
   })

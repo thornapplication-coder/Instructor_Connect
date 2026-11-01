@@ -43,6 +43,8 @@ export type DocCheckFeature =
   | 'pdfPairing'
   /** Nachtrag v1.2 Kap. 17 — Word-Technik-Check (N4) inkl. Sprache/Platzhalter (N9) */
   | 'wordCheck'
+  /** Nachtrag v1.2 Kap. 17 — Re-Check externer Findinglisten (N3); ab Werk aus bis zur Abnahme */
+  | 'recheck'
 
 /** Preise je Million Tokens in USD. `null` = vom Superadmin noch nicht
  *  gepflegt — dann gibt es keine Kostenschätzung, statt einer erfundenen. */
@@ -74,7 +76,7 @@ export interface DocCheckSettings {
   gateSperrt: boolean
 }
 
-export type DocCheckAuditAktion = 'zugang' | 'admin' | 'feature' | 'einstellung' | 'standBestaetigt'
+export type DocCheckAuditAktion = 'zugang' | 'admin' | 'feature' | 'einstellung' | 'standBestaetigt' | 'recheckBestaetigt'
 
 export interface DocCheckAuditEintrag {
   id: string

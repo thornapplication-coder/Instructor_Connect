@@ -752,3 +752,28 @@ Einlesen jedes Prüfdokuments und erneut nach OCR oder Word-PDF-Paar.
   zählen nicht mehr als Abkürzung — in Formalprüfung und Referenzprüfung
   gleich (eine Regel in `pruefung/kontext.ts`).
 
+## 1.11.0 — 2026-11-01
+
+- **DocCheck: Re-Check fremder Findinglisten (Nachtrag N3, regelbasiert).**
+  Eigener Reiter, ab Werk ausgeschaltet (Schalter „Re-Check" in der
+  Administration):
+  - Liste laden (XLSX mit Blattwahl, CSV), Kopfzeile unter Titelzeilen
+    finden, Spaltenzuordnung vorschlagen; die bestätigte Zuordnung wird
+    als Listenprofil gemerkt (nur Spaltennummern).
+  - „Dokument/Bereich" wird den Prüfdokumenten zugeordnet (APX 4 =
+    APPENDIX 4, TRAINING MANUAL = TM, Kürzel im Dateinamen); paketweite
+    Werte wie „Schreibweise" prüfen das ganze Paket, Unbekanntes ist
+    „Quelle fehlt".
+  - Prüfanweisung aus Befund und Empfehlung (ersetzen, „statt", „→",
+    streichen, ergänzen). Restfundstellen-Regel über das ganze Paket;
+    „evtl."/„could" ohne Umsetzung → „Closed – justification required";
+    Team-Kommentare werden überprüft, nicht übernommen.
+  - Vorschlagstabelle mit Filtern (Status, Dokument, Abweichung zum
+    Team-Status), Belegen mit „Seite anzeigen", Remark (deutsch, wahlweise
+    englisch) mit Dokument · Kapitel · Seite · Auszug und
+    Korrekturvorschlag; Einzel- und Sammelbestätigung mit Audit-Zeile;
+    Export als CSV.
+- **Abnahme:** `SBX-FL-01` (20 Befunde) gegen `SBX-PKG-01` R0.1 — alle
+  Statusvorschläge wie erwartet.
+- Noch offen: KI-Prüfung inhaltlicher Befunde und Rückschreiben in die
+  Originaldatei (N3.5).

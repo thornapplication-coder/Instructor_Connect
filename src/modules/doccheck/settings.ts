@@ -21,6 +21,7 @@ export const FEATURES: DocCheckFeature[] = [
   'exportPptx',
   'pdfPairing',
   'wordCheck',
+  'recheck',
 ]
 
 const OHNE_PREIS = { input: null, output: null, cacheRead: null, cacheWrite: null }
@@ -36,7 +37,9 @@ export const VORGABE_MODELLE: DocCheckModell[] = [
 ]
 
 export const VORGABE: DocCheckSettings = {
-  features: Object.fromEntries(FEATURES.map((f) => [f, true])) as Record<DocCheckFeature, boolean>,
+  // Alles an — bis auf den Re-Check: Der Nachtrag (Kap. 17) schaltet ihn
+  // erst nach der Abnahme N3 ein, und die schließt das Rückschreiben ein.
+  features: Object.fromEntries(FEATURES.map((f) => [f, f !== 'recheck'])) as Record<DocCheckFeature, boolean>,
   modelle: VORGABE_MODELLE,
   standardModell: 'claude-sonnet-5-5',
   ausweichModell: 'claude-opus-5-5',

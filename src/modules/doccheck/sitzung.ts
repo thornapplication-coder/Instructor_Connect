@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react'
 import { duplikatPruefen, type Duplikat, type Vergleichsdokument } from './parse/duplikat'
 import type { Zusammenfassung } from './kern'
 import type { ReferenzListe } from './referenz/liste'
+import type { ReCheckSitzung } from './recheck/ablauf'
 
 /**
  * Prüf- und Sitzungsdokumente der laufenden Sitzung (Spez. 4.1, 5.4).
@@ -42,6 +43,8 @@ export interface Zustand {
   nutzer: string | null
   docs: SitzungsDok[]
   referenzen?: SitzungsReferenz[]
+  /** Re-Check einer Fremdliste (Nachtrag N3) — wie alles hier nur im Speicher */
+  recheck?: ReCheckSitzung
 }
 
 export const LEER: Zustand = { nutzer: null, docs: [] }

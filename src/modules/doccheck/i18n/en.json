@@ -11,7 +11,7 @@
     "Open": "Open"
   },
   "footer": {
-    "phase": "phase 2 + Word check (sandbox)"
+    "phase": "phase 2 + Word check + re-check (sandbox)"
   },
   "notice": {
     "title": "About DocCheck",
@@ -23,6 +23,7 @@
   "tabs": {
     "pruefung": "Review",
     "findings": "Findings",
+    "recheck": "Re-check",
     "chat": "Chat",
     "revisionen": "Revisions",
     "export": "Export",
@@ -207,14 +208,16 @@
     "exportCsv": "CSV export",
     "exportPptx": "PowerPoint export",
     "pdfPairing": "Word PDF pairing (page numbers)",
-    "wordCheck": "Word check and language"
+    "wordCheck": "Word check and language",
+    "recheck": "Re-check of external finding lists"
   },
   "auditAction": {
     "zugang": "DocCheck access",
     "admin": "DocCheck admin",
     "feature": "Feature switch",
     "einstellung": "Setting",
-    "standBestaetigt": "Status confirmed"
+    "standBestaetigt": "Status confirmed",
+    "recheckBestaetigt": "Re-check confirmed"
   },
   "mobile": {
     "desktopOnly": "Reviews and library maintenance on desktop or laptop",
@@ -465,5 +468,98 @@
     "eintraege_one": "1 entry",
     "eintraege_other": "{{count}} entries",
     "spaltenFehlen": "matching columns missing"
+  },
+  "recheck": {
+    "einleitung": "Re-check an external finding list (Excel or CSV from the team, an authority or an audit) against the current review package. The search covers the whole package, not just the page given — page numbers in the list refer to the previous revision. Like all documents, the list stays in this tab only.",
+    "schritt1": "Load finding list",
+    "drop": "Drop the finding list here or choose a file (XLSX, CSV)",
+    "andereListe": "Load another list",
+    "leer": "{{name}} contains no rows.",
+    "format": "{{name}} could not be read — XLSX or CSV expected.",
+    "profilGeladen": "Column mapping taken from the saved list profile",
+    "befunde_one": "{{count}} finding · header in row {{zeile}}",
+    "befunde_other": "{{count}} findings · header in row {{zeile}}",
+    "blatt": "Sheet",
+    "ausProfil": "List profile",
+    "schritt2": "Map columns",
+    "spaltenHinweis": "Suggested from the column headers. When the check starts, the mapping is saved as a list profile and reused the next time the same list is imported — only column numbers are stored, no content.",
+    "rolle": {
+      "id": "No. / ID",
+      "dokument": "Document / area",
+      "seite": "Page",
+      "kapitel": "Chapter",
+      "befund": "Finding text",
+      "empfehlung": "Recommendation",
+      "status": "Team status",
+      "kommentar": "Team comment",
+      "verantwortlich": "Responsible"
+    },
+    "keineSpalte": "— none —",
+    "befundFehlt": "Without a “Finding text” column there is nothing to re-check.",
+    "schritt3": "Map documents and check",
+    "dokHinweis": "Each value of the “Document / area” column points to a review document, to the whole package or to a missing source. If the source is missing, the proposal is “Not verifiable” — nothing is guessed.",
+    "wertInListe": "Value in the list",
+    "pruefenGegen": "Check against",
+    "ohneWert": "(empty)",
+    "paketweit": "Whole package",
+    "quelleFehlt": "Source missing",
+    "sprache": "Remark language",
+    "spracheDe": "German (correction in the manual's language)",
+    "spracheEn": "English",
+    "start_one": "Re-check {{count}} finding",
+    "start_other": "Re-check {{count}} findings",
+    "erneut_one": "Check {{count}} finding again",
+    "erneut_other": "Check {{count}} findings again",
+    "laeuft": "Checking …",
+    "keinPaket": "Load review documents first (left column).",
+    "fertig_one": "{{count}} finding re-checked",
+    "fertig_other": "{{count}} findings re-checked",
+    "schritt4": "Review and confirm proposals",
+    "veraltet": "The review package has changed since the check — please check again.",
+    "status": {
+      "resolved": "Resolved",
+      "partial": "Partially resolved",
+      "open": "Not resolved",
+      "justify": "Justification required",
+      "unverifiable": "Not verifiable"
+    },
+    "grund": {
+      "wegUndDa": "The text objected to no longer occurs anywhere in the package; the required text is present.",
+      "restAnderesDok": "Fixed in the referenced document, but still present in another document of the package.",
+      "teilweise": "Partly implemented; some variants or additions are still missing.",
+      "unveraendert": "None of it has been implemented.",
+      "nurEmpfehlung": "Raised as a recommendation (“could”, “consider”) and not implemented — closing requires a justification.",
+      "quelleFehlt": "The referenced document is not in the package.",
+      "keinText": "The document has no searchable text — run OCR first.",
+      "keineAnweisung": "No quoted text against which the correction could be checked. Content findings will be checked by the AI later; until then, review them manually."
+    },
+    "filterStatus": "Proposal",
+    "filterDok": "Document",
+    "alle": "All",
+    "nurAbweichung": "Only deviations from team status",
+    "sammel_one": "Confirm {{count}} “Resolved”",
+    "sammel_other": "Confirm all {{count}} “Resolved”",
+    "csv": "Export as CSV",
+    "exportiert": "Re-check exported",
+    "col": {
+      "nr": "No.",
+      "dok": "Document",
+      "befund": "Finding",
+      "team": "Team",
+      "vorschlag": "Proposal",
+      "bestaetigt": "Confirmed"
+    },
+    "keineTreffer": "No findings for this filter.",
+    "widerlegt": "Claim not supported",
+    "abweichung": "differs from team status",
+    "bestaetigtVon": "by {{name}}",
+    "rest": "Still present",
+    "belegt": "Evidence",
+    "remark": "Remark",
+    "bestaetigen": "Confirm “{{status}}”",
+    "zuruecknehmen": "Withdraw confirmation",
+    "bestaetigtToast_one": "{{count}} proposal confirmed",
+    "bestaetigtToast_other": "{{count}} proposals confirmed",
+    "folgt": "Next: AI check of content findings and write-back into the original file (layout, drop-downs and charts preserved)."
   }
 }

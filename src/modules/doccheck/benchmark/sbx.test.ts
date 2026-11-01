@@ -1,12 +1,15 @@
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
+import { xlsxTabellen } from '../parse/xlsx'
+import { befundeLesen, kopfzeileFinden, zielVorschlagen, zuordnungVorschlagen } from '../recheck/fremdliste'
+import { remark } from '../recheck/pruefen'
 import { Kern } from '../kern'
 import { docxLesen } from '../parse/docx'
 import { dateiLesen } from '../parse/lesen'
 import type { PdfJs } from '../parse/pdf'
 import { pdfBauen } from '../parse/pdfBauen'
-import { absatz, lauf, SBX_WORD_01_NAME, sbxPage01, sbxWord01, umbrechen } from './sbx'
+import { absatz, lauf, SBX_FL_01, SBX_FL_01_KOPF, SBX_WORD_01_NAME, sbxFl01, sbxPage01, sbxPkg01, sbxWord01, umbrechen } from './sbx'
 
 const standardFontDataUrl = fileURLToPath(new URL('../../../../node_modules/pdfjs-dist/standard_fonts/', import.meta.url))
 const kern = () => new Kern({ pdfjs: async () => pdfjs as unknown as PdfJs, standardFontDataUrl })
@@ -146,5 +149,35 @@ describe('Metadaten von SBX-WORD-01: Titel neben dem Textfeld des Deckblatts', (
   it('Titel, Nummer aus dem Textfeld, Revision und Typ', async () => {
     const g = await dateiLesen({ name: SBX_WORD_01_NAME, daten: await sbxWord01() }, { pdfjs: async () => pdfjs as unknown as PdfJs })
     expect(g.meta).toMatchObject({ titel: 'Training Manual (synthetic)', nummer: 'SBX-WORD-01', revision: 'Edition 1 Revision 0.0', typ: 'TM' })
+  })
+})
+
+describe('Abnahme N3.6: SBX-FL-01 gegen SBX-PKG-01 R0.1 (regelbasiert)', () => {
+  it('Import, Zuordnung und Statusvorschläge für alle eingebauten Fälle', async () => {
+    const kern = new Kern({ pdfjs: async () => { throw new Error('kein PDF erwartet') } })
+    const paket = await sbxPkg01()
+    for (const d of paket) await kern.lesen({ id: d.kuerzel, name: d.name, daten: d.daten, titel: d.titel, pruefen: { formal: false, word: false } })
+
+    const [blatt, listen] = await xlsxTabellen(await sbxFl01())
+    expect(listen.name).toBe('Lists')
+    const kopf = kopfzeileFinden(blatt.zeilen)
+    expect(blatt.zeilen[kopf]).toEqual(SBX_FL_01_KOPF)
+    const befunde = befundeLesen(blatt.zeilen, kopf, zuordnungVorschlagen(blatt.zeilen[kopf]))
+    expect(befunde).toHaveLength(20)
+
+    const namen = paket.map((d) => ({ id: d.kuerzel, namen: [d.kuerzel, d.titel, d.name] }))
+    const ergebnisse = kern.nachpruefen(befunde.map((befund) => ({ befund, ziel: zielVorschlagen(befund.dokument, namen) })))
+    expect(ergebnisse.map((r, i) => `${r.ref} ${r.status} (${SBX_FL_01[i].fall})`)).toEqual(SBX_FL_01.map((f) => `${f.zeile[0]} ${f.erwartet} (${f.fall})`))
+
+    // Restfundstelle im Nachbardokument nennt Kapitel und Seite der AKTUELLEN Revision.
+    const r2 = ergebnisse[1]
+    expect(r2.rest).toEqual([expect.objectContaining({ dokId: 'APX 4', kapitel: '1 Line Training' })])
+    expect(r2.belegt).toEqual([expect.objectContaining({ dokId: 'TM', kapitel: '1 General' })])
+    expect(ergebnisse[5].rest[0].kapitel).toBe('2 Simulator Training')
+    expect(remark(r2, '2026-11-01')).toMatch(/^TEILWEISE BEHOBEN \(Re-Check 01\.11\.2026\)/)
+    // Behauptung im Team-Kommentar wird überprüft, nicht übernommen.
+    expect(ergebnisse[2].behauptungWiderlegt).toBe(true)
+    expect(ergebnisse[16].behauptungWiderlegt).toBe(true)
+    expect(ergebnisse[15].abweichung).toBe(true)
   })
 })

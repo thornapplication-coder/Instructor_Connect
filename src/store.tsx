@@ -7,7 +7,7 @@ import { SANDBOX } from './sandbox/flag'
 import { musterFehlt, musterPflicht, nachMuster, sichtbarFuer } from './aircraftScope'
 import { adminTabsFor, hatAdminPanel } from './adminAccess'
 import { infoEntryAppliesTo } from './infoAcks'
-import { docCheckRolle, kachelZahl, rechteAudit, rechteSetzen } from './modules/doccheck/access'
+import { darf, docCheckRolle, kachelZahl, rechteAudit, rechteSetzen } from './modules/doccheck/access'
 import { einstellungen as docCheckEinstellungen } from './modules/doccheck/settings'
 import { faelligeErinnerungen, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EMPFEHLUNGEN } from './modules/doccheck/library'
 import type { DocCheckAuditEintrag, DocCheckFlags, DocCheckRolle, DocCheckSettings, DocCheckState } from './modules/doccheck/types'
@@ -141,6 +141,9 @@ export interface Store {
   updateDocCheckSettings: (patch: Partial<DocCheckSettings>) => void
   /** Revisionserinnerung „Stand bestätigt" — DocCheck-Admin oder Superadmin. */
   docCheckConfirmRevision: (docId: string) => void
+  /** Re-Check-Vorschläge bestätigt (Nachtrag N3/N11) — eine Audit-Zeile je
+   *  Bestätigung, mit Listennummern und Status, ohne Befundtext. */
+  docCheckRecheckConfirm: (liste: string, eintraege: { ref: string; status: string }[]) => void
 }
 
 const DC_LEER: DocCheckState = { audit: [], bestaetigt: {} }
@@ -747,6 +750,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               audit: [{ id: uid('dca'), at, von: s.currentUserId!, aktion: 'standBestaetigt', ziel: docId, wert: 'confirmed' }, ...dc.audit],
             },
           }
+        }),
+      docCheckRecheckConfirm: (liste, eintraege) =>
+        patch((s) => {
+          if (!eintraege.length || !darf(docCheckRolle(actorOf(s)), 'pruefen')) return null
+          const at = Date.now() + s.timeOffsetMs
+          const dc = s.docCheck ?? DC_LEER
+          const wert = eintraege.map((e) => `${e.ref}: ${e.status}`).join(', ')
+          return { docCheck: { ...dc, audit: [{ id: uid('dca'), at, von: s.currentUserId!, aktion: 'recheckBestaetigt', ziel: liste, wert: wert.length > 300 ? `${wert.slice(0, 297)}…` : wert }, ...dc.audit] } }
         }),
       // Die Rechtematrix aendert ausschliesslich der Superadmin. Die Sperre
       // lag bisher allein in der Oberflaeche (Reiterliste im Admin-Panel) —

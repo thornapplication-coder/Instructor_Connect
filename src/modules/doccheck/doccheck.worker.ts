@@ -2,6 +2,8 @@ import { Kern, type LeseAuftrag, type Zusammenfassung } from './kern'
 import { pdfjsLaden } from './pdfjsLaden'
 import type { ReferenzListe } from './referenz/liste'
 import type { Treffer } from './search/suche'
+import type { FremdBefund, Ziel } from './recheck/fremdliste'
+import type { ReErgebnis } from './recheck/pruefen'
 
 /**
  * Web Worker von DocCheck (Spez. 4.1): Parser, Suchindex, Textvergleich
@@ -21,6 +23,7 @@ export type Anfrage =
   | { typ: 'ocr'; id: string; seiten: { n: number; text: string }[] }
   | { typ: 'paaren'; id: string; daten: Uint8Array }
   | { typ: 'referenzen'; listen: ReferenzListe[] }
+  | { typ: 'nachpruefen'; nr: number; auftraege: { befund: FremdBefund; ziel: Ziel }[] }
 
 export type Antwort =
   | { typ: 'fortschritt'; id: string; seite: number; gesamt: number }
@@ -28,6 +31,7 @@ export type Antwort =
   | { typ: 'fehler'; id: string; code: string }
   | { typ: 'treffer'; nr: number; treffer: Treffer[] }
   | { typ: 'seite'; nr: number; text: string | null }
+  | { typ: 'nachgeprueft'; nr: number; ergebnisse: ReErgebnis[] }
 
 export interface Bereich {
   onmessage: ((e: { data: Anfrage }) => void) | null
@@ -71,6 +75,9 @@ export function verbinden(bereich: Bereich, kernFuer: (basis: string) => Kern): 
         return
       case 'seite':
         bereich.postMessage({ typ: 'seite', nr: a.nr, text: k().seitenText(a.id, a.seite) })
+        return
+      case 'nachpruefen':
+        bereich.postMessage({ typ: 'nachgeprueft', nr: a.nr, ergebnisse: k().nachpruefen(a.auftraege) })
         return
       case 'referenzen':
         for (const z of k().referenzenSetzen(a.listen)) bereich.postMessage({ typ: 'fertig', id: z.id, z })

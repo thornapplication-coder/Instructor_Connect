@@ -10,6 +10,8 @@ import { Suchindex, type Treffer } from './search/suche'
 import { dokumentPruefen, type Pruefung } from './pruefung/pruefen'
 import { REGELN } from './pruefung/kontext'
 import type { ReferenzListe } from './referenz/liste'
+import { befundPruefen, type ReErgebnis } from './recheck/pruefen'
+import type { FremdBefund, Ziel } from './recheck/fremdliste'
 
 /**
  * Was im Worker läuft: Dokumente lesen, im Speicher halten, durchsuchen.
@@ -222,6 +224,15 @@ export class Kern {
     d.pdfPaar = { abweichung }
     this.index.hinzufuegen({ id, titel: d.titel, pages })
     return this.fassen(id)
+  }
+
+  /**
+   * Re-Check einer Fremdliste (Nachtrag N3): jeder Befund gegen das ganze
+   * Paket — alle Prüfdokumente, nicht nur das genannte (N3.4).
+   */
+  nachpruefen(auftraege: { befund: FremdBefund; ziel: Ziel }[]): ReErgebnis[] {
+    const paket = [...this.docs.entries()].filter(([, d]) => d.pruefen).map(([id, d]) => ({ id, titel: d.titel, pages: d.roh.pages, outline: d.roh.outline }))
+    return auftraege.map((a) => befundPruefen(a.befund, a.ziel, paket))
   }
 
   get anzahl(): number {

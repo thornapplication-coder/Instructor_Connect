@@ -2,6 +2,8 @@ import type { Anfrage, Antwort } from './doccheck.worker'
 import type { LeseAuftrag, Zusammenfassung } from './kern'
 import type { Treffer } from './search/suche'
 import type { ReferenzListe } from './referenz/liste'
+import type { FremdBefund, Ziel } from './recheck/fremdliste'
+import type { ReErgebnis } from './recheck/pruefen'
 
 /**
  * Hauptfenster-Seite des Workers: Anfragen als Promises, Fortschritt als
@@ -45,10 +47,10 @@ export class Verbindung {
       const l = this.lesend.get(a.id)
       this.lesend.delete(a.id)
       l?.fehler(new Error(a.code))
-    } else if (a.typ === 'treffer' || a.typ === 'seite') {
+    } else if (a.typ === 'treffer' || a.typ === 'seite' || a.typ === 'nachgeprueft') {
       const f = this.warten.get(a.nr)
       this.warten.delete(a.nr)
-      f?.(a.typ === 'treffer' ? a.treffer : a.text)
+      f?.(a.typ === 'treffer' ? a.treffer : a.typ === 'seite' ? a.text : a.ergebnisse)
     }
   }
 
@@ -88,6 +90,11 @@ export class Verbindung {
 
   seitenText(id: string, seite: number): Promise<string | null> {
     return this.frage((nr) => ({ typ: 'seite', nr, id, seite }))
+  }
+
+  /** Re-Check (N3) — liefert `null`, wenn die Verbindung inzwischen beendet wurde. */
+  nachpruefen(auftraege: { befund: FremdBefund; ziel: Ziel }[]): Promise<ReErgebnis[] | null> {
+    return this.frage((nr) => ({ typ: 'nachpruefen', nr, auftraege }))
   }
 
   ocrEinspielen(id: string, seiten: { n: number; text: string }[]): void {
