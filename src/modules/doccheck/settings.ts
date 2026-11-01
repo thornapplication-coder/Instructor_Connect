@@ -20,6 +20,7 @@ export const FEATURES: DocCheckFeature[] = [
   'exportCsv',
   'exportPptx',
   'pdfPairing',
+  'wordCheck',
 ]
 
 const OHNE_PREIS = { input: null, output: null, cacheRead: null, cacheWrite: null }
@@ -41,6 +42,8 @@ export const VORGABE: DocCheckSettings = {
   ausweichModell: 'claude-opus-5-5',
   echteKiInSandbox: false,
   monatsbudgetUsd: null,
+  // Entscheidung des Superadmins (01.11.2026): warnen, nicht sperren.
+  gateSperrt: false,
 }
 
 export function einstellungen(gespeichert: Partial<DocCheckSettings> | undefined): DocCheckSettings {
@@ -59,6 +62,7 @@ export function einstellungen(gespeichert: Partial<DocCheckSettings> | undefined
     ausweichModell: ausweich,
     echteKiInSandbox: g.echteKiInSandbox ?? VORGABE.echteKiInSandbox,
     monatsbudgetUsd: g.monatsbudgetUsd ?? VORGABE.monatsbudgetUsd,
+    gateSperrt: g.gateSperrt ?? VORGABE.gateSperrt,
   }
 }
 

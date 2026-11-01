@@ -31,8 +31,10 @@ describe('hochladen', () => {
     expect(d).toMatchObject({ rolle: 'review', status: 'fertig', felder: { titel: 'PLM CL30', revision: 'Rev 1' } })
     expect(datei(d.id)).toEqual(new Uint8Array([1, 2, 3]))
     expect(titel).toHaveBeenCalledWith(d.id, 'PLM CL30')
-    // Prüfdokumente ohne Rechtscharakter-Vorgabe, Bestand enthält die Bibliothek.
+    // Prüfdokumente ohne Rechtscharakter-Vorgabe, Bestand enthält die Bibliothek,
+    // und sie werden geprüft (Spez. 8.8).
     expect(lesen.mock.calls[0][0].vorgabe).toBeUndefined()
+    expect((lesen.mock.calls[0][0] as { pruefen?: unknown }).pruefen).toEqual({ formal: true, word: true })
     expect(lesen.mock.calls[0][0].bestand).toHaveLength(bibliotheksVergleich().length)
   })
 
@@ -41,6 +43,7 @@ describe('hochladen', () => {
     await hochladen([datei_('a.pdf')], 'master', { lesen, titel: vi.fn() } as never)
     await hochladen([datei_('b.pdf')], 'master', { lesen, titel: vi.fn() } as never)
     expect(lesen.mock.calls[0][0]).toMatchObject({ vorgabe: 'OEM' })
+    expect(lesen.mock.calls[0][0]).not.toHaveProperty('pruefen')
     expect((lesen.mock.calls[1][0] as unknown as { bestand: { herkunft: string }[] }).bestand.some((b) => b.herkunft === 'session')).toBe(true)
   })
 

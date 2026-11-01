@@ -704,3 +704,33 @@ DocCheck: Phase-2-Anteile aus dem Nachtrag v1.2 (Kap. 19).
   Einträge des Inhaltsverzeichnisses werden nicht mehr als Titel erkannt.
 - Feature-Schalter `pdfPairing` (Nachtrag Kap. 17).
 
+## 1.9.0 — 2026-11-01
+
+DocCheck: Word-Check vorgezogen (Nachtrag N4, N9) und Formalprüfung (v1.1
+Kap. 8.8) — regelbasiert, ohne KI, ohne Backend, automatisch nach dem
+Einlesen jedes Prüfdokuments und erneut nach OCR oder Word-PDF-Paar.
+
+- **Word-Check (N4):** unsichtbarer Text nach WIRKSAMEM Hintergrund
+  (Kontrast < 1,5:1, verborgen, ≤ 2 pt), Textmarker (Hoch auf
+  Platzhaltern), Korrektursprache, „Rechtschreibung nicht prüfen",
+  Kompatibilitätsmodus, Dokumenteigenschaften, Kopf-/Fußzeilen je
+  Abschnitt inkl. leerer Schlussabschnitte und ungenutzter Teile,
+  Edition/Revision zwischen Deckblatt, Kopfzeilen und Dateiname, veraltetes
+  Inhaltsverzeichnis, verirrte Fragmente.
+- **Sprache und Platzhalter (N9):** fremdsprachige Absätze (Hoch bei
+  Arbeitskommentaren), einzelne landessprachige Wörter, Zahlplatzhalter
+  `nnnn`, `_XX`, Ausfüllfelder außerhalb von Unterschriftsblöcken; Adressen
+  und Zitate ausgenommen.
+- **Formalprüfung (8.8):** Revisionsstand, LEP, Seitennummerierung,
+  Revisionsverzeichnis/HoC, Inhaltsverzeichnis, Nummerierung, Querverweise,
+  Abkürzungen, Reste aus der Bearbeitung. Regeln in
+  `config/formal-rules.json`.
+- **Auch für Excel:** Formalprüfung, Sprache und Platzhalter laufen über
+  Excel-Formulare und -Checklisten (Blatt als Ort).
+- **Findings** mit Filtern, Fundstellen, „Seite anzeigen" und
+  Handlungsanweisung für Word; **Submission gate** mit Ampel je
+  Prüfpunkt. Ein offener Hoch-Befund warnt (Einstellung: sperren möglich).
+- **Abnahmen:** `SBX-WORD-01` (alle N4/N9-Fälle gefunden, weiße Kopfzeile
+  auf dunkler Vorlagen-Schattierung und Adresszeile nicht) und
+  `SBX-FORMAL-01` (alle neun eingebauten Formalfehler gefunden).
+

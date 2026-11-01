@@ -7,6 +7,7 @@ import { pdfDatum, pdfZuordnung, seitenAusEinheiten, teilen } from './parse/seit
 import type { PdfJs } from './parse/pdf'
 import { regelIds } from './parse/regeln'
 import { Suchindex, type Treffer } from './search/suche'
+import { dokumentPruefen, type Pruefung } from './pruefung/pruefen'
 
 /**
  * Was im Worker läuft: Dokumente lesen, im Speicher halten, durchsuchen.
@@ -39,6 +40,8 @@ export interface Zusammenfassung {
   pdfPaar?: { abweichung: number; warnung?: 'abweichung' | 'aelter' | 'lesefehler' }
   /** Umfang des Word-Extrakts (N4) — Zahlen, nicht Inhalte */
   word?: { laeufe: number; abschnitte: number; toc: number; verwaisteKopfFuss: number }
+  /** Formalprüfung, Word-Check, Sprache/Platzhalter — nur bei Prüfdokumenten */
+  pruefung?: Pruefung
 }
 
 /** Ab diesem Anteil nicht wiedergefundenen Textes gilt das PDF nicht als Abbild des DOCX (N5.2). */
@@ -51,6 +54,8 @@ export interface LeseAuftrag {
   titel?: string
   vorgabe?: Rechtscharakter
   bestand?: Vergleichsdokument[]
+  /** Regelbasierte Prüfungen nach dem Einlesen (nur Prüfdokumente, Spez. 8.8) */
+  pruefen?: { formal: boolean; word: boolean }
 }
 
 function zusammenfassen(id: string, roh: Rohdokument, sha256: string, meta: ErkannteMeta, duplikat: Duplikat, pdfPaar?: Zusammenfassung['pdfPaar']): Zusammenfassung {
@@ -83,7 +88,21 @@ function zusammenfassen(id: string, roh: Rohdokument, sha256: string, meta: Erka
 }
 
 export class Kern {
-  private docs = new Map<string, { titel: string; roh: Rohdokument; sha256: string; meta: ErkannteMeta; duplikat: Duplikat; pdfPaar?: Zusammenfassung['pdfPaar'] }>()
+  private docs = new Map<string, { titel: string; name: string; roh: Rohdokument; sha256: string; meta: ErkannteMeta; duplikat: Duplikat; pdfPaar?: Zusammenfassung['pdfPaar']; pruefen?: LeseAuftrag['pruefen'] }>()
+
+  /**
+   * Zusammenfassung samt Prüfung. Die Prüfung läuft bei JEDEM Fassen neu:
+   * Nach OCR oder Word-PDF-Paar stimmen Texte und Seitenangaben der alten
+   * Befunde nicht mehr.
+   */
+  private fassen(id: string): Zusammenfassung {
+    const d = this.docs.get(id)!
+    const z = zusammenfassen(id, d.roh, d.sha256, d.meta, d.duplikat, d.pdfPaar)
+    if (d.pruefen && (d.pruefen.formal || d.pruefen.word)) {
+      z.pruefung = dokumentPruefen({ dokId: id, dokName: d.titel, dateiname: d.name, roh: d.roh, meta: d.meta }, d.pruefen)
+    }
+    return z
+  }
   private index = new Suchindex()
   private laufend = new Map<string, AbortController>()
 
@@ -103,9 +122,9 @@ export class Kern {
       // Abgebrochen, während der letzte Schritt lief: nicht mehr aufnehmen.
       if (ctrl.signal.aborted) throw new Error('DC-ABORTED')
       const titel = a.titel || g.meta.titel || a.name
-      this.docs.set(a.id, { titel, ...g })
+      this.docs.set(a.id, { titel, name: a.name, ...g, pruefen: a.pruefen })
       this.index.hinzufuegen({ id: a.id, titel, pages: g.roh.pages })
-      return zusammenfassen(a.id, g.roh, g.sha256, g.meta, g.duplikat)
+      return this.fassen(a.id)
     } finally {
       this.laufend.delete(a.id)
     }
@@ -155,7 +174,7 @@ export class Kern {
     }
     d.roh.ocrKandidaten = d.roh.ocrKandidaten.filter((n) => !seiten.some((s) => s.n === n))
     this.index.hinzufuegen({ id, titel: d.titel, pages: d.roh.pages })
-    return zusammenfassen(id, d.roh, d.sha256, d.meta, d.duplikat, d.pdfPaar)
+    return this.fassen(id)
   }
 
   /**
@@ -171,7 +190,7 @@ export class Kern {
       pdfDok = await pdfLesen(pdf.slice(), await this.deps.pdfjs(), { standardFontDataUrl: this.deps.standardFontDataUrl })
     } catch {
       d.pdfPaar = { abweichung: 1, warnung: 'lesefehler' }
-      return zusammenfassen(id, d.roh, d.sha256, d.meta, d.duplikat, d.pdfPaar)
+      return this.fassen(id)
     }
     const { schnitte, abweichung } = pdfZuordnung(d.roh.einheiten, pdfDok.pages.map((p) => p.text))
     const pdfZeit = pdfDatum(pdfDok.lenkung.eigenschaften.pdfDatum)
@@ -181,7 +200,7 @@ export class Kern {
     const aelter = pdfZeit !== null && !Number.isNaN(docxZeit) && pdfZeit < docxZeit - 60_000
     if (abweichung > PAAR_SCHWELLE || aelter) {
       d.pdfPaar = { abweichung, warnung: aelter ? 'aelter' : 'abweichung' }
-      return zusammenfassen(id, d.roh, d.sha256, d.meta, d.duplikat, d.pdfPaar)
+      return this.fassen(id)
     }
     const stuecke = teilen(d.roh.einheiten, schnitte)
     const { pages, outline } = seitenAusEinheiten(stuecke.einheiten, stuecke.seiten, (n) => `S. ${n}`)
@@ -190,7 +209,7 @@ export class Kern {
     d.roh.seitenQuelle = 'pdf_pair'
     d.pdfPaar = { abweichung }
     this.index.hinzufuegen({ id, titel: d.titel, pages })
-    return zusammenfassen(id, d.roh, d.sha256, d.meta, d.duplikat, d.pdfPaar)
+    return this.fassen(id)
   }
 
   get anzahl(): number {

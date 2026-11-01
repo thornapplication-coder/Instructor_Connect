@@ -14,7 +14,7 @@ export function aufbereiten(
   rohSeiten: string[][],
   opts: { vorgabe?: Rechtscharakter; labels?: (string | undefined)[]; kopfFuss?: boolean; ocr?: Set<number> },
 ): { pages: DocPage[]; outline: OutlineNode[]; entfernt: string[] } {
-  const kf = opts.kopfFuss === false ? { seiten: rohSeiten, labels: rohSeiten.map(() => undefined), entfernt: [] } : kopfFussEntfernen(rohSeiten)
+  const kf = opts.kopfFuss === false ? { seiten: rohSeiten, labels: rohSeiten.map(() => undefined), entfernt: [], rand: rohSeiten.map(() => [] as string[]) } : kopfFussEntfernen(rohSeiten)
   // Die Bindestrich-Heuristik schaut ins GANZE Dokument: „go-around" auf
   // Seite 400 entscheidet über den Zeilenumbruch auf Seite 12.
   const echte = bindestrichWoerter(kf.seiten.flat())
@@ -32,6 +32,7 @@ export function aufbereiten(
       ...(refs.length ? { regRefs: refs } : {}),
       ...(lt ? { legalType: lt } : {}),
       ...(opts.ocr?.has(i + 1) ? { isOcr: true } : {}),
+      ...(kf.rand[i]?.length ? { rand: kf.rand[i] } : {}),
     }
   })
   return { pages, outline, entfernt: kf.entfernt }

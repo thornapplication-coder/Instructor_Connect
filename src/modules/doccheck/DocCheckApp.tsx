@@ -15,7 +15,8 @@ import { standardVerbindung } from './verbindung'
 import { ViewerProvider } from './components/Viewer'
 import { AdminTab } from './components/AdminTab'
 import { LibraryPanel, Phase, ReviewDocsPanel, SessionDocsPanel } from './components/Panels'
-import { ChatTab, ExportTab, FindingsTab, PruefungTab, RevisionenTab, VerwaltenTab } from './components/Tabs'
+import { ChatTab, ExportTab, PruefungTab, RevisionenTab, VerwaltenTab } from './components/Tabs'
+import { FindingsTab } from './components/Befunde'
 
 // Die Texte kommen erst mit dem Modul — wer DocCheck nie oeffnet, laedt sie
 // nie. Registriert wird beim Laden dieses Bundles, also vor dem ersten Render.
@@ -128,7 +129,9 @@ function Desktop() {
   const reiterListe: Reiter[] = ['pruefung', 'findings', 'chat', 'revisionen', 'export']
   if (darf(docCheckRolle, 'bibliothekPflegen')) reiterListe.push('verwalten')
   if (darf(docCheckRolle, 'konfigurieren')) reiterListe.push('admin')
-  const verwaltung = reiter === 'verwalten' || reiter === 'admin'
+  // Findings braucht die Breite der Tabelle; die Seitenspalten bleiben in
+  // den anderen Reitern erreichbar.
+  const verwaltung = reiter === 'verwalten' || reiter === 'admin' || reiter === 'findings'
 
   return (
     <div className="flex flex-1 flex-col">

@@ -35,7 +35,7 @@ export function DokListe({ rolle }: { rolle: Rolle }) {
 
   const annehmen = async (liste: FileList | null) => {
     if (!liste?.length) return
-    const { abgelehnt } = await hochladen([...liste], rolle, standardVerbindung(), undefined, { paaren: aktiv(docCheckSettings, 'pdfPairing') })
+    const { abgelehnt } = await hochladen([...liste], rolle, standardVerbindung(), undefined, { paaren: aktiv(docCheckSettings, 'pdfPairing'), pruefen: { formal: aktiv(docCheckSettings, 'formalCheck'), word: aktiv(docCheckSettings, 'wordCheck') } })
     for (const a of abgelehnt) toast(t(`upload.abgelehnt.${a.grund}`, { name: a.name }), 'bad')
   }
 
@@ -185,6 +185,19 @@ function DokKarte({ d }: { d: SitzungsDok }) {
             {d.z.ocrSeiten > 0 && ` · ${t('upload.ocrSeiten', { count: d.z.ocrSeiten })}`}
             {d.z.tabellen > 0 && ` · ${t('upload.tabellen', { count: d.z.tabellen })}`}
           </p>
+          {d.z.pruefung && (
+            <p className="flex flex-wrap items-center gap-1.5 text-micro">
+              <span className="text-dim">{t('pruefungKurz.titel')}:</span>
+              {d.z.pruefung.befunde.length === 0 ? (
+                <Badge tone="ok">{t('pruefungKurz.ohne')}</Badge>
+              ) : (
+                <>
+                  <Badge tone={d.z.pruefung.befunde.some((b) => b.prioritaet === 'High') ? 'bad' : 'wait'}>{t('pruefungKurz.befunde', { count: d.z.pruefung.befunde.length })}</Badge>
+                  {d.z.pruefung.befunde.some((b) => b.prioritaet === 'High') && <span className="text-bad">{t('pruefungKurz.hoch', { count: d.z.pruefung.befunde.filter((b) => b.prioritaet === 'High').length })}</span>}
+                </>
+              )}
+            </p>
+          )}
           {d.z.format === 'docx' && (
             /* Nachtrag N5: Woher kommen die Seitenzahlen? Wer in Word nach
                „Seite 42" sucht, muss wissen, ob das Words Seite ist. */

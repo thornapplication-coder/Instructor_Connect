@@ -41,6 +41,8 @@ export type DocCheckFeature =
   | 'exportPptx'
   /** Nachtrag v1.2 Kap. 17 — Word-PDF-Paar (N5) */
   | 'pdfPairing'
+  /** Nachtrag v1.2 Kap. 17 — Word-Technik-Check (N4) inkl. Sprache/Platzhalter (N9) */
+  | 'wordCheck'
 
 /** Preise je Million Tokens in USD. `null` = vom Superadmin noch nicht
  *  gepflegt — dann gibt es keine Kostenschätzung, statt einer erfundenen. */
@@ -67,6 +69,9 @@ export interface DocCheckSettings {
    *  Proxy (Phase 1b). Der Schalter steht schon da, wirkt aber noch nicht. */
   echteKiInSandbox: boolean
   monatsbudgetUsd: number | null
+  /** Submission gate (N4.3): sperrt ein offener Hoch-Befund den Export
+   *  „einreichungsfähig"? Ab Werk nein — nur Warnung. */
+  gateSperrt: boolean
 }
 
 export type DocCheckAuditAktion = 'zugang' | 'admin' | 'feature' | 'einstellung' | 'standBestaetigt'

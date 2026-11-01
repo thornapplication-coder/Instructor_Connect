@@ -72,7 +72,15 @@ export async function sbxWord01(): Promise<Uint8Array> {
     '<w:tbl><w:tblPr><w:tblStyle w:val="GridDark"/><w:tblLook w:firstRow="1" w:noHBand="1"/></w:tblPr>' +
       `<w:tr><w:tc>${absatz(lauf('Item', '<w:color w:val="FFFFFF"/>'))}</w:tc><w:tc>${absatz(lauf('Value', '<w:color w:val="FFFFFF"/>'))}</w:tc></w:tr>` +
       `<w:tr><w:tc>${absatz(lauf('VMO'))}</w:tc><w:tc>${absatz(lauf('internal note do not submit', '<w:color w:val="FFFFFF"/>'))}</w:tc></w:tr>` +
+      // N9: landessprachiger Arbeitskommentar in einer Tabellenzelle.
+      `<w:tr><w:tc>${absatz(lauf('MMO'))}</w:tc><w:tc>${absatz(lauf('Bitte noch prüfen, der Wert ist nicht mehr aktuell und muss geändert werden.'))}</w:tc></w:tr>` +
       '</w:tbl>',
+    // N9: einzelnes landessprachiges Wort, drei Platzhalterformen, Adresse.
+    absatz(lauf('Select Normale mode before engine start.')),
+    absatz(lauf('Device AT-FFS-nnnn, S/N: FFS-nnn-nnn, procedure NEMAL_XX.')),
+    absatz(lauf('Instructor remarks: ____________ to be completed.')),
+    absatz(lauf('Signature: ____________  Date: ________')),
+    absatz(lauf('Aviation Academy Austria, Hauptstraße 12, 2320 Schwechat')),
     absatz(lauf('Tiny text', '<w:sz w:val="3"/>')),
     absatz('', '<w:sectPr><w:headerReference w:type="default" r:id="rIdH1"/></w:sectPr>'),
     // Letzter, leerer Abschnitt mit eigener Kopfzeile und altem Datum.
@@ -216,4 +224,45 @@ export async function sbxPage01(): Promise<SbxPage01> {
     stichproben.push({ text, seite: kandidaten[i].seite })
   }
   return { docx, pdf, stichproben, seiten: letzte }
+}
+
+/* ----------------------------- SBX-FORMAL-01 ----------------------------- */
+
+/**
+ * PDF mit eingebauten Formalfehlern (v1.1 Kap. 8.8, Abnahme Phase 8: „Alle
+ * eingebauten Formalfehler eines Testdokuments werden gefunden").
+ * Jeder Fehler steht als Kommentar daneben.
+ */
+export const SBX_FORMAL_01_FEHLER = [
+  'revisionsstand', // Seite 5 trägt in der Fußzeile Rev 1 statt Rev 2
+  'lep', // LEP nennt Page 6 nicht und führt Page 9, die es nicht gibt
+  'seiten', // auf Page 6 folgt Page 8
+  'revisionen', // letzter Eintrag im Revisionsverzeichnis ist 1, Dokument ist Rev 2
+  'inhalt', // „3 Fuel" steht im Inhaltsverzeichnis, die Überschrift heißt „3 Fuel System"
+  'nummerierung', // auf 2.1 folgt 2.3
+  'querverweise', // „see Chapter 7" — es gibt kein Kapitel 7
+  'abkuerzungen', // „QRH" ohne Eintrag, „EGPWS" in der Liste, aber nie verwendet
+  'reste', // TBD und „Error! Reference source not found."
+] as const
+
+export function sbxFormal01(): Uint8Array {
+  const seiten: string[][] = [
+    ['Training Manual CL30 (synthetic)', 'Doc No.: SBX-FORMAL-01', 'Revision 2', 'Effective 01 March 2026'],
+    ['List of Effective Pages', 'Page 1 Rev 2 01.03.2026', 'Page 2 Rev 2 01.03.2026', 'Page 3 Rev 2 01.03.2026', 'Page 4 Rev 2 01.03.2026', 'Page 5 Rev 2 01.03.2026', 'Page 8 Rev 2 01.03.2026', 'Page 9 Rev 2 01.03.2026'],
+    ['Record of Revisions', '0 | 01.01.2025 | Initial issue', '1 | 01.06.2025 | Update chapter 2', 'Contents', '1 General ..... 4', '2 Systems ..... 4', '3 Fuel ..... 5'],
+    ['List of Abbreviations', 'AFM Airplane Flight Manual', 'EGPWS Enhanced Ground Proximity Warning System', 'VMO Maximum operating speed'],
+    ['1 General', 'This manual follows the AFM. For abnormal procedures refer to the QRH.', '2 Systems', '2.1 Electrical', 'Battery limits: TBD.', '2.3 Hydraulic', 'See Chapter 7 for details.'],
+    ['3 Fuel System', 'VMO is 320 KIAS. Error! Reference source not found.'],
+    ['4 Performance', 'See Chapter 3 for fuel planning.'],
+  ]
+  const fuss = ['Page 1', 'Page 2', 'Page 3', 'Page 4', 'Page 5', 'Page 6', 'Page 8']
+  return pdfBauen(
+    seiten.map((zeilen, i) => ({
+      texte: [
+        { text: 'SBX-FORMAL-01 Training Manual', x: 50, y: 815, groesse: 8 },
+        ...zeilen.map((t, k) => ({ text: t, x: 50, y: 760 - k * 18, groesse: 10 })),
+        { text: `Rev ${i === 4 ? 1 : 2} | 01.03.2026 | ${fuss[i]}`, x: 50, y: 25, groesse: 8 },
+      ],
+    })),
+  )
 }

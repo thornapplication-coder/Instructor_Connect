@@ -88,61 +88,6 @@ export function PruefungTab({ modell }: { modell: string }) {
   )
 }
 
-/* ------------------------------ Findings ----------------------------- */
-
-const PRIO = [
-  ['high', 'bg-prioHigh', 'text-prioHigh'],
-  ['med', 'bg-prioMed', 'text-prioMed'],
-  ['low', 'bg-prioLow', 'text-prioLow'],
-] as const
-
-export function FindingsTab() {
-  const { t } = useTranslation('doccheck')
-  const spalten = ['id', 'doc', 'page', 'category', 'priority', 'finding', 'status', 'verification'] as const
-  return (
-    <div className="space-y-section">
-      <div className="flex flex-wrap gap-stack text-small">
-        {PRIO.map(([k, bg, fg]) => (
-          <span key={k} className={`flex items-center gap-1.5 font-semibold ${fg}`}>
-            <span className={`h-2.5 w-2.5 rounded-full ${bg}`} aria-hidden />
-            {t(`findings.prio.${k}`)}
-          </span>
-        ))}
-        <span className="flex items-center gap-1.5">
-          <Badge tone="ok">{t('findings.verified')}</Badge>
-          <Badge tone="accent">{t('findings.partial')}</Badge>
-          <Badge tone="wait">{t('findings.toVerify')}</Badge>
-        </span>
-      </div>
-      <div className="overflow-x-auto rounded-2xl border border-line/10">
-        <table className="w-full min-w-[40rem] text-small">
-          <thead>
-            <tr className="border-b border-line/15 bg-bg/40 text-left text-micro uppercase tracking-wide text-dim">
-              {spalten.map((s) => (
-                // Kein Umbruch im Wort: Die globale Umbruchregel zerlegte
-                // „DOKUMENT" sonst in „DOKUMEN / T".
-                <th key={s} className="whitespace-nowrap px-2 py-2 font-semibold break-normal">
-                  {t(`findings.col.${s}`)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td colSpan={spalten.length} className="px-3 py-major text-center text-dim">
-                {t('findings.empty')}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div className="flex justify-end">
-        <Phase n={5} />
-      </div>
-    </div>
-  )
-}
-
 /* -------------------------------- Chat ------------------------------- */
 
 export function ChatTab() {

@@ -111,6 +111,13 @@ export function AdminTab({ onFehlerProbe }: { onFehlerProbe: () => void }) {
               onBlur={(e) => updateDocCheckSettings({ monatsbudgetUsd: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })}
             />
           </Field>
+          <label className="flex items-start gap-2.5 text-small">
+            <input type="checkbox" className="mt-0.5 h-5 w-5 accent-accent" checked={s.gateSperrt} onChange={(e) => updateDocCheckSettings({ gateSperrt: e.target.checked })} />
+            <span>
+              {t('admin.gateSperrt')}
+              <span className="block text-micro text-dim">{t('admin.gateSperrtHint')}</span>
+            </span>
+          </label>
           <label className="flex items-start gap-2.5 text-small opacity-60">
             <input type="checkbox" className="mt-0.5 h-5 w-5 accent-accent" checked={s.echteKiInSandbox} disabled readOnly />
             <span>

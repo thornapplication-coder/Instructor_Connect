@@ -64,3 +64,17 @@ describe('Kern — Lesen, Suchen, Entfernen', () => {
     expect(k.anzahl).toBe(0)
   })
 })
+
+describe('Kern — regelbasierte Prüfung nach dem Einlesen', () => {
+  it('Prüfdokument wird geprüft, Sitzungs-Master nicht; OCR prüft neu', async () => {
+    const k = kern()
+    const z = await k.lesen({ id: 'r', name: 'r.pdf', daten: pdf(['Training Manual', 'Battery limits: TBD.'], [{ bild: true }]), pruefen: { formal: true, word: true } })
+    expect(z.pruefung?.befunde.some((b) => b.pruefpunkt === 'reste')).toBe(true)
+    const m = await k.lesen({ id: 'm', name: 'm.pdf', daten: pdf(['TBD']) })
+    expect(m.pruefung).toBeUndefined()
+    const neu = k.ocrEinspielen('r', [{ n: 2, text: 'Error! Reference source not found.' }])
+    expect(neu?.pruefung?.befunde.some((b) => b.pruefpunkt === 'reste' && b.prioritaet === 'High')).toBe(true)
+    const aus = await k.lesen({ id: 'x', name: 'x.pdf', daten: pdf(['TBD here']), pruefen: { formal: false, word: false } })
+    expect(aus.pruefung).toBeUndefined()
+  })
+})

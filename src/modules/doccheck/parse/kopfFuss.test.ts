@@ -11,8 +11,9 @@ describe('Kopf- und Fußzeilen (Spez. 7.2)', () => {
   })
 
   it('übernimmt die gedruckte Seitenbezeichnung, ohne Revision und Datum', () => {
-    const r = kopfFussEntfernen([1, 2, 3].map((n) => seite(n, ['x'])))
+    const r = kopfFussEntfernen([1, 2, 3].map((n) => seite(n, [`x${n}`])))
     expect(r.labels).toEqual(['6-04-15 Page 1', '6-04-15 Page 2', '6-04-15 Page 3'])
+    expect(r.rand[1]).toEqual(['SBX PLM CL30 | Rev 2.0', 'Rev 2.0 | 6-04-15 Page 2 | 01.03.2026'])
   })
 
   it('lässt Inhaltszeilen stehen, die sich nur in einer Zahl unterscheiden („Step 1", „Step 2")', () => {
@@ -39,7 +40,7 @@ describe('Kopf- und Fußzeilen (Spez. 7.2)', () => {
 
   it('unter drei Seiten keine Erkennung — zu wenig, um „wiederkehrend" zu sagen', () => {
     const seiten = [['K', 'a'], ['K', 'b']]
-    expect(kopfFussEntfernen(seiten)).toEqual({ seiten, labels: [undefined, undefined], entfernt: [] })
+    expect(kopfFussEntfernen(seiten)).toEqual({ seiten, labels: [undefined, undefined], entfernt: [], rand: [[], []] })
   })
 
   it('Seitenzahl ohne „Page" wird ebenfalls übernommen', () => {

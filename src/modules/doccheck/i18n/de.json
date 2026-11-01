@@ -7,10 +7,11 @@
     "library": "Bibliothek",
     "ai": "KI",
     "sandbox": "Sandbox",
-    "simulated": "simuliert"
+    "simulated": "simuliert",
+    "Open": "Offen"
   },
   "footer": {
-    "phase": "Phase 2 inkl. Nachtrag v1.2 (Sandbox)"
+    "phase": "Phase 2 + Word-Check (Sandbox)"
   },
   "notice": {
     "title": "Hinweis zu DocCheck",
@@ -35,7 +36,7 @@
   },
   "review": {
     "drop": "Prüfdokument hierher ziehen (PDF, DOCX, XLSX)",
-    "hint": "Nach dem Einlesen läuft automatisch die Formalprüfung (Phase 8). Die Dokumente bleiben nur im Arbeitsspeicher dieses Tabs."
+    "hint": "Nach dem Einlesen laufen Formalprüfung und Word-Check automatisch. Die Dokumente bleiben nur im Arbeitsspeicher dieses Tabs."
   },
   "library": {
     "use": "Für diese Prüfung verwenden",
@@ -97,7 +98,22 @@
       "status": "Status",
       "verification": "Verifizierung"
     },
-    "empty": "Noch keine Befunde. Sie entstehen mit dem ersten Prüflauf."
+    "empty": "Noch keine Befunde. Prüfdokument hochladen — Formalprüfung und Word-Check laufen automatisch.",
+    "filter": {
+      "dok": "Dokument",
+      "alleDok": "Alle Dokumente",
+      "prio": "Priorität",
+      "allePrio": "Alle Prioritäten",
+      "quelle": "Quelle",
+      "alleQuellen": "Alle Prüfungen"
+    },
+    "anzahl_one": "1 Befund",
+    "anzahl_other": "{{count}} Befunde",
+    "keineTreffer": "Keine Befunde für diese Auswahl.",
+    "fundstellen_one": "1 Fundstelle",
+    "fundstellen_other": "{{count}} Fundstellen",
+    "seiteAnzeigen": "Seite anzeigen",
+    "anleitung": "So beheben"
   },
   "chat": {
     "off": "Der Fragen-Chat ist vom Superadmin abgeschaltet.",
@@ -176,7 +192,9 @@
     "risk3": "Auftragsverarbeitung: AV-Verträge mit Supabase und Anthropic sind Voraussetzung für den Betrieb.",
     "errorProbe": "Fehlerprobe (nur Sandbox)",
     "errorProbeHint": "Löst absichtlich einen Fehler im DocCheck-Modul aus. Erwartet: Meldung mit Fehlercode, die übrigen Kacheln laufen weiter.",
-    "errorProbeBtn": "Fehler auslösen"
+    "errorProbeBtn": "Fehler auslösen",
+    "gateSperrt": "Export „einreichungsfähig“ bei offenem Hoch-Befund sperren",
+    "gateSperrtHint": "Ab Werk aus: Es wird nur gewarnt (Nachtrag N4.3)."
   },
   "feature": {
     "doccheck": "DocCheck gesamt",
@@ -188,7 +206,8 @@
     "exportWord": "Export Word",
     "exportCsv": "Export CSV",
     "exportPptx": "Export PowerPoint",
-    "pdfPairing": "Word-PDF-Paar (Seitenangaben)"
+    "pdfPairing": "Word-PDF-Paar (Seitenangaben)",
+    "wordCheck": "Word-Check und Sprache"
   },
   "auditAction": {
     "zugang": "DocCheck access",
@@ -321,5 +340,101 @@
       "aelter": "PDF ist älter als das DOCX — Seitenangaben weiter wie bisher",
       "lesefehler": "PDF konnte nicht gelesen werden"
     }
+  },
+  "punkt": {
+    "revisionsstand": "Revisionsstand",
+    "lep": "LEP",
+    "seiten": "Seitennummerierung",
+    "revisionen": "Revisionsverzeichnis/HoC",
+    "inhalt": "Inhaltsverzeichnis",
+    "nummerierung": "Nummerierung",
+    "querverweise": "Querverweise",
+    "abkuerzungen": "Abkürzungen",
+    "reste": "Reste",
+    "unsichtbar": "Unsichtbarer Text",
+    "markierung": "Textmarker",
+    "korrektursprache": "Korrektursprache",
+    "noProof": "Rechtschreibprüfung aus",
+    "kompatibilitaet": "Kompatibilitätsmodus",
+    "eigenschaften": "Eigenschaften",
+    "kopfFuss": "Kopf-/Fußzeilen",
+    "editionRevision": "Edition/Revision",
+    "felder": "Felder",
+    "fragmente": "Fragmente",
+    "fremdsprache": "Fremdsprache",
+    "einschuebe": "Einschübe",
+    "platzhalter": "Platzhalter"
+  },
+  "anleitung": {
+    "unsichtbar": "In Word: Datei → Informationen → Auf Probleme überprüfen → Dokument prüfen → „Ausgeblendeter Text“ entfernen. Weiße Schrift: Text markieren, Schriftfarbe auf „Automatisch“ setzen und Inhalt prüfen, bevor er gelöscht wird.",
+    "markierung": "Start → Texthervorhebungsfarbe → „Keine Farbe“ (vorher Strg+A). Markierte Platzhalter zuerst ausfüllen.",
+    "korrektursprache": "Strg+A → Überprüfen → Sprache → Sprache für die Korrekturhilfen festlegen → Englisch (UK); in der Formatvorlage „Standard“ dieselbe Sprache einstellen.",
+    "noProof": "Strg+A → Überprüfen → Sprache → Haken bei „Rechtschreibung und Grammatik nicht prüfen“ entfernen; auch in den Überschriften-Formatvorlagen.",
+    "kompatibilitaet": "Datei → Informationen → Konvertieren (bzw. „Kompatibilitätsmodus“ → Konvertieren), danach Layout prüfen.",
+    "eigenschaften": "Datei → Informationen → Eigenschaften: Titel setzen; Personennamen über „Dokument prüfen → Dokumenteigenschaften und persönliche Informationen“ entfernen.",
+    "kopfFuss": "Für jeden Abschnitt Kopf-/Fußzeile öffnen (auch den letzten, oft leeren Abschnitt), „Mit vorheriger verknüpfen“ prüfen und Revision/Datum angleichen.",
+    "editionRevision": "Edition/Revision auf Deckblatt, in Kopf-/Fußzeilen, im Revisionsverzeichnis und im Dateinamen angleichen.",
+    "felder": "Strg+A → F9 (Felder aktualisieren), beim Inhaltsverzeichnis „Gesamtes Verzeichnis aktualisieren“ wählen.",
+    "fragmente": "Fragment auf Deckblatt/Titelseite löschen (Formatierungszeichen einblenden mit Strg+Umschalt+8).",
+    "fremdsprache": "Absatz übersetzen oder als Arbeitskommentar entfernen; Kommentare gehören in Word-Kommentare, nicht in den Text.",
+    "einschuebe": "Wort durch den englischen Begriff ersetzen.",
+    "platzhalter": "Platzhalter durch die endgültigen Werte ersetzen; Ausfüllfelder nur in Formularen und Unterschriftsblöcken belassen.",
+    "revisionsstand": "Revision und Datum in allen Kopf-/Fußzeilen und auf dem Deckblatt angleichen.",
+    "lep": "List of Effective Pages gegen die tatsächlichen Seiten aktualisieren.",
+    "seiten": "Seitennummerierung prüfen (Abschnittsumbrüche, „Seitenzahl beginnen bei“, „Seite x von y“).",
+    "revisionen": "Revisionsverzeichnis um die aktuelle Revision ergänzen; ab der zweiten Revision Highlights of Change beilegen.",
+    "inhalt": "Inhaltsverzeichnis aktualisieren (Word: Strg+A → F9) und Überschriften angleichen.",
+    "nummerierung": "Nummerierung der Überschriften, Abbildungen und Tabellen fortlaufend machen.",
+    "querverweise": "Verweisziel korrigieren oder als Querverweis neu einfügen (Einfügen → Querverweis).",
+    "abkuerzungen": "Abkürzungsverzeichnis ergänzen bzw. unbenutzte Einträge entfernen.",
+    "resteHoch": "Überprüfen → Annehmen/Ablehnen aller Änderungen; Kommentare löschen; defekte Verweise neu setzen und Strg+A → F9.",
+    "reste": "TBD/XXX/DRAFT durch endgültigen Text ersetzen."
+  },
+  "gate": {
+    "titel": "Submission gate",
+    "ok": "einreichungsfähig",
+    "nichtOk_one": "1 Hoch-Befund offen",
+    "nichtOk_other": "{{count}} Hoch-Befunde offen",
+    "warnung": "Nicht einreichungsfähig, solange Hoch-Befunde offen sind. Der Export bleibt möglich (Einstellung: warnen).",
+    "gesperrt": "Export mit „einreichungsfähig“ ist gesperrt, solange Hoch-Befunde offen sind.",
+    "formal": "Formalprüfung",
+    "word": "Word-Check",
+    "sprache": "Sprache und Platzhalter",
+    "na": "nicht anwendbar",
+    "ampel": {
+      "ok": "ohne Befund",
+      "wait": "Befund",
+      "bad": "Hoch-Befund",
+      "na": "nicht anwendbar"
+    }
+  },
+  "prio": {
+    "High": "Hoch",
+    "Medium": "Mittel",
+    "Low": "Niedrig"
+  },
+  "kategorie": {
+    "Non-Compliance": "Non-Compliance",
+    "Gap": "Lücke",
+    "Inconsistency": "Widerspruch",
+    "Document Control": "Dokumentenlenkung",
+    "Editorial": "Redaktionell",
+    "Recommendation": "Empfehlung"
+  },
+  "quelle": {
+    "formal": "Formalprüfung",
+    "word": "Word-Check",
+    "sprache": "Sprache/Platzhalter"
+  },
+  "verifizierung": {
+    "regel": "Verifiziert (regelbasiert)"
+  },
+  "pruefungKurz": {
+    "titel": "Prüfung",
+    "ohne": "ohne Befund",
+    "befunde_one": "1 Befund",
+    "befunde_other": "{{count}} Befunde",
+    "hoch_one": "davon 1 Hoch",
+    "hoch_other": "davon {{count}} Hoch"
   }
 }

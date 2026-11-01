@@ -7,10 +7,11 @@
     "library": "Library",
     "ai": "AI",
     "sandbox": "Sandbox",
-    "simulated": "simulated"
+    "simulated": "simulated",
+    "Open": "Open"
   },
   "footer": {
-    "phase": "phase 2 incl. addendum v1.2 (sandbox)"
+    "phase": "phase 2 + Word check (sandbox)"
   },
   "notice": {
     "title": "About DocCheck",
@@ -35,7 +36,7 @@
   },
   "review": {
     "drop": "Drop a review document here (PDF, DOCX, XLSX)",
-    "hint": "The formal check will run automatically after parsing (phase 8). Documents stay only in this tab's memory."
+    "hint": "Formal check and Word check run automatically after parsing. Documents stay only in this tab's memory."
   },
   "library": {
     "use": "Use for this review",
@@ -97,7 +98,22 @@
       "status": "Status",
       "verification": "Verification"
     },
-    "empty": "No findings yet. They appear with the first review run."
+    "empty": "No findings yet. Upload a review document — the formal check and Word check run automatically.",
+    "filter": {
+      "dok": "Document",
+      "alleDok": "All documents",
+      "prio": "Priority",
+      "allePrio": "All priorities",
+      "quelle": "Source",
+      "alleQuellen": "All checks"
+    },
+    "anzahl_one": "1 finding",
+    "anzahl_other": "{{count}} findings",
+    "keineTreffer": "No findings for this selection.",
+    "fundstellen_one": "1 location",
+    "fundstellen_other": "{{count}} locations",
+    "seiteAnzeigen": "Show page",
+    "anleitung": "How to fix"
   },
   "chat": {
     "off": "The Q&A chat has been switched off by the superadmin.",
@@ -176,7 +192,9 @@
     "risk3": "Data processing: DPAs with Supabase and Anthropic are a precondition for production use.",
     "errorProbe": "Error probe (sandbox only)",
     "errorProbeHint": "Deliberately triggers an error in the DocCheck module. Expected: a message with an error code, all other tiles keep working.",
-    "errorProbeBtn": "Trigger error"
+    "errorProbeBtn": "Trigger error",
+    "gateSperrt": "Block export “ready for submission” while a high finding is open",
+    "gateSperrtHint": "Off by default: only a warning is shown (addendum N4.3)."
   },
   "feature": {
     "doccheck": "DocCheck overall",
@@ -188,7 +206,8 @@
     "exportWord": "Word export",
     "exportCsv": "CSV export",
     "exportPptx": "PowerPoint export",
-    "pdfPairing": "Word PDF pairing (page numbers)"
+    "pdfPairing": "Word PDF pairing (page numbers)",
+    "wordCheck": "Word check and language"
   },
   "auditAction": {
     "zugang": "DocCheck access",
@@ -321,5 +340,101 @@
       "aelter": "PDF is older than the DOCX — page numbers unchanged",
       "lesefehler": "The PDF could not be read"
     }
+  },
+  "punkt": {
+    "revisionsstand": "Revision status",
+    "lep": "LEP",
+    "seiten": "Page numbering",
+    "revisionen": "Revision record/HoC",
+    "inhalt": "Table of contents",
+    "nummerierung": "Numbering",
+    "querverweise": "Cross-references",
+    "abkuerzungen": "Abbreviations",
+    "reste": "Remnants",
+    "unsichtbar": "Invisible text",
+    "markierung": "Highlighting",
+    "korrektursprache": "Proofing language",
+    "noProof": "Spell check off",
+    "kompatibilitaet": "Compatibility mode",
+    "eigenschaften": "Properties",
+    "kopfFuss": "Headers/footers",
+    "editionRevision": "Edition/revision",
+    "felder": "Fields",
+    "fragmente": "Fragments",
+    "fremdsprache": "Foreign language",
+    "einschuebe": "Insertions",
+    "platzhalter": "Placeholders"
+  },
+  "anleitung": {
+    "unsichtbar": "In Word: File → Info → Check for Issues → Inspect Document → remove “Hidden text”. White font: select text, set font colour to “Automatic” and review the content before deleting it.",
+    "markierung": "Home → Text Highlight Color → “No Color” (after Ctrl+A). Fill in highlighted placeholders first.",
+    "korrektursprache": "Ctrl+A → Review → Language → Set Proofing Language → English (UK); set the same language in the “Normal” style.",
+    "noProof": "Ctrl+A → Review → Language → clear “Do not check spelling or grammar”; also in the heading styles.",
+    "kompatibilitaet": "File → Info → Convert (compatibility mode), then check the layout.",
+    "eigenschaften": "File → Info → Properties: set the title; remove personal names via “Inspect Document → Document Properties and Personal Information”.",
+    "kopfFuss": "Open the header/footer of every section (including the last, often empty one), check “Link to Previous” and align revision/date.",
+    "editionRevision": "Align edition/revision on the cover, in headers/footers, in the record of revisions and in the file name.",
+    "felder": "Ctrl+A → F9 (update fields); for the table of contents choose “Update entire table”.",
+    "fragmente": "Delete the fragment on the cover/title page (show formatting marks with Ctrl+Shift+8).",
+    "fremdsprache": "Translate the paragraph or remove it as a working comment; comments belong in Word comments, not in the text.",
+    "einschuebe": "Replace the word with the English term.",
+    "platzhalter": "Replace placeholders with final values; keep fill-in lines only in forms and signature blocks.",
+    "revisionsstand": "Align revision and date in all headers/footers and on the cover.",
+    "lep": "Update the List of Effective Pages against the actual pages.",
+    "seiten": "Check page numbering (section breaks, “Start at”, “Page x of y”).",
+    "revisionen": "Add the current revision to the record of revisions; from the second revision on, include highlights of change.",
+    "inhalt": "Update the table of contents (Word: Ctrl+A → F9) and align the headings.",
+    "nummerierung": "Make numbering of headings, figures and tables consecutive.",
+    "querverweise": "Correct the target or insert it again as a cross-reference (Insert → Cross-reference).",
+    "abkuerzungen": "Add missing entries to the abbreviation list or remove unused ones.",
+    "resteHoch": "Review → Accept/Reject all changes; delete comments; reinsert broken references and press Ctrl+A → F9.",
+    "reste": "Replace TBD/XXX/DRAFT with final text."
+  },
+  "gate": {
+    "titel": "Submission gate",
+    "ok": "ready for submission",
+    "nichtOk_one": "1 high finding open",
+    "nichtOk_other": "{{count}} high findings open",
+    "warnung": "Not ready for submission while high findings are open. Export remains possible (setting: warn).",
+    "gesperrt": "Export as “ready for submission” is blocked while high findings are open.",
+    "formal": "Formal check",
+    "word": "Word check",
+    "sprache": "Language and placeholders",
+    "na": "not applicable",
+    "ampel": {
+      "ok": "no finding",
+      "wait": "finding",
+      "bad": "high finding",
+      "na": "not applicable"
+    }
+  },
+  "prio": {
+    "High": "High",
+    "Medium": "Medium",
+    "Low": "Low"
+  },
+  "kategorie": {
+    "Non-Compliance": "Non-Compliance",
+    "Gap": "Gap",
+    "Inconsistency": "Inconsistency",
+    "Document Control": "Document control",
+    "Editorial": "Editorial",
+    "Recommendation": "Recommendation"
+  },
+  "quelle": {
+    "formal": "Formal check",
+    "word": "Word check",
+    "sprache": "Language/placeholders"
+  },
+  "verifizierung": {
+    "regel": "Verified (rule-based)"
+  },
+  "pruefungKurz": {
+    "titel": "Check",
+    "ohne": "no findings",
+    "befunde_one": "1 finding",
+    "befunde_other": "{{count}} findings",
+    "hoch_one": "1 high",
+    "hoch_other": "{{count}} high"
   }
 }

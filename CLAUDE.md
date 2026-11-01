@@ -66,9 +66,9 @@ Eigenes Modul nach der Spezifikation `DocCheck_Spezifikation_v1_1.md`,
 ergänzt durch `docs/DocCheck_Spezifikation_v1_2_Nachtrag.md` (Re-Check
 bestehender Findinglisten, Dokumentpakete, Word-Check). Der Nachtrag geht
 für die dort geregelten Punkte vor; seine Phasenzuordnung steht in Kap. 19.
-Stand: **Phase 2 inkl. Nachtrag-Anteil (Sandbox)** — Dokumente einlesen und
-durchsuchen, Word-Extrakt, Seitenangaben bei DOCX; kein Backend, KI
-simuliert. Festlegungen:
+Stand: **Phase 2 + Word-Check (Sandbox)** — Dokumente einlesen und
+durchsuchen, Word-Extrakt, Seitenangaben bei DOCX, Formalprüfung, Word-Check
+(N4), Sprache/Platzhalter (N9); kein Backend, KI simuliert. Festlegungen:
 
 - **Die Testwachen gelten auch hier.** `testGuard` globt `src/modules/**`,
   die Abdeckungsschwelle ebenso. Ansichten (`*.tsx`) sind wie `src/pages`
@@ -117,6 +117,15 @@ simuliert. Festlegungen:
 - **Testdokumente sind synthetisch:** `benchmark/sbx.ts` erzeugt die
   Abnahmedateien des Nachtrags (`SBX-…`) aus Code; `parse/pdfBauen.ts` erzeugt PDFs aus
   Text, DOCX/XLSX entstehen in den Tests mit jszip.
+- **Regelbasierte Prüfungen** stehen in `pruefung/` (`formal.ts`,
+  `wordCheck.ts`, `sprachCheck.ts`, zusammengeführt in `pruefen.ts`) und
+  laufen im Worker bei JEDER Zusammenfassung neu — nach OCR oder Word-PDF
+  stimmen alte Fundstellen sonst nicht mehr. Befundtexte sind englisch
+  (Export), Handlungsanweisungen in der Sprache der Oberfläche. Keine
+  erfundenen Regelzitate. Ein Prüfpunkt, der für ein Format nicht passt,
+  ist „nicht anwendbar", nicht grün.
+- **Submission gate** warnt ab Werk (`gateSperrt: false`, Entscheidung
+  vom 01.11.2026); Sperre ist Einstellung des Superadmins.
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise
   keine Kostenschätzung und kein Start.
 - **Keine echten OEM-Dokumente im Repo** — der Sandbox-Bestand ist

@@ -67,7 +67,7 @@ export async function hochladen(
   rolle: Rolle,
   v: Pick<Verbindung, 'lesen' | 'titel'> & Partial<Pick<Verbindung, 'paaren' | 'beiOcr'>>,
   jetzt: () => number = () => Date.now(),
-  opts: { paaren?: boolean } = {},
+  opts: { paaren?: boolean; pruefen?: { formal: boolean; word: boolean } } = {},
 ): Promise<{ abgelehnt: { name: string; grund: 'format' | 'groesse' }[] }> {
   const abgelehnt: { name: string; grund: 'format' | 'groesse' }[] = []
   const laeufe: Promise<void>[] = []
@@ -97,7 +97,16 @@ export async function hochladen(
           dateiAblegen(id, daten)
           let zuletzt = -Infinity
           const z = await v.lesen(
-            { id, name: f.name, daten, vorgabe: rolle === 'master' ? 'OEM' : undefined, bestand: [...bibliotheksVergleich(), ...sitzungsVergleich()] },
+            {
+              id,
+              name: f.name,
+              daten,
+              vorgabe: rolle === 'master' ? 'OEM' : undefined,
+              bestand: [...bibliotheksVergleich(), ...sitzungsVergleich()],
+              // Geprüft werden nur Prüfdokumente — ein Sitzungs-Master ist
+              // Referenz, kein Gegenstand der Einreichung.
+              ...(rolle === 'review' ? { pruefen: opts.pruefen ?? { formal: true, word: true } } : {}),
+            },
             (seite, gesamt) => {
               const t = jetzt()
               if (seite !== gesamt && t - zuletzt < MELDE_TAKT) return

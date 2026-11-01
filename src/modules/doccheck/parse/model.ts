@@ -22,6 +22,8 @@ export interface DocPage {
   regRefs?: string[]
   legalType?: Rechtscharakter
   isOcr?: boolean
+  /** entfernte Kopf-/Fußzeilen dieser Seite (PDF) */
+  rand?: string[]
 }
 
 export interface OutlineNode {

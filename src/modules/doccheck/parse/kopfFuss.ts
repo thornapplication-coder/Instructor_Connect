@@ -25,11 +25,13 @@ export interface KopfFussErgebnis {
   seiten: string[][]
   labels: (string | undefined)[]
   entfernt: string[]
+  /** je Seite die entfernten Zeilen — dort steht der Revisionsstand (Formalprüfung) */
+  rand: string[][]
 }
 
 export function kopfFussEntfernen(seiten: string[][]): KopfFussErgebnis {
   const n = seiten.length
-  if (n < 3) return { seiten, labels: seiten.map(() => undefined), entfernt: [] }
+  if (n < 3) return { seiten, labels: seiten.map(() => undefined), entfernt: [], rand: seiten.map(() => []) }
   const zaehler = new Map<string, number>()
   for (const zeilen of seiten) {
     const rand = new Set([...zeilen.slice(0, RAND), ...zeilen.slice(-RAND)].map(muster).filter(Boolean))
@@ -59,6 +61,7 @@ export function kopfFussEntfernen(seiten: string[][]): KopfFussErgebnis {
   )
 
   const labels: (string | undefined)[] = []
+  const rand: string[][] = []
   const bereinigt = seiten.map((zeilen) => {
     const randIdx = new Set([...Array(Math.min(RAND, zeilen.length)).keys(), ...[...Array(Math.min(RAND, zeilen.length)).keys()].map((i) => zeilen.length - 1 - i)])
     const weg = zeilen.filter((z, i) => randIdx.has(i) && wiederkehrend.has(muster(z)))
@@ -67,9 +70,10 @@ export function kopfFussEntfernen(seiten: string[][]): KopfFussErgebnis {
     const mitZiffer = weg.filter((z) => /\d/.test(z) && muster(z).includes('#'))
     const label = mitZiffer.find((z) => LABEL_HINWEIS.test(z)) ?? mitZiffer[0]
     labels.push(label ? seitenLabel(label) : undefined)
+    rand.push(weg)
     return zeilen.filter((z, i) => !(randIdx.has(i) && wiederkehrend.has(muster(z))))
   })
-  return { seiten: bereinigt, labels, entfernt: [...wiederkehrend] }
+  return { seiten: bereinigt, labels, entfernt: [...wiederkehrend], rand }
 }
 
 /**
