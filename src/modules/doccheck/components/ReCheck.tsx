@@ -23,6 +23,8 @@ import {
   zuruecknehmen,
   kannZurueckschreiben,
   rueckschreibAuftrag,
+  neueBefunde,
+  neuesBlatt,
   type Filter,
   type ReCheckSitzung,
   nachLauf,
@@ -32,6 +34,8 @@ import { ausgabeName, listenWerte, rueckschreiben, werteVorschlagen, type WerteZ
 import { ROLLEN, type Rolle, type Ziel } from '../recheck/fremdliste'
 import { remark, STATUS_NAME, type Fundstelle, type ReStatus } from '../recheck/pruefen'
 import { setzen, useSitzung } from '../sitzung'
+import { aktiv } from '../settings'
+import type { Befund } from '../pruefung/befund'
 import { standardVerbindung } from '../verbindung'
 import { useViewer } from './Viewer'
 
@@ -544,8 +548,17 @@ const ZU_SCHREIBEN: ReStatus[] = ['resolved', 'partial', 'open', 'justify', 'unv
  */
 function Rueckschreiben({ r }: { r: ReCheckSitzung }) {
   const { t } = useTranslation('doccheck')
-  const { now } = useStore()
+  const { now, docCheckSettings } = useStore()
   const kopf = r.blaetter[r.blatt].zeilen[r.kopf] ?? []
+  // Neue Befunde (N3.1 Schritt 6): was DocCheck im Paket findet — Prüfdokumente
+  // und, im Paketmodus, die Paketbefunde. Restfundstellen alter Befunde fallen heraus.
+  const { docs, paketModus, paketErgebnis } = useSitzung()
+  const eigene: Befund[] = [
+    ...docs.filter((d) => d.rolle === 'review' && d.z?.pruefung).flatMap((d) => d.z!.pruefung!.befunde.map((b) => ({ ...b, dokName: d.felder.titel || d.name }))),
+    ...(paketModus && aktiv(docCheckSettings, 'packageCheck') ? (paketErgebnis?.ergebnis.befunde ?? []) : []),
+  ]
+  const neu = neueBefunde(r, eigene)
+  const [mitNeuen, setMitNeuen] = useState(true)
   const [werteListe, setWerteListe] = useState<string[]>([])
   const [werte, setWerte] = useState<WerteZuordnung | null>(null)
   const [laeuft, setLaeuft] = useState(false)
@@ -571,7 +584,8 @@ function Rueckschreiben({ r }: { r: ReCheckSitzung }) {
     setLaeuft(true)
     try {
       const datum = new Date(now()).toISOString()
-      const { daten } = await rueckschreiben(r.original!, rueckschreibAuftrag(r, werte, datum))
+      const blatt = mitNeuen && neu.liste.length ? neuesBlatt(r, neu.liste, werte, datum) : undefined
+      const { daten } = await rueckschreiben(r.original!, rueckschreibAuftrag(r, werte, datum, blatt))
       werteSpeichern(kopf, werte, localStorage)
       const url = URL.createObjectURL(new Blob([daten], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
       const a = document.createElement('a')
@@ -610,12 +624,22 @@ function Rueckschreiben({ r }: { r: ReCheckSitzung }) {
           ))}
         </div>
       )}
+      <label className="flex min-h-11 cursor-pointer items-start gap-2.5 rounded-xl border border-line/10 p-3 text-small">
+        <input type="checkbox" className="mt-0.5 h-5 w-5 accent-accent" checked={mitNeuen && neu.liste.length > 0} disabled={!neu.liste.length} onChange={(e) => setMitNeuen(e.target.checked)} />
+        <span>
+          {t('recheck.rs.neu', { count: neu.liste.length, blatt: r.sprache === 'de' ? 'Neue Findings' : 'New findings' })}
+          <span className="block text-micro text-dim">
+            {neu.liste.length ? t('recheck.rs.neuNummern', { von: neu.liste[0].nr, bis: neu.liste.at(-1)!.nr }) : t('recheck.rs.neuKeine')}
+            {neu.ausgenommen > 0 && ` ${t('recheck.rs.neuAusgenommen', { count: neu.ausgenommen })}`}
+          </span>
+        </span>
+      </label>
       <div className="flex flex-wrap items-center justify-between gap-stack">
         <p className="text-small">
           {t('recheck.rs.zeilen', { count: anzahl })}
           {anzahl < r.befunde.length && <span className="block text-micro text-dim">{t('recheck.rs.nurBestaetigt')}</span>}
         </p>
-        <Button onClick={schreiben} disabled={laeuft || !anzahl || !werte}>
+        <Button onClick={schreiben} disabled={laeuft || !werte || (!anzahl && !(mitNeuen && neu.liste.length))}>
           <span className="flex items-center gap-1.5"><FileDown size={16} /> {t('recheck.rs.start')}</span>
         </Button>
       </div>

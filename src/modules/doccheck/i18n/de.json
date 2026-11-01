@@ -544,7 +544,8 @@
       "empfehlung": "Empfehlung",
       "status": "Team-Status",
       "kommentar": "Team-Kommentar",
-      "verantwortlich": "Verantwortlich"
+      "verantwortlich": "Verantwortlich",
+      "prioritaet": "Priorität (für neue Befunde)"
     },
     "keineSpalte": "— keine —",
     "befundFehlt": "Ohne Spalte „Befundtext“ lässt sich nichts nachprüfen.",
@@ -615,7 +616,7 @@
     "zuruecknehmen": "Bestätigung zurücknehmen",
     "bestaetigtToast_one": "{{count}} Vorschlag bestätigt",
     "bestaetigtToast_other": "{{count}} Vorschläge bestätigt",
-    "folgt": "Folgt: KI-Prüfung inhaltlicher Befunde und das Blatt „Neue Findings“ für Befunde, die erst der Re-Check findet.",
+    "folgt": "Folgt: KI-Prüfung inhaltlicher Befunde.",
     "rs": {
       "titel": "In Originaldatei zurückschreiben",
       "hinweis": "DocCheck setzt die Status-Spalte auf den bestätigten Wert aus der Werteliste der Liste und fügt rechts eine Remark-Spalte an. Alles andere bleibt, wie es ist – Dropdowns, bedingte Formatierung, Diagramme. Das Original wird nicht überschrieben: Es entsteht eine neue Datei mit Datum im Namen.",
@@ -627,7 +628,13 @@
       "nurBestaetigt": "Nicht bestätigte Vorschläge bleiben draußen – im Original sähe ein Vorschlag aus wie eine Entscheidung.",
       "start": "Neue Excel-Datei erzeugen",
       "fertig": "{{name}} erzeugt",
-      "fehler": "Die Datei konnte nicht geschrieben werden – das Original ist unverändert."
+      "fehler": "Die Datei konnte nicht geschrieben werden – das Original ist unverändert.",
+      "neu_one": "1 neuen Befund als Blatt „{{blatt}}“ anhängen",
+      "neu_other": "{{count}} neue Befunde als Blatt „{{blatt}}“ anhängen",
+      "neuNummern": "Nummern {{von}} bis {{bis}}, im Anschluss an die höchste Nummer der Liste. Im Stil der Liste: Kopfzeile, Dropdowns, Farben, Filter, A4 quer.",
+      "neuKeine": "DocCheck hat im Paket keine Befunde, die nicht schon in der Liste stehen.",
+      "neuAusgenommen_one": "1 Befund ausgenommen: Er ist Restfundstelle eines alten Befunds und steht dort im Remark.",
+      "neuAusgenommen_other": "{{count}} Befunde ausgenommen: Sie sind Restfundstellen alter Befunde und stehen dort im Remark."
     },
     "mobil": {
       "leer": "Noch kein Re-Check in dieser Sitzung. Gestartet wird er am Desktop; danach lassen sich die Vorschläge hier ansehen und bestätigen.",

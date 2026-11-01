@@ -977,3 +977,20 @@ DocCheck: Bedienung und Barrierefreiheit (Punkte C und D der Prüfung vom
 - **Ansagen und Sprache:** Einlesen fertig/fehlgeschlagen wird angesagt,
   Befundtext als Englisch ausgezeichnet, fehlende Überschriftenebene ergänzt.
 - Status-Spalte der Befundtabelle entfernt (stand ohne Ablauf immer „Open").
+
+## 1.21.0 — 2026-11-01
+
+DocCheck Re-Check: neue Befunde als eigenes Blatt (Nachtrag N3.1 Schritt 6,
+N3.5) — damit ist N3 vollständig.
+
+- Beim Rückschreiben optional ein Blatt „New findings“ / „Neue Findings“ im
+  Stil der Liste: Kopfzeile, Spaltenbreiten, Zellformate, Dropdowns und
+  bedingte Formatierungen der Quelle, Prioritätsfarben, fixierte Kopfzeile,
+  Autofilter, A4 quer. Arbeitsmappe, Beziehungen, Inhaltstypen und
+  `docProps/app.xml` nachgezogen; alle übrigen Teile byte-gleich.
+- Nummern im Anschluss an die höchste Nummer der Liste, in ihrem Format.
+- Dublettenregel: Restfundstellen alter Befunde werden nicht zusätzlich als
+  neue Befunde geführt; die Oberfläche nennt, wie viele ausgenommen wurden.
+- Neue Spaltenrolle „Priorität“ in der Zuordnung.
+- Gegenprobe: LibreOffice öffnet und speichert die Datei ohne Verlust.
+  Offen bleibt die Öffnungsprobe in Microsoft Excel.

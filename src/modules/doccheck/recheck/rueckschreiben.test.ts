@@ -3,7 +3,14 @@ import { describe, expect, it } from 'vitest'
 import { SBX_FL_01, SBX_FL_01_WERTE, sbxFl01 } from '../benchmark/sbx'
 import { blattRaster } from '../parse/xlsx'
 import {
+  appEintragen,
   ausgabeName,
+  bereichUmlegen,
+  blattBauen,
+  blattEintragen,
+  eindeutigerName,
+  formelQualifizieren,
+  prioDxfs,
   dimensionErweitern,
   GEAENDERTE_TEILE,
   inlineZelle,
@@ -19,6 +26,7 @@ import {
   zelleLesen,
   zelleSetzen,
   zellStil,
+  type NeuesBlatt,
 } from './rueckschreiben'
 
 const teile = async (d: Uint8Array) => {
@@ -223,5 +231,146 @@ describe('Round-Trip SBX-FL-01 (Nachtrag 6.5 Abnahme)', () => {
     expect(ohne.geaendert).not.toContain('xl/styles.xml')
     await expect(rueckschreiben(orig, { blatt: 'X', kopfZeile: 1, remarkTitel: 'R', zeilen: [] })).rejects.toThrow('DC-XLSX-SHEET')
     expect(ausgabeName('SBX-FL-01.XLSX', '2026-11-01T10:00:00Z')).toBe('SBX-FL-01_recheck_2026-11-01.xlsx')
+  })
+})
+
+describe('Blatt „New findings" (Nachtrag N3.1 Schritt 6, N3.5)', () => {
+  it('Bereiche umlegen, Bezüge aufs Quellblatt festlegen, eindeutiger Name', () => {
+    expect(bereichUmlegen('G4:G23 A1:I1 C5', 4, 4, 6)).toBe('G4:G6 C4:C6')
+    expect(bereichUmlegen('G:G', 4, 4, 6)).toBe('G:G')
+    expect(bereichUmlegen('A1:B2 kaputt', 4, 4, 6)).toBe('')
+    expect(formelQualifizieren('$A$2:$A$4', 'Findings')).toBe("'Findings'!$A$2:$A$4")
+    expect(formelQualifizieren('Lists!$A$2:$A$4', 'Findings')).toBe('Lists!$A$2:$A$4')
+    expect(formelQualifizieren('"Open,Closed"', 'Findings')).toBe('"Open,Closed"')
+    expect(formelQualifizieren('INDIRECT(A1)', "It's")).toBe('INDIRECT(A1)')
+    expect(formelQualifizieren('A1', "It's")).toBe("'It''s'!A1")
+    expect(eindeutigerName('New findings', ['Findings'])).toBe('New findings')
+    expect(eindeutigerName('New findings', ['new findings', 'New findings (2)'])).toBe('New findings (3)')
+    expect(eindeutigerName('A/B:C*?[x]', [])).toBe('ABCx')
+    expect(eindeutigerName('x'.repeat(40), ['x'.repeat(31)])).toBe(`${'x'.repeat(27)} (2)`)
+  })
+
+  it('Prioritätsfarben werden an dxfs ANGEHÄNGT; fehlt dxfs, entsteht es an der richtigen Stelle', () => {
+    const mit = prioDxfs('<styleSheet><dxfs count="2"><dxf/><dxf/></dxfs><tableStyles/></styleSheet>')
+    expect([mit.hoch, mit.mittel, mit.niedrig]).toEqual([2, 3, 4])
+    expect(mit.styles).toMatch(/^<styleSheet><dxfs count="5"><dxf\/><dxf\/><dxf>/)
+    const ohne = prioDxfs('<styleSheet><cellStyles/><tableStyles/></styleSheet>')
+    expect(ohne.hoch).toBe(0)
+    expect(ohne.styles).toMatch(/<cellStyles\/><dxfs count="3">[\s\S]*<\/dxfs><tableStyles\/>/)
+    expect(prioDxfs('<styleSheet></styleSheet>').styles).toMatch(/<dxfs count="3">[\s\S]*<\/dxfs><\/styleSheet>$/)
+    expect(prioDxfs('<styleSheet><dxfs count="0"/></styleSheet>').styles).toContain('<dxfs count="3">')
+  })
+
+  it('Arbeitsmappe: Blatt, Beziehung, Inhaltstyp, Filterbereich; mit und ohne definedNames', () => {
+    const teile0 = {
+      workbook: '<workbook><sheets><sheet name="A" sheetId="4" r:id="rId1"/></sheets><calcPr/></workbook>',
+      rels: '<Relationships><Relationship Id="rId1" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Target="styles.xml"/></Relationships>',
+      typen: '<Types></Types>',
+    }
+    const t = blattEintragen(teile0, "Bob's", 'xl/worksheets/sheet3.xml', '$A$3:$K$9')
+    expect(t.workbook).toContain(`<sheet name="Bob's" sheetId="5" r:id="rId3"/></sheets>`)
+    expect(t.workbook).toContain(`<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="1" hidden="1">'Bob''s'!$A$3:$K$9</definedName></definedNames><calcPr/>`)
+    expect(t.rels).toContain('<Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/>')
+    expect(t.typen).toContain('PartName="/xl/worksheets/sheet3.xml"')
+    const mitDn = blattEintragen({ ...teile0, workbook: '<workbook><sheets></sheets><definedNames><definedName name="x">1</definedName></definedNames></workbook>' }, 'N', 'xl/worksheets/sheet2.xml', '$A$1:$B$2')
+    expect(mitDn.workbook).toMatch(/<definedName name="x">1<\/definedName><definedName name="_xlnm._FilterDatabase" localSheetId="0"/)
+    expect(blattEintragen({ ...teile0, workbook: '<workbook><sheets></sheets></workbook>' }, 'N', 'p', 'r').workbook).toMatch(/<definedNames>.*<\/definedNames><\/workbook>$/)
+  })
+
+  it('docProps/app.xml: Anzahl und Name nachgezogen — mit und ohne HeadingPairs, unbekannte Gestalt bleibt', () => {
+    const app = '<Properties><HeadingPairs><vt:vector size="4" baseType="variant"><vt:variant><vt:lpstr>Worksheets</vt:lpstr></vt:variant><vt:variant><vt:i4>2</vt:i4></vt:variant><vt:variant><vt:lpstr>Named Ranges</vt:lpstr></vt:variant><vt:variant><vt:i4>1</vt:i4></vt:variant></vt:vector></HeadingPairs><TitlesOfParts><vt:vector size="3" baseType="lpstr"><vt:lpstr>A</vt:lpstr><vt:lpstr>B</vt:lpstr><vt:lpstr>Print_Area</vt:lpstr></vt:vector></TitlesOfParts></Properties>'
+    const neu = appEintragen(app, 'New & more')
+    expect(neu).toContain('<vt:lpstr>Worksheets</vt:lpstr></vt:variant><vt:variant><vt:i4>3</vt:i4>')
+    expect(neu).toContain('<vt:vector size="4" baseType="lpstr"><vt:lpstr>A</vt:lpstr><vt:lpstr>B</vt:lpstr><vt:lpstr>New &amp; more</vt:lpstr><vt:lpstr>Print_Area</vt:lpstr>')
+    // Named Ranges VOR den Blättern: eingefügt wird nach den Blattnamen, nicht am Ende
+    const vorne = app.replace('<vt:lpstr>Worksheets</vt:lpstr></vt:variant><vt:variant><vt:i4>2</vt:i4></vt:variant><vt:variant><vt:lpstr>Named Ranges</vt:lpstr></vt:variant><vt:variant><vt:i4>1</vt:i4>', '<vt:lpstr>Named Ranges</vt:lpstr></vt:variant><vt:variant><vt:i4>1</vt:i4></vt:variant><vt:variant><vt:lpstr>Worksheets</vt:lpstr></vt:variant><vt:variant><vt:i4>2</vt:i4>').replace('<vt:lpstr>A</vt:lpstr><vt:lpstr>B</vt:lpstr><vt:lpstr>Print_Area</vt:lpstr>', '<vt:lpstr>Print_Area</vt:lpstr><vt:lpstr>A</vt:lpstr><vt:lpstr>B</vt:lpstr>')
+    expect(appEintragen(vorne, 'N')).toContain('<vt:lpstr>Print_Area</vt:lpstr><vt:lpstr>A</vt:lpstr><vt:lpstr>B</vt:lpstr><vt:lpstr>N</vt:lpstr>')
+    expect(appEintragen('<Properties><TitlesOfParts><vt:vector size="1" baseType="lpstr"><vt:lpstr>A</vt:lpstr></vt:vector></TitlesOfParts></Properties>', 'N')).toContain('<vt:vector size="2" baseType="lpstr"><vt:lpstr>A</vt:lpstr><vt:lpstr>N</vt:lpstr>')
+    expect(appEintragen('<Properties/>', 'N')).toBe('<Properties/>')
+    const fremd = app.replace('Worksheets', 'Diagramme').replace('Named Ranges', 'Andere')
+    expect(appEintragen(fremd, 'N')).toBe(fremd)
+  })
+
+  it('Round-Trip: neues Blatt im Stil der Liste; alle übrigen Teile byte-gleich', async () => {
+    const orig = await sbxFl01()
+    const vorher = await teile(orig)
+    const neu: NeuesBlatt = {
+      name: 'Findings',
+      titel: 'New findings – re-check 2026-11-01 – SBX-FL-01.xlsx',
+      zusatzKopf: ['Priority', 'Category', 'Verification'],
+      zeilen: [
+        { 0: '21', 1: 'APX 4', 2: 'ca. 3', 4: 'Table total does not match & more', 6: 'Open', 9: 'High', 10: 'Inconsistency', 11: 'Verified (rule-based)' },
+        { 0: '22', 1: 'TM', 4: 'Placeholder "XX" left', 6: 'Open', 9: 'Low', 10: 'Editorial', 11: 'To verify' },
+      ],
+      prio: { spalte: 9, hoch: 'High', mittel: 'Medium', niedrig: 'Low' },
+    }
+    const r = await rueckschreiben(orig, { blatt: 'Findings', kopfZeile: 3, statusSpalte: 6, remarkTitel: 'Remark', zeilen: [{ excelZeile: 5, status: 'Closed', remark: 'BEHOBEN' }], neu })
+    const nachher = await teile(r.daten)
+    const pfad = 'xl/worksheets/sheet4.xml'
+    // Zeile 5 steht schon auf „Closed" — die Zählformeln im Übersichtsblatt ändern sich nicht
+    const erlaubt = new Set([...GEAENDERTE_TEILE, 'xl/worksheets/sheet1.xml', pfad, 'docProps/app.xml'])
+    for (const p of Object.keys(vorher)) if (!erlaubt.has(p)) expect(nachher[p], p).toBe(vorher[p])
+    expect(new Set(r.geaendert)).toEqual(erlaubt)
+
+    // Name „Findings" ist vergeben → „Findings (2)"; eingetragen in Mappe, Beziehungen, Typen, app.xml
+    expect(nachher['xl/workbook.xml']).toContain('<sheet name="Findings (2)" sheetId="4" r:id="rId')
+    expect(nachher['xl/workbook.xml']).toContain(`<definedName name="_xlnm._FilterDatabase" localSheetId="3" hidden="1">'Findings (2)'!$A$3:$L$5</definedName>`)
+    expect(nachher['[Content_Types].xml']).toContain('PartName="/xl/worksheets/sheet4.xml"')
+    expect(nachher['docProps/app.xml']).toContain('<vt:lpstr>Lists</vt:lpstr><vt:lpstr>Findings (2)</vt:lpstr>')
+
+    const s = nachher[pfad]
+    // Kopf in Zeile 3 wie in der Quelle (relative Bezüge der Regeln bleiben gültig), Titel in Zeile 1
+    const nr: number[] = []
+    const raster = blattRaster(s, [], nr)
+    expect(raster[nr.indexOf(1)][0]).toBe(neu.titel)
+    expect(raster[nr.indexOf(4)].slice(0, 12)).toEqual(['21', 'APX 4', 'ca. 3', '', 'Table total does not match & more', '', 'Open', '', '', 'High', 'Inconsistency', 'Verified (rule-based)'])
+    // Kopfzellen der Quelle unverändert übernommen (geteilte Texte, Stil 1), Zusatzspalten im selben Stil
+    expect(zelleLesen(s, 'A3')).toBe(zelleLesen(vorher['xl/worksheets/sheet1.xml'], 'A3'))
+    expect(zelleLesen(s, 'J3')).toBe('<c r="J3" s="1" t="inlineStr"><is><t xml:space="preserve">Priority</t></is></c>')
+    // Datenzellen: Stil der ersten Datenzeile mit Umbruch
+    expect(zellStil(zelleLesen(s, 'E4')!)).toBe(4)
+    // Fixierte Kopfzeile, Autofilter, A4 quer, Spaltenbreiten der Quelle + Zusatz
+    expect(s).toContain('<pane ySplit="3" topLeftCell="A4" activePane="bottomLeft" state="frozen"/>')
+    expect(s).toContain('<autoFilter ref="A3:L5"/>')
+    expect(s).toContain('<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>')
+    expect(s).toContain('<col min="5" max="6" width="48" customWidth="1"/>')
+    expect(s).toContain('<col min="12" max="12" width="16" customWidth="1"/>')
+    // Dropdown aus dem versteckten Listen-Blatt (x14), auf die neuen Zeilen
+    expect(s).toContain('<xm:f>Lists!$A$2:$A$4</xm:f></x14:formula1><xm:sqref>G4:G5</xm:sqref>')
+    // Bedingte Formatierung der Quelle (Status) und Prioritätsfarben (neue dxfs 2–4)
+    expect(s).toContain('<conditionalFormatting sqref="G4:G5"><cfRule type="cellIs" dxfId="0" priority="1"')
+    expect(s).toContain('<conditionalFormatting sqref="J4:J5"><cfRule type="cellIs" dxfId="2" priority="3" operator="equal"><formula>"High"</formula></cfRule><cfRule type="cellIs" dxfId="3" priority="4"')
+    expect(nachher['xl/styles.xml']).toContain('<dxfs count="5">')
+    // Reihenfolge nach CT_Worksheet
+    const reihenfolge = ['<sheetPr>', '<dimension', '<sheetViews>', '<sheetFormatPr', '<cols>', '<sheetData>', '<autoFilter', '<conditionalFormatting', '<pageMargins', '<pageSetup', '<extLst>']
+    const pos = reihenfolge.map((t) => s.indexOf(t))
+    expect(pos.every((p) => p >= 0)).toBe(true)
+    expect([...pos].sort((a, b) => a - b)).toEqual(pos)
+    // Escaping: & und " in Inline-Strings
+    expect(s).toContain('does not match &amp; more')
+  })
+
+  it('ohne neue Befunde kein Blatt; Quelle ohne Formate ergibt trotzdem ein gültiges Blatt', async () => {
+    const orig = await sbxFl01()
+    const leer = await rueckschreiben(orig, { blatt: 'Findings', kopfZeile: 3, remarkTitel: 'R', zeilen: [], neu: { name: 'N', titel: 'T', zusatzKopf: [], zeilen: [] } })
+    expect(leer.geaendert).not.toContain('docProps/app.xml')
+    const b = blattBauen('<worksheet><sheetData><row r="1"><c r="A1" t="inlineStr"><is><t>No</t></is></c></row></sheetData></worksheet>', 'Q', 1, { name: 'N', titel: 'T', zusatzKopf: ['Priority'], zeilen: [{ 0: '1', 1: 'High' }] }, () => 7)
+    expect(b).toContain('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"')
+    expect(b).toContain('<row r="1"><c r="A1" t="inlineStr"><is><t>No</t></is></c><c r="B1" t="inlineStr"><is><t xml:space="preserve">Priority</t></is></c></row>')
+    expect(b).toContain('<c r="A2" s="7" t="inlineStr">')
+    // leere Spalten bekommen eine formatierte leere Zelle (Rahmen der Liste)
+    expect(blattBauen('<worksheet xmlns="m"><sheetData><row r="1"><c r="A1"/><c r="C1"/></row></sheetData></worksheet>', 'Q', 1, { name: 'N', titel: 'T', zusatzKopf: [], zeilen: [{ 2: 'x' }] }, () => 5)).toContain('<row r="2"><c r="A2" s="5"/><c r="B2" s="5"/><c r="C2" s="5" t="inlineStr">')
+    expect(b).not.toContain('<dataValidations')
+    expect(b).not.toContain('<extLst>')
+    expect(b).toContain('<pageMargins left="0.7"')
+  })
+
+  it('kopierte Prüfungen verlieren ihre xr:uid und klassische Prüfungen werden aufs Quellblatt festgelegt', () => {
+    const q = '<worksheet xmlns="m" xr:uid="{A}"><sheetData><row r="1"><c r="A1"/></row><row r="2"><c r="A2" s="3"/></row></sheetData><dataValidations count="1"><dataValidation type="list" sqref="A2:A9" xr:uid="{B}"><formula1>$Z$1:$Z$3</formula1></dataValidation></dataValidations><extLst><x14:dataValidation type="list" xr:uid="{C}"><x14:formula1><xm:f>$Y$1:$Y$2</xm:f></x14:formula1><xm:sqref>A2:A9</xm:sqref></x14:dataValidation></extLst></worksheet>'
+    const b = blattBauen(q, 'Liste', 1, { name: 'N', titel: 'T', zusatzKopf: [], zeilen: [{ 0: 'x' }] }, (s) => s ?? 0)
+    expect(b).not.toContain('xr:uid')
+    expect(b).toContain(`<dataValidation type="list" sqref="A2:A2"><formula1>'Liste'!$Z$1:$Z$3</formula1></dataValidation>`)
+    expect(b).toContain(`<xm:f>'Liste'!$Y$1:$Y$2</xm:f>`)
+    expect(b).toContain('<c r="A2" s="3" t="inlineStr">')
   })
 })

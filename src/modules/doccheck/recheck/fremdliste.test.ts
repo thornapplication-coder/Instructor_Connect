@@ -9,6 +9,11 @@ describe('Spaltenzuordnung fremder Findinglisten (N3.1 Schritt 2)', () => {
     expect(zuordnungVorschlagen(['Nr', 'Dokument', 'Befund', 'Bemerkung'])).toEqual({ id: 0, dokument: 1, befund: 2, kommentar: 3 })
   })
 
+  it('Priorität wird erkannt (für das Blatt „New findings", N3.5)', () => {
+    expect(zuordnungVorschlagen(['Nr', 'Befund', 'Priorität'])).toEqual({ id: 0, befund: 1, prioritaet: 2 })
+    expect(zuordnungVorschlagen(['ID', 'Finding', 'Severity level'])).toEqual({ id: 0, befund: 1, prioritaet: 2 })
+  })
+
   it('eine Spalte wird nur einmal vergeben; Unbekanntes bleibt frei', () => {
     const z = zuordnungVorschlagen(['Finding', 'Finding', 'xyz'])
     expect(z).toEqual({ befund: 0 })

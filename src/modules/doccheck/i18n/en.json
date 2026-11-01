@@ -544,7 +544,8 @@
       "empfehlung": "Recommendation",
       "status": "Team status",
       "kommentar": "Team comment",
-      "verantwortlich": "Responsible"
+      "verantwortlich": "Responsible",
+      "prioritaet": "Priority (for new findings)"
     },
     "keineSpalte": "— none —",
     "befundFehlt": "Without a “Finding text” column there is nothing to re-check.",
@@ -615,7 +616,7 @@
     "zuruecknehmen": "Withdraw confirmation",
     "bestaetigtToast_one": "{{count}} proposal confirmed",
     "bestaetigtToast_other": "{{count}} proposals confirmed",
-    "folgt": "Next: AI check of content findings and the “New findings” sheet for findings raised by the re-check itself.",
+    "folgt": "Next: AI check of content findings.",
     "rs": {
       "titel": "Write back to the original file",
       "hinweis": "DocCheck sets the status column to the confirmed value from the list's own value list and adds a remark column on the right. Everything else stays as it is — drop-downs, conditional formatting, charts. The original is not overwritten: a new file with the date in its name is created.",
@@ -627,7 +628,13 @@
       "nurBestaetigt": "Unconfirmed proposals are left out — in the original a proposal would look like a decision.",
       "start": "Create new Excel file",
       "fertig": "{{name}} created",
-      "fehler": "The file could not be written — the original is unchanged."
+      "fehler": "The file could not be written — the original is unchanged.",
+      "neu_one": "Append 1 new finding as sheet “{{blatt}}”",
+      "neu_other": "Append {{count}} new findings as sheet “{{blatt}}”",
+      "neuNummern": "Numbers {{von}} to {{bis}}, following the highest number in the list. In the list’s style: header, drop-downs, colours, filter, A4 landscape.",
+      "neuKeine": "DocCheck found nothing in the package that is not already in the list.",
+      "neuAusgenommen_one": "1 finding left out: it is a remaining occurrence of an old finding and is listed in its remark.",
+      "neuAusgenommen_other": "{{count}} findings left out: they are remaining occurrences of old findings and are listed in their remarks."
     },
     "mobil": {
       "leer": "No re-check in this session yet. It is started on the desktop; afterwards the proposals can be viewed and confirmed here.",

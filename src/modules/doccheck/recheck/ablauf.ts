@@ -6,7 +6,9 @@ import type { SitzungsDok } from '../sitzung'
 import { befundeLesen, kopfzeileFinden, zielVorschlagen, zuordnungVorschlagen, type FremdBefund, type Rolle, type Ziel, type Zuordnung } from './fremdliste'
 import { profilLaden, profilSpeichern } from './profil'
 import { remark, STATUS_NAME, type ReErgebnis, type RemarkSprache, type ReStatus } from './pruefen'
-import type { RueckschreibAuftrag, WerteZuordnung } from './rueckschreiben'
+import type { NeuesBlatt, RueckschreibAuftrag, WerteZuordnung } from './rueckschreiben'
+import { neueBefundeFuer, type NeuerBefund } from './neueBefunde'
+import type { Befund } from '../pruefung/befund'
 import type { Korrektur } from '../paket/pruefen'
 
 /**
@@ -241,7 +243,7 @@ export function kannZurueckschreiben(r: ReCheckSitzung): boolean {
  * Entscheidung. Der Status folgt der Werteliste der Fremdliste; ohne
  * passenden Wert bleibt die Zelle, und der Remark sagt, was gilt.
  */
-export function rueckschreibAuftrag(r: ReCheckSitzung, werte: WerteZuordnung, datum: string): RueckschreibAuftrag {
+export function rueckschreibAuftrag(r: ReCheckSitzung, werte: WerteZuordnung, datum: string, neu?: NeuesBlatt): RueckschreibAuftrag {
   const b = r.blaetter[r.blatt]
   const zeilen = (r.ergebnisse ?? [])
     .filter((e) => r.bestaetigt[e.zeile])
@@ -256,6 +258,51 @@ export function rueckschreibAuftrag(r: ReCheckSitzung, werte: WerteZuordnung, da
     ...(r.zuordnung.status !== undefined ? { statusSpalte: r.zuordnung.status } : {}),
     remarkTitel: r.sprache === 'de' ? `Remark Re-Check ${formatDate(datum.slice(0, 10))}` : `Remark re-check ${datum.slice(0, 10)}`,
     zeilen,
+    ...(neu && neu.zeilen.length ? { neu } : {}),
+  }
+}
+
+/** Neue Befunde für diese Liste (N3.1 Schritt 6): nummeriert, ohne Restfundstellen alter Befunde. */
+export function neueBefunde(r: ReCheckSitzung, befunde: Befund[]): { liste: NeuerBefund[]; ausgenommen: number } {
+  return neueBefundeFuer(befunde, r.ergebnisse ?? [], r.befunde.map((b) => b.ref), r.ziele)
+}
+
+/**
+ * Blatt „New findings" im Spaltenschema der Liste: Was die Liste als Spalte
+ * hat (Nummer, Dokument, Seite, Kapitel, Befund, Priorität), steht dort;
+ * Status ist der „offen"-Wert ihrer Werteliste, damit das Dropdown passt.
+ * Was sie nicht hat, kommt rechts dazu — Kategorie und Verifizierung immer,
+ * die Priorität nur, wenn die Liste keine eigene Spalte dafür führt.
+ * Spaltenköpfe und Werte sind englisch, wie der Export.
+ */
+export function neuesBlatt(r: ReCheckSitzung, liste: NeuerBefund[], werte: WerteZuordnung, datum: string): NeuesBlatt {
+  const z = r.zuordnung
+  const breite = Math.max(1, ...r.blaetter[r.blatt].zeilen.map((x) => x.length))
+  const prioSpalte = z.prioritaet ?? breite
+  const zusatzKopf = [...(z.prioritaet === undefined ? ['Priority'] : []), 'Category', 'Verification']
+  const kat = breite + (z.prioritaet === undefined ? 1 : 0)
+  const zeilen = liste.map((n) => {
+    const w: Record<number, string> = {}
+    const setze = (rolle: Rolle, wert: string) => {
+      if (z[rolle] !== undefined) w[z[rolle]!] = wert
+    }
+    setze('id', n.nr)
+    setze('dokument', n.dokument)
+    setze('seite', n.seite)
+    setze('kapitel', n.kapitel)
+    setze('befund', n.befund)
+    if (werte.open) setze('status', werte.open)
+    w[prioSpalte] = n.prioritaet
+    w[kat] = n.kategorie
+    w[kat + 1] = n.verifizierung
+    return w
+  })
+  return {
+    name: r.sprache === 'de' ? 'Neue Findings' : 'New findings',
+    titel: `New findings – re-check ${datum.slice(0, 10)} – ${r.datei}`,
+    zusatzKopf,
+    zeilen,
+    prio: { spalte: prioSpalte, hoch: 'High', mittel: 'Medium', niedrig: 'Low' },
   }
 }
 

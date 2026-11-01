@@ -3,9 +3,10 @@ import { formatDateTime } from '../../../datum'
 import { csvLesen } from '../referenz/liste'
 import type { SitzungsDok } from '../sitzung'
 import { sbxFl01 } from '../benchmark/sbx'
-import { auftraege, bestaetigen, bestaetigenMit, nachLauf, remarkBestaetigt, korrekturen, kannZurueckschreiben, paketStand, rueckschreibAuftrag, blattWaehlen, csvExport, dokNamen, listeLesen, sammelKandidaten, zaehlen, zeilen, zielAendern, zieleAuffrischen, zuordnungAendern, zuruecknehmen, type ReCheckSitzung } from './ablauf'
+import { auftraege, bestaetigen, bestaetigenMit, nachLauf, neueBefunde, neuesBlatt, remarkBestaetigt, korrekturen, kannZurueckschreiben, paketStand, rueckschreibAuftrag, blattWaehlen, csvExport, dokNamen, listeLesen, sammelKandidaten, zaehlen, zeilen, zielAendern, zieleAuffrischen, zuordnungAendern, zuruecknehmen, type ReCheckSitzung } from './ablauf'
 import { befundPruefen, remark } from './pruefen'
 import { PROFIL_KEY } from './profil'
+import type { Befund } from '../pruefung/befund'
 
 const ablage = () => {
   const m = new Map<string, string>()
@@ -206,5 +207,30 @@ describe('Re-Check-Ablauf (N3.1)', () => {
     expect(remarkBestaetigt(e1, undefined, '2026-11-01', 'de')).toBe(remark(e1, '2026-11-01', 'de'))
     expect(csvLesen(csvExport(anders, '2026-11-01', String))[1][10]).toBe('Wording changed in Rev 2, approved by HT')
   })
-})
 
+  it('Blatt „New findings": Spalten der Liste, Status aus deren Werteliste, Zusatzspalten rechts (N3.1 Schritt 6)', async () => {
+    const r = pruefen(await laden())
+    const befund = { id: 'C-01', quelle: 'rechnen', pruefpunkt: 'summen', kategorie: 'Inconsistency', prioritaet: 'High', dokId: 'apx', dokName: 'Appendix 4', text: 'Table total does not match', fundstellen: [{ seite: 'ca. 1', auszug: 'TOTAL | 16:00' }], verifizierung: 'Verified (rule-based)', status: 'Open' } as Befund
+    const n = neueBefunde(r, [befund])
+    expect(n.ausgenommen).toBe(0)
+    expect(n.liste[0].nr).toBe(String(Math.max(...r.befunde.map((b) => Number(b.ref) || 0)) + 1))
+    const werte = { resolved: 'Closed', partial: 'In Review', open: 'Open', justify: null, unverifiable: null }
+    const blatt = neuesBlatt({ ...r, sprache: 'en' }, n.liste, werte, '2026-11-01T10:00:00Z')
+    const z = r.zuordnung
+    const breite = Math.max(...r.blaetter[r.blatt].zeilen.map((x) => x.length))
+    expect(blatt.name).toBe('New findings')
+    expect(blatt.zusatzKopf).toEqual(['Priority', 'Category', 'Verification'])
+    expect(blatt.zeilen[0]).toMatchObject({ [z.id!]: n.liste[0].nr, [z.befund!]: 'Table total does not match', [z.status!]: 'Open', [breite]: 'High', [breite + 1]: 'Inconsistency', [breite + 2]: 'Verified (rule-based)' })
+    expect(blatt.prio).toEqual({ spalte: breite, hoch: 'High', mittel: 'Medium', niedrig: 'Low' })
+    expect(blatt.titel).toBe('New findings – re-check 2026-11-01 – fl.csv')
+    // Liste MIT Prioritätsspalte: dorthin, keine Zusatzspalte; ohne „offen"-Wert bleibt der Status leer
+    const mitPrio = neuesBlatt({ ...r, zuordnung: { ...z, prioritaet: 0 } }, n.liste, { ...werte, open: null }, '2026-11-01')
+    expect(mitPrio.name).toBe('Neue Findings')
+    expect(mitPrio.zusatzKopf).toEqual(['Category', 'Verification'])
+    expect(mitPrio.zeilen[0][0]).toBe('High')
+    expect(mitPrio.zeilen[0][z.status!]).toBeUndefined()
+    // Auftrag: Blatt nur, wenn es Zeilen hat
+    expect(rueckschreibAuftrag({ ...r, blaetter: [{ ...r.blaetter[0], zeilenNr: r.blaetter[0].zeilen.map((_, i) => i + 1) }] }, werte, '2026-11-01', blatt).neu).toBe(blatt)
+    expect(rueckschreibAuftrag({ ...r, blaetter: [{ ...r.blaetter[0], zeilenNr: r.blaetter[0].zeilen.map((_, i) => i + 1) }] }, werte, '2026-11-01', { ...blatt, zeilen: [] }).neu).toBeUndefined()
+  })
+})

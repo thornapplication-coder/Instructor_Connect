@@ -6,9 +6,10 @@ import { vergleichsform } from '../parse/seitenzuordnung'
  * schlägt die Spaltenzuordnung vor, die Person bestätigt.
  */
 
-export type Rolle = 'id' | 'dokument' | 'seite' | 'kapitel' | 'befund' | 'empfehlung' | 'status' | 'kommentar' | 'verantwortlich'
+export type Rolle = 'id' | 'dokument' | 'seite' | 'kapitel' | 'befund' | 'empfehlung' | 'status' | 'kommentar' | 'verantwortlich' | 'prioritaet'
 
-export const ROLLEN: Rolle[] = ['id', 'dokument', 'seite', 'kapitel', 'befund', 'empfehlung', 'status', 'kommentar', 'verantwortlich']
+/** `prioritaet` zuletzt: Sie wird nur fürs Blatt „New findings" gebraucht (N3.5) und darf keiner anderen Rolle eine Spalte wegnehmen. */
+export const ROLLEN: Rolle[] = ['id', 'dokument', 'seite', 'kapitel', 'befund', 'empfehlung', 'status', 'kommentar', 'verantwortlich', 'prioritaet']
 
 /** Synonyme der Spaltenköpfe in Vergleichsform (deutsch und englisch). */
 export const SYNONYME: Record<Rolle, string[]> = {
@@ -21,6 +22,7 @@ export const SYNONYME: Record<Rolle, string[]> = {
   status: ['status', 'statuscompliance', 'state', 'zustand', 'compliancestatus'],
   kommentar: ['kommentar', 'comment', 'comments', 'remark', 'bemerkung', 'teamcomment', 'antwort', 'response', 'stellungnahme'],
   verantwortlich: ['verantwortlich', 'responsible', 'owner', 'zustaendig', 'zuständig'],
+  prioritaet: ['priorität', 'prioritaet', 'priority', 'prio', 'severity', 'schweregrad', 'kritikalität', 'criticality'],
 }
 
 export type Zuordnung = Partial<Record<Rolle, number>>

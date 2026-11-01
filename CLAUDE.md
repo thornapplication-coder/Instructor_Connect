@@ -152,10 +152,19 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   letzten Kapitel. Bestätigen schreibt eine Audit-Zeile ohne Befundtext.
   Status abweichend vom Vorschlag oder „Justify" nur mit Begründung
   (mind. 5 Zeichen); im Audit stehen nur Nummer und Status.
-  **Noch nicht umgesetzt** (N3.1.6, Nachtrag Kap. 7): das zusätzliche Blatt
-  „New findings" beim Rückschreiben und die Nummerierung neuer Befunde in
-  der Systematik der Liste — neue Befunde gibt es bisher nur im
-  DocCheck-Export. Wer die Abnahme N3 erklärt, nennt diese Lücke.
+  **Neue Befunde** (N3.1 Schritt 6, `recheck/neueBefunde.ts`) kommen als
+  eigenes Blatt „New findings"/„Neue Findings" dazu, nie als Zeilen der
+  fremden Liste; Nummern im Anschluss an deren höchste („F-012" → „F-013").
+  Eine Restfundstelle eines alten Befunds ist NIE zugleich neuer Befund
+  (Dublettenregel N10.3) — verglichen wird je Dokument, der kürzere Auszug
+  braucht mindestens 8 Zeichen, sonst verschluckte „PF" echte Befunde.
+  Das Blatt kopiert Wurzel-Namensräume, Spaltenbreiten, Kopfzellen,
+  Zellformate, bedingte Formatierungen und Dropdowns der Quelle (eigene
+  Bezüge aufs Quellblatt festgelegt, `xr:uid` entfernt) und behält die
+  Kopfzeile in DERSELBEN Zeile — relative Bezüge der Regeln hängen daran.
+  Prioritätsfarben als angehängte `dxfs`; Prioritätswerte englisch
+  (High/Medium/Low) wie der Export. Hat die Liste eine Prioritätsspalte
+  (Rolle `prioritaet`), steht sie dort, sonst rechts als Zusatzspalte.
   Schalter `recheck` ab Werk **aus** (Nachtrag Kap. 17), bis die Abnahme
   inkl. Rückschreiben (N3.5) bestanden ist — offen ist allein die
   Öffnungsprobe in Microsoft Excel (hier nicht verfügbar).
