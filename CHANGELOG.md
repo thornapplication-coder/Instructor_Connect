@@ -1031,3 +1031,16 @@ Ebene-3-Tests (Playwright) und ein Offline-Fehler.
   Service Worker die vorgeladenen Startdateien nicht und die App blieb ohne
   Netz weiß. Der Service Worker sieht beim Nachschlagen über `Vary` hinweg
   (die Dateien sind inhaltsgehasht).
+
+## 1.24.0 — 2026-11-01
+
+Qualitäts-Regressionstest (Spezifikation v1.1 Kap. 19.1, Nachtrag Kap. 20).
+
+- Alle synthetischen Abnahmedateien laufen durch den echten Prüfkern und
+  werden gegen ihre Lösungsschlüssel gemessen: Trefferquote, Fehlalarmquote,
+  Re-Check-Statusvorschläge, gefundene Restfundstellen — mit festgehaltener
+  Baseline. Jede Verschlechterung lässt `npm test` scheitern; ab 10
+  Prozentpunkten heißt sie „Qualität gesunken“.
+- Stand: DocCheck · Benchmark: Trefferquote 100 %, Fehlalarme 0 %,
+  Re-Check-Status 100 %, Restfundstellen 100 % (synthetische Fälle).
+- `npm run benchmark` zeigt die Tabelle je Testdatei.

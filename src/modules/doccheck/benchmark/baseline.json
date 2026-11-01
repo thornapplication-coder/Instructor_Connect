@@ -1,0 +1,14 @@
+{
+  "_hinweis": "Festgehaltener Stand des Qualitäts-Regressionstests (qualitaet.test.ts). Nur nachziehen, wenn eine Kennzahl BESSER wurde — mit Changelog-Eintrag. Erster Lauf: 01.11.2026, Version 1.24.0.",
+  "trefferquote": 1,
+  "fehlalarmquote": 0,
+  "statusquote": 1,
+  "restquote": 1,
+  "saetze": [
+    { "name": "SBX-WORD-01", "erwartet": 13, "getroffen": 13, "befunde": 13, "fehlalarme": 0 },
+    { "name": "SBX-FORMAL-01", "erwartet": 9, "getroffen": 9, "befunde": 11, "fehlalarme": 0 },
+    { "name": "SBX-CALC-01", "erwartet": 10, "getroffen": 10, "befunde": 10, "fehlalarme": 0 },
+    { "name": "SBX-EAR-01", "erwartet": 3, "getroffen": 3, "befunde": 3, "fehlalarme": 0 },
+    { "name": "SBX-PKG-01", "erwartet": 12, "getroffen": 12, "befunde": 12, "fehlalarme": 0 }
+  ]
+}

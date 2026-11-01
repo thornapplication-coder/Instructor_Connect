@@ -270,6 +270,19 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   Befunde, kurze Auszüge; beim Laden geprüft (Schema, Werte, Größe) und bei
   Abweichung abgewiesen; gleiche Befund-IDs nach dem Laden. Der mobile
   Bereich „Befunde" öffnet Prüfstände und exportiert daraus.
+- **Qualitäts-Regressionstest** (`benchmark/qualitaet.ts`, `npm run
+  benchmark`, läuft in `npm test` mit): alle Abnahmedateien durch den echten
+  Kern, gemessen gegen ihre Lösungsschlüssel — Trefferquote, Fehlalarmquote,
+  Re-Check-Statusvorschläge, Restfundstellen — und verglichen mit
+  `benchmark/baseline.json`. Weil die Prüfung regelbasiert und
+  deterministisch ist, zählt schon JEDE Verschlechterung (ab 10 Punkten
+  heißt sie „gesunken", Kap. 19.1). Wird eine Kennzahl besser, die Baseline
+  nachziehen — sonst schützt sie den neuen Stand nicht. Ein neuer
+  eingebauter Fehler in `sbx.ts` braucht seinen Eintrag im Lösungsschlüssel,
+  ein neuer Fehlalarmfall seinen Eintrag in `SBX_WORD_01_FEHLALARME`.
+  Die 100 % gelten für die synthetischen Fälle, an denen die Regeln gebaut
+  wurden; über echte Dokumente sagen sie nichts — dafür ist der private
+  Benchmark (Nachtrag Kap. 20) vorgesehen.
 - **Submission gate** warnt ab Werk (`gateSperrt: false`, Entscheidung
   vom 01.11.2026); Sperre ist Einstellung des Superadmins.
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise
