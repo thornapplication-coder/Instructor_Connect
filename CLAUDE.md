@@ -69,8 +69,8 @@ für die dort geregelten Punkte vor; seine Phasenzuordnung steht in Kap. 19.
 Stand: **Phase 2 + Word-Check (Sandbox)** — Dokumente einlesen und
 durchsuchen, Word-Extrakt, Seitenangaben bei DOCX, Formalprüfung, Word-Check
 (N4), Sprache/Platzhalter (N9), Referenzlisten als Soll, Re-Check fremder
-Findinglisten (N3, regelbasiert), Dokumentpakete und Geschwister (N1, N2);
-kein Backend, KI simuliert. Festlegungen:
+Findinglisten (N3, regelbasiert), Dokumentpakete und Geschwister (N1, N2),
+Rechen-/Plausibilitätsprüfung (N6), Verweise (N7); kein Backend, KI simuliert. Festlegungen:
 
 - **Die Testwachen gelten auch hier.** `testGuard` globt `src/modules/**`,
   die Abdeckungsschwelle ebenso. Ansichten (`*.tsx`) sind wie `src/pages`
@@ -174,6 +174,19 @@ kein Backend, KI simuliert. Festlegungen:
   Bei einem Tippfehler zwischen Geschwistern gilt das Wort als falsch, das
   sonst nirgends im Paket steht — lässt sich das nicht entscheiden, heißt
   der Befund „Inconsistency", nicht „Editorial".
+- **Rechenprüfung** (`pruefung/rechnen.ts`, N6, Schalter `calcCheck`):
+  Tabellen kommen aus dem Seitentext („Zelle | Zelle", DOCX und XLSX
+  gleich); bei PDF sind die Tabellenpunkte „nicht anwendbar". Jeder Befund
+  nennt die gerechneten Werte. Kumuliert-Spalten werden nicht summiert;
+  eine Tabelle ohne Zahlen darf die Prüfung nicht abbrechen (war ein
+  Absturz im Worker).
+- **Verweise** (N7) haben je Art GENAU eine Regel: interne Kapitelverweise
+  prüft die Formalprüfung (`querverweise`, v1.1); `pruefung/verweise.ts`
+  prüft je Dokument nur Übungsnummern und Zirkel, die Paketprüfung alle
+  Verweise auf ein anderes Dokument. Fehlt das Ziel, heißt der Befund
+  „Not verifiable – source missing" und erscheint nie als verifiziert.
+  Kapitelnummern kommen aus der Gliederung UND aus nummerierten Absätzen —
+  sonst wäre jeder Verweis auf „1.4.1.1 The PIC …" kaputt.
 - **Submission gate** warnt ab Werk (`gateSperrt: false`, Entscheidung
   vom 01.11.2026); Sperre ist Einstellung des Superadmins.
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise

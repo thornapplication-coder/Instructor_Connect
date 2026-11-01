@@ -34,7 +34,7 @@ describe('hochladen', () => {
     // Prüfdokumente ohne Rechtscharakter-Vorgabe, Bestand enthält die Bibliothek,
     // und sie werden geprüft (Spez. 8.8).
     expect(lesen.mock.calls[0][0].vorgabe).toBeUndefined()
-    expect((lesen.mock.calls[0][0] as { pruefen?: unknown }).pruefen).toEqual({ formal: true, word: true })
+    expect((lesen.mock.calls[0][0] as { pruefen?: unknown }).pruefen).toEqual({ formal: true, word: true, rechnen: true })
     expect(lesen.mock.calls[0][0].bestand).toHaveLength(bibliotheksVergleich().length)
   })
 

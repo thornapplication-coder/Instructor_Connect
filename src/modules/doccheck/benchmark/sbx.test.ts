@@ -4,13 +4,14 @@ import { describe, expect, it } from 'vitest'
 import { xlsxTabellen } from '../parse/xlsx'
 import { befundeLesen, kopfzeileFinden, zielVorschlagen, zuordnungVorschlagen } from '../recheck/fremdliste'
 import { remark } from '../recheck/pruefen'
+import { dokumentPruefen } from '../pruefung/pruefen'
 import { gruppenVorschlagen, vorbelegen } from '../paket/struktur'
 import { Kern } from '../kern'
 import { docxLesen } from '../parse/docx'
 import { dateiLesen } from '../parse/lesen'
 import type { PdfJs } from '../parse/pdf'
 import { pdfBauen } from '../parse/pdfBauen'
-import { absatz, lauf, SBX_FL_01, SBX_FL_01_KOPF, SBX_PKG_01_FEHLER, SBX_WORD_01_NAME, sbxFl01, sbxPage01, sbxPkg01, sbxWord01, umbrechen } from './sbx'
+import { absatz, lauf, SBX_CALC_01_FEHLER, SBX_CALC_01_NAME, SBX_FL_01, SBX_FL_01_KOPF, SBX_PKG_01_FEHLER, sbxCalc01, SBX_WORD_01_NAME, sbxFl01, sbxPage01, sbxPkg01, sbxWord01, umbrechen } from './sbx'
 
 const standardFontDataUrl = fileURLToPath(new URL('../../../../node_modules/pdfjs-dist/standard_fonts/', import.meta.url))
 const kern = () => new Kern({ pdfjs: async () => pdfjs as unknown as PdfJs, standardFontDataUrl })
@@ -213,6 +214,10 @@ describe('Abnahme N1.3 / N2.3: Paketprüfung an SBX-PKG-01', () => {
       'APX 5 stand Low', // R0.0
       'TM liste Medium', // Appendix 6 fehlt
       'TM liste Medium', // Annex 4 nicht gelistet
+      'TM verweise Low', // OMM nicht im Paket
+      'TM verweise Medium', // APX 4 chapter 5
+      'TM verweise Medium', // APX 5 exercise 3.8.3.7
+      'TM verweise Medium', // Zirkel TM 2.1 ↔ APX 4 2
     ])
     expect(kurz).toHaveLength(SBX_PKG_01_FEHLER.length)
 
@@ -225,11 +230,41 @@ describe('Abnahme N1.3 / N2.3: Paketprüfung an SBX-PKG-01', () => {
     // Keine Doppelmeldung: Die Stundenzeile ist Hierarchie-, kein Geschwisterbefund
     expect(e.befunde.filter((b) => b.fundstellen.some((f) => f.auszug === 'FFS training: 12 hours'))).toHaveLength(1)
     expect(e.uebersicht.map((z) => [z.kuerzel, z.abweichung])).toEqual([['TM', []], ['APX 4', []], ['APX 5', ['revision']], ['ANX 2A', []], ['ANX 2B', []], ['ANX 3', []], ['ANX 4', []]])
-    expect(e.ampel).toMatchObject({ liste: 'wait', stand: 'wait', hierarchie: 'bad', geschwister: 'wait', gegenfassung: 'wait', propagation: 'na' })
+    expect(e.ampel).toMatchObject({ liste: 'wait', stand: 'wait', hierarchie: 'bad', geschwister: 'wait', gegenfassung: 'wait', propagation: 'na', verweise: 'wait' })
+
+    // N7: Verweise zwischen Dokumenten — Werte im Text, Ziel unter Other affected documents
+    const v = e.befunde.filter((b) => b.pruefpunkt === 'verweise').map((b) => [b.text, b.verifizierung, b.weitere?.map((w) => w.dokId)])
+    expect(v).toEqual(
+      expect.arrayContaining([
+        ['Reference to APX 5 exercise 3.8.3.7 — no such exercise in APX 5.', 'Verified (rule-based)', ['APX 5']],
+        ['Reference to APX 4 chapter 5 — no such chapter in APX 4.', 'Verified (rule-based)', ['APX 4']],
+        ['Circular reference without content: TM 2.1 → APX 4 2 → TM 2.1.', 'Verified (rule-based)', ['APX 4']],
+        ['Reference to OMM cannot be verified: OMM is not part of the package (1×). Add it to the package or the library.', 'Not verifiable – source missing', undefined],
+      ]),
+    )
+    // Der Verweis TM → APX 4 chapter 2 ist gültig (Kapitel existiert) und wird nicht gemeldet
+    expect(e.befunde.some((b) => b.text.includes('chapter 2 —'))).toBe(false)
 
     // Fix-Propagation (N2.1): im Re-Check in 2A bestätigt, in 2B noch da
     const p = kern.paketPruefen(struktur, [{ ref: '42', dokId: 'ANX 2A', weg: 'recieve' }])
     expect(p.befunde.filter((b) => b.pruefpunkt === 'propagation')).toEqual([expect.objectContaining({ dokId: 'ANX 2B', weitere: [expect.objectContaining({ dokId: 'ANX 2A' })] })])
     expect(p.ampel.propagation).toBe('wait')
+  })
+})
+
+describe('Abnahme N6: SBX-CALC-01 (Rechen- und Plausibilitätsprüfung)', () => {
+  it('jeder eingebaute Fehler wird erkannt, korrekte Tabellen und Angaben erzeugen keine Meldung; jeder Befund nennt die Werte', async () => {
+    const g = await dateiLesen({ name: SBX_CALC_01_NAME, daten: await sbxCalc01() }, { pdfjs: async () => { throw new Error('kein PDF') } }, {})
+    const p = dokumentPruefen({ dokId: 'c', dokName: 'SBX-CALC-01', dateiname: SBX_CALC_01_NAME, roh: g.roh, meta: g.meta }, { formal: false, word: false, rechnen: true })
+    const r = p.befunde.filter((b) => b.quelle === 'rechnen')
+    // „doppelt" fasst alle Doppelungen eines Dokuments in EINEM Befund zusammen
+    expect(r.map((b) => [b.pruefpunkt, b.fundstellen[0].auszug]).sort()).toEqual(SBX_CALC_01_FEHLER.map((f) => [f.punkt, f.auszug]).sort())
+    const text = (punkt: string) => r.filter((b) => b.pruefpunkt === punkt).map((b) => b.text)
+    expect(text('summen')).toEqual(['Table total does not match: sum of rows 24:00, stated 16:00.'])
+    expect(text('kumuliert')).toEqual(['Cumulative time does not add up: 0:20 + 0:30 = 0:50, stated 0:55.'])
+    expect(text('session')).toEqual(['Session timeline adds up to 2:00, but the session is stated as 4:00.'])
+    expect(text('einheiten')).toEqual(['Unit conversion does not match: 11930 lbs = 5411.4 kg, stated 5834 kg (tolerance 1 %).'])
+    expect(text('doppelt')).toEqual(['Repeated word or waypoint: "RUPET RUPET" (1×).'])
+    expect(p.ampel.rechnen).toEqual({ summen: 'bad', kumuliert: 'wait', session: 'wait', einheiten: 'wait', metar: 'wait', doppelt: 'wait' })
   })
 })

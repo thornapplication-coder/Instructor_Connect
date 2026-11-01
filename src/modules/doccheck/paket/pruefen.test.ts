@@ -55,7 +55,7 @@ describe('Revisionsstand und Hierarchie', () => {
   })
 
   it('Einzeldokument: Stand und Hierarchie nicht anwendbar, Geschwister auch nicht', () => {
-    expect(paketPruefen([m('TM', 1, 'x')]).ampel).toEqual({ liste: 'na', stand: 'na', hierarchie: 'na', geschwister: 'na', gegenfassung: 'na', propagation: 'na' })
+    expect(paketPruefen([m('TM', 1, 'x')]).ampel).toEqual({ liste: 'na', stand: 'na', hierarchie: 'na', geschwister: 'na', gegenfassung: 'na', propagation: 'na', verweise: 'na' })
   })
 })
 
@@ -122,3 +122,30 @@ describe('Geschwister (N2)', () => {
     expect(paketPruefen([m('X', 1, 'recieve')], [{ ref: '1', dokId: 'X', weg: 'recieve' }]).befunde).toEqual([])
   })
 })
+
+describe('Verweise zwischen Dokumenten (N7)', () => {
+  const tm = (text: string, x: Partial<Mitglied> = {}) => m('TM', 1, text, x)
+  it('Annex statt Appendix; fehlende Quelle zusammengefasst je Dokument; eigenes Dokument per Kürzel', () => {
+    const r = paketPruefen([
+      tm('See Annex 9.\nSee OMM 1.2 and OMM 3.4.\nSee TM 7.1.', { outline: [{ titel: '1 General' }] }),
+      m('APX 9', 2, '1 Intro', { outline: [{ titel: '1 Intro' }] }),
+    ])
+    const v = r.befunde.filter((b) => b.pruefpunkt === 'verweise')
+    expect(v.map((b) => [b.text.split(/[,:—]/)[0].trim(), b.verifizierung])).toEqual([
+      ['Reference to Annex 9', 'Verified (rule-based)'],
+      ['Reference to TM chapter 7.1', 'Verified (rule-based)'],
+      ['Reference to OMM cannot be verified', 'Not verifiable – source missing'],
+    ])
+    expect(v[2].fundstellen).toHaveLength(1)
+    expect(v[2].text).toContain('(2×)')
+  })
+
+  it('Ziel ohne erkennbare Gliederung: keine Aussage; Zirkel in EINEM Dokument meldet das Dokument selbst', () => {
+    expect(paketPruefen([tm('See APX 1, chapter 9.'), m('APX 1', 2, 'Freitext ohne Nummern')]).befunde).toEqual([])
+    const o = [{ titel: '1 A' }, { titel: '2 B' }]
+    const r = paketPruefen([tm('1 A\nSee TM chapter 2.\n2 B\nSee TM chapter 1.', { outline: o })])
+    expect(r.befunde).toEqual([])
+    expect(r.ampel.verweise).toBe('ok')
+  })
+})
+

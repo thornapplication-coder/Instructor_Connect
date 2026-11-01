@@ -35,7 +35,7 @@ export function DokListe({ rolle }: { rolle: Rolle }) {
 
   const annehmen = async (liste: FileList | null) => {
     if (!liste?.length) return
-    const { abgelehnt } = await hochladen([...liste], rolle, standardVerbindung(), undefined, { paaren: aktiv(docCheckSettings, 'pdfPairing'), pruefen: { formal: aktiv(docCheckSettings, 'formalCheck'), word: aktiv(docCheckSettings, 'wordCheck') } })
+    const { abgelehnt } = await hochladen([...liste], rolle, standardVerbindung(), undefined, { paaren: aktiv(docCheckSettings, 'pdfPairing'), pruefen: { formal: aktiv(docCheckSettings, 'formalCheck'), word: aktiv(docCheckSettings, 'wordCheck'), rechnen: aktiv(docCheckSettings, 'calcCheck') } })
     for (const a of abgelehnt) toast(t(`upload.abgelehnt.${a.grund}`, { name: a.name }), 'bad')
   }
 

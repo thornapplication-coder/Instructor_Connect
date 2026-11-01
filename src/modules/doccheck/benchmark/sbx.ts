@@ -275,8 +275,13 @@ const STILE_H = `<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w
   <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/></w:style>
   <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/></w:style>`
 
-function kapitelDocx(titel: string, kapitel: [string, number, string[]][]): Promise<Uint8Array> {
-  const inhalt = kapitel.map(([t, ebene, ps]) => absatz(lauf(t), `<w:pStyle w:val="Heading${ebene}"/>`) + ps.map((p) => absatz(lauf(p))).join('')).join('')
+/** Word-Tabelle aus Zeilen — liest sich im Seitentext als „Zelle | Zelle". */
+export function tabelle(zeilen: string[][]): { xml: string } {
+  return { xml: `<w:tbl><w:tblPr/>${zeilen.map((z) => `<w:tr>${z.map((c) => `<w:tc>${absatz(lauf(c))}</w:tc>`).join('')}</w:tr>`).join('')}</w:tbl>` }
+}
+
+function kapitelDocx(titel: string, kapitel: [string, number, (string | { xml: string })[]][]): Promise<Uint8Array> {
+  const inhalt = kapitel.map(([t, ebene, ps]) => absatz(lauf(t), `<w:pStyle w:val="Heading${ebene}"/>`) + ps.map((p) => (typeof p === 'string' ? absatz(lauf(p)) : p.xml)).join('')).join('')
   return docxPacken({
     dokument: absatz(lauf(titel)) + inhalt,
     stile: STILE_H,
@@ -303,6 +308,11 @@ export const SBX_PKG_01_FEHLER = [
   'Annex 2B: „PM" in der Single-Pilot-Fassung (Reste der Gegenfassung)',
   'Annex 2B: Sessiondauer 3 h statt 4 h wie in 2A (verdächtiger Unterschied)',
   'Annex 2B: „recieve" — in 2A korrigiert, hier nicht',
+  // N7 (Verweise zwischen Dokumenten)
+  'TM verweist auf APX 5, exercise 3.8.3.7 — die Übungsliste kennt nur 3.8.3.5 und 3.8.3.6',
+  'TM verweist auf APX 4, chapter 5 — APX 4 hat die Kapitel 1 und 2',
+  'Zirkelverweis TM 2.1 → APX 4 2 → TM 2.1 ohne Inhalt',
+  'TM verweist auf OMM 3.3.8 — OMM ist nicht im Paket (Not verifiable)',
 ] as const
 
 export async function sbxPkg01(): Promise<{ name: string; titel: string; kuerzel: string; daten: Uint8Array }[]> {
@@ -312,12 +322,23 @@ export async function sbxPkg01(): Promise<{ name: string; titel: string; kuerzel
     ['1.1 Training Records', 2, ['Training records are kept for 5 years. The authority requires: "Each check list shall be signed by the instructor."']],
     ['1.2 Appendices and Annexes', 2, ['Appendix 4 – Line Training', 'Appendix 5 – Skill Test', 'Appendix 6 – Operator Proficiency Check', 'Annex 2A – FFS Training MP', 'Annex 2B – FFS Training SP', 'Annex 3 – Ground School']],
     ['2 Simulator Training', 1, ['Each Revision of the syllabus is approved by the Head of Training. The Revsion history is kept with the manual.', 'FFS training: 16 hours']],
-    ['3 Assessment', 1, ['The instructor assesses the competency of the trainee. Threat management is briefed before each session.', 'Each trainee will receive the syllabus in advance.']],
+    // Zirkel (N7): 2.1 verweist nur auf APX 4 Kapitel 2, das nur hierher zurück
+    ['2.1 Line Check', 2, ['Refer to APX 4, chapter 2.']],
+    ['3 Assessment', 1, [
+      'The instructor assesses the competency of the trainee. Threat management is briefed before each session.',
+      'Each trainee will receive the syllabus in advance.',
+      'The skill test covers APX 5, exercise 3.8.3.7.',
+      'Line flying details are given in APX 4, chapter 5.',
+      'Simulator procedures follow OMM 3.3.8.',
+    ]],
   ])
   const apx = await kapitelDocx('SBX-PKG-01 Appendix 4 Line Training R0.1', [
     ['1 Line Training', 1, ['The call-out "rotate" is given by the PM. The IPT session is conducted before line training.', 'The a/c is prepared by the crew. Duration: TBD.']],
+    ['2 Line Check', 1, ['See TM chapter 2.1.']],
   ])
-  const apx5 = await kapitelDocx('SBX-PKG-01 Appendix 5 Skill Test R0.0', [['1 Skill Test', 1, ['The skill test is conducted in the full flight simulator.']]])
+  const apx5 = await kapitelDocx('SBX-PKG-01 Appendix 5 Skill Test R0.0', [
+    ['1 Skill Test', 1, ['The skill test is conducted in the full flight simulator.', 'Exercise reference list:', tabelle([['3.8.3.5', 'Steep turns'], ['3.8.3.6', 'Stall recovery']])]],
+  ])
   const gemeinsam = (v: 'MP' | 'SP'): [string, number, string[]][] => [
     ['1 Course Content', 1, [
       `FFS training: ${v === 'MP' ? 16 : 12} hours`,
@@ -453,4 +474,62 @@ export function sbxFl01(): Promise<Uint8Array> {
 <sst xmlns="${NS_MAIN}" count="${texte.length}" uniqueCount="${texte.length}">${texte.map((t) => `<si><t xml:space="preserve">${x(t)}</t></si>`).join('')}</sst>`)
   for (const f of Object.values(zip.files)) f.date = new Date(Date.UTC(2026, 0, 1))
   return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' })
+}
+
+/* ------------------------------ SBX-CALC-01 ------------------------------ */
+
+/**
+ * Rechen- und Plausibilitätsprüfung (Nachtrag N6, Abnahme Kap. 9): je ein
+ * Fehler pro Fall, dazu je ein korrektes Gegenstück, das KEINE Meldung
+ * erzeugen darf. Erwartet: `SBX_CALC_01_FEHLER`.
+ */
+export const SBX_CALC_01_NAME = 'SBX-CALC-01.docx'
+
+export const SBX_CALC_01_FEHLER: { punkt: 'summen' | 'kumuliert' | 'session' | 'einheiten' | 'metar' | 'doppelt'; auszug: string }[] = [
+  { punkt: 'summen', auszug: 'TOTAL | 16:00' }, // Module ergeben 24:00
+  { punkt: 'kumuliert', auszug: 'Taxi | 00:30 | 00:55' }, // 00:20 + 00:30 = 00:50
+  { punkt: 'session', auszug: 'FSTD session 4:00 h' }, // Blöcke ergeben 2:00
+  { punkt: 'einheiten', auszug: 'MTOW: 11930 lbs / 5834 kg.' }, // 11930 lbs = 5411 kg
+  { punkt: 'metar', auszug: 'METAR LOWW 121250Z 27010KT 0300 FG 15/04 VV002' }, // Nebel bei 11 °C Spread
+  { punkt: 'metar', auszug: 'METAR LOWW 121320Z 27010KT 0200 FG 03/02 VV200' }, // VV200 = 20 000 ft bei 200 m Sicht
+  { punkt: 'metar', auszug: 'METAR LOWW 121350Z 27010KT 3000 12/08 FEW030' }, // 3000 m ohne Wettererscheinung
+  { punkt: 'metar', auszug: 'METAR LOWW 121420Z 27010KT 9999 15/4 FEW030' }, // „15/4" nicht im ICAO-Format
+  { punkt: 'metar', auszug: 'METAR LOWW 121450Z 27010KT 9999 08/10 FEW030' }, // Taupunkt über Temperatur
+  { punkt: 'doppelt', auszug: 'Route: LOWW RUPET RUPET LOWI' },
+]
+
+export function sbxCalc01(): Promise<Uint8Array> {
+  return kapitelDocx('SBX-CALC-01 Calculation Test', [
+    ['1 Course Hours', 1, [
+      'Module overview:',
+      tabelle([['Module', 'Hours'], ['Module A', '08:00'], ['Module B', '08:00'], ['Module C', '08:00'], ['TOTAL', '16:00']]),
+      'Phase overview (correct):',
+      tabelle([['Phase', 'Hours'], ['WBT', '2:00'], ['CR', '3:00'], ['Total', '5:00']]),
+      'Decimal hours (correct):',
+      tabelle([['Item', 'h'], ['Theory', '1,5'], ['Practice', '2.5'], ['Total', '4']]),
+    ]],
+    ['2 Timeline', 1, [
+      'Departure timeline:',
+      tabelle([['Item', 'Duration', 'Cumulative'], ['Briefing', '00:20', '00:20'], ['Taxi', '00:30', '00:55'], ['Take-off', '00:10', '01:05']]),
+      'Arrival timeline (correct):',
+      tabelle([['Item', 'Duration', 'Cumulative'], ['Descent', '00:20', '00:20'], ['Approach', '00:15', '00:35']]),
+    ]],
+    ['3 Sessions', 1, [
+      'FSTD session 4:00 h',
+      tabelle([['Block', 'Duration'], ['Briefing', '0:30'], ['FSTD', '1:00'], ['Debriefing', '0:30']]),
+      'FFS session 2:00 h',
+      tabelle([['Block', 'Duration'], ['Briefing', '0:30'], ['FFS', '1:00'], ['Debriefing', '0:30']]),
+    ]],
+    ['4 Aircraft Data', 1, ['MTOW: 11930 lbs / 5834 kg.', 'MLW: 10000 lbs (4536 kg).', 'Cruise altitude 10000 ft (3048 m).', 'ISA +15 °C (59 °F).']],
+    ['5 Weather Scenarios', 1, [
+      'METAR LOWW 121250Z 27010KT 0300 FG 15/04 VV002',
+      'METAR LOWW 121320Z 27010KT 0200 FG 03/02 VV200',
+      'METAR LOWW 121350Z 27010KT 3000 12/08 FEW030',
+      'METAR LOWW 121420Z 27010KT 9999 15/4 FEW030',
+      'METAR LOWW 121450Z 27010KT 9999 08/10 FEW030',
+      'METAR LOWW 121520Z 27010KT 0400 FG 02/02 VV002',
+      'METAR LOWW 121550Z 27010KT 9999 FEW030 15/08',
+    ]],
+    ['6 Routes', 1, ['Route: LOWW RUPET RUPET LOWI', 'Alternate route: LOWW RUPET LOWI']],
+  ])
 }

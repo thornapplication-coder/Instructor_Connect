@@ -3,6 +3,8 @@ import type { DocPage } from '../parse/model'
 import { vergleichsform } from '../parse/seitenzuordnung'
 import { ampelAus, idsVergeben, type Ampel, type Befund, type Fundstelle } from '../pruefung/befund'
 import { dokForm } from '../recheck/fremdliste'
+import type { OutlineNode } from '../parse/model'
+import { abschnitte, kapitelNummern, kreise, nurVerweis, uebungsNummern, verweiseIn, vorhanden } from '../pruefung/verweise'
 
 /**
  * Paketweite Prüfungen (Nachtrag N1.2, N2): Anhangsliste, Revisionsstand,
@@ -22,6 +24,8 @@ export interface Mitglied {
   revision: string
   datum: string
   pages: DocPage[]
+  /** Gliederung — für Verweisziele und Zirkelverweise (N7) */
+  outline?: Pick<OutlineNode, 'titel'>[]
 }
 
 /** Eine Korrektur, die der Re-Check in einem Dokument bestätigt hat (Fix-Propagation, N2.1). */
@@ -42,7 +46,7 @@ export interface UebersichtZeile {
   abweichung: ('revision' | 'datum')[]
 }
 
-export const PAKET_PUNKTE = ['liste', 'stand', 'hierarchie', 'geschwister', 'gegenfassung', 'propagation'] as const
+export const PAKET_PUNKTE = ['liste', 'stand', 'hierarchie', 'geschwister', 'gegenfassung', 'propagation', 'verweise'] as const
 
 export interface PaketErgebnis {
   befunde: Befund[]
@@ -351,6 +355,83 @@ function propagationPruefen(alle: Mitglied[], korrekturen: Korrektur[]): Roh[] {
   return out
 }
 
+/* ------------------------ Verweise zwischen Dokumenten (N7) ------------------------ */
+
+/** APX ↔ ANX tauschen — „Annex 9" gemeint, „Appendix 9" vorhanden? */
+const getauscht = (f: string) => (f.startsWith('apx') ? `anx${f.slice(3)}` : f.startsWith('anx') ? `apx${f.slice(3)}` : null)
+
+/**
+ * Verweise auf ein ANDERES Dokument (N7): Ziel im Paket? Kapitel bzw. Übung
+ * dort vorhanden? Fehlt das Zieldokument, ist der Verweis „Not verifiable –
+ * source missing" (N11) — nicht falsch, nur nicht prüfbar. Interne
+ * Verweise prüft das Dokument selbst (Formalprüfung bzw. Übungen/Zirkel).
+ */
+export function verweisePruefen(alle: Mitglied[]): { befunde: Roh[]; gefunden: boolean } {
+  const ziel = (dok: string) => alle.find((x) => dokForm(x.kuerzel) === dokForm(dok))
+  const ziele = new Map(alle.map((m) => [m.id, { kap: kapitelNummern(m.pages, m.outline ?? []), ueb: uebungsNummern(m.pages) }]))
+  const out: Roh[] = []
+  const fehlend = new Map<string, { m: Mitglied; dok: string; fs: Fundstelle[]; n: number }>()
+  let gefunden = false
+  for (const m of alle) {
+    for (const a of absaetze(m)) {
+      // Einträge der Anhangsliste prüft die Listenprüfung (N1.2)
+      if (LISTE.test(a.text)) continue
+      for (const v of verweiseIn(a.text, a.seite)) {
+        if (!v.dok) continue
+        gefunden = true
+        const t = ziel(v.dok)
+        if (!t) {
+          const tausch = getauscht(dokForm(v.dok))
+          const anders = tausch ? alle.find((x) => dokForm(x.kuerzel) === tausch) : undefined
+          if (anders) {
+            out.push(befund(m, { pruefpunkt: 'verweise', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Reference to ${v.dok}, but the package contains ${name(anders)} and no ${v.dok}. Annex and Appendix mixed up?`, fundstellen: [{ seite: a.seite, auszug: a.text }], weitere: [{ dokId: anders.id, dokName: anders.dokName }] }))
+            continue
+          }
+          const key = `${m.id}|${dokForm(v.dok)}`
+          if (!fehlend.has(key)) fehlend.set(key, { m, dok: v.dok, fs: [], n: 0 })
+          const f = fehlend.get(key)!
+          f.n++
+          // Zwei Verweise in derselben Zeile sind EINE Fundstelle
+          if (!f.fs.some((x) => x.auszug === a.text && x.seite === a.seite)) f.fs.push({ seite: a.seite, auszug: a.text })
+          continue
+        }
+        if (!v.nummer) continue
+        const z = ziele.get(t.id)!
+        if (vorhanden(v.nummer, z.kap, z.ueb)) continue
+        // Ohne erkennbare Gliederung im Ziel lässt sich nichts sagen
+        if (!z.kap.size && !z.ueb.size) continue
+        const was = v.uebung ? 'exercise' : 'chapter'
+        out.push(befund(m, { pruefpunkt: 'verweise', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Reference to ${name(t)} ${was} ${v.nummer} — no such ${was} in ${name(t)}.`, fundstellen: [{ seite: a.seite, auszug: a.text }], weitere: [{ dokId: t.id, dokName: t.dokName }] }))
+      }
+    }
+  }
+  for (const { m, dok, fs, n } of fehlend.values()) {
+    out.push({ ...befund(m, { pruefpunkt: 'verweise', kategorie: 'Document Control', prioritaet: 'Low', text: `Reference to ${dok} cannot be verified: ${dok} is not part of the package (${n}×). Add it to the package or the library.`, fundstellen: fs.slice(0, 5) }), verifizierung: 'Not verifiable – source missing' })
+  }
+
+  // Zirkel über Dokumentgrenzen (A → B → A ohne Inhalt); Zirkel in EINEM Dokument meldet dieses selbst
+  const kanten = new Map<string, string>()
+  const text = new Map<string, string>()
+  for (const m of alle) {
+    for (const ab of abschnitte(m.pages, m.outline ?? [])) {
+      const v = nurVerweis(ab)
+      if (!v) continue
+      const t = v.dok ? ziel(v.dok) : m
+      if (!t) continue
+      kanten.set(`${m.id}|${ab.nummer}`, `${t.id}|${v.nummer}`)
+      text.set(`${m.id}|${ab.nummer}`, ab.text.trim())
+    }
+  }
+  for (const kreis of kreise(kanten)) {
+    const docs = [...new Set(kreis.map((k) => k.split('|')[0]))]
+    if (docs.length < 2) continue
+    const zeigen = (k: string) => `${name(alle.find((x) => x.id === k.split('|')[0])!)} ${k.split('|')[1]}`
+    const erstes = alle.find((x) => x.id === docs[0])!
+    out.push(befund(erstes, { pruefpunkt: 'verweise', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Circular reference without content: ${[...kreis, kreis[0]].map(zeigen).join(' → ')}.`, fundstellen: kreis.filter((k) => k.startsWith(`${erstes.id}|`)).map((k) => ({ ort: k.split('|')[1], auszug: text.get(k) ?? '' })), weitere: docs.slice(1).map((id) => ({ dokId: id, dokName: alle.find((x) => x.id === id)!.dokName })) }))
+  }
+  return { befunde: out, gefunden }
+}
+
 /* ------------------------------- Gesamt -------------------------------- */
 
 export function paketPruefen(alle: Mitglied[], korrekturen: Korrektur[] = [], regeln: Regeln = GESCHWISTER_REGELN): PaketErgebnis {
@@ -363,7 +444,8 @@ export function paketPruefen(alle: Mitglied[], korrekturen: Korrektur[] = [], re
   // maßgebliche Quelle; der Geschwisterabgleich wüsste nur „unterschiedlich".
   const schon = new Set(hierarchie.flatMap((b) => b.fundstellen.map((f) => `${b.dokId}|${f.auszug}`)))
   const geschwister = geschwisterPruefen(alle, regeln).filter((b) => !b.fundstellen.some((f) => schon.has(`${b.dokId}|${f.auszug}`)))
-  const roh = [...liste, ...standPruefen(alle, zeilen), ...hierarchie, ...geschwister, ...propagationPruefen(alle, korrekturen)]
+  const verweise = verweisePruefen(alle)
+  const roh = [...liste, ...standPruefen(alle, zeilen), ...hierarchie, ...geschwister, ...propagationPruefen(alle, korrekturen), ...verweise.befunde]
   const befunde = idsVergeben(roh)
   const hatGruppe = [...new Set(alle.map((m) => m.gruppe).filter(Boolean))].some((g) => alle.filter((m) => m.gruppe === g).length > 1)
   const na: string[] = []
@@ -372,6 +454,7 @@ export function paketPruefen(alle: Mitglied[], korrekturen: Korrektur[] = [], re
   if (!hatGruppe) na.push('geschwister', 'gegenfassung', 'propagation')
   else if (!alle.some((m) => m.gruppe && gruppenTyp(alle.filter((x) => x.gruppe === m.gruppe).map((x) => x.variante), regeln))) na.push('gegenfassung')
   if (!korrekturen.length && !na.includes('propagation')) na.push('propagation')
+  if (!verweise.gefunden) na.push('verweise')
   return { befunde, uebersicht: zeilen, ampel: ampelAus([...PAKET_PUNKTE], befunde, na) }
 }
 

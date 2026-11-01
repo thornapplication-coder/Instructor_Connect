@@ -47,6 +47,8 @@ export type DocCheckFeature =
   | 'recheck'
   /** Nachtrag v1.2 Kap. 17 — Dokumentpaket und Geschwistergruppen (N1, N2) */
   | 'packageCheck'
+  /** Nachtrag v1.2 Kap. 17 — Rechen- und Plausibilitätsprüfung (N6) */
+  | 'calcCheck'
 
 /** Preise je Million Tokens in USD. `null` = vom Superadmin noch nicht
  *  gepflegt — dann gibt es keine Kostenschätzung, statt einer erfundenen. */

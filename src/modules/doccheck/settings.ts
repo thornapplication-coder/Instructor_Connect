@@ -23,6 +23,7 @@ export const FEATURES: DocCheckFeature[] = [
   'wordCheck',
   'recheck',
   'packageCheck',
+  'calcCheck',
 ]
 
 const OHNE_PREIS = { input: null, output: null, cacheRead: null, cacheWrite: null }

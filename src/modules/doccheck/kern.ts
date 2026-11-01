@@ -60,7 +60,7 @@ export interface LeseAuftrag {
   vorgabe?: Rechtscharakter
   bestand?: Vergleichsdokument[]
   /** Regelbasierte Prüfungen nach dem Einlesen (nur Prüfdokumente, Spez. 8.8) */
-  pruefen?: { formal: boolean; word: boolean }
+  pruefen?: { formal: boolean; word: boolean; rechnen?: boolean }
 }
 
 function zusammenfassen(id: string, roh: Rohdokument, sha256: string, meta: ErkannteMeta, duplikat: Duplikat, pdfPaar?: Zusammenfassung['pdfPaar']): Zusammenfassung {
@@ -103,7 +103,7 @@ export class Kern {
   private fassen(id: string): Zusammenfassung {
     const d = this.docs.get(id)!
     const z = zusammenfassen(id, d.roh, d.sha256, d.meta, d.duplikat, d.pdfPaar)
-    if (d.pruefen && (d.pruefen.formal || d.pruefen.word || this.referenzen.length)) {
+    if (d.pruefen && (d.pruefen.formal || d.pruefen.word || d.pruefen.rechnen || this.referenzen.length)) {
       z.pruefung = dokumentPruefen({ dokId: id, dokName: d.titel, dateiname: d.name, roh: d.roh, meta: d.meta }, d.pruefen, REGELN, this.referenzen)
     }
     return z
@@ -245,7 +245,7 @@ export class Kern {
    * Texte aus dem Speicher des Workers. Unbekannte IDs fallen weg.
    */
   paketPruefen(struktur: Omit<Mitglied, 'pages'>[], korrekturen: Korrektur[] = []): PaketErgebnis {
-    const alle = struktur.filter((s) => this.docs.has(s.id)).map((s) => ({ ...s, pages: this.docs.get(s.id)!.roh.pages }))
+    const alle = struktur.filter((s) => this.docs.has(s.id)).map((s) => ({ ...s, pages: this.docs.get(s.id)!.roh.pages, outline: this.docs.get(s.id)!.roh.outline }))
     return paketPruefen(alle, korrekturen)
   }
 

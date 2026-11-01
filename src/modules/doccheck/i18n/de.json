@@ -211,7 +211,8 @@
     "pdfPairing": "Word-PDF-Paar (Seitenangaben)",
     "wordCheck": "Word-Check und Sprache",
     "recheck": "Re-Check externer Findinglisten",
-    "packageCheck": "Dokumentpaket und Geschwister"
+    "packageCheck": "Dokumentpaket und Geschwister",
+    "calcCheck": "Rechen- und Plausibilitätsprüfung"
   },
   "auditAction": {
     "zugang": "DocCheck access",
@@ -379,7 +380,16 @@
     "hierarchie": "Hierarchie",
     "geschwister": "Geschwisterabgleich",
     "gegenfassung": "Reste der Gegenfassung",
-    "propagation": "Fix-Propagation"
+    "propagation": "Fix-Propagation",
+    "summen": "Tabellensummen",
+    "kumuliert": "Kumulierte Zeiten",
+    "session": "Sessiondauer",
+    "einheiten": "Einheiten",
+    "metar": "Wetterangaben",
+    "doppelt": "Doppelte Wörter",
+    "uebung": "Übungsnummern",
+    "zirkel": "Zirkelverweise",
+    "verweise": "Verweise zwischen Dokumenten"
   },
   "anleitung": {
     "unsichtbar": "In Word: Datei → Informationen → Auf Probleme überprüfen → Dokument prüfen → „Ausgeblendeter Text“ entfernen. Weiße Schrift: Text markieren, Schriftfarbe auf „Automatisch“ setzen und Inhalt prüfen, bevor er gelöscht wird.",
@@ -429,7 +439,9 @@
     },
     "referenz": "Referenzlisten (Soll)",
     "paket": "Paket",
-    "paketPunkte": "Paketprüfung"
+    "paketPunkte": "Paketprüfung",
+    "rechnen": "Rechenprüfung",
+    "verweis": "Verweise"
   },
   "prio": {
     "High": "Hoch",
@@ -449,10 +461,13 @@
     "word": "Word-Check",
     "sprache": "Sprache/Platzhalter",
     "referenz": "Referenzlisten",
-    "paket": "Paket"
+    "paket": "Paket",
+    "rechnen": "Rechenprüfung",
+    "verweis": "Verweise"
   },
   "verifizierung": {
-    "regel": "Verifiziert (regelbasiert)"
+    "regel": "Verifiziert (regelbasiert)",
+    "quelleFehlt": "Nicht prüfbar – Quelle fehlt"
   },
   "pruefungKurz": {
     "titel": "Prüfung",

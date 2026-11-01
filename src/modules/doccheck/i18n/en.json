@@ -211,7 +211,8 @@
     "pdfPairing": "Word PDF pairing (page numbers)",
     "wordCheck": "Word check and language",
     "recheck": "Re-check of external finding lists",
-    "packageCheck": "Document package and siblings"
+    "packageCheck": "Document package and siblings",
+    "calcCheck": "Calculation and plausibility check"
   },
   "auditAction": {
     "zugang": "DocCheck access",
@@ -379,7 +380,16 @@
     "hierarchie": "Hierarchy",
     "geschwister": "Sibling comparison",
     "gegenfassung": "Other-version residue",
-    "propagation": "Fix propagation"
+    "propagation": "Fix propagation",
+    "summen": "Table totals",
+    "kumuliert": "Cumulative times",
+    "session": "Session duration",
+    "einheiten": "Units",
+    "metar": "Weather data",
+    "doppelt": "Repeated words",
+    "uebung": "Exercise numbers",
+    "zirkel": "Circular references",
+    "verweise": "Cross-document references"
   },
   "anleitung": {
     "unsichtbar": "In Word: File → Info → Check for Issues → Inspect Document → remove “Hidden text”. White font: select text, set font colour to “Automatic” and review the content before deleting it.",
@@ -429,7 +439,9 @@
     },
     "referenz": "Reference lists",
     "paket": "Package",
-    "paketPunkte": "Package check"
+    "paketPunkte": "Package check",
+    "rechnen": "Calculation check",
+    "verweis": "References"
   },
   "prio": {
     "High": "High",
@@ -449,10 +461,13 @@
     "word": "Word check",
     "sprache": "Language/placeholders",
     "referenz": "Reference lists",
-    "paket": "Package"
+    "paket": "Package",
+    "rechnen": "Calculation check",
+    "verweis": "References"
   },
   "verifizierung": {
-    "regel": "Verified (rule-based)"
+    "regel": "Verified (rule-based)",
+    "quelleFehlt": "Not verifiable – source missing"
   },
   "pruefungKurz": {
     "titel": "Check",

@@ -843,3 +843,27 @@ Einlesen jedes Prüfdokuments und erneut nach OCR oder Word-PDF-Paar.
 - Noch nicht enthalten: Vergleich gemeinsamer Textbausteine
   (Approval-Block, Adresse) und die Ausnahme der Hierarchieregel, wenn das
   höhere Dokument selbst regelwidrig ist (braucht die Bibliothek).
+
+## 1.15.0 — 2026-11-01
+
+- **DocCheck: Rechen- und Plausibilitätsprüfung (Nachtrag N6).** Schalter
+  `calcCheck` (ab Werk an). Prüfpunkte: Tabellensummen (TOTAL gegen die
+  Zeilen, H:MM und Dezimal), kumulierte Zeitleisten, Sessiondauer gegen die
+  Zeitblöcke, Einheitenumrechnung (lbs/kg, ft/m, kt/km/h, NM/km, °C/°F,
+  Toleranz 1 %), METAR-Plausibilität (Format, Taupunkt, Nebel/Spread,
+  Sicht ohne Wettererscheinung, Vertikalsicht), doppelte Wörter und
+  Wegpunkte. Jeder Befund nennt die gerechneten Werte.
+- **DocCheck: Verweise (Nachtrag N7).** Je Dokument: Übungsnummern gegen die
+  Referenzliste, Zirkelverweise ohne Inhalt. Im Paket: Verweise auf andere
+  Dokumente (Kapitel bzw. Übung vorhanden?), „Annex" statt „Appendix",
+  Zirkel über Dokumentgrenzen; fehlt das Ziel (z. B. OMM), lautet die
+  Verifizierung „Not verifiable – source missing".
+- Findings: Ampelzeilen „Rechenprüfung" und „Verweise", Filter je Quelle;
+  die Verifizierungsspalte zeigt „Nicht prüfbar – Quelle fehlt" statt
+  pauschal „verifiziert".
+- **Abnahmen:** `SBX-CALC-01` (alle eingebauten Rechenfehler gefunden,
+  korrekte Gegenstücke ohne Meldung); `SBX-PKG-01` um Verweisfehler
+  (nicht existierende Übung, falsches Kapitel, Zirkel) und eine fehlende
+  Quelle erweitert — alle gefunden, der gültige Verweis nicht gemeldet.
+- Bewusst nicht doppelt: Interne Kapitelverweise bleiben bei der
+  Formalprüfung. Ob ein Verweisziel inhaltlich passt, prüft erst die KI.

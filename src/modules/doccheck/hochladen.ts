@@ -67,7 +67,7 @@ export async function hochladen(
   rolle: Rolle,
   v: Pick<Verbindung, 'lesen' | 'titel'> & Partial<Pick<Verbindung, 'paaren' | 'beiOcr'>>,
   jetzt: () => number = () => Date.now(),
-  opts: { paaren?: boolean; pruefen?: { formal: boolean; word: boolean } } = {},
+  opts: { paaren?: boolean; pruefen?: { formal: boolean; word: boolean; rechnen?: boolean } } = {},
 ): Promise<{ abgelehnt: { name: string; grund: 'format' | 'groesse' }[] }> {
   const abgelehnt: { name: string; grund: 'format' | 'groesse' }[] = []
   const laeufe: Promise<void>[] = []
@@ -105,7 +105,7 @@ export async function hochladen(
               bestand: [...bibliotheksVergleich(), ...sitzungsVergleich()],
               // Geprüft werden nur Prüfdokumente — ein Sitzungs-Master ist
               // Referenz, kein Gegenstand der Einreichung.
-              ...(rolle === 'review' ? { pruefen: opts.pruefen ?? { formal: true, word: true } } : {}),
+              ...(rolle === 'review' ? { pruefen: opts.pruefen ?? { formal: true, word: true, rechnen: true } } : {}),
             },
             (seite, gesamt) => {
               const t = jetzt()
