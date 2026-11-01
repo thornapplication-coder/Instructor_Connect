@@ -42,8 +42,10 @@ Twilio oder Kosten. Der Anwendungszustand wird im Browser gespeichert und
   jeder ausschließlich ins eigene.
 - **DocCheck** — Prüfung eigener Dokumente (OM, TM, PLM, CMM, Formulare)
   gegen OEM-Handbücher und EASA-Regelwerk vor der Einreichung. Derzeit
-  Phase 1a: Kachel, Rechte, Oberfläche, Bibliotheksbestand und simulierte
-  KI in der Sandbox; Parser, Prüf-Engine und Exporte folgen. Nur für
+  Phase 2: Kachel, Rechte, Oberfläche, Dokumente einlesen (PDF, DOCX,
+  XLSX, OCR), Metadaten-Erkennung, Duplikat-Warnung, Suche und Viewer —
+  alles im Browser, nichts gespeichert. Bibliothek, Prüf-Engine und Exporte
+  folgen. Nur für
   freigeschaltete Nutzer (Admin Panel → Berechtigungen → DocCheck). Code
   unter `src/modules/doccheck/`, wird erst beim Öffnen geladen.
 - **Admin Panel** — Benutzer, Rechte-Matrix, Grading-Konfiguration, Chats,

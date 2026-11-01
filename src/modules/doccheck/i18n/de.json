@@ -3,8 +3,15 @@
   "model": "Modell",
   "fallbackShort": "Ausweich",
   "noAccess": "Kein Zugriff auf DocCheck. Die Berechtigung vergibt der Superadmin.",
-  "status": { "library": "Bibliothek", "ai": "KI", "sandbox": "Sandbox", "simulated": "simuliert" },
-  "footer": { "phase": "Phase 1a (Sandbox)" },
+  "status": {
+    "library": "Bibliothek",
+    "ai": "KI",
+    "sandbox": "Sandbox",
+    "simulated": "simuliert"
+  },
+  "footer": {
+    "phase": "Phase 2 (Sandbox)"
+  },
   "notice": {
     "title": "Hinweis zu DocCheck",
     "body1": "Prüf- und Sitzungsdokumente werden nur in diesem Browser verarbeitet und nie gespeichert. Für eine Prüfung gehen nur Auszüge über den DocCheck-Proxy an die KI.",
@@ -12,12 +19,23 @@
     "sandbox": "Sandbox: Die Bibliothek ist synthetisch, KI-Aufrufe sind simuliert und kosten nichts.",
     "ok": "Verstanden"
   },
-  "tabs": { "pruefung": "Prüfung", "findings": "Findings", "chat": "Chat", "revisionen": "Revisionen", "export": "Export", "verwalten": "Bibliothek verwalten", "admin": "Administration" },
-  "cols": { "review": "Prüfdokumente", "library": "Master-Bibliothek", "session": "Sitzungsdokumente" },
+  "tabs": {
+    "pruefung": "Prüfung",
+    "findings": "Findings",
+    "chat": "Chat",
+    "revisionen": "Revisionen",
+    "export": "Export",
+    "verwalten": "Bibliothek verwalten",
+    "admin": "Administration"
+  },
+  "cols": {
+    "review": "Prüfdokumente",
+    "library": "Master-Bibliothek",
+    "session": "Sitzungsdokumente"
+  },
   "review": {
     "drop": "Prüfdokument hierher ziehen (PDF, DOCX, XLSX)",
-    "hint": "Nach dem Einlesen läuft automatisch die Formalprüfung. Die Dokumente bleiben nur im Arbeitsspeicher dieses Tabs.",
-    "types": { "OM": "Operations Manual (OM)", "TM": "Training Manual (TM)", "PLM": "Pilot Learning Manual (PLM)", "CMM": "Compliance Monitoring Manual (CMM)", "FORM": "Formular / Checkliste", "OTHER": "Sonstiges" }
+    "hint": "Nach dem Einlesen läuft automatisch die Formalprüfung (Phase 8). Die Dokumente bleiben nur im Arbeitsspeicher dieses Tabs."
   },
   "library": {
     "use": "Für diese Prüfung verwenden",
@@ -27,7 +45,13 @@
     "readonlyShort": "nur lesen",
     "selectionHint": "{{n}} für diese Prüfung ausgewählt · wirkt nur in deiner Sitzung"
   },
-  "legal": { "oem": "OEM", "ir": "Implementing Rule", "amc": "AMC", "gm": "GM", "intern": "intern" },
+  "legal": {
+    "oem": "OEM",
+    "ir": "Implementing Rule",
+    "amc": "AMC",
+    "gm": "GM",
+    "intern": "intern"
+  },
   "session": {
     "badge": "Sitzung – nicht freigegeben",
     "drop": "Zusätzliches Master-Dokument nur für diese Sitzung",
@@ -55,11 +79,24 @@
     "formalAus": "Die Formalprüfung ist vom Superadmin abgeschaltet."
   },
   "findings": {
-    "prio": { "high": "Hoch", "med": "Mittel", "low": "Niedrig" },
+    "prio": {
+      "high": "Hoch",
+      "med": "Mittel",
+      "low": "Niedrig"
+    },
     "verified": "Verified",
     "partial": "Verified (partial)",
     "toVerify": "To verify",
-    "col": { "id": "ID", "doc": "Dokument", "page": "Seite", "category": "Kategorie", "priority": "Priorität", "finding": "Befund", "status": "Status", "verification": "Verifizierung" },
+    "col": {
+      "id": "ID",
+      "doc": "Dokument",
+      "page": "Seite",
+      "category": "Kategorie",
+      "priority": "Priorität",
+      "finding": "Befund",
+      "status": "Status",
+      "verification": "Verifizierung"
+    },
     "empty": "Noch keine Befunde. Sie entstehen mit dem ersten Prüflauf."
   },
   "chat": {
@@ -75,10 +112,14 @@
     "dokumente": "Der Revisionsverlauf geprüfter Dokumente erscheint hier, sobald ein Prüfstand geladen ist."
   },
   "export": {
-    "excel": "Excel", "excelHint": "Projektformat, 4 Blätter",
-    "word": "Word", "wordHint": "Vollständiger Prüfbericht",
-    "csv": "CSV", "csvHint": "Befundliste",
-    "pptx": "PowerPoint", "pptxHint": "Kurzbriefing, ca. 8 Folien",
+    "excel": "Excel",
+    "excelHint": "Projektformat, 4 Blätter",
+    "word": "Word",
+    "wordHint": "Vollständiger Prüfbericht",
+    "csv": "CSV",
+    "csvHint": "Befundliste",
+    "pptx": "PowerPoint",
+    "pptxHint": "Kurzbriefing, ca. 8 Folien",
     "off": "vom Superadmin abgeschaltet",
     "zip": "Alle Formate (ZIP)",
     "save": "Prüfstand speichern",
@@ -88,7 +129,12 @@
   "verwalten": {
     "neu": "Neues Dokument veröffentlichen",
     "revision": "Neue Revision hochladen (alte wird archiviert)",
-    "col": { "doc": "Dokument", "collection": "Sammlung", "status": "Status", "reminder": "Revisionserinnerung" },
+    "col": {
+      "doc": "Dokument",
+      "collection": "Sammlung",
+      "status": "Status",
+      "reminder": "Revisionserinnerung"
+    },
     "aktiv": "aktiv",
     "archiviert": "archiviert",
     "faellig": "fällig seit {{datum}}",
@@ -143,7 +189,13 @@
     "exportCsv": "Export CSV",
     "exportPptx": "Export PowerPoint"
   },
-  "auditAction": { "zugang": "DocCheck access", "admin": "DocCheck admin", "feature": "Feature-Schalter", "einstellung": "Einstellung", "standBestaetigt": "Stand bestätigt" },
+  "auditAction": {
+    "zugang": "DocCheck access",
+    "admin": "DocCheck admin",
+    "feature": "Feature-Schalter",
+    "einstellung": "Einstellung",
+    "standBestaetigt": "Stand bestätigt"
+  },
   "mobile": {
     "desktopOnly": "Prüfungen und Bibliothekspflege am Desktop oder Laptop",
     "bibliothek": "Bibliothek",
@@ -153,5 +205,103 @@
     "startOnDesktop": "Nachprüfung am Desktop starten",
     "openState": "Prüfstand-Datei (.doccheck.json) öffnen, Befunde ansehen und exportieren.",
     "chatLimit": "Fragen-Chat gegen ausgewählte Bibliotheksdokumente, höchstens 3 000 Seiten gleichzeitig."
+  },
+  "upload": {
+    "formate": "PDF, DOCX, XLSX · bis 500 MB · auch per Drag & Drop",
+    "abgelehnt": {
+      "format": "{{name}}: Format nicht unterstützt (PDF, DOCX, XLSX)",
+      "groesse": "{{name}}: größer als 500 MB"
+    },
+    "erkannt": "erkannt",
+    "entfernen": "{{name}} entfernen",
+    "seiteVon": "Seite {{seite}} von {{gesamt}}",
+    "startet": "wird gelesen …",
+    "abbrechen": "Abbrechen",
+    "lenkung": "Änderungen: {{aenderungen}} · Kommentare: {{kommentare}} · Revisionsbalken: {{revisionsbalken}}",
+    "duplikat": {
+      "identisch": "Identisch mit {{mit}} ({{wo}})",
+      "gleicheRevision": "Gleiche Nummer und Revision wie {{mit}} ({{wo}}), aber anderer Inhalt"
+    },
+    "herkunft": {
+      "library": "Bibliothek",
+      "session": "Sitzung",
+      "review": "Prüfdokument"
+    },
+    "typ": "Typ",
+    "titel": "Titel",
+    "nummer": "Dokumentnummer",
+    "revision": "Revision",
+    "pflicht": "Revision ist Pflicht.",
+    "datum": "Datum",
+    "rang": "Rang (nur Sitzung)",
+    "ansehen": "Ansehen",
+    "bestaetigen": "Erkanntes bestätigen",
+    "info_one": "{{count}} Seite",
+    "info_other": "{{count}} Seiten",
+    "ocrSeiten_one": "{{count}} per OCR",
+    "ocrSeiten_other": "{{count}} per OCR",
+    "tabellen_one": "{{count}} Tabelle",
+    "tabellen_other": "{{count}} Tabellen"
+  },
+  "typen": {
+    "OM": "Operations Manual (OM)",
+    "TM": "Training Manual (TM)",
+    "PLM": "Pilot Learning Manual (PLM)",
+    "CMM": "Compliance Monitoring Manual (CMM)",
+    "FORM": "Formular / Checkliste",
+    "OTHER": "Sonstiges",
+    "AFM": "AFM",
+    "QRH": "QRH",
+    "POH": "POH",
+    "SOP": "SOP",
+    "AVIONICS": "Avionik-Guide",
+    "SUPPLEMENT": "Supplement",
+    "IR": "Implementing Rule",
+    "AMC": "AMC",
+    "GM": "GM"
+  },
+  "fehler": {
+    "DC-PARSE": "Datei konnte nicht gelesen werden.",
+    "DC-FORMAT": "Format nicht erkannt — PDF, DOCX oder XLSX?",
+    "DC-PDF-PASSWORD": "PDF ist passwortgeschützt.",
+    "DC-PDF-INVALID": "PDF ist beschädigt oder unvollständig.",
+    "DC-DOCX-INVALID": "Word-Datei ist unvollständig.",
+    "DC-XLSX-INVALID": "Excel-Datei ist unvollständig."
+  },
+  "ocr": {
+    "laeuft": "Texterkennung: {{fertig}} von {{gesamt}} Seiten …",
+    "starten": "Texterkennung starten",
+    "fehler": "Texterkennung fehlgeschlagen.",
+    "frage_one": "1 Seite hat keine Textebene (Scan). Texterkennung starten? Dauert einige Sekunden.",
+    "frage_other": "{{count}} Seiten haben keine Textebene (Scan). Texterkennung starten? Dauert einige Sekunden je Seite.",
+    "fertig_one": "Texterkennung abgeschlossen: 1 Seite",
+    "fertig_other": "Texterkennung abgeschlossen: {{count}} Seiten"
+  },
+  "viewer": {
+    "titel": "Dokument ansehen",
+    "zurueck": "Vorige Seite",
+    "weiter": "Nächste Seite",
+    "seite": "Seite {{seite}} / {{gesamt}}",
+    "kleiner": "Verkleinern",
+    "groesser": "Vergrößern",
+    "schliessen": "Schließen",
+    "fehler": "Seite konnte nicht angezeigt werden.",
+    "leer": "(Seite ohne Text)"
+  },
+  "suche": {
+    "titel": "Suche in geladenen Dokumenten",
+    "platzhalter": "z. B. BATT 1 OFF BUS, AMC1 ORA.ATO.230, 155 KIAS",
+    "los": "Suchen",
+    "keineDokumente": "Erst ein Prüf- oder Sitzungsdokument hochladen.",
+    "pdfSeite": "Seite {{n}}",
+    "exakt": "exakt",
+    "hinweis_one": "Durchsucht 1 geladenes Dokument. CAS-Meldungen, Zahlen mit Einheit und Regel-IDs werden exakt gesucht. Die Bibliothek kommt mit Phase 3 dazu.",
+    "hinweis_other": "Durchsucht {{count}} geladene Dokumente. CAS-Meldungen, Zahlen mit Einheit und Regel-IDs werden exakt gesucht. Die Bibliothek kommt mit Phase 3 dazu.",
+    "ergebnis_one": "1 Treffer für „{{q}}“",
+    "ergebnis_other": "{{count}} Treffer für „{{q}}“",
+    "herkunft": {
+      "review": "Prüfdokument",
+      "master": "Sitzung"
+    }
   }
 }

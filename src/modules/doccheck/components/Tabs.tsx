@@ -9,6 +9,8 @@ import { darf } from '../access'
 import { erinnerungAb, faelligeErinnerungen, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EMPFEHLUNGEN, SANDBOX_SAMMLUNGEN, SANDBOX_STAENDE } from '../library'
 import { aktiv, preiseVollstaendig } from '../settings'
 import { Dropzone, Phase } from './Panels'
+import { Suche } from './Suche'
+import { useSitzung } from '../sitzung'
 
 /* ------------------------------ Prüfung ------------------------------ */
 
@@ -16,7 +18,8 @@ export function PruefungTab({ modell }: { modell: string }) {
   const { t } = useTranslation('doccheck')
   const { t: tApp } = useTranslation()
   const { currentUser, docCheckSettings } = useStore()
-  const [arten, setArten] = useState({ technik: true, regulatorik: true, redaktion: true, konsistenz: false })
+  const [arten, setArten] = useState({ technik: true, regulatorik: true, redaktion: true, konsistenz: true })
+  const pruefDocs = useSitzung().docs.filter((d) => d.rolle === 'review' && d.status === 'fertig').length
   const [art, setArt] = useState<'erst' | 'revision'>('erst')
   const [funktion, setFunktion] = useState(() => tApp(`roles.${currentUser!.role}`))
   const m = docCheckSettings.modelle.find((x) => x.id === modell)
@@ -26,13 +29,13 @@ export function PruefungTab({ modell }: { modell: string }) {
         <div className="grid gap-tight sm:grid-cols-2">
           {(['technik', 'regulatorik', 'redaktion', 'konsistenz'] as const).map((k) => {
             // Konsistenz braucht mindestens zwei Pruefdokumente (Spez. 6.2).
-            const gesperrt = k === 'konsistenz'
+            const gesperrt = k === 'konsistenz' && pruefDocs < 2
             return (
               <label key={k} className={`flex min-h-11 items-center gap-2.5 rounded-xl border border-line/10 px-3 py-2 text-small ${gesperrt ? 'opacity-60' : 'cursor-pointer'}`}>
                 <input
                   type="checkbox"
                   className="h-5 w-5 accent-accent"
-                  checked={arten[k]}
+                  checked={arten[k] && !gesperrt}
                   disabled={gesperrt}
                   onChange={(e) => setArten({ ...arten, [k]: e.target.checked })}
                 />
@@ -147,15 +150,15 @@ export function ChatTab() {
   const { docCheckSettings } = useStore()
   if (!aktiv(docCheckSettings, 'chat')) return <p className="py-major text-center text-small text-dim">{t('chat.off')}</p>
   return (
-    <div className="space-y-stack">
-      <div className="flex min-h-[12rem] flex-col items-center justify-center gap-tight rounded-2xl border border-line/10 bg-bg/40 p-section text-center text-small text-dim">
+    <div className="space-y-section">
+      <div className="space-y-stack">
+        <CardHeading>{t('suche.titel')}</CardHeading>
+        <Suche />
+      </div>
+      <div className="flex flex-col items-center justify-center gap-tight rounded-2xl border border-line/10 bg-bg/40 p-section text-center text-small text-dim">
         <MessageSquareText size={26} aria-hidden />
         <p className="max-w-md">{t('chat.hint')}</p>
         <Phase n={7} />
-      </div>
-      <div className="flex gap-2">
-        <input className={inputCls} disabled placeholder={t('chat.placeholder')} />
-        <Button disabled>{t('chat.send')}</Button>
       </div>
     </div>
   )

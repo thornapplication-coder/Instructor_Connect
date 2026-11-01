@@ -57,6 +57,7 @@ const OHNE_TEST: Record<string, string> = {
   'vite-env.d.ts': 'Typdeklaration',
   'net.ts': 'Ebene 2 offen: braucht eine Service-Worker-Registrierung, nicht nur fetch',
   'modules/doccheck/types.ts': 'nur Typen, keine Logik',
+  'modules/doccheck/parse/model.ts': 'nur Typen und Konstanten (Datenmodell Spez. 7.1), keine Logik',
 }
 
 const istTestdatei = (f: string) => f.endsWith('.test.ts') || f.endsWith('.dom.test.ts')

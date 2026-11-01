@@ -1,5 +1,5 @@
 import { MonitorSmartphone, ShieldAlert } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import i18n from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { useStore } from '../../store'
@@ -10,6 +10,9 @@ import { darf } from './access'
 import { registriereDocCheckTexte } from './i18n'
 import { aktuellerStand, nachSammlung, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EMPFEHLUNGEN, SANDBOX_SAMMLUNGEN, SANDBOX_STAENDE, standLabel } from './library'
 import { useAnsichtsmodus } from './viewMode'
+import { fuerNutzer } from './sitzung'
+import { standardVerbindung } from './verbindung'
+import { ViewerProvider } from './components/Viewer'
 import { AdminTab } from './components/AdminTab'
 import { LibraryPanel, Phase, ReviewDocsPanel, SessionDocsPanel } from './components/Panels'
 import { ChatTab, ExportTab, FindingsTab, PruefungTab, RevisionenTab, VerwaltenTab } from './components/Tabs'
@@ -261,8 +264,14 @@ function Ansicht() {
 export default function DocCheckApp() {
   const ansicht = useAnsichtsmodus()
   const [hinweis, schliessen] = useHinweis()
-  const { docCheckRolle } = useStore()
+  const { docCheckRolle, currentUser } = useStore()
   const { t } = useTranslation('doccheck')
+  // Gehört die Sitzung (Dokumente im Speicher) noch diesem Nutzer? „Ansicht
+  // als" in der Sandbox wechselt die Identität ohne Abmelden — fremde
+  // Dokumente dürfen dabei nicht stehen bleiben.
+  useEffect(() => {
+    if (fuerNutzer(currentUser?.id ?? null)) standardVerbindung().beenden()
+  }, [currentUser?.id])
   // Doppelter Riegel: Die Route prueft schon, aber ein Rollenwechsel in der
   // Sandbox („View as") darf nicht in einer offenen Ansicht stehen bleiben.
   if (docCheckRolle === 'keine') {
@@ -275,9 +284,9 @@ export default function DocCheckApp() {
     )
   }
   return (
-    <>
+    <ViewerProvider>
       {ansicht ? <Ansicht /> : <Desktop />}
       {hinweis && <Hinweis onClose={schliessen} />}
-    </>
+    </ViewerProvider>
   )
 }

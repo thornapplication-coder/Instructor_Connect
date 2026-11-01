@@ -28,7 +28,8 @@ describe('DocCheck-Texte', () => {
     for (const [pfad, code] of Object.entries(quellen)) {
       // index.tsx ist die Huelle und nutzt bewusst das App-Bundle.
       if (pfad.endsWith('/index.tsx') || pfad.endsWith('.test.tsx')) continue
-      for (const m of (code as string).matchAll(/\bt\('([a-zA-Z.]+)'/g)) if (!bekannt.has(m[1])) fehlt.push(`${pfad}: ${m[1]}`)
+      // Pluralformen (i18next): „x_one"/„x_other" erfüllen den Schlüssel „x".
+      for (const m of (code as string).matchAll(/\bt\('([a-zA-Z.]+)'/g)) if (!bekannt.has(m[1]) && !bekannt.has(`${m[1]}_other`)) fehlt.push(`${pfad}: ${m[1]}`)
     }
     expect(fehlt).toEqual([])
   })

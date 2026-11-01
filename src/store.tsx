@@ -761,6 +761,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       logout: () => {
         persistUser(null)
         patch(() => ({ currentUserId: null }))
+        // DocCheck hält Dokumente nur im Speicher des Tabs — beim Abmelden
+        // werden sie verworfen (Spez. DocCheck 5.4). Ein Ereignis statt eines
+        // Imports: Der Store soll das nachgeladene Modul nicht mitziehen.
+        window.dispatchEvent(new Event('ic-abmelden'))
       },
       // Die drei Sandbox-Werkzeuge greifen NUR im Sandbox-Betrieb. Bisher
       // hing das allein daran, dass die Leiste sie anbietet — wer sie über

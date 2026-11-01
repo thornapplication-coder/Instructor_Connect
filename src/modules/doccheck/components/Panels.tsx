@@ -1,4 +1,5 @@
-import { FilePlus2, FileUp, Lock } from 'lucide-react'
+import { FileUp, Lock } from 'lucide-react'
+import { DokListe } from './Dokumente'
 import { useTranslation } from 'react-i18next'
 import { Badge, Card, CardHeading } from '../../../components/ui'
 import { nachSammlung, SANDBOX_DOKUMENTE, SANDBOX_SAMMLUNGEN } from '../library'
@@ -34,16 +35,8 @@ export function ReviewDocsPanel() {
   return (
     <Card className="space-y-stack p-4">
       <CardHeading>{t('cols.review')}</CardHeading>
-      <Dropzone text={t('review.drop')} phase={2} />
+      <DokListe rolle="review" />
       <p className="text-micro leading-relaxed text-dim">{t('review.hint')}</p>
-      <ul className="space-y-tight text-micro text-dim">
-        {(['OM', 'TM', 'PLM', 'CMM', 'FORM', 'OTHER'] as const).map((k) => (
-          <li key={k} className="flex items-center gap-tight">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent/50" />
-            {t(`review.types.${k}`)}
-          </li>
-        ))}
-      </ul>
     </Card>
   )
 }
@@ -127,7 +120,7 @@ export function SessionDocsPanel() {
         <CardHeading>{t('cols.session')}</CardHeading>
         <Badge tone="wait">{t('session.badge')}</Badge>
       </div>
-      <Dropzone text={t('session.drop')} phase={2} icon={<FilePlus2 size={22} />} />
+      <DokListe rolle="master" />
       <p className="text-micro leading-relaxed text-dim">{t('session.hint')}</p>
     </Card>
   )

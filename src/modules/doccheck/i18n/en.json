@@ -3,8 +3,15 @@
   "model": "Model",
   "fallbackShort": "fallback",
   "noAccess": "No access to DocCheck. Permissions are granted by the superadmin.",
-  "status": { "library": "Library", "ai": "AI", "sandbox": "Sandbox", "simulated": "simulated" },
-  "footer": { "phase": "phase 1a (sandbox)" },
+  "status": {
+    "library": "Library",
+    "ai": "AI",
+    "sandbox": "Sandbox",
+    "simulated": "simulated"
+  },
+  "footer": {
+    "phase": "phase 2 (sandbox)"
+  },
   "notice": {
     "title": "About DocCheck",
     "body1": "Review and session documents are processed only in this browser and never stored. For a review, only excerpts are sent to the AI via the DocCheck proxy.",
@@ -12,12 +19,23 @@
     "sandbox": "Sandbox: the library is synthetic, AI calls are simulated and free of charge.",
     "ok": "Understood"
   },
-  "tabs": { "pruefung": "Review", "findings": "Findings", "chat": "Chat", "revisionen": "Revisions", "export": "Export", "verwalten": "Manage library", "admin": "Administration" },
-  "cols": { "review": "Review documents", "library": "Master library", "session": "Session documents" },
+  "tabs": {
+    "pruefung": "Review",
+    "findings": "Findings",
+    "chat": "Chat",
+    "revisionen": "Revisions",
+    "export": "Export",
+    "verwalten": "Manage library",
+    "admin": "Administration"
+  },
+  "cols": {
+    "review": "Review documents",
+    "library": "Master library",
+    "session": "Session documents"
+  },
   "review": {
     "drop": "Drop a review document here (PDF, DOCX, XLSX)",
-    "hint": "The formal check runs automatically after parsing. Documents stay only in this tab's memory.",
-    "types": { "OM": "Operations Manual (OM)", "TM": "Training Manual (TM)", "PLM": "Pilot Learning Manual (PLM)", "CMM": "Compliance Monitoring Manual (CMM)", "FORM": "Form / checklist", "OTHER": "Other" }
+    "hint": "The formal check will run automatically after parsing (phase 8). Documents stay only in this tab's memory."
   },
   "library": {
     "use": "Use for this review",
@@ -27,7 +45,13 @@
     "readonlyShort": "read-only",
     "selectionHint": "{{n}} selected for this review · applies to your session only"
   },
-  "legal": { "oem": "OEM", "ir": "Implementing Rule", "amc": "AMC", "gm": "GM", "intern": "internal" },
+  "legal": {
+    "oem": "OEM",
+    "ir": "Implementing Rule",
+    "amc": "AMC",
+    "gm": "GM",
+    "intern": "internal"
+  },
   "session": {
     "badge": "Session – not released",
     "drop": "Additional master document for this session only",
@@ -55,11 +79,24 @@
     "formalAus": "The formal check has been switched off by the superadmin."
   },
   "findings": {
-    "prio": { "high": "High", "med": "Medium", "low": "Low" },
+    "prio": {
+      "high": "High",
+      "med": "Medium",
+      "low": "Low"
+    },
     "verified": "Verified",
     "partial": "Verified (partial)",
     "toVerify": "To verify",
-    "col": { "id": "ID", "doc": "Document", "page": "Page", "category": "Category", "priority": "Priority", "finding": "Finding", "status": "Status", "verification": "Verification" },
+    "col": {
+      "id": "ID",
+      "doc": "Document",
+      "page": "Page",
+      "category": "Category",
+      "priority": "Priority",
+      "finding": "Finding",
+      "status": "Status",
+      "verification": "Verification"
+    },
     "empty": "No findings yet. They appear with the first review run."
   },
   "chat": {
@@ -75,10 +112,14 @@
     "dokumente": "The revision history of reviewed documents appears here once a review state is loaded."
   },
   "export": {
-    "excel": "Excel", "excelHint": "Project format, 4 sheets",
-    "word": "Word", "wordHint": "Full review report",
-    "csv": "CSV", "csvHint": "Findings list",
-    "pptx": "PowerPoint", "pptxHint": "Short briefing, approx. 8 slides",
+    "excel": "Excel",
+    "excelHint": "Project format, 4 sheets",
+    "word": "Word",
+    "wordHint": "Full review report",
+    "csv": "CSV",
+    "csvHint": "Findings list",
+    "pptx": "PowerPoint",
+    "pptxHint": "Short briefing, approx. 8 slides",
     "off": "switched off by the superadmin",
     "zip": "All formats (ZIP)",
     "save": "Save review state",
@@ -88,7 +129,12 @@
   "verwalten": {
     "neu": "Publish a new document",
     "revision": "Upload a new revision (the old one is archived)",
-    "col": { "doc": "Document", "collection": "Collection", "status": "Status", "reminder": "Revision reminder" },
+    "col": {
+      "doc": "Document",
+      "collection": "Collection",
+      "status": "Status",
+      "reminder": "Revision reminder"
+    },
     "aktiv": "active",
     "archiviert": "archived",
     "faellig": "due since {{datum}}",
@@ -143,7 +189,13 @@
     "exportCsv": "CSV export",
     "exportPptx": "PowerPoint export"
   },
-  "auditAction": { "zugang": "DocCheck access", "admin": "DocCheck admin", "feature": "Feature switch", "einstellung": "Setting", "standBestaetigt": "Status confirmed" },
+  "auditAction": {
+    "zugang": "DocCheck access",
+    "admin": "DocCheck admin",
+    "feature": "Feature switch",
+    "einstellung": "Setting",
+    "standBestaetigt": "Status confirmed"
+  },
   "mobile": {
     "desktopOnly": "Reviews and library maintenance on desktop or laptop",
     "bibliothek": "Library",
@@ -153,5 +205,103 @@
     "startOnDesktop": "Start the re-check on a desktop",
     "openState": "Open a review state file (.doccheck.json), view and export findings.",
     "chatLimit": "Q&A chat against selected library documents, at most 3,000 pages at a time."
+  },
+  "upload": {
+    "formate": "PDF, DOCX, XLSX · up to 500 MB · drag & drop works too",
+    "abgelehnt": {
+      "format": "{{name}}: format not supported (PDF, DOCX, XLSX)",
+      "groesse": "{{name}}: larger than 500 MB"
+    },
+    "erkannt": "detected",
+    "entfernen": "Remove {{name}}",
+    "seiteVon": "Page {{seite}} of {{gesamt}}",
+    "startet": "reading …",
+    "abbrechen": "Cancel",
+    "lenkung": "Changes: {{aenderungen}} · comments: {{kommentare}} · revision bars: {{revisionsbalken}}",
+    "duplikat": {
+      "identisch": "Identical to {{mit}} ({{wo}})",
+      "gleicheRevision": "Same number and revision as {{mit}} ({{wo}}), but different content"
+    },
+    "herkunft": {
+      "library": "library",
+      "session": "session",
+      "review": "review document"
+    },
+    "typ": "Type",
+    "titel": "Title",
+    "nummer": "Document number",
+    "revision": "Revision",
+    "pflicht": "Revision is required.",
+    "datum": "Date",
+    "rang": "Rank (session only)",
+    "ansehen": "View",
+    "bestaetigen": "Confirm detected values",
+    "info_one": "{{count}} page",
+    "info_other": "{{count}} pages",
+    "ocrSeiten_one": "{{count}} via OCR",
+    "ocrSeiten_other": "{{count}} via OCR",
+    "tabellen_one": "{{count}} table",
+    "tabellen_other": "{{count}} tables"
+  },
+  "typen": {
+    "OM": "Operations Manual (OM)",
+    "TM": "Training Manual (TM)",
+    "PLM": "Pilot Learning Manual (PLM)",
+    "CMM": "Compliance Monitoring Manual (CMM)",
+    "FORM": "Form / checklist",
+    "OTHER": "Other",
+    "AFM": "AFM",
+    "QRH": "QRH",
+    "POH": "POH",
+    "SOP": "SOP",
+    "AVIONICS": "Avionics guide",
+    "SUPPLEMENT": "Supplement",
+    "IR": "Implementing Rule",
+    "AMC": "AMC",
+    "GM": "GM"
+  },
+  "fehler": {
+    "DC-PARSE": "The file could not be read.",
+    "DC-FORMAT": "Format not recognised — PDF, DOCX or XLSX?",
+    "DC-PDF-PASSWORD": "The PDF is password-protected.",
+    "DC-PDF-INVALID": "The PDF is damaged or incomplete.",
+    "DC-DOCX-INVALID": "The Word file is incomplete.",
+    "DC-XLSX-INVALID": "The Excel file is incomplete."
+  },
+  "ocr": {
+    "laeuft": "Text recognition: {{fertig}} of {{gesamt}} pages …",
+    "starten": "Start text recognition",
+    "fehler": "Text recognition failed.",
+    "frage_one": "1 page has no text layer (scan). Start text recognition? Takes a few seconds.",
+    "frage_other": "{{count}} pages have no text layer (scan). Start text recognition? Takes a few seconds per page.",
+    "fertig_one": "Text recognition finished: 1 page",
+    "fertig_other": "Text recognition finished: {{count}} pages"
+  },
+  "viewer": {
+    "titel": "View document",
+    "zurueck": "Previous page",
+    "weiter": "Next page",
+    "seite": "Page {{seite}} / {{gesamt}}",
+    "kleiner": "Zoom out",
+    "groesser": "Zoom in",
+    "schliessen": "Close",
+    "fehler": "The page could not be displayed.",
+    "leer": "(page without text)"
+  },
+  "suche": {
+    "titel": "Search loaded documents",
+    "platzhalter": "e.g. BATT 1 OFF BUS, AMC1 ORA.ATO.230, 155 KIAS",
+    "los": "Search",
+    "keineDokumente": "Upload a review or session document first.",
+    "pdfSeite": "page {{n}}",
+    "exakt": "exact",
+    "hinweis_one": "Searches 1 loaded document. CAS messages, numbers with units and rule IDs are matched exactly. The library joins in phase 3.",
+    "hinweis_other": "Searches {{count}} loaded documents. CAS messages, numbers with units and rule IDs are matched exactly. The library joins in phase 3.",
+    "ergebnis_one": "1 result for “{{q}}”",
+    "ergebnis_other": "{{count}} results for “{{q}}”",
+    "herkunft": {
+      "review": "review document",
+      "master": "session"
+    }
   }
 }

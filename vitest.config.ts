@@ -64,6 +64,7 @@ export default defineConfig({
       include: ['src/*.ts', 'src/modules/**/*.ts'],
       exclude: [
         'src/modules/doccheck/types.ts', // nur Typen, keine Logik
+        'src/modules/doccheck/parse/model.ts', // nur Typen und Konstanten (Datenmodell)
         // Ansichten des Moduls — wie src/pages nicht unter der Schwelle; sie
         // erschienen sonst mit 0 von 0 Anweisungen als „100 %".
         'src/modules/**/*.tsx',

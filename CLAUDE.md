@@ -66,7 +66,8 @@ Eigenes Modul nach der Spezifikation `DocCheck_Spezifikation_v1_1.md`,
 ergänzt durch `docs/DocCheck_Spezifikation_v1_2_Nachtrag.md` (Re-Check
 bestehender Findinglisten, Dokumentpakete, Word-Check). Der Nachtrag geht
 für die dort geregelten Punkte vor; seine Phasenzuordnung steht in Kap. 19.
-Stand: **Phase 1a (Sandbox)** — kein Backend, KI simuliert. Festlegungen:
+Stand: **Phase 2 (Sandbox)** — Dokumente einlesen und durchsuchen; kein
+Backend, KI simuliert. Festlegungen:
 
 - **Die Testwachen gelten auch hier.** `testGuard` globt `src/modules/**`,
   die Abdeckungsschwelle ebenso. Ansichten (`*.tsx`) sind wie `src/pages`
@@ -87,6 +88,22 @@ Stand: **Phase 1a (Sandbox)** — kein Backend, KI simuliert. Festlegungen:
   das Modul nicht geladen ist.
 - **Ansichtsmodus** nach `pointer: coarse` (`viewMode.ts`), bewusst getrennt
   von `useIsDesktop` (Breite) — beide Regeln gelten je für ihren Bereich.
+- **Prüf- und Sitzungsdokumente liegen NIE im Anwendungszustand.** Der wird
+  in IndexedDB gespeichert; die Dokumente leben in `sitzung.ts` (Speicher
+  des Tabs) und im Worker. Abmelden sendet `ic-abmelden`, Nutzerwechsel
+  („Ansicht als") leert die Sitzung ebenfalls.
+- **Lesen läuft im Worker** (`doccheck.worker.ts` übersetzt nur Nachrichten,
+  die Arbeit macht `kern.ts`, in Node testbar). pdf.js wird in die Leser
+  hineingereicht: im Browser die moderne Fassung, in Tests `legacy`.
+- **Ein Weg für alle Formate:** PDF, DOCX und XLSX laufen durch
+  `parse/aufbereiten.ts`. Bewusst ohne mammoth und ohne SheetJS (siehe
+  Changelog 1.7.0) — Office-XML liest `parse/xml.ts`.
+- **Laufzeitdateien** (OCR-Kern, Sprachdaten, pdf.js-Schriften) liefert
+  `docCheckDateien` in `vite.config.ts` unter festen Namen in `doccheck/`
+  aus. Ohne ausdrückliche Pfade lädt tesseract.js alles von einem CDN —
+  `ocr.test.ts` prüft das.
+- **Testdokumente sind synthetisch:** `parse/pdfBauen.ts` erzeugt PDFs aus
+  Text, DOCX/XLSX entstehen in den Tests mit jszip.
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise
   keine Kostenschätzung und kein Start.
 - **Keine echten OEM-Dokumente im Repo** — der Sandbox-Bestand ist

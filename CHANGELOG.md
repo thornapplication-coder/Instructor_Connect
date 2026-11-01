@@ -647,3 +647,33 @@ Bewusst noch NICHT enthalten: Backend, Anmeldung über Supabase,
 serverseitige Rechte (RLS) und der echte KI-Proxy — Phase 1b, sobald die
 Backend-Entscheidung gefallen ist. Bis dahin sind die DocCheck-Rechte
 Bedienkomfort, keine Durchsetzung.
+
+## 1.7.0 — 2026-11-01
+
+- **DocCheck: Phase 2 — Dokumente einlesen.** Prüf- und Sitzungsdokumente
+  (PDF, DOCX, XLSX, bis 500 MB) per Auswahl oder Drag & Drop. Verarbeitung
+  in einem Web Worker mit Fortschritt und Abbruch; nichts wird gespeichert,
+  Abmelden verwirft alles.
+- **DocCheck: PDF** über pdf.js — Zeilen aus Koordinaten, Spalten und
+  Abbildungsbeschriftungen getrennt (kein „or or"), Kopf-/Fußzeilen ab
+  60 % Wiederkehr entfernt, gedruckte Seitenbezeichnung übernommen,
+  Silbentrennung nur aufgelöst, wo das Wort im Dokument nicht mit
+  Bindestrich vorkommt (kein „goaround").
+- **DocCheck: DOCX** über jszip mit eigener XML-Auswertung (statt mammoth):
+  Überschriften als Abschnittspfad, Tabellen, Kopf-/Fußzeilen, Textfelder,
+  nicht angenommene Änderungen, Kommentare, Revisionsbalken.
+  **XLSX** mit eigenem Leser (statt SheetJS, dessen npm-Fassung bekannte
+  Sicherheitslücken hat).
+- **DocCheck: OCR** für Seiten ohne Textebene nach Rückfrage (tesseract.js,
+  englisch, 200 dpi); alle Dateien lokal ausgeliefert, kein CDN.
+- **DocCheck: Metadaten-Erkennung** (Titel, Nummer, Revision, Datum, Typ)
+  als „erkannt" markiert, **Duplikat-Warnung** über SHA-256 sowie Nummer
+  und Revision, **Regel-IDs** inkl. Part-FCL/MED und CS.
+- **DocCheck: Suche** (MiniSearch plus exakter Index für CAS-Meldungen,
+  Zahl+Einheit, Regel-IDs) und **Viewer** mit hervorgehobener Fundstelle.
+- Gemessen: synthetisches 2 600-Seiten-PDF in 8,8 s gelesen, Index in
+  1,7 s, Suche 0,16 s (Ziel: < 3 min).
+- **Service Worker:** DocCheck-Teile (pdf.js, Worker, OCR) stehen nicht im
+  Vorab-Cache; die Ausnahme folgt jetzt auch dynamischen Importen und per
+  Adresse geladenen Dateien.
+
