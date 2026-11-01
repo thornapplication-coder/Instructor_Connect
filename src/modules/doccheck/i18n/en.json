@@ -114,7 +114,8 @@
     "fundstellen_one": "1 location",
     "fundstellen_other": "{{count}} locations",
     "seiteAnzeigen": "Show page",
-    "anleitung": "How to fix"
+    "anleitung": "How to fix",
+    "weitere": "Other affected documents"
   },
   "chat": {
     "off": "The Q&A chat has been switched off by the superadmin.",
@@ -209,7 +210,8 @@
     "exportPptx": "PowerPoint export",
     "pdfPairing": "Word PDF pairing (page numbers)",
     "wordCheck": "Word check and language",
-    "recheck": "Re-check of external finding lists"
+    "recheck": "Re-check of external finding lists",
+    "packageCheck": "Document package and siblings"
   },
   "auditAction": {
     "zugang": "DocCheck access",
@@ -371,7 +373,13 @@
     "glossar": "Glossary",
     "abkuerzungsliste": "Abbreviation list",
     "register": "Document register",
-    "kennungen": "Identifiers"
+    "kennungen": "Identifiers",
+    "liste": "Appendix list",
+    "stand": "Revision status",
+    "hierarchie": "Hierarchy",
+    "geschwister": "Sibling comparison",
+    "gegenfassung": "Other-version residue",
+    "propagation": "Fix propagation"
   },
   "anleitung": {
     "unsichtbar": "In Word: File → Info → Check for Issues → Inspect Document → remove “Hidden text”. White font: select text, set font colour to “Automatic” and review the content before deleting it.",
@@ -419,7 +427,9 @@
       "bad": "high finding",
       "na": "not applicable"
     },
-    "referenz": "Reference lists"
+    "referenz": "Reference lists",
+    "paket": "Package",
+    "paketPunkte": "Package check"
   },
   "prio": {
     "High": "High",
@@ -438,7 +448,8 @@
     "formal": "Formal check",
     "word": "Word check",
     "sprache": "Language/placeholders",
-    "referenz": "Reference lists"
+    "referenz": "Reference lists",
+    "paket": "Package"
   },
   "verifizierung": {
     "regel": "Verified (rule-based)"
@@ -587,5 +598,27 @@
       "bibliothek": "Found in source – not counted",
       "bibliothekVon": "Quotation from {{quelle}} – not counted"
     }
+  },
+  "paket": {
+    "modus": "Scope",
+    "einzeln": "Single documents",
+    "paket": "Package",
+    "leer": "No review documents read yet. Load the package in the left column — abbreviation, level and sibling groups are prefilled from file name and title.",
+    "struktur": "Package structure",
+    "bestaetigen": "Confirm prefill",
+    "hinweis": "Level 1 is the highest level (e.g. TM). If a lower-level document contradicts a higher one, the finding is raised against the lower one. Documents in the same group are siblings (e.g. multi-/single-pilot version); the variant decides which terms are allowed there.",
+    "col": {
+      "dok": "Document",
+      "kuerzel": "Abbr.",
+      "ebene": "Level",
+      "gruppe": "Group",
+      "variante": "Variant",
+      "revision": "Revision",
+      "datum": "Date"
+    },
+    "uebersicht": "Package overview",
+    "fehlt": "missing",
+    "befunde_one": "{{count}} package finding — see the Findings tab.",
+    "befunde_other": "{{count}} package findings — see the Findings tab."
   }
 }

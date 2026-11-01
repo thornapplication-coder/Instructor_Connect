@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Zusammenfassung } from './kern'
 import {
-  abonnieren, aktualisiert, bestaetigen, datei, dateiAblegen, dateiEntfernen, duplikatFuer, entfernen, fehler, feldSetzen, fertig, fortschritt, fuerNutzer, LEER, lesenZustand, neu, offenePflichtfelder, setzen,
+  abonnieren, aktualisiert, bestaetigen, paketBestaetigen, paketSetzen, paketStruktur, paketVorbelegen, datei, dateiAblegen, dateiEntfernen, duplikatFuer, entfernen, fehler, feldSetzen, fertig, fortschritt, fuerNutzer, LEER, lesenZustand, neu, offenePflichtfelder, setzen,
 } from './sitzung'
 
 const zf = (id: string, meta: Partial<Zusammenfassung['meta']> = {}, sha = 'h' + id): Zusammenfassung => ({
@@ -92,3 +92,34 @@ describe('Speicher', () => {
     expect(datei('z')).toBeUndefined()
   })
 })
+
+describe('Dokumentpaket in der Sitzung (N1)', () => {
+  const lesen = (z: ReturnType<typeof neu>, id: string, name: string, titel = '', rolle: 'review' | 'master' = 'review') => fertig(neu(z, { id, rolle, name, groesse: 1 }), id, zf(id, { titel }))
+
+  it('fertige Prüfdokumente werden vorbelegt, Geschwister vorgeschlagen; Master bleiben draußen', () => {
+    let z = lesen(LEER, 't', 'SBX_TM.docx')
+    z = lesen(z, 'a', 'ANX2A.docx')
+    expect(z.docs[1].paket).toMatchObject({ kuerzel: 'ANX 2A', gruppe: '' })
+    z = lesen(z, 'b', 'ANX2B_SP.docx')
+    z = lesen(z, 'm', 'ANX2C.docx', '', 'master')
+    expect(z.docs.map((d) => [d.paket?.kuerzel, d.paket?.gruppe, d.paket?.variante])).toEqual([['TM', '', ''], ['ANX 2A', 'ANX 2', 'A'], ['ANX 2B', 'ANX 2', 'SP'], [undefined, undefined, undefined]])
+    expect(paketVorbelegen(z)).toBe(z)
+  })
+
+  it('Handänderung bestätigt und bleibt; Vorschlag überschreibt sie nicht', () => {
+    let z = lesen(lesen(LEER, 'a', 'ANX2A.docx'), 'b', 'ANX2B.docx')
+    z = paketSetzen(z, 'a', { gruppe: '' })
+    expect(z.docs[0].paket).toMatchObject({ gruppe: '', erkannt: false })
+    expect(paketVorbelegen(z).docs[0].paket!.gruppe).toBe('')
+    expect(paketSetzen(z, 'gibtsnicht', { ebene: 2 })).toEqual(z)
+    expect(paketBestaetigen(z).docs.every((d) => !d.paket!.erkannt)).toBe(true)
+  })
+
+  it('Struktur für den Worker mit bestätigter Revision; Dokumente ohne Paketangabe fallen weg', () => {
+    let z = lesen(LEER, 't', 'TM.docx', 'Training Manual')
+    z = feldSetzen(z, 't', 'revision', 'R0.1')
+    z = neu(z, { id: 'x', rolle: 'review', name: 'liest.docx', groesse: 1 })
+    expect(paketStruktur(z)).toEqual([{ id: 't', dokName: 'Training Manual', kuerzel: 'TM', ebene: 1, gruppe: '', variante: '', revision: 'R0.1', datum: '' }])
+  })
+})
+

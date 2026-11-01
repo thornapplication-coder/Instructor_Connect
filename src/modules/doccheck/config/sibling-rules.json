@@ -1,0 +1,4 @@
+{
+  "_hinweis": "Nachtrag N2.2: erlaubte Unterschiede je Gruppentyp. onlyIn: Begriffe, die NUR in dieser Fassung vorkommen dürfen. Erstbefüllung durch den Superadmin (offener Punkt 4); bis dahin das Beispiel der Spezifikation.",
+  "MP_SP": { "onlyIn": { "MP": ["PM", "PNF", "crew", "MCC", "Captain", "First Officer"], "SP": [] } }
+}

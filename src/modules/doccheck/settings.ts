@@ -22,6 +22,7 @@ export const FEATURES: DocCheckFeature[] = [
   'pdfPairing',
   'wordCheck',
   'recheck',
+  'packageCheck',
 ]
 
 const OHNE_PREIS = { input: null, output: null, cacheRead: null, cacheWrite: null }

@@ -3,6 +3,8 @@ import { duplikatPruefen, type Duplikat, type Vergleichsdokument } from './parse
 import type { Zusammenfassung } from './kern'
 import type { ReferenzListe } from './referenz/liste'
 import type { ReCheckSitzung } from './recheck/ablauf'
+import { gruppenVorschlagen, varianteAusKuerzel, vorbelegen, type PaketAngaben } from './paket/struktur'
+import type { Mitglied, PaketErgebnis } from './paket/pruefen'
 
 /**
  * Prüf- und Sitzungsdokumente der laufenden Sitzung (Spez. 4.1, 5.4).
@@ -28,6 +30,8 @@ export interface SitzungsDok {
   felder: Record<Feld, string>
   /** Felder mit automatisch erkanntem, noch nicht bestätigtem Wert */
   erkannt: Feld[]
+  /** Stellung im Dokumentpaket (Nachtrag N1) — nur Prüfdokumente */
+  paket?: PaketAngaben
 }
 
 /** Eine hochgeladene Referenzliste (Soll) samt Rohtabelle — die Art lässt
@@ -45,6 +49,10 @@ export interface Zustand {
   referenzen?: SitzungsReferenz[]
   /** Re-Check einer Fremdliste (Nachtrag N3) — wie alles hier nur im Speicher */
   recheck?: ReCheckSitzung
+  /** Prüfen als Paket statt als Einzeldokumente (Nachtrag Kap. 18) */
+  paketModus?: boolean
+  /** Ergebnis der letzten Paketprüfung samt Stand, gegen den sie lief */
+  paketErgebnis?: { ergebnis: PaketErgebnis; stand: string }
 }
 
 export const LEER: Zustand = { nutzer: null, docs: [] }
@@ -68,7 +76,7 @@ export function fortschritt(z: Zustand, id: string, seite: number, gesamt: numbe
  * ist „erkannt", bis jemand es anfasst (Spez. 6.10: bestätigen).
  */
 export function fertig(z: Zustand, id: string, zf: Zusammenfassung): Zustand {
-  return aendern(z, id, (d) => {
+  return paketVorbelegen(aendern(z, id, (d) => {
     const felder = { ...d.felder }
     const erkannt: Feld[] = [...d.erkannt]
     const vorschlag: Partial<Record<Feld, string | undefined>> = { typ: zf.meta.typ, titel: zf.meta.titel, nummer: zf.meta.nummer, revision: zf.meta.revision, datum: zf.meta.datum }
@@ -79,7 +87,7 @@ export function fertig(z: Zustand, id: string, zf: Zusammenfassung): Zustand {
       }
     }
     return { ...d, status: 'fertig', fortschritt: undefined, z: zf, felder, erkannt }
-  })
+  }))
 }
 
 /** OCR liefert eine neue Zusammenfassung — Felder bleiben, wie sie sind. */
@@ -133,6 +141,47 @@ export function referenzenSetzen(z: Zustand, r: SitzungsReferenz[]): Zustand {
 /** Die gültigen Listen (erkannt oder zugeordnet) für die Prüfung. */
 export function aktiveListen(z: Zustand): ReferenzListe[] {
   return (z.referenzen ?? []).map((r) => r.liste).filter((l): l is ReferenzListe => l !== null)
+}
+
+/* ------------------------- Dokumentpaket (N1) ------------------------- */
+
+/**
+ * Paketangaben vorbelegen: jedes fertige Prüfdokument ohne Angaben bekommt
+ * sie aus Dateiname und Titel; Geschwistergruppen werden vorgeschlagen, wo
+ * noch keine bestätigte Angabe steht. Was der Nutzer gesetzt hat, bleibt.
+ */
+export function paketVorbelegen(z: Zustand): Zustand {
+  let geaendert = false
+  let docs = z.docs.map((d) => {
+    if (d.rolle !== 'review' || d.status !== 'fertig' || d.paket) return d
+    geaendert = true
+    return { ...d, paket: vorbelegen(d.name, d.felder.titel) }
+  })
+  const vorschlag = gruppenVorschlagen(docs.filter((d) => d.paket).map((d) => ({ id: d.id, a: d.paket! })))
+  docs = docs.map((d) => {
+    const g = vorschlag[d.id]
+    if (!g || !d.paket?.erkannt || d.paket.gruppe) return d
+    geaendert = true
+    return { ...d, paket: { ...d.paket, gruppe: g, variante: d.paket.variante || varianteAusKuerzel(d.paket.kuerzel) } }
+  })
+  return geaendert ? { ...z, docs } : z
+}
+
+/** Eine Angabe von Hand ändern — damit gilt sie als bestätigt. */
+export function paketSetzen(z: Zustand, id: string, patch: Partial<Omit<PaketAngaben, 'erkannt'>>): Zustand {
+  return aendern(z, id, (d) => (d.paket ? { ...d, paket: { ...d.paket, ...patch, erkannt: false } } : d))
+}
+
+/** Alle Vorbelegungen bestätigen. */
+export function paketBestaetigen(z: Zustand): Zustand {
+  return { ...z, docs: z.docs.map((d) => (d.paket?.erkannt ? { ...d, paket: { ...d.paket, erkannt: false } } : d)) }
+}
+
+/** Struktur für die Paketprüfung im Worker — Revision und Datum aus den bestätigten Feldern. */
+export function paketStruktur(z: Zustand): Omit<Mitglied, 'pages'>[] {
+  return z.docs
+    .filter((d) => d.rolle === 'review' && d.status === 'fertig' && d.paket)
+    .map((d) => ({ id: d.id, dokName: d.felder.titel || d.name, kuerzel: d.paket!.kuerzel, ebene: d.paket!.ebene, gruppe: d.paket!.gruppe, variante: d.paket!.variante, revision: d.felder.revision, datum: d.felder.datum }))
 }
 
 /* --------------------------- Speicher ---------------------------- */

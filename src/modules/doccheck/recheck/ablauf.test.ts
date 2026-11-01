@@ -3,7 +3,7 @@ import { formatDateTime } from '../../../datum'
 import { csvLesen } from '../referenz/liste'
 import type { SitzungsDok } from '../sitzung'
 import { sbxFl01 } from '../benchmark/sbx'
-import { auftraege, bestaetigen, kannZurueckschreiben, paketStand, rueckschreibAuftrag, blattWaehlen, csvExport, dokNamen, listeLesen, sammelKandidaten, zaehlen, zeilen, zielAendern, zieleAuffrischen, zuordnungAendern, zuruecknehmen, type ReCheckSitzung } from './ablauf'
+import { auftraege, bestaetigen, korrekturen, kannZurueckschreiben, paketStand, rueckschreibAuftrag, blattWaehlen, csvExport, dokNamen, listeLesen, sammelKandidaten, zaehlen, zeilen, zielAendern, zieleAuffrischen, zuordnungAendern, zuruecknehmen, type ReCheckSitzung } from './ablauf'
 import { befundPruefen } from './pruefen'
 import { PROFIL_KEY } from './profil'
 
@@ -149,4 +149,15 @@ describe('Re-Check-Ablauf (N3.1)', () => {
     // CSV-Befunde ohne Excel-Zeile werden übersprungen
     expect(rueckschreibAuftrag({ ...r, befunde: r.befunde.map(({ excelZeile: _x, ...b }) => b), blaetter: [{ ...r.blaetter[0] }] }, werte, '2026-11-01').zeilen).toEqual([])
   })
+
+  it('Korrekturen für die Fix-Propagation: nur, was im Zieldokument behoben ist, und nur bei Dokumentzielen', async () => {
+    const r = pruefen(await laden())
+    // #1 TM: Revsion noch da → keine Korrektur; #2 APX 4: TBD weg → Korrektur; #3 OSD: Quelle fehlt
+    expect(korrekturen(r)).toEqual([{ ref: '2', dokId: 'apx', weg: 'TBD' }])
+    // Paketweites Ziel: kein einzelnes Dokument, dessen Geschwister zu prüfen wären (Ergebnisse bleiben stehen)
+    expect(korrekturen({ ...r, ziele: { ...r.ziele, 'APX 4': { art: 'paket' } } })).toEqual([])
+    expect(korrekturen(undefined)).toEqual([])
+    expect(korrekturen({ ...r, ergebnisse: null })).toEqual([])
+  })
 })
+

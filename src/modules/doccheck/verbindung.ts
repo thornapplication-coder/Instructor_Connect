@@ -4,6 +4,7 @@ import type { Treffer } from './search/suche'
 import type { ReferenzListe } from './referenz/liste'
 import type { FremdBefund, Ziel } from './recheck/fremdliste'
 import type { ReErgebnis } from './recheck/pruefen'
+import type { Korrektur, Mitglied, PaketErgebnis } from './paket/pruefen'
 
 /**
  * Hauptfenster-Seite des Workers: Anfragen als Promises, Fortschritt als
@@ -47,10 +48,10 @@ export class Verbindung {
       const l = this.lesend.get(a.id)
       this.lesend.delete(a.id)
       l?.fehler(new Error(a.code))
-    } else if (a.typ === 'treffer' || a.typ === 'seite' || a.typ === 'nachgeprueft') {
+    } else if (a.typ === 'treffer' || a.typ === 'seite' || a.typ === 'nachgeprueft' || a.typ === 'paket') {
       const f = this.warten.get(a.nr)
       this.warten.delete(a.nr)
-      f?.(a.typ === 'treffer' ? a.treffer : a.typ === 'seite' ? a.text : a.ergebnisse)
+      f?.(a.typ === 'treffer' ? a.treffer : a.typ === 'seite' ? a.text : a.typ === 'paket' ? a.ergebnis : a.ergebnisse)
     }
   }
 
@@ -95,6 +96,11 @@ export class Verbindung {
   /** Re-Check (N3) — liefert `null`, wenn die Verbindung inzwischen beendet wurde. */
   nachpruefen(auftraege: { befund: FremdBefund; ziel: Ziel }[]): Promise<ReErgebnis[] | null> {
     return this.frage((nr) => ({ typ: 'nachpruefen', nr, auftraege }))
+  }
+
+  /** Paketprüfung (N1, N2) — `null`, wenn die Verbindung inzwischen beendet wurde. */
+  paketPruefen(struktur: Omit<Mitglied, 'pages'>[], korrekturen: Korrektur[] = []): Promise<PaketErgebnis | null> {
+    return this.frage((nr) => ({ typ: 'paket', nr, struktur, korrekturen }))
   }
 
   ocrEinspielen(id: string, seiten: { n: number; text: string }[]): void {

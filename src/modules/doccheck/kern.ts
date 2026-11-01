@@ -12,6 +12,7 @@ import { REGELN } from './pruefung/kontext'
 import type { ReferenzListe } from './referenz/liste'
 import { befundPruefen, type ReErgebnis } from './recheck/pruefen'
 import type { FremdBefund, Ziel } from './recheck/fremdliste'
+import { paketPruefen, type Korrektur, type Mitglied, type PaketErgebnis } from './paket/pruefen'
 
 /**
  * Was im Worker läuft: Dokumente lesen, im Speicher halten, durchsuchen.
@@ -236,6 +237,16 @@ export class Kern {
     const paket = alle.filter((d) => d.pruefen)
     const quellen = alle.filter((d) => !d.pruefen)
     return auftraege.map((a) => befundPruefen(a.befund, a.ziel, paket, quellen))
+  }
+
+  /**
+   * Paketprüfung (Nachtrag N1, N2). Die Struktur (Kürzel, Ebene, Gruppe,
+   * Revision) kommt aus der Sitzung — der Nutzer hat sie bestätigt —, die
+   * Texte aus dem Speicher des Workers. Unbekannte IDs fallen weg.
+   */
+  paketPruefen(struktur: Omit<Mitglied, 'pages'>[], korrekturen: Korrektur[] = []): PaketErgebnis {
+    const alle = struktur.filter((s) => this.docs.has(s.id)).map((s) => ({ ...s, pages: this.docs.get(s.id)!.roh.pages }))
+    return paketPruefen(alle, korrekturen)
   }
 
   get anzahl(): number {

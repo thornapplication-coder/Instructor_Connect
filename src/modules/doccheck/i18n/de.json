@@ -114,7 +114,8 @@
     "fundstellen_one": "1 Fundstelle",
     "fundstellen_other": "{{count}} Fundstellen",
     "seiteAnzeigen": "Seite anzeigen",
-    "anleitung": "So beheben"
+    "anleitung": "So beheben",
+    "weitere": "Other affected documents"
   },
   "chat": {
     "off": "Der Fragen-Chat ist vom Superadmin abgeschaltet.",
@@ -209,7 +210,8 @@
     "exportPptx": "Export PowerPoint",
     "pdfPairing": "Word-PDF-Paar (Seitenangaben)",
     "wordCheck": "Word-Check und Sprache",
-    "recheck": "Re-Check externer Findinglisten"
+    "recheck": "Re-Check externer Findinglisten",
+    "packageCheck": "Dokumentpaket und Geschwister"
   },
   "auditAction": {
     "zugang": "DocCheck access",
@@ -371,7 +373,13 @@
     "glossar": "Glossar",
     "abkuerzungsliste": "Abkürzungsliste",
     "register": "Dokumentregister",
-    "kennungen": "Kennungen"
+    "kennungen": "Kennungen",
+    "liste": "Anhangsliste",
+    "stand": "Revisionsstand",
+    "hierarchie": "Hierarchie",
+    "geschwister": "Geschwisterabgleich",
+    "gegenfassung": "Reste der Gegenfassung",
+    "propagation": "Fix-Propagation"
   },
   "anleitung": {
     "unsichtbar": "In Word: Datei → Informationen → Auf Probleme überprüfen → Dokument prüfen → „Ausgeblendeter Text“ entfernen. Weiße Schrift: Text markieren, Schriftfarbe auf „Automatisch“ setzen und Inhalt prüfen, bevor er gelöscht wird.",
@@ -419,7 +427,9 @@
       "bad": "Hoch-Befund",
       "na": "nicht anwendbar"
     },
-    "referenz": "Referenzlisten (Soll)"
+    "referenz": "Referenzlisten (Soll)",
+    "paket": "Paket",
+    "paketPunkte": "Paketprüfung"
   },
   "prio": {
     "High": "Hoch",
@@ -438,7 +448,8 @@
     "formal": "Formalprüfung",
     "word": "Word-Check",
     "sprache": "Sprache/Platzhalter",
-    "referenz": "Referenzlisten"
+    "referenz": "Referenzlisten",
+    "paket": "Paket"
   },
   "verifizierung": {
     "regel": "Verifiziert (regelbasiert)"
@@ -587,5 +598,27 @@
       "bibliothek": "In Quelle belegt – nicht gezählt",
       "bibliothekVon": "Zitat aus {{quelle}} – nicht gezählt"
     }
+  },
+  "paket": {
+    "modus": "Prüfumfang",
+    "einzeln": "Einzeldokumente",
+    "paket": "Paket",
+    "leer": "Noch keine fertig gelesenen Prüfdokumente. Laden Sie das Paket in der linken Spalte — Kürzel, Ebene und Geschwistergruppen werden aus Dateiname und Titel vorbelegt.",
+    "struktur": "Paketstruktur",
+    "bestaetigen": "Vorbelegung bestätigen",
+    "hinweis": "Ebene 1 ist die höchste Stufe (z. B. TM). Widerspricht ein tieferes Dokument einem höheren, wird der Befund beim tieferen geführt. Dokumente mit gleicher Gruppe sind Geschwister (z. B. Multi-/Single-Pilot-Fassung); die Variante entscheidet, welche Begriffe dort erlaubt sind.",
+    "col": {
+      "dok": "Dokument",
+      "kuerzel": "Kürzel",
+      "ebene": "Ebene",
+      "gruppe": "Gruppe",
+      "variante": "Variante",
+      "revision": "Revision",
+      "datum": "Datum"
+    },
+    "uebersicht": "Package overview",
+    "fehlt": "fehlt",
+    "befunde_one": "{{count}} Paketbefund — siehe Reiter Findings.",
+    "befunde_other": "{{count}} Paketbefunde — siehe Reiter Findings."
   }
 }

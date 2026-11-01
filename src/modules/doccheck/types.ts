@@ -45,6 +45,8 @@ export type DocCheckFeature =
   | 'wordCheck'
   /** Nachtrag v1.2 Kap. 17 — Re-Check externer Findinglisten (N3); ab Werk aus bis zur Abnahme */
   | 'recheck'
+  /** Nachtrag v1.2 Kap. 17 — Dokumentpaket und Geschwistergruppen (N1, N2) */
+  | 'packageCheck'
 
 /** Preise je Million Tokens in USD. `null` = vom Superadmin noch nicht
  *  gepflegt — dann gibt es keine Kostenschätzung, statt einer erfundenen. */

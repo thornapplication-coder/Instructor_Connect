@@ -9,7 +9,9 @@ import { FORMAL_PUNKTE } from '../pruefung/formal'
 import { SPRACH_PUNKTE } from '../pruefung/sprachCheck'
 import { WORD_PUNKTE } from '../pruefung/wordCheck'
 import { REFERENZ_PUNKTE } from '../pruefung/referenzCheck'
+import { PAKET_PUNKTE } from '../paket/pruefen'
 import { useSitzung } from '../sitzung'
+import { aktiv } from '../settings'
 import { useViewer } from './Viewer'
 
 /**
@@ -46,11 +48,16 @@ function Ampelzeile({ titel, punkte, ampel }: { titel: string; punkte: readonly 
 
 export function FindingsTab() {
   const { t } = useTranslation('doccheck')
-  const { docs } = useSitzung()
+  const { docs, paketModus, paketErgebnis } = useSitzung()
+  // Paketbefunde (N1, N2) nur im Paketmodus — sonst gehören sie zu keiner Prüfung.
   const { docCheckSettings } = useStore()
+  const paket = paketModus && aktiv(docCheckSettings, 'packageCheck') ? paketErgebnis?.ergebnis : undefined
   const oeffnen = useViewer()
   const geprueft = docs.filter((d) => d.rolle === 'review' && d.z?.pruefung)
-  const alle = useMemo(() => sortieren(geprueft.flatMap((d) => d.z!.pruefung!.befunde.map((b) => ({ ...b, dokName: d.felder.titel || d.name })))), [geprueft])
+  const alle = useMemo(
+    () => sortieren([...geprueft.flatMap((d) => d.z!.pruefung!.befunde.map((b) => ({ ...b, dokName: d.felder.titel || d.name }))), ...(paket?.befunde ?? [])]),
+    [geprueft, paket],
+  )
   const [dok, setDok] = useState('')
   const [prio, setPrio] = useState('')
   const [quelle, setQuelle] = useState('')
@@ -88,6 +95,12 @@ export function FindingsTab() {
               <Ampelzeile titel={t('gate.referenz')} punkte={REFERENZ_PUNKTE} ampel={d.z!.pruefung!.ampel.referenz ?? {}} />
             </div>
           ))}
+          {paket && (
+            <div className="space-y-tight border-t border-line/10 pt-3">
+              <p className="text-small font-semibold">{t('gate.paket')}</p>
+              <Ampelzeile titel={t('gate.paketPunkte')} punkte={PAKET_PUNKTE} ampel={paket.ampel} />
+            </div>
+          )}
         </Card>
       )}
 
@@ -106,7 +119,7 @@ export function FindingsTab() {
         </select>
         <select aria-label={t('findings.filter.quelle')} className={`${selectCls} !w-auto !py-1.5`} value={quelle} onChange={(e) => setQuelle(e.target.value)}>
           <option value="">{t('findings.filter.alleQuellen')}</option>
-          {(['formal', 'word', 'sprache', 'referenz'] as const).map((q) => (
+          {(['formal', 'word', 'sprache', 'referenz', ...(paket ? (['paket'] as const) : [])] as const).map((q) => (
             <option key={q} value={q}>{t(`quelle.${q}`)}</option>
           ))}
         </select>
@@ -167,6 +180,19 @@ export function FindingsTab() {
                             </li>
                           ))}
                         </ul>
+                        {b.weitere?.length ? (
+                          <div className="space-y-tight">
+                            <p className="text-micro font-semibold uppercase tracking-wide text-dim">{t('findings.weitere')}</p>
+                            <ul className="space-y-tight">
+                              {b.weitere.map((w, i) => (
+                                <li key={i} className="flex items-start gap-2 text-small">
+                                  <span className="w-28 shrink-0 font-semibold">{w.dokName}</span>
+                                  {w.fundstelle && <span className="min-w-0 flex-1 font-mono text-micro leading-relaxed">{[w.fundstelle.seite, w.fundstelle.auszug].filter(Boolean).join(' · ')}</span>}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
                         {b.anleitung && (
                           <div className="rounded-xl border border-accent/30 bg-accent/5 p-3 text-small">
                             <p className="mb-1 text-micro font-semibold uppercase tracking-wide text-dim">{t('findings.anleitung')}</p>

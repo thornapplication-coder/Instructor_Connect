@@ -285,24 +285,60 @@ function kapitelDocx(titel: string, kapitel: [string, number, string[]][]): Prom
 }
 
 /**
- * Prüfpaket R0.1 (Nachtrag Kap. 20): Training Manual und Appendix 4 in der
- * Revision NACH den Korrekturen des Teams. Was davon wirklich korrigiert
- * wurde, steht in `SBX_FL_01_ERWARTET`.
+ * Prüfpaket R0.1 (Nachtrag Kap. 20, Abnahmen N1.3, N2.3, N3.6): Training
+ * Manual, zwei Appendices, vier Annexes — in der Revision NACH den
+ * Korrekturen des Teams. Was davon wirklich korrigiert wurde, steht in
+ * `SBX_FL_01`; die eingebauten Paketfehler in `SBX_PKG_01_FEHLER`.
+ *
+ * Die Annexes 2A/2B sind Geschwister (Multi-Pilot / Single-Pilot). Neue
+ * Texte meiden bewusst die Suchbegriffe von SBX-FL-01, damit die
+ * Re-Check-Abnahme vom Paketumfang unabhängig bleibt.
  */
+export const SBX_PKG_01_FEHLER = [
+  'TM listet Appendix 6, der nicht im Paket ist (Lücke)',
+  'Annex 4 ist im Paket, aber nicht in der Liste des TM (Dokumentenlenkung)',
+  'Annex 3: Titel „Ground Training" statt „Ground School" laut Liste',
+  'Appendix 5 steht auf Revision R0.0, das TM auf R0.1',
+  'Annex 2B nennt 12 h FFS-Training, das TM 16 h (Befund beim Annex)',
+  'Annex 2B: „PM" in der Single-Pilot-Fassung (Reste der Gegenfassung)',
+  'Annex 2B: Sessiondauer 3 h statt 4 h wie in 2A (verdächtiger Unterschied)',
+  'Annex 2B: „recieve" — in 2A korrigiert, hier nicht',
+] as const
+
 export async function sbxPkg01(): Promise<{ name: string; titel: string; kuerzel: string; daten: Uint8Array }[]> {
   const tm = await kapitelDocx('SBX-PKG-01 Training Manual R0.1', [
     ['1 General', 1, ['This Training Manual applies to the ATO AT.ATO.106.', 'The checklist shall be used for every flight. The callout "V1" is made by the PM.', 'Abbreviations: PF pilot flying, PM pilot monitoring. The LEP lists all pages.']],
     // Wörtliches Zitat (N3.4): „check list" im Zitat ist kein Rest von Befund 1.
     ['1.1 Training Records', 2, ['Training records are kept for 5 years. The authority requires: "Each check list shall be signed by the instructor."']],
-    ['2 Simulator Training', 1, ['Each Revision of the syllabus is approved by the Head of Training. The Revsion history is kept with the manual.']],
-    ['3 Assessment', 1, ['The instructor assesses the competency of the trainee. Threat management is briefed before each session.']],
+    ['1.2 Appendices and Annexes', 2, ['Appendix 4 – Line Training', 'Appendix 5 – Skill Test', 'Appendix 6 – Operator Proficiency Check', 'Annex 2A – FFS Training MP', 'Annex 2B – FFS Training SP', 'Annex 3 – Ground School']],
+    ['2 Simulator Training', 1, ['Each Revision of the syllabus is approved by the Head of Training. The Revsion history is kept with the manual.', 'FFS training: 16 hours']],
+    ['3 Assessment', 1, ['The instructor assesses the competency of the trainee. Threat management is briefed before each session.', 'Each trainee will receive the syllabus in advance.']],
   ])
   const apx = await kapitelDocx('SBX-PKG-01 Appendix 4 Line Training R0.1', [
     ['1 Line Training', 1, ['The call-out "rotate" is given by the PM. The IPT session is conducted before line training.', 'The a/c is prepared by the crew. Duration: TBD.']],
   ])
+  const apx5 = await kapitelDocx('SBX-PKG-01 Appendix 5 Skill Test R0.0', [['1 Skill Test', 1, ['The skill test is conducted in the full flight simulator.']]])
+  const gemeinsam = (v: 'MP' | 'SP'): [string, number, string[]][] => [
+    ['1 Course Content', 1, [
+      `FFS training: ${v === 'MP' ? 16 : 12} hours`,
+      `Each session lasts ${v === 'MP' ? 4 : 3} hours including the briefing and debriefing.`,
+      `The trainee shall ${v === 'MP' ? 'receive' : 'recieve'} a briefing before each session.`,
+      'The PM verifies the fuel quantity before engine start.',
+      ...(v === 'MP' ? ['Both pilots complete the before start checks using MCC principles.'] : []),
+    ]],
+  ]
+  const anx2a = await kapitelDocx('SBX-PKG-01 Annex 2A FFS Training MP R0.1', gemeinsam('MP'))
+  const anx2b = await kapitelDocx('SBX-PKG-01 Annex 2B FFS Training SP R0.1', gemeinsam('SP'))
+  const anx3 = await kapitelDocx('SBX-PKG-01 Annex 3 Ground Training R0.1', [['1 Ground Training', 1, ['Ground training: 40 hours', 'The ground training covers systems and procedures.']]])
+  const anx4 = await kapitelDocx('SBX-PKG-01 Annex 4 Emergency Training R0.1', [['1 Emergency Training', 1, ['The emergency training covers evacuation and firefighting.']]])
   return [
     { name: 'SBX-PKG-01_TM_R0.1.docx', titel: 'SBX-PKG-01 Training Manual R0.1', kuerzel: 'TM', daten: tm },
     { name: 'SBX-PKG-01_APX4_R0.1.docx', titel: 'SBX-PKG-01 Appendix 4 Line Training R0.1', kuerzel: 'APX 4', daten: apx },
+    { name: 'SBX-PKG-01_APX5_R0.0.docx', titel: 'SBX-PKG-01 Appendix 5 Skill Test R0.0', kuerzel: 'APX 5', daten: apx5 },
+    { name: 'SBX-PKG-01_ANX2A_MP_R0.1.docx', titel: 'SBX-PKG-01 Annex 2A FFS Training MP R0.1', kuerzel: 'ANX 2A', daten: anx2a },
+    { name: 'SBX-PKG-01_ANX2B_SP_R0.1.docx', titel: 'SBX-PKG-01 Annex 2B FFS Training SP R0.1', kuerzel: 'ANX 2B', daten: anx2b },
+    { name: 'SBX-PKG-01_ANX3_R0.1.docx', titel: 'SBX-PKG-01 Annex 3 Ground Training R0.1', kuerzel: 'ANX 3', daten: anx3 },
+    { name: 'SBX-PKG-01_ANX4_R0.1.docx', titel: 'SBX-PKG-01 Annex 4 Emergency Training R0.1', kuerzel: 'ANX 4', daten: anx4 },
   ]
 }
 

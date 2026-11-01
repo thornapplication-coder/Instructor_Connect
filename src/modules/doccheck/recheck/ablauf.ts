@@ -7,6 +7,7 @@ import { befundeLesen, kopfzeileFinden, zielVorschlagen, zuordnungVorschlagen, t
 import { profilLaden, profilSpeichern } from './profil'
 import { remark, STATUS_NAME, type ReErgebnis, type RemarkSprache, type ReStatus } from './pruefen'
 import type { RueckschreibAuftrag, WerteZuordnung } from './rueckschreiben'
+import type { Korrektur } from '../paket/pruefen'
 
 /**
  * Ablauf des Re-Checks (N3.1) als reine Übergänge auf dem Sitzungsstand.
@@ -207,3 +208,20 @@ export function rueckschreibAuftrag(r: ReCheckSitzung, werte: WerteZuordnung, da
     zeilen,
   }
 }
+
+/**
+ * Korrekturen, die der Re-Check im genannten Dokument bestätigt hat — für
+ * die Fix-Propagation (N2.1): Im Zieldokument ist der alte Text weg, also
+ * muss er auch aus dessen Geschwistern verschwunden sein.
+ */
+export function korrekturen(r: ReCheckSitzung | undefined): Korrektur[] {
+  if (!r?.ergebnisse) return []
+  return r.ergebnisse.flatMap((e) => {
+    if (e.grund !== 'wegUndDa' && e.grund !== 'restAnderesDok') return []
+    const b = r.befunde.find((x) => x.zeile === e.zeile)!
+    const ziel = r.ziele[b.dokument]
+    if (ziel?.art !== 'dok') return []
+    return ziel.ids.flatMap((dokId) => e.anweisung.weg.map((weg) => ({ ref: b.ref, dokId, weg })))
+  })
+}
+

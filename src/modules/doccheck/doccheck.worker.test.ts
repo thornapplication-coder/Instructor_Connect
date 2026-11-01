@@ -44,6 +44,7 @@ describe('Worker-Nachrichtenschicht', () => {
       paaren: vi.fn(async (id: string) => (id === 'd' ? ({ id, seitenQuelle: 'pdf_pair' } as never) : null)),
       referenzenSetzen: vi.fn(() => [{ id: 'd', ref: true } as never]),
       nachpruefen: vi.fn(() => [{ ref: '1' } as never]),
+      paketPruefen: vi.fn(() => ({ befunde: [] }) as never),
     }
     const a = aufbau(kern)
     await a.senden({ typ: 'abbrechen', id: 'd' })
@@ -58,6 +59,8 @@ describe('Worker-Nachrichtenschicht', () => {
     await a.senden({ typ: 'nachpruefen', nr: 9, auftraege: [] })
     expect(a.raus.at(-1)).toEqual({ typ: 'nachgeprueft', nr: 9, ergebnisse: [{ ref: '1' }] })
     a.raus.pop()
+    await a.senden({ typ: 'paket', nr: 10, struktur: [], korrekturen: [] })
+    expect(a.raus.pop()).toEqual({ typ: 'paket', nr: 10, ergebnis: { befunde: [] } })
     expect(kern.abbrechen).toHaveBeenCalledWith('d')
     expect(kern.entfernen).toHaveBeenCalledWith('d')
     expect(kern.titelSetzen).toHaveBeenCalledWith('d', 'T')

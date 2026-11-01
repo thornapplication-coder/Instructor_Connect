@@ -818,3 +818,28 @@ Einlesen jedes Prüfdokuments und erneut nach OCR oder Word-PDF-Paar.
 - Abnahme `SBX-PKG-01`: Das Training Manual enthält jetzt ein wörtliches
   Zitat mit dem beanstandeten Text; Befund 1 bleibt „Resolved", das Zitat
   wird gezeigt, nicht gezählt.
+
+## 1.14.0 — 2026-11-01
+
+- **DocCheck: Dokumentpakete und Geschwistergruppen (Nachtrag N1, N2).**
+  Im Prüfungsreiter Umschalter „Einzeldokumente | Paket"; Schalter
+  `packageCheck` (ab Werk an).
+  - Paketstruktur je Prüfdokument (Kürzel, Ebene, Gruppe, Variante),
+    vorbelegt aus Dateiname und Titel (TM, APX/APPENDIX, ANX/ANNEX,
+    Ziffern-Präfix, MP/SP, „Variant A–D"); Geschwister werden vorgeschlagen.
+  - Package overview mit Revision und Datum je Dokument.
+  - Prüfpunkte: Anhangsliste des TM gegen das Paket (Lücke, nicht gelistet,
+    Titel weicht ab), Revisionsstand, Hierarchieregel bei Stundenangaben
+    (Befund beim tieferen Dokument, höheres unter „Other affected
+    documents"), Geschwisterabgleich (verdächtige Unterschiede,
+    Tippfehler mit Zuordnung zum fehlerhaften Dokument), Reste der
+    Gegenfassung, Fix-Propagation aus bestätigten Re-Check-Korrekturen.
+  - Paketbefunde erscheinen in Findings mit eigener Ampelzeile im
+    Submission gate.
+- **Abnahme:** `SBX-PKG-01` jetzt mit TM, 2 Appendices, 4 Annexes (davon
+  zwei Geschwister MP/SP) und acht eingebauten Paketfehlern — alle
+  gefunden, die Variantenbezeichnungen nicht gemeldet. Die Re-Check-Abnahme
+  `SBX-FL-01` gilt unverändert.
+- Noch nicht enthalten: Vergleich gemeinsamer Textbausteine
+  (Approval-Block, Adresse) und die Ausnahme der Hierarchieregel, wenn das
+  höhere Dokument selbst regelwidrig ist (braucht die Bibliothek).

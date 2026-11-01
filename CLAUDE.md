@@ -69,7 +69,8 @@ für die dort geregelten Punkte vor; seine Phasenzuordnung steht in Kap. 19.
 Stand: **Phase 2 + Word-Check (Sandbox)** — Dokumente einlesen und
 durchsuchen, Word-Extrakt, Seitenangaben bei DOCX, Formalprüfung, Word-Check
 (N4), Sprache/Platzhalter (N9), Referenzlisten als Soll, Re-Check fremder
-Findinglisten (N3, regelbasiert); kein Backend, KI simuliert. Festlegungen:
+Findinglisten (N3, regelbasiert), Dokumentpakete und Geschwister (N1, N2);
+kein Backend, KI simuliert. Festlegungen:
 
 - **Die Testwachen gelten auch hier.** `testGuard` globt `src/modules/**`,
   die Abdeckungsschwelle ebenso. Ansichten (`*.tsx`) sind wie `src/pages`
@@ -159,6 +160,20 @@ Findinglisten (N3, regelbasiert); kein Backend, KI simuliert. Festlegungen:
   nur mit einem Wert aus der Werteliste der Liste (Dropdown). Der Leser
   liefert dafür Excel-Zeilennummern (`zeilenNr`), weil das Raster leere
   Zeilen überspringt. Das Original wird nie überschrieben.
+- **Dokumentpakete** (`paket/`, N1/N2): Kürzel, Ebene, Gruppe und
+  Variante werden aus Dateiname/Titel vorbelegt und als „erkannt" markiert;
+  was der Nutzer setzt, überschreibt kein Vorschlag. Die Prüfung läuft im
+  Worker und **automatisch** neu, sobald Struktur, Texte oder bestätigte
+  Re-Check-Korrekturen sich ändern — kein Knopf, der ein veraltetes
+  Ergebnis stehen lässt. Hierarchieregel: Befund beim TIEFEREN Dokument,
+  das höhere unter „Other affected documents" (`Befund.weitere`).
+  Dublettenregel: Eine Zeile ist nicht zugleich Hierarchie- und
+  Geschwisterbefund. Erlaubte Geschwister-Unterschiede stehen in
+  `config/sibling-rules.json` (Beispiel der Spezifikation, Erstbefüllung
+  beim Superadmin); Variantenbezeichnungen und Kürzel sind immer erlaubt.
+  Bei einem Tippfehler zwischen Geschwistern gilt das Wort als falsch, das
+  sonst nirgends im Paket steht — lässt sich das nicht entscheiden, heißt
+  der Befund „Inconsistency", nicht „Editorial".
 - **Submission gate** warnt ab Werk (`gateSperrt: false`, Entscheidung
   vom 01.11.2026); Sperre ist Einstellung des Superadmins.
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise

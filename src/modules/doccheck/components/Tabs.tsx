@@ -11,6 +11,7 @@ import { aktiv, preiseVollstaendig } from '../settings'
 import { Dropzone, Phase } from './Panels'
 import { Suche } from './Suche'
 import { useSitzung } from '../sitzung'
+import { PaketPanel, PaketUmschalter } from './Paket'
 
 /* ------------------------------ Prüfung ------------------------------ */
 
@@ -23,8 +24,17 @@ export function PruefungTab({ modell }: { modell: string }) {
   const [art, setArt] = useState<'erst' | 'revision'>('erst')
   const [funktion, setFunktion] = useState(() => tApp(`roles.${currentUser!.role}`))
   const m = docCheckSettings.modelle.find((x) => x.id === modell)
+  const { paketModus } = useSitzung()
   return (
     <div className="space-y-section">
+      {aktiv(docCheckSettings, 'packageCheck') && (
+        <>
+          <Field label={t('paket.modus')} group>
+            <PaketUmschalter />
+          </Field>
+          {paketModus && <PaketPanel />}
+        </>
+      )}
       <Field label={t('pruefung.arten')} group>
         <div className="grid gap-tight sm:grid-cols-2">
           {(['technik', 'regulatorik', 'redaktion', 'konsistenz'] as const).map((k) => {

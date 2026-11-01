@@ -19,6 +19,7 @@ import { LibraryPanel, Phase, ReviewDocsPanel, SessionDocsPanel } from './compon
 import { ChatTab, ExportTab, PruefungTab, RevisionenTab, VerwaltenTab } from './components/Tabs'
 import { FindingsTab } from './components/Befunde'
 import { ReCheckMobil, ReCheckTab } from './components/ReCheck'
+import { usePaketPruefung } from './components/Paket'
 import { ReferenzPanel } from './components/Referenzen'
 
 // Die Texte kommen erst mit dem Modul — wer DocCheck nie oeffnet, laedt sie
@@ -129,6 +130,7 @@ function Desktop() {
   const [reiter, setReiter] = useState<Reiter>('pruefung')
   const [auswahl, setAuswahl] = useState<Set<string>>(new Set())
   const [probe, setProbe] = useState(false)
+  usePaketPruefung()
   const reiterListe: Reiter[] = ['pruefung', 'findings', ...(aktiv(docCheckSettings, 'recheck') ? (['recheck'] as const) : []), 'chat', 'revisionen', 'export']
   if (darf(docCheckRolle, 'bibliothekPflegen')) reiterListe.push('verwalten')
   if (darf(docCheckRolle, 'konfigurieren')) reiterListe.push('admin')

@@ -4,12 +4,13 @@ import { describe, expect, it } from 'vitest'
 import { xlsxTabellen } from '../parse/xlsx'
 import { befundeLesen, kopfzeileFinden, zielVorschlagen, zuordnungVorschlagen } from '../recheck/fremdliste'
 import { remark } from '../recheck/pruefen'
+import { gruppenVorschlagen, vorbelegen } from '../paket/struktur'
 import { Kern } from '../kern'
 import { docxLesen } from '../parse/docx'
 import { dateiLesen } from '../parse/lesen'
 import type { PdfJs } from '../parse/pdf'
 import { pdfBauen } from '../parse/pdfBauen'
-import { absatz, lauf, SBX_FL_01, SBX_FL_01_KOPF, SBX_WORD_01_NAME, sbxFl01, sbxPage01, sbxPkg01, sbxWord01, umbrechen } from './sbx'
+import { absatz, lauf, SBX_FL_01, SBX_FL_01_KOPF, SBX_PKG_01_FEHLER, SBX_WORD_01_NAME, sbxFl01, sbxPage01, sbxPkg01, sbxWord01, umbrechen } from './sbx'
 
 const standardFontDataUrl = fileURLToPath(new URL('../../../../node_modules/pdfjs-dist/standard_fonts/', import.meta.url))
 const kern = () => new Kern({ pdfjs: async () => pdfjs as unknown as PdfJs, standardFontDataUrl })
@@ -184,5 +185,51 @@ describe('Abnahme N3.6: SBX-FL-01 gegen SBX-PKG-01 R0.1 (regelbasiert)', () => {
     expect(ergebnisse[2].behauptungWiderlegt).toBe(true)
     expect(ergebnisse[16].behauptungWiderlegt).toBe(true)
     expect(ergebnisse[15].abweichung).toBe(true)
+  })
+})
+
+describe('Abnahme N1.3 / N2.3: Paketprüfung an SBX-PKG-01', () => {
+  it('Struktur aus Dateinamen; alle eingebauten Paketfehler gefunden, Variantenbezeichnungen nicht gemeldet', async () => {
+    const kern = new Kern({ pdfjs: async () => { throw new Error('kein PDF erwartet') } })
+    const paket = await sbxPkg01()
+    for (const d of paket) await kern.lesen({ id: d.kuerzel, name: d.name, daten: d.daten, titel: d.titel, pruefen: { formal: false, word: false } })
+
+    const angaben = paket.map((d) => ({ id: d.kuerzel, a: vorbelegen(d.name, d.titel) }))
+    expect(angaben.map((x) => [x.a.kuerzel, x.a.ebene, x.a.variante])).toEqual([
+      ['TM', 1, ''], ['APX 4', 2, ''], ['APX 5', 2, ''], ['ANX 2A', 3, 'MP'], ['ANX 2B', 3, 'SP'], ['ANX 3', 3, ''], ['ANX 4', 3, ''],
+    ])
+    const gruppen = gruppenVorschlagen(angaben)
+    expect(gruppen).toEqual({ 'ANX 2A': 'ANX 2', 'ANX 2B': 'ANX 2' })
+
+    const struktur = paket.map((d, i) => ({ id: d.kuerzel, dokName: d.titel, kuerzel: angaben[i].a.kuerzel, ebene: angaben[i].a.ebene, gruppe: gruppen[d.kuerzel] ?? '', variante: angaben[i].a.variante, revision: d.titel.match(/R\d\.\d$/)![0], datum: '2026-10-15' }))
+    const e = kern.paketPruefen(struktur)
+    const kurz = e.befunde.map((b) => `${b.dokId} ${b.pruefpunkt} ${b.prioritaet}`)
+    expect(kurz.sort()).toEqual([
+      'ANX 2B gegenfassung Medium', // „PM" in SP
+      'ANX 2B geschwister Medium', // 3 h statt 4 h
+      'ANX 2B geschwister Medium', // recieve
+      'ANX 2B hierarchie High', // 12 h statt 16 h
+      'ANX 3 liste Low', // Titel weicht ab
+      'APX 5 stand Low', // R0.0
+      'TM liste Medium', // Appendix 6 fehlt
+      'TM liste Medium', // Annex 4 nicht gelistet
+    ])
+    expect(kurz).toHaveLength(SBX_PKG_01_FEHLER.length)
+
+    // Hierarchieregel: beim tieferen Dokument, das TM unter Other Affected Documents
+    const h = e.befunde.find((b) => b.pruefpunkt === 'hierarchie')!
+    expect(h.weitere).toEqual([expect.objectContaining({ dokId: 'TM', fundstelle: expect.objectContaining({ auszug: 'FFS training: 16 hours' }) })])
+    // Tippfehler beim Dokument mit dem falschen Wort, Verweis auf das Geschwister
+    const t = e.befunde.find((b) => b.text.includes('recieve'))!
+    expect(t).toMatchObject({ dokId: 'ANX 2B', kategorie: 'Editorial', weitere: [expect.objectContaining({ dokId: 'ANX 2A' })] })
+    // Keine Doppelmeldung: Die Stundenzeile ist Hierarchie-, kein Geschwisterbefund
+    expect(e.befunde.filter((b) => b.fundstellen.some((f) => f.auszug === 'FFS training: 12 hours'))).toHaveLength(1)
+    expect(e.uebersicht.map((z) => [z.kuerzel, z.abweichung])).toEqual([['TM', []], ['APX 4', []], ['APX 5', ['revision']], ['ANX 2A', []], ['ANX 2B', []], ['ANX 3', []], ['ANX 4', []]])
+    expect(e.ampel).toMatchObject({ liste: 'wait', stand: 'wait', hierarchie: 'bad', geschwister: 'wait', gegenfassung: 'wait', propagation: 'na' })
+
+    // Fix-Propagation (N2.1): im Re-Check in 2A bestätigt, in 2B noch da
+    const p = kern.paketPruefen(struktur, [{ ref: '42', dokId: 'ANX 2A', weg: 'recieve' }])
+    expect(p.befunde.filter((b) => b.pruefpunkt === 'propagation')).toEqual([expect.objectContaining({ dokId: 'ANX 2B', weitere: [expect.objectContaining({ dokId: 'ANX 2A' })] })])
+    expect(p.ampel.propagation).toBe('wait')
   })
 })
