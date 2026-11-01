@@ -62,7 +62,10 @@ grün.
 
 ## DocCheck (`src/modules/doccheck/`)
 
-Eigenes Modul nach der Spezifikation `DocCheck_Spezifikation_v1_1.md`.
+Eigenes Modul nach der Spezifikation `DocCheck_Spezifikation_v1_1.md`,
+ergänzt durch `docs/DocCheck_Spezifikation_v1_2_Nachtrag.md` (Re-Check
+bestehender Findinglisten, Dokumentpakete, Word-Check). Der Nachtrag geht
+für die dort geregelten Punkte vor; seine Phasenzuordnung steht in Kap. 19.
 Stand: **Phase 1a (Sandbox)** — kein Backend, KI simuliert. Festlegungen:
 
 - **Die Testwachen gelten auch hier.** `testGuard` globt `src/modules/**`,
