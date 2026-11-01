@@ -43,7 +43,7 @@ export function migrateState(st: AppState): AppState {
   // Gliederung nach Schulungsart hätte nichts zu gliedern.
   const lessonCategories = st.settings.lessonCategories?.length ? st.settings.lessonCategories : [...LESSON_CATEGORIES]
 
-  // Demo-Platzhalter „Max Mustermann" heißt jetzt „Steven Fermie" — Nutzer
+  // Demo-Platzhalter „Max Mustermann" heißt jetzt „Sam Beispiel" — Nutzer
   // (u-max) und Verzeichniskontakt (c2), nur solange der alte Name steht.
   /*
    * Musterzuordnung nachtragen.
@@ -75,7 +75,7 @@ export function migrateState(st: AppState): AppState {
   // Stand ohne Marke schon. `users === undefined` heisst: kein Bestand.
   const musterDone = st.aircraftBackfilled === true || st.users === undefined
   const users = st.users?.map((u) => {
-    const umbenannt = u.id === 'u-max' && u.name === 'Max Mustermann' ? { ...u, name: 'Steven Fermie' } : u
+    const umbenannt = u.id === 'u-max' && u.name === 'Max Mustermann' ? { ...u, name: 'Sam Beispiel' } : u
     // `aircraftTypes` darf auch dann nicht `undefined` bleiben, wenn es
     // nichts nachzutragen gibt: Ansichten und Sammelaktionen lesen das Feld
     // ungeprueft, und ein Stand aus der Zeit vor dem Feld haette es sonst gar
@@ -93,7 +93,7 @@ export function migrateState(st: AppState): AppState {
   // Marke auch dann setzen, wenn nichts nachzutragen war — der Umstieg ist
   // damit endgueltig erledigt, nicht nur fuer diesen Start.
   const markAircraft = !musterDone
-  const contacts = st.contacts?.map((c) => (c.id === 'c2' && c.name === 'Max Mustermann' ? { ...c, name: 'Steven Fermie' } : c))
+  const contacts = st.contacts?.map((c) => (c.id === 'c2' && c.name === 'Max Mustermann' ? { ...c, name: 'Sam Beispiel' } : c))
 
   // Changelog zurückgesetzt: nur noch der 1.0.0-Erststand (mit Datum+Uhrzeit).
   // Alte, angesammelte Einträge fallen damit weg.

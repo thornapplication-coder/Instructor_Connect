@@ -21,10 +21,10 @@ const KEINE_GRUPPEN: Group[] = []
 /** Im Normalfall darf jeder ins Modul; die Ausnahme wird einzeln geprueft. */
 const jeder = () => true
 
-const patrick = wer('u1', 'Patrick Thorn', 'superadmin', ['CL30', 'C560 XLS+'])
-const christian = wer('u2', 'Christian Terler', 'group_admin', ['CL30'])
-const michael = wer('u3', 'Michael Holy', 'member', ['C560 XLS+'])
-const steven = wer('u4', 'Steven Fermie', 'training_admin', [])
+const patrick = wer('u1', 'Alex Beispiel', 'superadmin', ['CL30', 'C560 XLS+'])
+const christian = wer('u2', 'Chris Beispiel', 'group_admin', ['CL30'])
+const michael = wer('u3', 'Mika Beispiel', 'member', ['C560 XLS+'])
+const steven = wer('u4', 'Sam Beispiel', 'training_admin', [])
 const ALLE = [michael, christian, patrick, steven]
 
 describe('Wer muss bestaetigen', () => {
@@ -34,7 +34,7 @@ describe('Wer muss bestaetigen', () => {
     // sieht den Eintrag nicht — und darf deshalb auch nicht als saeumig
     // gefuehrt werden.
     const ziele = ackZiele({ aircraftType: 'C560 XLS+' }, ALLE, KEINE_GRUPPEN, jeder)
-    expect(ziele.map((u) => u.name)).toEqual(['Michael Holy', 'Patrick Thorn', 'Steven Fermie'])
+    expect(ziele.map((u) => u.name)).toEqual(['Alex Beispiel', 'Mika Beispiel', 'Sam Beispiel'])
     expect(ziele.map((u) => u.id)).not.toContain(christian.id)
   })
 
@@ -47,7 +47,7 @@ describe('Wer muss bestaetigen', () => {
   it('nimmt Superadmin und Training Admin nie wegen des Musters heraus', () => {
     // Beide stehen ausserhalb der Schranke — auch ohne eigene Zuordnung.
     const ziele = ackZiele({ aircraftType: 'ATR 42/72' }, ALLE, KEINE_GRUPPEN, jeder).map((u) => u.name)
-    expect(ziele).toEqual(['Patrick Thorn', 'Steven Fermie'])
+    expect(ziele).toEqual(['Alex Beispiel', 'Sam Beispiel'])
   })
 
   it('laesst ein stillgelegtes Konto aus', () => {
@@ -68,23 +68,23 @@ describe('Wer muss bestaetigen', () => {
     const gruppen: Group[] = [
       { id: 'g1', name: 'CL30 Crew', memberIds: ['u2'], adminIds: [], purpose: '', createdAt: 0 } as unknown as Group,
     ]
-    expect(ackZiele({ groupIds: ['g1'] }, ALLE, gruppen, jeder).map((u) => u.name)).toEqual(['Christian Terler'])
+    expect(ackZiele({ groupIds: ['g1'] }, ALLE, gruppen, jeder).map((u) => u.name)).toEqual(['Chris Beispiel'])
   })
 
   it('verlangt Muster UND Zielgruppe, nicht eines von beiden', () => {
-    // Christian ist in der Gruppe, aber nicht im Muster — beides muss passen.
+    // Chris ist in der Gruppe, aber nicht im Muster — beides muss passen.
     const gruppen: Group[] = [
       { id: 'g1', name: 'Gemischt', memberIds: ['u2', 'u3'], adminIds: [], purpose: '', createdAt: 0 } as unknown as Group,
     ]
-    expect(ackZiele({ groupIds: ['g1'], aircraftType: 'C560 XLS+' }, ALLE, gruppen, jeder).map((u) => u.name)).toEqual(['Michael Holy'])
+    expect(ackZiele({ groupIds: ['g1'], aircraftType: 'C560 XLS+' }, ALLE, gruppen, jeder).map((u) => u.name)).toEqual(['Mika Beispiel'])
   })
 
   it('sortiert alphabetisch, damit die Kontrollliste lesbar ist', () => {
     expect(ackZiele({}, ALLE, KEINE_GRUPPEN, jeder).map((u) => u.name)).toEqual([
-      'Christian Terler',
-      'Michael Holy',
-      'Patrick Thorn',
-      'Steven Fermie',
+      'Alex Beispiel',
+      'Chris Beispiel',
+      'Mika Beispiel',
+      'Sam Beispiel',
     ])
   })
 

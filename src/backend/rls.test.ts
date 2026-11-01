@@ -61,10 +61,10 @@ beforeAll(async () => {
   db = new PGlite()
   await db.exec(readFileSync(`${wurzel}tests/auth_stub.sql`, 'utf8'))
   for (const m of migrationen) await db.exec(readFileSync(`${wurzel}migrations/${m}`, 'utf8'))
-  await einladen(ID.super, 'patrick@example.test', { role: 'superadmin' })
-  await einladen(ID.admin, 'christian@example.test', { access: true, admin: true })
-  await einladen(ID.nutzer, 'michael@example.test', { access: true })
-  await einladen(ID.ohne, 'steven@example.test')
+  await einladen(ID.super, 'alex@example.test', { role: 'superadmin' })
+  await einladen(ID.admin, 'chris@example.test', { access: true, admin: true })
+  await einladen(ID.nutzer, 'mika@example.test', { access: true })
+  await einladen(ID.ohne, 'sam@example.test')
   await einladen(ID.inaktiv, 'alt@example.test', { active: false, access: true })
   await einladen(ID.gruppe, 'gruppe@example.test', { role: 'group_admin' })
 })
@@ -110,14 +110,14 @@ describe('Profile', () => {
 
   it('eigene Kontaktdaten ja; eigene Rolle, Muster, Rechte nein', async () => {
     await als(ID.ohne)
-    await db.query("update public.profiles set name = 'Steven', phone = '+43' where id = $1", [ID.ohne])
+    await db.query("update public.profiles set name = 'Sam', phone = '+43' where id = $1", [ID.ohne])
     expect(await fehler("update public.profiles set role = 'superadmin' where id = $1", [ID.ohne])).toContain('IC-RIGHTS')
     expect(await fehler("update public.profiles set aircraft_types = '{C560}' where id = $1", [ID.ohne])).toContain('IC-RIGHTS')
     // Fremde Zeilen: keine Policy → nichts geändert
     const r = await db.query("update public.profiles set name = 'X' where id = $1", [ID.nutzer])
     expect(r.affectedRows).toBe(0)
     await alsDienst()
-    expect((await db.query<{ name: string }>('select name from public.profiles where id = $1', [ID.ohne])).rows[0].name).toBe('Steven')
+    expect((await db.query<{ name: string }>('select name from public.profiles where id = $1', [ID.ohne])).rows[0].name).toBe('Sam')
   })
 
   it('DocCheck-Rechte nie per UPDATE — auch nicht vom Superadmin', async () => {

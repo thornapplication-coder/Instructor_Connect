@@ -21,8 +21,8 @@ describe('Fehlergründe', () => {
 describe('Code anfordern', () => {
   it('nur eingeladene Nutzer; Adresse normalisiert', async () => {
     const c = client()
-    expect(await codeAnfordern(c, ' Patrick@Example.TEST ')).toEqual({ ok: true })
-    expect(c.signInWithOtp).toHaveBeenCalledWith({ email: 'patrick@example.test', options: { shouldCreateUser: false } })
+    expect(await codeAnfordern(c, ' Alex@Example.TEST ')).toEqual({ ok: true })
+    expect(c.signInWithOtp).toHaveBeenCalledWith({ email: 'alex@example.test', options: { shouldCreateUser: false } })
   })
 
   it('unbekannte Adresse wird wie bekannte quittiert (kein Ausforschen von Konten)', async () => {

@@ -367,7 +367,7 @@ Lese-Bestätigungen: die Regel steht jetzt dort, wo sie geprüft wird.
 Auf Nachfrage kontrolliert, ob bei einem Instructor-Info-Eintrag mit Muster
 wirklich nur die bestätigen müssen, die für dieses Muster freigeschaltet
 sind. **Sie stimmt** — im Browser gemessen: Ein Eintrag mit „C560 XLS+"
-führt 0/2 (Michael Holy, Patrick Thorn); der CL30-Admin steht weder in der
+führt 0/2 (Mika Beispiel, Alex Beispiel); der CL30-Admin steht weder in der
 Quote noch in der Kontrollliste, noch sieht er den Bestätigen-Knopf. Ein
 Eintrag ohne Muster führt 1/3, also alle.
 
@@ -505,10 +505,10 @@ Seite `src/pages/Logbook.tsx`, Bereich `src/pages/admin/LogbookAdmin.tsx`,
 Store-Aktionen für Overrides und manuelle Einträge, Kachel auf der
 Startseite (als letzte, nach Notes).
 
-Im Browser nachgemessen: Michael sieht im eigenen Logbuch 3 Einträge /
-16:30 (je 308: 4:00 Session + 1:00 + 0:30); Christian im eigenen 3 / 14:30;
-Christian (CL30-Admin) sieht in Michaels C560-Logbuch 0 Einträge; Steven
-(Training Admin) sieht Michaels 3 Einträge, ohne Bearbeiten-Knöpfe.
+Im Browser nachgemessen: Mika sieht im eigenen Logbuch 3 Einträge /
+16:30 (je 308: 4:00 Session + 1:00 + 0:30); Chris im eigenen 3 / 14:30;
+Chris (CL30-Admin) sieht in Mikas C560-Logbuch 0 Einträge; Sam
+(Training Admin) sieht Mikas 3 Einträge, ohne Bearbeiten-Knöpfe.
 
 ## 1.7.1 — 2026-08-14
 
@@ -563,7 +563,7 @@ Datumsformat:
   die Schreibweise des Geräts — das bestimmt der Browser, nicht die App.
 
 9 neue Testfälle (adminZeile, XLSX-Schreiber samt ZIP-Leser, kurzeZeit).
-Im Browser nachgemessen: Muster-Filter C560 XLS+ → Christian 1 Eintrag /
+Im Browser nachgemessen: Muster-Filter C560 XLS+ → Chris 1 Eintrag /
 05:30; ab 01.08. → 3 Einträge / 15:30; ohne Briefing → 22:00 statt 31:00;
 beide Downloads geprüft (CSV-Kopf mit Filtern, .xlsx öffnet als echte
 Arbeitsmappe).

@@ -57,7 +57,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
   // Der Browser benennt das gedruckte PDF nach dem Dokumenttitel. Solange
   // dieses Formular offen ist, heißt das Dokument deshalb nach dem Schema
   // Form_Titel_Person_Instruktor_Datum_Event — z. B.
-  // "308A_Grading Sheet TR_Sophie Berger_Michael Holy_05.08.2026_FFS4".
+  // "308A_Grading Sheet TR_Sophie Berger_Mika Beispiel_05.08.2026_FFS4".
   useEffect(() => {
     if (!record) return
     const typ = state.settings.grading.formTypes.find((f) => f.id === record.formTypeId)

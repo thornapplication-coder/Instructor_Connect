@@ -115,15 +115,15 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
       <header className="safe-top-6 mx-auto flex w-full max-w-3xl items-center justify-between px-5 xl:max-w-6xl xl:px-10">
         {/* Die Begrüßung gibt nach, die Bedienelemente nicht.
             Ohne `min-w-0`/`truncate` drückte ein längerer Vorname die rechte
-            Gruppe zusammen — gemessen am iPhone: „Hello, Christian" umbrach
+            Gruppe zusammen — gemessen am iPhone: „Hello, <neunstelliger Vorname>" umbrach
             auf zwei Zeilen, und der DE/EN-Schalter wurde so schmal, dass die
             globale Umbruchregel ihn zu „D E" / „E N" zerlegte. */}
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Avatar name={currentUser!.name} size={40} />
           <div className="min-w-0">
-            {/* Am schmalen Handy steht nur der Name: „Hello, Christian" passt
+            {/* Am schmalen Handy steht nur der Name: „Hello, <neunstelliger Vorname>" passt
                 bei 375 px nicht neben Aktualisieren, Thema und DE/EN und
-                wurde zu „Hello, Chri…" abgeschnitten — dann lieber den Namen
+                wurde zu „Hello, <Vorna…>" abgeschnitten — dann lieber den Namen
                 ganz zeigen. Ab Tablet ist Platz für die Begrüßung. */}
             <p className="truncate text-lead font-semibold leading-tight">
               <span className="sm:hidden">{firstName}</span>

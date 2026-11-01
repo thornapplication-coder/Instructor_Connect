@@ -43,7 +43,7 @@ const blatt = (u: Partial<GradingRecord> = {}): GradingRecord =>
   ({
     id: 'r1',
     formTypeId: '308A',
-    instructorId: 'u-holy',
+    instructorId: 'u-mika',
     header: { aircraftType: 'C560 XLS+', trainingDevice: 'FFS', date: '2026-08-08' },
     trainees: [pilot()],
     competencies: [{ code: 'KNO', title: 'Application of knowledge', behaviours: [] }],
@@ -66,8 +66,8 @@ function ctx(records: GradingRecord[], u: Partial<ExportContext> = {}): ExportCo
     alle: records,
     filter: [['Rows', `${records.length} of ${records.length}`]],
     exportiertAm: 1_700_000_000_000,
-    exportiertVon: 'Patrick Thorn',
-    userName: (id) => (id === 'u-holy' ? 'Michael Holy' : id),
+    exportiertVon: 'Alex Beispiel',
+    userName: (id) => (id === 'u-mika' ? 'Mika Beispiel' : id),
     traineeLabel: (tr) => tr.traineeName || tr.traineeId || '—',
     traineesOf: (r) => r.trainees,
     parentLabel: () => '308A · 08.08.2026',
@@ -93,14 +93,14 @@ describe('avgOf', () => {
 
 describe('Dateikopf', () => {
   it('nennt Zeitpunkt, ausfuehrende Person und die aktiven Filter', () => {
-    const csv = buildGradingCsv('records', ctx([blatt()], { filter: [['Rows', '1 of 3'], ['Instructor', 'Michael Holy']] }))
+    const csv = buildGradingCsv('records', ctx([blatt()], { filter: [['Rows', '1 of 3'], ['Instructor', 'Mika Beispiel']] }))
     const z = zeilen(csv)
     expect(z[0]).toBe('Instructor Connect — Grading Export')
     expect(z[1]).toContain('T1700000000000')
-    expect(z[1]).toContain('Patrick Thorn')
+    expect(z[1]).toContain('Alex Beispiel')
     // Der Ausschnitt steht in der Datei, nicht nur im Kopf des Bedieners.
     expect(csv).toContain('Rows;1 of 3')
-    expect(csv).toContain('Instructor;Michael Holy')
+    expect(csv).toContain('Instructor;Mika Beispiel')
   })
 })
 
@@ -228,10 +228,10 @@ describe('Auszug „people"', () => {
   it('listet die Kalibrierung je Kompetenzsatz', () => {
     const csv = buildGradingCsv(
       'people',
-      ctx([], { kalibrierung: [{ satz: 'Pilot', personId: 'u-holy', sessions: 7, avg: 3.4, abweichung: -0.63 }] }),
+      ctx([], { kalibrierung: [{ satz: 'Pilot', personId: 'u-mika', sessions: 7, avg: 3.4, abweichung: -0.63 }] }),
     )
     expect(csv).toContain('CompetencySet;Person;Role;Sessions;AvgGrade;DeviationFromSetAvg')
-    expect(csv).toContain('Pilot;Michael Holy;Instructor;7;3,40;-0,63')
+    expect(csv).toContain('Pilot;Mika Beispiel;Instructor;7;3,40;-0,63')
   })
 
   it('bleibt ohne Kalibrierungsdaten bei der Kopfzeile', () => {
