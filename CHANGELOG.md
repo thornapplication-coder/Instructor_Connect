@@ -1016,3 +1016,18 @@ DocCheck: Exporte und Prüfstand (Spezifikation v1.1 Kap. 10, 12; Phase 6).
 - Gegenprobe: LibreOffice öffnet alle Formate. Offen: Probe in Microsoft
   Office und die Pixel-Layouttests aus Kap. 10.8 (brauchen LibreOffice in
   der CI).
+
+## 1.23.0 — 2026-11-01
+
+Ebene-3-Tests (Playwright) und ein Offline-Fehler.
+
+- **Sechs Wege im echten Browser** gegen den gebauten Stand, eigener
+  CI-Job: DocCheck einlesen → Befund per Tastatur → Viewer-Fokus; Export
+  (CSV und Excel mit denselben IDs, Prüfstand speichern und wieder öffnen);
+  Re-Check bis zur Datei mit Blatt „Neue Findings“; Wartung und
+  Wiedereinschalten; Telefon-Ansicht mit Prüfstand; Offline-Start.
+  Anmeldung über den echten Sandbox-Weg.
+- **Behoben: Offline-Start.** Lieferte der Server „Vary: Origin“, fand der
+  Service Worker die vorgeladenen Startdateien nicht und die App blieb ohne
+  Netz weiß. Der Service Worker sieht beim Nachschlagen über `Vary` hinweg
+  (die Dateien sind inhaltsgehasht).

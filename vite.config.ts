@@ -182,6 +182,14 @@ function cacheable(r, url) {
   return true
 }
 
+// Vary beim Nachschlagen ignorieren: Module lädt der Browser im CORS-Modus
+// MIT Origin-Kopf, der Vorab-Cache (addAll) holte sie OHNE. Antwortet der
+// Server mit „Vary: Origin" (vite preview; manches Hosting), passte kein
+// Eintrag — die App startete offline weiß, obwohl alles im Cache lag
+// (gefunden mit dem Offline-Test der Ebene 3, 01.11.2026). Gefahrlos, weil
+// jede Datei inhaltsgehasht ist: gleiche Adresse, gleicher Inhalt.
+const OHNE_VARY = { ignoreVary: true }
+
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return
   const url = new URL(e.request.url)
@@ -201,7 +209,7 @@ self.addEventListener('fetch', (e) => {
     // Balken Empfang am Netz-Timeout des Systems (zig Sekunden), bevor
     // ueberhaupt in den Cache geschaut wird — die App wirkt tot, obwohl
     // alles lokal vorliegt. Nach 2,5 s gewinnt der Cache.
-    const ausCache = () => caches.match(e.request).then((hit) => hit || caches.match('./'))
+    const ausCache = () => caches.match(e.request, OHNE_VARY).then((hit) => hit || caches.match('./', OHNE_VARY))
     e.respondWith(
       Promise.race([
         fetch(e.request).catch(() => ausCache()),
@@ -212,7 +220,7 @@ self.addEventListener('fetch', (e) => {
   }
   // Assets sind inhaltsgehasht: Cache zuerst, Netz als Fallback
   e.respondWith(
-    caches.match(e.request).then(
+    caches.match(e.request, OHNE_VARY).then(
       (hit) =>
         hit ||
         fetch(e.request).then((r) => {

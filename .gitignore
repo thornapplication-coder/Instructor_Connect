@@ -5,3 +5,8 @@ dist
 .env
 .env.*
 !.env.example
+
+# Ebene 3: erzeugte Testdateien und Berichte
+e2e/.dateien/
+test-results/
+playwright-report/

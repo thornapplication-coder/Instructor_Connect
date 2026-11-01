@@ -1,6 +1,6 @@
 import type { Ampel, Befund, Kategorie, Prioritaet } from '../pruefung/befund'
-import en from '../i18n/en.json'
-import L from './labels.en.json'
+import en from '../i18n/en.json' with { type: 'json' }
+import L from './labels.en.json' with { type: 'json' }
 
 /**
  * Eingefrorener Export-Datenstand (Spez. v1.1 Kap. 10.1, 10.2).

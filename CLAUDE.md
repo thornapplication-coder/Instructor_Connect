@@ -53,8 +53,21 @@ prüfen, nicht der Code anzupassen**, bis er zum Test passt.
   `jsdom` mit `fake-indexeddb` und React Testing Library. Abgedeckt sind
   `persist`, `editGuard`, `useIsDesktop`; `net` steht noch aus (braucht eine
   Service-Worker-Registrierung, nicht nur `fetch`).
-- **Ebene 3 (offen):** wenige E2E-Wege mit Playwright (Anmelden → Formular →
-  Unterschrift → Versand, Offline).
+- **Ebene 3 (vorhanden, `e2e/`, `npm run e2e`):** wenige Wege mit Playwright
+  gegen den echten Build (`vite preview`, Port 4174), eigener CI-Job. Anmelden
+  über den echten Sandbox-Weg (E-Mail → angezeigter Code), Testdateien aus
+  `benchmark/sbx.ts` (`e2e/vorbereitung.ts`), keine Binärdateien im Repo.
+  Abgedeckt: DocCheck einlesen → Befund per Tastatur → Viewer-Fokus; Export
+  (CSV/Excel gleiche IDs, Prüfstand hin und zurück); Re-Check bis zur Datei
+  mit „Neue Findings"; Wartung und Wiedereinschalten; Telefon-Ansicht;
+  Offline-Start. Offen: Grading (Formular → Unterschrift → Versand).
+  Der Offline-Test fand einen echten Fehler: Mit „Vary: Origin" (vite
+  preview, manches Hosting) startete die App ohne Netz weiß, weil Module
+  MIT Origin-Kopf angefragt, aber OHNE vorgeladen wurden — der Service
+  Worker schlägt deshalb mit `ignoreVary` nach (gefahrlos: Dateien sind
+  inhaltsgehasht). Wer einen Test ergänzt: Was als Logik prüfbar ist,
+  gehört in Ebene 1 — jeder Browser-Test kostet Sekunden und bricht bei
+  Textänderungen.
 
 Die Trennung der Ebenen ist Absicht: Liefe Ebene 1 ebenfalls unter `jsdom`,
 könnte ein Logik-Modul unbemerkt vom DOM abhängig werden und der Lauf bliebe

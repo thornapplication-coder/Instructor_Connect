@@ -61,3 +61,37 @@ jobs:
           npm run build
           find dist -type f | sort | xargs md5sum > /tmp/build2.txt
           diff /tmp/build1.txt /tmp/build2.txt && echo "Build ist reproduzierbar"
+
+  # Ebene 3 (CLAUDE.md): wenige Wege durch die ganze App im echten Browser —
+  # Worker, Downloads, Fokus, Tastatur, Telefon-Ansicht, Offline-Start. Eigener
+  # Job, damit ein roter Browser-Test die schnellen Prüfungen nicht verdeckt.
+  # Der Offline-Test fand am 01.11.2026 einen echten Fehler: Mit „Vary:
+  # Origin" startete die App ohne Netz weiß, obwohl alles im Cache lag.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Abhängigkeiten und Browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Ebene 3 (Playwright)
+        run: npm run e2e
+
+      - name: Bericht bei Fehlern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
