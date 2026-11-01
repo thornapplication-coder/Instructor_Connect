@@ -32,6 +32,9 @@ import { describe, expect, it } from 'vitest'
 const module = {
   ...import.meta.glob('./*.ts', { query: '?raw', import: 'default', eager: true }),
   ...import.meta.glob('./modules/**/*.ts', { query: '?raw', import: 'default', eager: true }),
+  // Backend-Anbindung (Phase 1b) — dieselbe Regel, sonst wäre gerade die
+  // Anmeldung die eine Logik ohne Pflicht-Test.
+  ...import.meta.glob('./backend/**/*.ts', { query: '?raw', import: 'default', eager: true }),
 }
 const dateien = Object.keys(module).map((p) => p.replace('./', ''))
 

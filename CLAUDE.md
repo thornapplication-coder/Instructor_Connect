@@ -205,6 +205,39 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
 - **Keine echten OEM-Dokumente im Repo** — der Sandbox-Bestand ist
   synthetisch (`SBX-…`), der Test prüft das.
 
+## Backend (Phase 1b, `supabase/`, `src/backend/`)
+
+Stand: **Etappe 1 lokal** — Anmeldung und Rechte als Migration, geprüft
+gegen echtes Postgres; noch kein Projekt angelegt, die App läuft weiter als
+Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
+
+- **Rechte setzt die Datenbank durch** (Row Level Security), nicht die
+  Oberfläche. Die DocCheck-Matrix steht als Tabelle `doccheck.permissions`;
+  `src/backend/rls.test.ts` prüft jede Aktion mit jeder Rolle gegen `darf()`
+  aus `access.ts` (über `AKTIONEN`). Wer eine Zeile der Matrix ändert, ändert
+  beide — sonst wird der Test rot.
+- **Schutzregeln als Trigger** (`profiles_guard`), damit sie für JEDEN Weg
+  gelten: Rolle, Status und Rechte nur vom Superadmin; niemand ändert die
+  eigene Rolle oder deaktiviert sich; der letzte aktive Superadmin bleibt.
+  DocCheck-Rechte nur über `doccheck.set_rights` (mit Audit) — es gibt
+  dafür bewusst kein Spalten-Update-Recht.
+- **Audit-Zeilen schreibt nur die Datenbank** (Funktionen mit dem Aufrufer
+  als Akteur); niemand hat INSERT auf `doccheck.audit`. Wahrheitswerte
+  stehen als „true/false" darin, wie im Audit der App.
+- **Tests ohne Docker:** PGlite (Postgres als WebAssembly) lädt die
+  Migrationen so, wie Supabase sie ausführt; `supabase/tests/auth_stub.sql`
+  ersetzt nur, was Supabase mitbringt (`auth.users`, `auth.uid()`, Rollen).
+  Gegenprobe mit lokalem Postgres 16 bestanden. RLS filtert still: Eine
+  fremde Zeile ändern ergibt 0 Zeilen, keinen Fehler — Tests prüfen
+  `affectedRows`, nicht nur Ausnahmen.
+- **Anmeldung nur für Eingeladene** (`enable_signup = false`,
+  `shouldCreateUser: false`). Eine unbekannte Adresse wird wie eine bekannte
+  quittiert, ein falscher Code wie eine unbekannte Adresse — niemand soll
+  durch Ausprobieren erfahren, wer ein Konto hat.
+- Der **service_role-Schlüssel** gehört nie in die App; `backendKonfig`
+  weist ihn ab. Der Anthropic-Schlüssel kommt später als Secret in eine
+  Edge Function, nie in den Browser.
+
 ## Sonstiges
 
 - **Sprache:** Oberfläche DE/EN über i18next. Grading-Formulare und der

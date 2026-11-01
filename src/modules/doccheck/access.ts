@@ -49,6 +49,9 @@ const MATRIX: Record<DocCheckAktion, DocCheckRolle[]> = {
   protokolleLesen: SUPER,
 }
 
+/** Alle Aktionen der Matrix — für den Rollentest gegen die Datenbank (supabase/migrations). */
+export const AKTIONEN = Object.keys(MATRIX) as DocCheckAktion[]
+
 export function darf(rolle: DocCheckRolle, aktion: DocCheckAktion): boolean {
   return MATRIX[aktion].includes(rolle)
 }

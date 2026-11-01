@@ -61,7 +61,8 @@ export default defineConfig({
       provider: 'v8',
       // src/modules/: DocCheck. Dieselbe Schwelle wie fuer den Bestand —
       // ein Modul, das spaeter dazukam, bekommt keinen leichteren Massstab.
-      include: ['src/*.ts', 'src/modules/**/*.ts'],
+      // src/backend/: Anbindung an Supabase (Phase 1b) — gleiche Schwelle.
+      include: ['src/*.ts', 'src/modules/**/*.ts', 'src/backend/**/*.ts'],
       exclude: [
         'src/modules/doccheck/types.ts', // nur Typen, keine Logik
         'src/modules/doccheck/parse/model.ts', // nur Typen und Konstanten (Datenmodell)

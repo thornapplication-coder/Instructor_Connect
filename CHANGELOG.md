@@ -887,3 +887,23 @@ Einlesen jedes Prüfdokuments und erneut nach OCR oder Word-PDF-Paar.
   library", korrekte IDs ohne Befund.
 - Mit der Bibliothek (Phase 3) wird sie zur zweiten Quelle des Index; die
   Prüflogik bleibt.
+
+## 1.17.0 — 2026-11-01
+
+- **Backend, Phase 1b Etappe 1 (lokal): Anmeldung und Rechte.**
+  - `supabase/`: Projektkonfiguration (nur eingeladene Nutzer, Anmeldung
+    per E-Mail-Code) und Migration mit `profiles` (Rolle, Status, Muster,
+    Personenrechte, DocCheck-Rechte), Schutzregeln als Trigger (eigene
+    Rolle, letzter Superadmin, DocCheck-Rechte nur mit Audit),
+    DocCheck-Matrix als Tabelle, Einstellungen, Audit-Log und
+    Bibliotheks-Metadaten mit Row Level Security.
+  - Rollentest gegen echtes Postgres (PGlite) in `npm test`: jede
+    Matrixzeile mit jeder Rolle gleich `access.ts`, dazu alle Schutzregeln.
+    Gegenprobe mit Postgres 16.
+  - `src/backend/`: Konfiguration (Sandbox bleibt Vorgabe; service_role-
+    Schlüssel wird abgewiesen), Anmeldung per Code ohne Ausforschen von
+    Konten, Zuordnung Profil ↔ User — gegen die Migration getestet.
+  - Testwachen und Abdeckungsschwelle gelten auch für `src/backend/`.
+- Noch nicht: Anmeldemaske an das Backend anschließen, Einladen von
+  Nutzern in der Verwaltung, Daten der App (Chats, Grading, Logbuch) in die
+  Datenbank — folgen, sobald ein Projekt angelegt ist.
