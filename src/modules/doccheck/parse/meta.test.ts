@@ -52,6 +52,7 @@ describe('Nummer, Titel, Typ', () => {
     expect(titelFinden(['AVIATION ACADEMY', 'Rev. 2.0', 'Pilot Learning Manual CL30'])).toBe('Pilot Learning Manual CL30')
     expect(titelFinden(['Short', 'Some cover heading'])).toBe('Some cover heading')
     expect(titelFinden([])).toBeUndefined()
+    expect(titelFinden(['Contents', '4 Normal Procedures 5', '5 Abnormal Procedures ..... 7', 'Training Manual CL30'])).toBe('Training Manual CL30')
   })
 
   it('Typ aus dem Titel', () => {

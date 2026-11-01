@@ -10,7 +10,7 @@
     "simulated": "simuliert"
   },
   "footer": {
-    "phase": "Phase 2 (Sandbox)"
+    "phase": "Phase 2 inkl. Nachtrag v1.2 (Sandbox)"
   },
   "notice": {
     "title": "Hinweis zu DocCheck",
@@ -187,7 +187,8 @@
     "exportExcel": "Export Excel",
     "exportWord": "Export Word",
     "exportCsv": "Export CSV",
-    "exportPptx": "Export PowerPoint"
+    "exportPptx": "Export PowerPoint",
+    "pdfPairing": "Word-PDF-Paar (Seitenangaben)"
   },
   "auditAction": {
     "zugang": "DocCheck access",
@@ -302,6 +303,23 @@
     "herkunft": {
       "review": "Prüfdokument",
       "master": "Sitzung"
+    }
+  },
+  "paar": {
+    "quelle": "Seitenangaben",
+    "pdf_pair": "aus dem Word-PDF (exakt)",
+    "toc_mapping": "über das Inhaltsverzeichnis (±1)",
+    "approx": "ungefähr (ca.)",
+    "native": "aus dem Dokument",
+    "fehlt": "Für exakte Word-Seiten das aus Word exportierte PDF dazulegen.",
+    "dazulegen": "PDF dazulegen",
+    "laeuft": "Gleiche ab …",
+    "ok": "Word-PDF übernommen: Seitenangaben jetzt exakt",
+    "nichtUebernommen": "Word-PDF nicht übernommen — siehe Hinweis",
+    "warnung": {
+      "abweichung": "PDF weicht {{prozent}} % vom DOCX ab — Seitenangaben weiter wie bisher",
+      "aelter": "PDF ist älter als das DOCX — Seitenangaben weiter wie bisher",
+      "lesefehler": "PDF konnte nicht gelesen werden"
     }
   }
 }

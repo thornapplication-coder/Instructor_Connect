@@ -39,6 +39,8 @@ export type DocCheckFeature =
   | 'exportWord'
   | 'exportCsv'
   | 'exportPptx'
+  /** Nachtrag v1.2 Kap. 17 — Word-PDF-Paar (N5) */
+  | 'pdfPairing'
 
 /** Preise je Million Tokens in USD. `null` = vom Superadmin noch nicht
  *  gepflegt — dann gibt es keine Kostenschätzung, statt einer erfundenen. */

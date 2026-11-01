@@ -6,7 +6,7 @@ import {
 
 const zf = (id: string, meta: Partial<Zusammenfassung['meta']> = {}, sha = 'h' + id): Zusammenfassung => ({
   id, format: 'pdf', seiten: 3, zeichen: 10, ocrKandidaten: [], ocrSeiten: 0, tabellen: 0, sha256: sha, meta, duplikat: null, labels: [], outline: [],
-  lenkung: { aenderungen: 0, kommentare: 0, revisionsbalken: 0, textfelder: 0, kopfzeilen: 0, fusszeilen: 0 },
+  lenkung: { aenderungen: 0, kommentare: 0, revisionsbalken: 0, textfelder: 0, kopfzeilen: 0, fusszeilen: 0 }, seitenQuelle: 'native',
 })
 
 describe('Sitzungsübergänge', () => {

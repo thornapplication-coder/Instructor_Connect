@@ -22,7 +22,7 @@ export interface PdfSeitenInhalt {
 
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
 
-export function pdfBauen(seiten: PdfSeitenInhalt[], opts: { titel?: string } = {}): Uint8Array {
+export function pdfBauen(seiten: PdfSeitenInhalt[], opts: { titel?: string; datum?: string } = {}): Uint8Array {
   const objekte: string[] = []
   const neu = (inhalt: string) => {
     objekte.push(inhalt)
@@ -42,7 +42,8 @@ export function pdfBauen(seiten: PdfSeitenInhalt[], opts: { titel?: string } = {
   }
   objekte[katalog - 1] = `<< /Type /Catalog /Pages ${seitenBaum} 0 R >>`
   objekte[seitenBaum - 1] = `<< /Type /Pages /Kids [${kinder.map((k) => `${k} 0 R`).join(' ')}] /Count ${kinder.length} >>`
-  const info = opts.titel ? neu(`<< /Title (${esc(opts.titel)}) >>`) : 0
+  const infoTeile = [opts.titel ? `/Title (${esc(opts.titel)})` : '', opts.datum ? `/ModDate (${opts.datum})` : ''].filter(Boolean)
+  const info = infoTeile.length ? neu(`<< ${infoTeile.join(' ')} >>`) : 0
 
   let out = '%PDF-1.4\n'
   const versatz: number[] = []

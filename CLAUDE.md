@@ -66,8 +66,9 @@ Eigenes Modul nach der Spezifikation `DocCheck_Spezifikation_v1_1.md`,
 ergänzt durch `docs/DocCheck_Spezifikation_v1_2_Nachtrag.md` (Re-Check
 bestehender Findinglisten, Dokumentpakete, Word-Check). Der Nachtrag geht
 für die dort geregelten Punkte vor; seine Phasenzuordnung steht in Kap. 19.
-Stand: **Phase 2 (Sandbox)** — Dokumente einlesen und durchsuchen; kein
-Backend, KI simuliert. Festlegungen:
+Stand: **Phase 2 inkl. Nachtrag-Anteil (Sandbox)** — Dokumente einlesen und
+durchsuchen, Word-Extrakt, Seitenangaben bei DOCX; kein Backend, KI
+simuliert. Festlegungen:
 
 - **Die Testwachen gelten auch hier.** `testGuard` globt `src/modules/**`,
   die Abdeckungsschwelle ebenso. Ansichten (`*.tsx`) sind wie `src/pages`
@@ -102,7 +103,19 @@ Backend, KI simuliert. Festlegungen:
   `docCheckDateien` in `vite.config.ts` unter festen Namen in `doccheck/`
   aus. Ohne ausdrückliche Pfade lädt tesseract.js alles von einem CDN —
   `ocr.test.ts` prüft das.
-- **Testdokumente sind synthetisch:** `parse/pdfBauen.ts` erzeugt PDFs aus
+- **Word-Eigenschaften werden WIRKSAM ermittelt, nicht direkt gelesen**
+  (`parse/wordStile.ts`, `parse/wordTeil.ts`): Rangfolge wie Word —
+  Dokumentvorgabe ← Tabellenvorlage (mit Bedingung) ← Absatzvorlage ←
+  Zeichenvorlage ← direkt. Weißer Text auf einer per Vorlage dunkel
+  schattierten Kopfzeile ist kein Befund; wer nur direkte Formatierung
+  liest, meldet ihn trotzdem. Absätze und Läufe liegen auf einem Stapel,
+  weil Textfelder IN Absätzen stecken.
+- **Seitenangaben bei DOCX tragen ihre Herkunft** (`seitenQuelle`:
+  `pdf_pair` · `toc_mapping` · `approx`) und die Bezeichnung zeigt sie
+  („S. 12", „S. 12 (±1)", „ca. 12"). Eine Zahl ohne Herkunft würde für
+  Words Seite gehalten.
+- **Testdokumente sind synthetisch:** `benchmark/sbx.ts` erzeugt die
+  Abnahmedateien des Nachtrags (`SBX-…`) aus Code; `parse/pdfBauen.ts` erzeugt PDFs aus
   Text, DOCX/XLSX entstehen in den Tests mit jszip.
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise
   keine Kostenschätzung und kein Start.

@@ -1,55 +1,45 @@
 import JSZip from 'jszip'
-import { aufbereiten } from './aufbereiten'
-import { LEERE_LENKUNG, type Rechtscharakter, type Lenkung, type OutlineNode, type Rohdokument } from './model'
-import { entitaeten, texteIn, xmlEreignisse } from './xml'
+import { LEERE_LENKUNG, type Lenkung, type Rechtscharakter, type Rohdokument, type WordExtrakt, type WortAbschnitt } from './model'
+import { seitenAusEinheiten, tocEintrag, tocZuordnung } from './seitenzuordnung'
+import { stileLesen } from './wordStile'
+import { teilLesen } from './wordTeil'
+import { entitaeten, xmlEreignisse } from './xml'
 
 /**
  * DOCX lesen — ein Leseweg über jszip und die XML-Teile (Entscheidung
  * gegen mammoth: Es verwirft nicht angenommene Änderungen und Kommentare,
  * und beides braucht die Dokumentenlenkung).
  *
- * Seiten gibt es in DOCX nicht; gezählt wird über ausdrückliche
- * Seitenumbrüche und `w:lastRenderedPageBreak` — eine Näherung, deshalb
- * „ca." in der Bezeichnung (Spez. 7.3). Die eigentliche Verortung ist der
- * Abschnittspfad aus den Überschriften.
+ * Seit Nachtrag v1.2 entsteht dabei zusätzlich der Word-Extrakt: wirksame
+ * Laufeigenschaften, Abschnitte mit Kopf-/Fußzeilen, Inhaltsverzeichnis,
+ * Eigenschaften. Er ist Grundlage für den Word-Technik-Check (N4) und die
+ * Seitenzuordnung (N5).
  */
 
-/** styleId → Gliederungsebene (1-basiert) aus styles.xml. */
+/** styleId → Gliederungsebene — für Aufrufer, die nur die Ebenen brauchen. */
 export function ueberschriftStile(stylesXml: string): Map<string, number> {
   const out = new Map<string, number>()
-  let id: string | null = null
-  let name = ''
-  let ebene: number | null = null
-  for (const e of xmlEreignisse(stylesXml)) {
-    if (e.typ === 'auf' && e.name === 'w:style') {
-      id = e.attr['w:styleId'] ?? null
-      name = ''
-      ebene = null
-    } else if (e.typ === 'auf' && e.name === 'w:name' && id) name = e.attr['w:val'] ?? ''
-    else if (e.typ === 'auf' && e.name === 'w:outlineLvl' && id) ebene = Number(e.attr['w:val']) + 1
-    else if (e.typ === 'zu' && e.name === 'w:style' && id) {
-      const ausName = name.match(/^heading\s*(\d)$/i)
-      const lvl = ebene ?? (ausName ? Number(ausName[1]) : null)
-      if (lvl && lvl >= 1 && lvl <= 9) out.set(id, lvl)
-      id = null
-    }
-  }
+  for (const [id, s] of stileLesen(stylesXml).stile) if (s.ebene && s.ebene >= 1 && s.ebene <= 9) out.set(id, s.ebene)
   return out
 }
 
-/** Eigenschaften aus docProps/core.xml und docProps/custom.xml. */
-export function eigenschaftenLesen(coreXml?: string, customXml?: string): Record<string, string> {
+/** Eigenschaften aus docProps/core.xml, docProps/custom.xml und docProps/app.xml. */
+export function eigenschaftenLesen(coreXml?: string, customXml?: string, appXml?: string): Record<string, string> {
   const out: Record<string, string> = {}
+  const feld = (xml: string, tag: string) => xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`))?.[1]
   if (coreXml) {
     // Direkt per Muster: Der Kern ist flach, und Element- und Textknoten
     // heißen hier gleich (dc:title enthält unmittelbar Text).
-    const feld = (tag: string) => coreXml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`))?.[1]
-    const t = feld('dc:title')
-    if (t?.trim()) out.title = entitaeten(t).trim()
-    const s = feld('dc:subject')
-    if (s?.trim()) out.subject = entitaeten(s).trim()
+    for (const [tag, k] of [['dc:title', 'title'], ['dc:subject', 'subject'], ['dc:creator', 'creator'], ['cp:lastModifiedBy', 'lastModifiedBy'], ['dcterms:modified', 'modified']] as const) {
+      const v = feld(coreXml, tag)
+      if (v?.trim()) out[k] = entitaeten(v).trim()
+    }
     // cp:revision ist der Speicherzähler von Word, NICHT die Dokumentrevision
     // — bewusst ignoriert.
+  }
+  if (appXml) {
+    const p = feld(appXml, 'Pages')
+    if (p && /^\d+$/.test(p.trim())) out.pages = p.trim()
   }
   if (customXml) {
     let name: string | null = null
@@ -70,111 +60,47 @@ export function eigenschaftenLesen(coreXml?: string, customXml?: string): Record
   return out
 }
 
-interface Absatz {
-  text: string
-  ebene: number | null
-}
-
 export async function docxLesen(daten: Uint8Array | ArrayBuffer, vorgabe?: Rechtscharakter): Promise<Rohdokument> {
   const zip = await JSZip.loadAsync(daten)
   const lies = async (pfad: string) => zip.file(pfad)?.async('string')
   const doc = await lies('word/document.xml')
   if (!doc) throw new Error('DC-DOCX-INVALID')
-  const stile = ueberschriftStile((await lies('word/styles.xml')) ?? '')
+  const stile = stileLesen((await lies('word/styles.xml')) ?? '')
 
-  const lenkung: Lenkung = { ...LEERE_LENKUNG, aenderungen: [], kommentare: [], kopfzeilen: [], fusszeilen: [], textfelder: [], eigenschaften: {} }
-  const seiten: Absatz[][] = [[]]
-  let tabellen = 0
+  const haupt = teilLesen(doc, { teil: 'word/document.xml', ort: 'body', stile, startNr: 0 })
+  const absaetze = [...haupt.absaetze]
+  const laeufe = [...haupt.laeufe]
 
-  // Zustand des Durchlaufs
-  let absatz: Absatz | null = null
-  let ins: { autor?: string; text: string } | null = null
-  let del: { autor?: string; text: string } | null = null
-  let inText = false
-  let inDelText = false
-  let txbx = 0
-  let fallback = 0
-  let tabTiefe = 0
-  let zelle: string | null = null
-  let reihe: string[] | null = null
-  let rand = false
-  let textSeitUmbruch = true
-
-  const umbruch = () => {
-    // Doppelte Umbrüche ohne Text dazwischen (ausdrücklicher Umbruch, danach
-    // Words „zuletzt gerendert"-Marke) sind EIN Seitenwechsel.
-    if (textSeitUmbruch) return
-    if (absatz && absatz.text.trim()) {
-      seiten[seiten.length - 1].push({ ...absatz })
-      absatz = { text: '', ebene: absatz.ebene }
-    }
-    seiten.push([])
-    textSeitUmbruch = true
+  // Beziehungen: rId → Datei der Kopf-/Fußzeile.
+  const rels = new Map<string, string>()
+  for (const e of xmlEreignisse((await lies('word/_rels/document.xml.rels')) ?? '')) {
+    if (e.typ === 'auf' && e.name === 'Relationship') rels.set(e.attr.Id, `word/${(e.attr.Target ?? '').replace(/^\/?word\//, '')}`)
   }
 
-  for (const e of xmlEreignisse(doc)) {
-    if (e.typ === 'auf') {
-      // mc:Fallback wiederholt den Inhalt von mc:Choice (Textfelder!) — einmal reicht.
-      if (e.name === 'mc:Fallback') fallback++
-      if (fallback) continue
-      switch (e.name) {
-        case 'w:txbxContent': txbx++; break
-        case 'w:tbl': if (!txbx) { if (tabTiefe === 0) tabellen++; tabTiefe++ } break
-        case 'w:tr': if (!txbx) reihe = []; break
-        case 'w:tc': if (!txbx) zelle = ''; break
-        case 'w:p': absatz = { text: '', ebene: null }; rand = false; break
-        case 'w:pStyle': if (absatz) absatz.ebene = stile.get(e.attr['w:val'] ?? '') ?? null; break
-        case 'w:pBdr': rand = true; break
-        case 'w:ins': ins = { autor: e.attr['w:author'], text: '' }; break
-        case 'w:del': del = { autor: e.attr['w:author'], text: '' }; break
-        case 'w:t': inText = true; break
-        case 'w:delText': inDelText = true; break
-        case 'w:tab': if (absatz && !del) absatz.text += '\t'; break
-        case 'w:br': if (e.attr['w:type'] === 'page' && !txbx && !tabTiefe) umbruch(); else if (absatz && !del) absatz.text += ' '; break
-        case 'w:lastRenderedPageBreak': if (!txbx && !tabTiefe) umbruch(); break
-      }
-      // Revisionsbalken: ein Absatzrahmen links oder rechts.
-      if (rand && (e.name === 'w:left' || e.name === 'w:right')) {
-        lenkung.revisionsbalken++
-        rand = false
-      }
-    } else if (e.typ === 'zu') {
-      if (e.name === 'mc:Fallback') { fallback--; continue }
-      if (fallback) continue
-      switch (e.name) {
-        case 'w:t': inText = false; break
-        case 'w:delText': inDelText = false; break
-        case 'w:pBdr': rand = false; break
-        case 'w:ins': if (ins?.text.trim()) lenkung.aenderungen.push({ art: 'ins', text: ins.text.trim(), autor: ins.autor }); ins = null; break
-        case 'w:del': if (del?.text.trim()) lenkung.aenderungen.push({ art: 'del', text: del.text.trim(), autor: del.autor }); del = null; break
-        case 'w:p': {
-          const a = absatz as Absatz | null
-          absatz = null
-          if (!a) break
-          const t = a.text.replace(/[ \t]+/g, ' ').trim()
-          if (txbx) { if (t) lenkung.textfelder.push(t); break }
-          if (zelle !== null) { zelle = `${zelle} ${t}`.trim(); break }
-          if (t) { seiten[seiten.length - 1].push({ text: t, ebene: a.ebene }); textSeitUmbruch = false }
-          break
-        }
-        case 'w:tc': if (reihe && zelle !== null) reihe.push(zelle); zelle = null; break
-        case 'w:tr': if (reihe?.some((z) => z)) { seiten[seiten.length - 1].push({ text: reihe.join(' | '), ebene: null }); textSeitUmbruch = false } reihe = null; break
-        case 'w:tbl': if (!txbx) tabTiefe--; break
-        case 'w:txbxContent': txbx--; break
-      }
-    } else if (inText && absatz) {
-      absatz.text += e.text
-      if (ins) ins.text += e.text
-    } else if (inDelText && del) del.text += e.text
-  }
-
-  // Kopf-/Fußzeilen und Kommentare stehen in eigenen Teilen.
+  // ALLE Kopf-/Fußzeilen-Teile lesen — auch die, die kein Abschnitt
+  // verwendet (Nachtrag N4: alte Reste mit falschem Datum).
+  const kopfFussText = new Map<string, string>()
+  const lenkung: Lenkung = { ...LEERE_LENKUNG, ...haupt.lenkung, kommentare: [], kopfzeilen: [], fusszeilen: [], eigenschaften: {} }
   for (const pfad of Object.keys(zip.files).sort()) {
     const m = pfad.match(/^word\/(header|footer)\d*\.xml$/)
     if (!m) continue
-    const texte = texteIn((await lies(pfad))!, 'w:p').filter(Boolean)
-    ;(m[1] === 'header' ? lenkung.kopfzeilen : lenkung.fusszeilen).push(...texte)
+    const teil = teilLesen((await lies(pfad))!, { teil: pfad, ort: m[1] === 'header' ? 'kopf' : 'fuss', stile, startNr: absaetze.length })
+    absaetze.push(...teil.absaetze)
+    laeufe.push(...teil.laeufe)
+    const text = teil.absaetze.map((a) => a.text.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' | ')
+    kopfFussText.set(pfad, text)
+    if (text) (m[1] === 'header' ? lenkung.kopfzeilen : lenkung.fusszeilen).push(text)
   }
+  const verwendet = new Set<string>()
+  const abschnitte: WortAbschnitt[] = haupt.sektionen.map((s, i) => {
+    const auf = (r: { typ: string; rid: string }) => {
+      const teil = rels.get(r.rid) ?? r.rid
+      verwendet.add(teil)
+      return { typ: r.typ, teil, text: kopfFussText.get(teil) ?? '' }
+    }
+    return { nr: i + 1, kopf: s.kopf.map(auf), fuss: s.fuss.map(auf) }
+  })
+
   const komm = await lies('word/comments.xml')
   if (komm) {
     let autor: string | undefined
@@ -189,28 +115,50 @@ export async function docxLesen(daten: Uint8Array | ArrayBuffer, vorgabe?: Recht
       else if (e.typ === 'zu' && e.name === 'w:comment') lenkung.kommentare.push({ autor, text: text.trim() })
     }
   }
-  lenkung.eigenschaften = eigenschaftenLesen(await lies('docProps/core.xml'), await lies('docProps/custom.xml'))
+  const eig = eigenschaftenLesen(await lies('docProps/core.xml'), await lies('docProps/custom.xml'), await lies('docProps/app.xml'))
+  lenkung.eigenschaften = Object.fromEntries(Object.entries(eig).filter(([k]) => ['title', 'subject', 'revision', 'docNumber'].includes(k)))
 
-  // Abschnittspfade aus den echten Überschriften — nicht aus der Zahlen-
-  // Heuristik, die für PDF gebraucht wird.
-  const gefuellt = seiten.filter((s, i) => s.length || i === 0)
-  let pfad: string[] = []
-  const outline: OutlineNode[] = []
-  const pfade = gefuellt.map((absaetze, i) => {
-    for (const a of absaetze) {
-      if (!a.ebene) continue
-      pfad = [...pfad.slice(0, a.ebene - 1), a.text]
-      outline.push({ titel: a.text, ebene: a.ebene, vonSeite: i + 1 })
-    }
-    return [...pfad]
-  })
-  const { pages } = aufbereiten(
-    gefuellt.map((s) => s.map((a) => a.text)),
-    { vorgabe, kopfFuss: false, labels: gefuellt.map((_, i) => `ca. ${i + 1}`) },
-  )
-  pages.forEach((p, i) => {
-    if (pfade[i].length) p.sectionPath = pfade[i]
-    else delete p.sectionPath
-  })
-  return { format: 'docx', pages, outline, lenkung, ocrKandidaten: [], tabellen }
+  const einstellungen = (await lies('word/settings.xml')) ?? ''
+  const kompat = einstellungen.match(/w:name="compatibilityMode"[^>]*w:val="(\d+)"/) ?? einstellungen.match(/w:val="(\d+)"[^>]*w:name="compatibilityMode"/)
+  const hintergrund = doc.match(/<w:background[^>]*w:color="([0-9A-Fa-f]{6})"/)?.[1]?.toUpperCase()
+
+  const toc = absaetze.filter((a) => a.ort === 'body' && a.toc).map((a) => ({ ...tocEintrag(a.text), ebene: a.toc! }))
+  const word: WordExtrakt = {
+    absaetze,
+    laeufe,
+    abschnitte,
+    verwaisteKopfFuss: [...kopfFussText.keys()].filter((k) => !verwendet.has(k)),
+    standard: stile.standard,
+    ...(kompat ? { kompatibilitaet: Number(kompat[1]) } : {}),
+    ...(hintergrund ? { seitenhintergrund: hintergrund } : {}),
+    eigenschaften: {
+      title: eig.title,
+      creator: eig.creator,
+      lastModifiedBy: eig.lastModifiedBy,
+      modified: eig.modified,
+      ...(eig.pages ? { seiten: Number(eig.pages) } : {}),
+    },
+    toc,
+  }
+
+  // Seiten: über das Inhaltsverzeichnis, wenn es taugt — sonst nach Words
+  // Umbruchmarken, ausdrücklich als Näherung.
+  // TOC-Einträge selbst stehen nicht als Inhalt in der Abbildung: Ihre
+  // Überschriften-Texte würden sonst den Ankerabgleich verwirren.
+  const einheiten = haupt.einheiten
+  const perToc = tocZuordnung(einheiten, toc, word.eigenschaften.seiten)
+  const { pages, outline } = perToc
+    ? seitenAusEinheiten(einheiten, perToc, (n) => `S. ${n} (±1)`, vorgabe)
+    : seitenAusEinheiten(einheiten, einheiten.map((e) => e.seite), (n) => `ca. ${n}`, vorgabe)
+  return {
+    format: 'docx',
+    pages,
+    outline,
+    lenkung,
+    ocrKandidaten: [],
+    tabellen: haupt.tabellen,
+    word,
+    einheiten,
+    seitenQuelle: perToc ? 'toc_mapping' : 'approx',
+  }
 }

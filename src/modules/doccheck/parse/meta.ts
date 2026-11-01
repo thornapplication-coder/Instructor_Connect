@@ -68,6 +68,9 @@ export function titelFinden(zeilen: string[]): string | undefined {
   const brauchbar = zeilen
     .map((z) => z.replace(/\s*\|\s*/g, ' ').trim())
     .filter((z) => z.length >= 8 && z.length <= 120 && /[A-Za-z]{3}/.test(z) && !revisionFinden(z) && !datumFinden(z) && !nummerFinden(z))
+    // Einträge eines Inhaltsverzeichnisses („4 Normal Procedures 5") sind
+    // keine Titel — gefunden beim Browsertest mit SBX-PAGE-01.
+    .filter((z) => !/^\d+(\.\d+)*\.?\s+\S.*?[\s.\u2026]\d{1,4}$/.test(z))
   return brauchbar.find((z) => TITEL_WORT.test(z)) ?? brauchbar[0]
 }
 

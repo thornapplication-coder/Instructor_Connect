@@ -69,7 +69,10 @@ function Viewer({ ziel, onClose }: { ziel: ViewerZiel; onClose: () => void }) {
   const { t } = useTranslation('doccheck')
   const { docs } = useSitzung()
   const d = docs.find((x) => x.id === ziel.docId)
-  const istPdf = d?.z?.format === 'pdf'
+  // DOCX mit Word-PDF (Nachtrag N5): angezeigt wird das PDF — Words Seite,
+  // nicht die eigene Näherung.
+  const pdfQuelle = d?.z?.format === 'pdf' ? ziel.docId : d?.z?.seitenQuelle === 'pdf_pair' && datei(`${ziel.docId}#pdf`) ? `${ziel.docId}#pdf` : null
+  const istPdf = pdfQuelle !== null
   const gesamt = d?.z?.seiten ?? 1
   const [seite, setSeite] = useState(Math.min(Math.max(1, ziel.seite), gesamt))
   const [zoom, setZoom] = useState(1)
@@ -93,7 +96,7 @@ function Viewer({ ziel, onClose }: { ziel: ViewerZiel; onClose: () => void }) {
   // PDF einmal öffnen und beim Schließen freigeben.
   useEffect(() => {
     if (!istPdf) return
-    const daten = datei(ziel.docId)
+    const daten = datei(pdfQuelle!)
     if (!daten) {
       setFehler(true)
       return
@@ -105,7 +108,7 @@ function Viewer({ ziel, onClose }: { ziel: ViewerZiel; onClose: () => void }) {
     })
     dokRef.current = { dok, destroy: async () => void (await aufgabe?.destroy()) }
     return () => void dokRef.current?.destroy()
-  }, [istPdf, ziel.docId])
+  }, [istPdf, pdfQuelle])
 
   // Seite rendern (PDF) bzw. Text holen (DOCX/XLSX).
   useEffect(() => {

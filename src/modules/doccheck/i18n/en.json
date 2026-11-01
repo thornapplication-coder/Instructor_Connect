@@ -10,7 +10,7 @@
     "simulated": "simulated"
   },
   "footer": {
-    "phase": "phase 2 (sandbox)"
+    "phase": "phase 2 incl. addendum v1.2 (sandbox)"
   },
   "notice": {
     "title": "About DocCheck",
@@ -187,7 +187,8 @@
     "exportExcel": "Excel export",
     "exportWord": "Word export",
     "exportCsv": "CSV export",
-    "exportPptx": "PowerPoint export"
+    "exportPptx": "PowerPoint export",
+    "pdfPairing": "Word PDF pairing (page numbers)"
   },
   "auditAction": {
     "zugang": "DocCheck access",
@@ -302,6 +303,23 @@
     "herkunft": {
       "review": "review document",
       "master": "session"
+    }
+  },
+  "paar": {
+    "quelle": "Page numbers",
+    "pdf_pair": "from the Word PDF (exact)",
+    "toc_mapping": "via table of contents (±1)",
+    "approx": "approximate (approx.)",
+    "native": "from the document",
+    "fehlt": "For exact Word pages, add the PDF exported from Word.",
+    "dazulegen": "Add PDF",
+    "laeuft": "Matching …",
+    "ok": "Word PDF applied: page numbers are now exact",
+    "nichtUebernommen": "Word PDF not applied — see note",
+    "warnung": {
+      "abweichung": "PDF differs from the DOCX by {{prozent}} % — page numbers unchanged",
+      "aelter": "PDF is older than the DOCX — page numbers unchanged",
+      "lesefehler": "The PDF could not be read"
     }
   }
 }

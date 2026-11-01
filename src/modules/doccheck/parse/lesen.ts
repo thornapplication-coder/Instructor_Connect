@@ -60,8 +60,11 @@ export async function dateiLesen(
   const eig = { ...roh.lenkung.eigenschaften, title: brauchbarerTitel(roh.lenkung.eigenschaften.title) ?? '' }
   // Deckblatt-Textfelder zählen zur ersten Seite — dort stehen bei Word-
   // Handbüchern Nummer, Revision und Datum.
+  // Zusammen mit der ersten Seite, nicht davor als eigene: Sonst sucht die
+  // Titelerkennung nur im Textfeld (oft nur die Dokumentnummer) und findet
+  // den Titel daneben nicht — gefunden beim Browsertest mit SBX-WORD-01.
   const erste = roh.pages.slice(0, 3).map((p) => p.text)
-  if (roh.lenkung.textfelder.length) erste.unshift(roh.lenkung.textfelder.join('\n'))
+  if (roh.lenkung.textfelder.length) erste[0] = [...roh.lenkung.textfelder, erste[0] ?? ''].join('\n')
   const meta = metaErkennen(erste, eig)
   const duplikat = duplikatPruefen({ sha256, nummer: meta.nummer, revision: meta.revision }, opts.bestand ?? [])
   return { roh, sha256, meta, duplikat }

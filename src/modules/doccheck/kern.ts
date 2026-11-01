@@ -1,7 +1,9 @@
 import type { Duplikat, Vergleichsdokument } from './parse/duplikat'
 import { dateiLesen } from './parse/lesen'
 import type { ErkannteMeta } from './parse/meta'
-import type { Format, OutlineNode, Rechtscharakter, Rohdokument } from './parse/model'
+import type { Format, OutlineNode, Rechtscharakter, Rohdokument, SeitenQuelle } from './parse/model'
+import { pdfLesen } from './parse/pdf'
+import { pdfDatum, pdfZuordnung, seitenAusEinheiten, teilen } from './parse/seitenzuordnung'
 import type { PdfJs } from './parse/pdf'
 import { regelIds } from './parse/regeln'
 import { Suchindex, type Treffer } from './search/suche'
@@ -31,7 +33,16 @@ export interface Zusammenfassung {
   labels: (string | undefined)[]
   outline: OutlineNode[]
   lenkung: { aenderungen: number; kommentare: number; revisionsbalken: number; textfelder: number; kopfzeilen: number; fusszeilen: number }
+  /** Herkunft der Seitenangaben (Nachtrag N5) */
+  seitenQuelle: SeitenQuelle
+  /** Ergebnis einer Word-PDF-Paarung, falls versucht */
+  pdfPaar?: { abweichung: number; warnung?: 'abweichung' | 'aelter' | 'lesefehler' }
+  /** Umfang des Word-Extrakts (N4) — Zahlen, nicht Inhalte */
+  word?: { laeufe: number; abschnitte: number; toc: number; verwaisteKopfFuss: number }
 }
+
+/** Ab diesem Anteil nicht wiedergefundenen Textes gilt das PDF nicht als Abbild des DOCX (N5.2). */
+export const PAAR_SCHWELLE = 0.02
 
 export interface LeseAuftrag {
   id: string
@@ -42,7 +53,7 @@ export interface LeseAuftrag {
   bestand?: Vergleichsdokument[]
 }
 
-function zusammenfassen(id: string, roh: Rohdokument, sha256: string, meta: ErkannteMeta, duplikat: Duplikat): Zusammenfassung {
+function zusammenfassen(id: string, roh: Rohdokument, sha256: string, meta: ErkannteMeta, duplikat: Duplikat, pdfPaar?: Zusammenfassung['pdfPaar']): Zusammenfassung {
   const l = roh.lenkung
   return {
     id,
@@ -65,11 +76,14 @@ function zusammenfassen(id: string, roh: Rohdokument, sha256: string, meta: Erka
       kopfzeilen: l.kopfzeilen.length,
       fusszeilen: l.fusszeilen.length,
     },
+    seitenQuelle: roh.seitenQuelle ?? 'native',
+    ...(pdfPaar ? { pdfPaar } : {}),
+    ...(roh.word ? { word: { laeufe: roh.word.laeufe.length, abschnitte: roh.word.abschnitte.length, toc: roh.word.toc.length, verwaisteKopfFuss: roh.word.verwaisteKopfFuss.length } } : {}),
   }
 }
 
 export class Kern {
-  private docs = new Map<string, { titel: string; roh: Rohdokument; sha256: string; meta: ErkannteMeta; duplikat: Duplikat }>()
+  private docs = new Map<string, { titel: string; roh: Rohdokument; sha256: string; meta: ErkannteMeta; duplikat: Duplikat; pdfPaar?: Zusammenfassung['pdfPaar'] }>()
   private index = new Suchindex()
   private laufend = new Map<string, AbortController>()
 
@@ -141,7 +155,42 @@ export class Kern {
     }
     d.roh.ocrKandidaten = d.roh.ocrKandidaten.filter((n) => !seiten.some((s) => s.n === n))
     this.index.hinzufuegen({ id, titel: d.titel, pages: d.roh.pages })
-    return zusammenfassen(id, d.roh, d.sha256, d.meta, d.duplikat)
+    return zusammenfassen(id, d.roh, d.sha256, d.meta, d.duplikat, d.pdfPaar)
+  }
+
+  /**
+   * Word-PDF-Paar (Nachtrag N5): Seitenzahlen aus dem PDF übernehmen, wenn
+   * es den DOCX-Text trägt (≤ 2 % Abweichung) und nicht älter ist als das
+   * DOCX. Sonst bleibt die bisherige Zuordnung, mit Warnung.
+   */
+  async paaren(id: string, pdf: Uint8Array): Promise<Zusammenfassung | null> {
+    const d = this.docs.get(id)
+    if (!d || d.roh.format !== 'docx' || !d.roh.einheiten) return null
+    let pdfDok: Rohdokument
+    try {
+      pdfDok = await pdfLesen(pdf.slice(), await this.deps.pdfjs(), { standardFontDataUrl: this.deps.standardFontDataUrl })
+    } catch {
+      d.pdfPaar = { abweichung: 1, warnung: 'lesefehler' }
+      return zusammenfassen(id, d.roh, d.sha256, d.meta, d.duplikat, d.pdfPaar)
+    }
+    const { schnitte, abweichung } = pdfZuordnung(d.roh.einheiten, pdfDok.pages.map((p) => p.text))
+    const pdfZeit = pdfDatum(pdfDok.lenkung.eigenschaften.pdfDatum)
+    const docxZeit = d.roh.word?.eigenschaften.modified ? Date.parse(d.roh.word.eigenschaften.modified) : NaN
+    // Eine Minute Spielraum: Word schreibt das PDF beim Export, oft wenige
+    // Sekunden VOR dem letzten Speichern des DOCX.
+    const aelter = pdfZeit !== null && !Number.isNaN(docxZeit) && pdfZeit < docxZeit - 60_000
+    if (abweichung > PAAR_SCHWELLE || aelter) {
+      d.pdfPaar = { abweichung, warnung: aelter ? 'aelter' : 'abweichung' }
+      return zusammenfassen(id, d.roh, d.sha256, d.meta, d.duplikat, d.pdfPaar)
+    }
+    const stuecke = teilen(d.roh.einheiten, schnitte)
+    const { pages, outline } = seitenAusEinheiten(stuecke.einheiten, stuecke.seiten, (n) => `S. ${n}`)
+    d.roh.pages = pages
+    d.roh.outline = outline
+    d.roh.seitenQuelle = 'pdf_pair'
+    d.pdfPaar = { abweichung }
+    this.index.hinzufuegen({ id, titel: d.titel, pages })
+    return zusammenfassen(id, d.roh, d.sha256, d.meta, d.duplikat, d.pdfPaar)
   }
 
   get anzahl(): number {

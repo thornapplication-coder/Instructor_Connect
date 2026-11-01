@@ -82,12 +82,15 @@ export async function pdfLesen(daten: Uint8Array, pdfjs: PdfJs, opts: PdfOptione
     }
     const meta = await dok.getMetadata().catch(() => ({ info: {} as Record<string, unknown> }))
     const titel = typeof meta.info?.Title === 'string' ? meta.info.Title.trim() : ''
+    // Erstell-/Änderungsdatum: Für das Word-PDF-Paar (Nachtrag N5) muss
+    // erkennbar sein, ob das PDF älter ist als das DOCX.
+    const datum = [meta.info?.ModDate, meta.info?.CreationDate].find((d): d is string => typeof d === 'string' && d.startsWith('D:'))
     const { pages, outline } = aufbereiten(roh, { vorgabe: opts.vorgabe })
     return {
       format: 'pdf',
       pages,
       outline,
-      lenkung: { ...LEERE_LENKUNG, eigenschaften: titel ? { title: titel } : {} },
+      lenkung: { ...LEERE_LENKUNG, eigenschaften: { ...(titel ? { title: titel } : {}), ...(datum ? { pdfDatum: datum } : {}) } },
       ocrKandidaten: ocr,
       tabellen: 0,
     }

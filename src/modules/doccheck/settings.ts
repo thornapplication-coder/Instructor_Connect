@@ -19,6 +19,7 @@ export const FEATURES: DocCheckFeature[] = [
   'exportWord',
   'exportCsv',
   'exportPptx',
+  'pdfPairing',
 ]
 
 const OHNE_PREIS = { input: null, output: null, cacheRead: null, cacheWrite: null }

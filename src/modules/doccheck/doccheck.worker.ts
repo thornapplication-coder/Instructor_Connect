@@ -18,6 +18,7 @@ export type Anfrage =
   | { typ: 'suchen'; nr: number; q: string }
   | { typ: 'seite'; nr: number; id: string; seite: number }
   | { typ: 'ocr'; id: string; seiten: { n: number; text: string }[] }
+  | { typ: 'paaren'; id: string; daten: Uint8Array }
 
 export type Antwort =
   | { typ: 'fortschritt'; id: string; seite: number; gesamt: number }
@@ -69,6 +70,11 @@ export function verbinden(bereich: Bereich, kernFuer: (basis: string) => Kern): 
       case 'seite':
         bereich.postMessage({ typ: 'seite', nr: a.nr, text: k().seitenText(a.id, a.seite) })
         return
+      case 'paaren': {
+        const z = await k().paaren(a.id, a.daten)
+        if (z) bereich.postMessage({ typ: 'fertig', id: a.id, z })
+        return
+      }
       case 'ocr': {
         const z = k().ocrEinspielen(a.id, a.seiten)
         if (z) bereich.postMessage({ typ: 'fertig', id: a.id, z })

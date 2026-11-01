@@ -59,7 +59,8 @@ export function Suche() {
             >
               <span className="flex flex-wrap items-center gap-1.5 text-small">
                 <span className="font-semibold">{x.docTitle}</span>
-                <span className="text-dim">· {x.label ? `${x.label} (${t('suche.pdfSeite', { n: x.seite })})` : t('suche.pdfSeite', { n: x.seite })}</span>
+                {/* „S. 12" und „ca. 12" sind schon die Seite — „(Seite 12)" daneben wäre doppelt. */}
+                <span className="text-dim">· {x.label ? (/^(S\.|ca\.) /.test(x.label) ? x.label : `${x.label} (${t('suche.pdfSeite', { n: x.seite })})`) : t('suche.pdfSeite', { n: x.seite })}</span>
                 {herkunft(x.docId) && <Badge tone="dim">{t(`suche.herkunft.${herkunft(x.docId)}`)}</Badge>}
                 {x.exakt && <Badge tone="ok">{t('suche.exakt')}</Badge>}
               </span>

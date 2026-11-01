@@ -677,3 +677,30 @@ Bedienkomfort, keine Durchsetzung.
   Vorab-Cache; die Ausnahme folgt jetzt auch dynamischen Importen und per
   Adresse geladenen Dateien.
 
+## 1.8.0 — 2026-11-01
+
+DocCheck: Phase-2-Anteile aus dem Nachtrag v1.2 (Kap. 19).
+
+- **Word-Extrakt (Grundlage für den Word-Check N4):** je Lauf die wirksamen
+  Eigenschaften (Farbe, Größe, Sprache, `noProof`, `vanish`, Textmarker,
+  Schattierung) über Dokumentvorgabe → Tabellenvorlage samt Bedingung →
+  Absatzvorlage → Zeichenvorlage → direkt; dazu der wirksame Hintergrund
+  (Lauf → Absatz → Zelle → Tabellenvorlage → Form/Textfeld → Seite).
+  Abschnitte mit ihren Kopf-/Fußzeilen, ungenutzte Kopf-/Fußzeilen,
+  Inhaltsverzeichnis mit Seitenzahlen, `docProps` (Autor, zuletzt geändert,
+  Seiten), Kompatibilitätsmodus.
+- **Seitenangaben bei DOCX (N5):** über das Inhaltsverzeichnis „S. 42 (±1)",
+  exakt mit dem aus Word exportierten PDF (gleichnamig mithochladen oder
+  „PDF dazulegen"); Warnung bei mehr als 2 % Textabweichung oder älterem
+  PDF. Läuft ein Absatz über eine Seitengrenze, wird er dort geteilt. Der
+  Viewer zeigt dann Words Seite aus dem PDF.
+- **Abnahme:** `SBX-WORD-01` (alle Laufeigenschaften im Extrakt, weiße
+  Tabellenkopfzeile auf dunkler Vorlagen-Schattierung korrekt nicht weiß
+  hinterlegt) und `SBX-PAGE-01` (mit PDF 20/20 Stichproben exakt, ohne PDF
+  ≥ 90 % innerhalb ±1). Beide Dateien entstehen synthetisch aus Code
+  (`benchmark/sbx.ts`).
+- **Behoben:** Ein Textfeld im Absatz (typisch für Deckblätter) überschrieb
+  den umgebenden Absatz — dessen Text, oft der Titel, ging verloren.
+  Einträge des Inhaltsverzeichnisses werden nicht mehr als Titel erkannt.
+- Feature-Schalter `pdfPairing` (Nachtrag Kap. 17).
+

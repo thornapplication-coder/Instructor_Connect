@@ -1,6 +1,7 @@
 import type { Vergleichsdokument } from './parse/duplikat'
 import { SANDBOX_DOKUMENTE } from './library'
-import { dateiAblegen, dateiEntfernen, entfernen, fehler, fertig, fortschritt, lesenZustand, neu, setzen, type Rolle } from './sitzung'
+import { aktualisiert, dateiAblegen, dateiEntfernen, entfernen, fehler, fertig, fortschritt, lesenZustand, neu, setzen, type Rolle } from './sitzung'
+import type { Zusammenfassung } from './kern'
 import type { Verbindung } from './verbindung'
 
 /**
@@ -37,15 +38,51 @@ export function annehmbar(datei: { name: string; size: number }): 'ok' | 'format
   return 'ok'
 }
 
+type Datei = { name: string; size: number; arrayBuffer(): Promise<ArrayBuffer> }
+
+/** Dateiname ohne Endung, klein — „PLM_E1R0.docx" und „plm_e1r0.PDF" gehören zusammen. */
+export const stamm = (name: string) => name.replace(/\.[^.]+$/, '').trim().toLowerCase()
+
+/**
+ * Word-PDF-Paar (Nachtrag N5): Das PDF wird KEIN eigenes Dokument, sondern
+ * liefert dem DOCX die Seitenzahlen. Die Datei bleibt für den Viewer liegen
+ * (`<id>#pdf`) — so zeigt „Seite ansehen" Words Seite, nicht die Näherung.
+ */
+export async function pdfDazulegen(id: string, pdf: Datei, v: Pick<Verbindung, 'paaren' | 'beiOcr'>): Promise<Zusammenfassung> {
+  const daten = new Uint8Array(await pdf.arrayBuffer())
+  dateiAblegen(`${id}#pdf`, daten)
+  return new Promise((ok) => {
+    const ab = v.beiOcr((z) => {
+      if (z.id !== id) return
+      ab()
+      setzen((s) => aktualisiert(s, z))
+      ok(z)
+    })
+    v.paaren(id, daten)
+  })
+}
+
 export async function hochladen(
-  dateien: { name: string; size: number; arrayBuffer(): Promise<ArrayBuffer> }[],
+  dateien: Datei[],
   rolle: Rolle,
-  v: Pick<Verbindung, 'lesen' | 'titel'>,
+  v: Pick<Verbindung, 'lesen' | 'titel'> & Partial<Pick<Verbindung, 'paaren' | 'beiOcr'>>,
   jetzt: () => number = () => Date.now(),
+  opts: { paaren?: boolean } = {},
 ): Promise<{ abgelehnt: { name: string; grund: 'format' | 'groesse' }[] }> {
   const abgelehnt: { name: string; grund: 'format' | 'groesse' }[] = []
   const laeufe: Promise<void>[] = []
+  // Gleichnamige DOCX/PDF im selben Hochladen sind ein Word-PDF-Paar.
+  const paare = new Map<Datei, Datei>()
+  if (opts.paaren !== false && v.paaren && v.beiOcr) {
+    for (const d of dateien) {
+      if (!/\.docx$/i.test(d.name)) continue
+      const pdf = dateien.find((x) => /\.pdf$/i.test(x.name) && stamm(x.name) === stamm(d.name))
+      if (pdf) paare.set(d, pdf)
+    }
+  }
+  const alsPaar = new Set(paare.values())
   for (const f of dateien) {
+    if (alsPaar.has(f)) continue
     const grund = annehmbar(f)
     if (grund !== 'ok') {
       abgelehnt.push({ name: f.name, grund })
@@ -73,6 +110,8 @@ export async function hochladen(
           setzen((s) => fertig(s, id, z))
           const titel = lesenZustand().docs.find((d) => d.id === id)?.felder.titel
           if (titel) v.titel(id, titel)
+          const pdf = paare.get(f)
+          if (pdf && z.format === 'docx') await pdfDazulegen(id, pdf, v as Pick<Verbindung, 'paaren' | 'beiOcr'>)
         } catch (e) {
           const code = (e as Error).message
           if (code === 'DC-ABORTED') {

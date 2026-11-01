@@ -1,9 +1,11 @@
-import { CheckCheck, Eye, FilePlus2, FileUp, ScanText, X } from 'lucide-react'
+import { CheckCheck, Eye, FilePlus2, FileUp, Link2, ScanText, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button } from '../../../components/ui'
 import { toast } from '../../../components/Toast'
-import { hochladen, bibliotheksVergleich } from '../hochladen'
+import { hochladen, bibliotheksVergleich, pdfDazulegen } from '../hochladen'
+import { useStore } from '../../../store'
+import { aktiv } from '../settings'
 import { ocrAusfuehren, type OcrPdf, type OcrTesseract } from '../ocr'
 import { pdfjsLaden } from '../pdfjsLaden'
 import { aktualisiert, bestaetigen, datei, dateiEntfernen, duplikatFuer, entfernen, feldSetzen, offenePflichtfelder, setzen, useSitzung, type Feld, type Rolle, type SitzungsDok } from '../sitzung'
@@ -26,13 +28,14 @@ const feldCls = 'w-full rounded-lg border border-field bg-bg/60 px-2.5 py-1.5 te
 export function DokListe({ rolle }: { rolle: Rolle }) {
   const { t } = useTranslation('doccheck')
   const { docs } = useSitzung()
+  const { docCheckSettings } = useStore()
   const eigene = docs.filter((d) => d.rolle === rolle)
   const input = useRef<HTMLInputElement>(null)
   const [ziehen, setZiehen] = useState(false)
 
   const annehmen = async (liste: FileList | null) => {
     if (!liste?.length) return
-    const { abgelehnt } = await hochladen([...liste], rolle, standardVerbindung())
+    const { abgelehnt } = await hochladen([...liste], rolle, standardVerbindung(), undefined, { paaren: aktiv(docCheckSettings, 'pdfPairing') })
     for (const a of abgelehnt) toast(t(`upload.abgelehnt.${a.grund}`, { name: a.name }), 'bad')
   }
 
@@ -78,6 +81,9 @@ export function DokListe({ rolle }: { rolle: Rolle }) {
 function DokKarte({ d }: { d: SitzungsDok }) {
   const { t } = useTranslation('doccheck')
   const zustand = useSitzung()
+  const { docCheckSettings } = useStore()
+  const pdfEingabe = useRef<HTMLInputElement>(null)
+  const [paart, setPaart] = useState(false)
   const oeffnen = useViewer()
   const [ocr, setOcr] = useState<{ fertig: number; gesamt: number } | null>(null)
   const offen = offenePflichtfelder(d)
@@ -179,6 +185,45 @@ function DokKarte({ d }: { d: SitzungsDok }) {
             {d.z.ocrSeiten > 0 && ` · ${t('upload.ocrSeiten', { count: d.z.ocrSeiten })}`}
             {d.z.tabellen > 0 && ` · ${t('upload.tabellen', { count: d.z.tabellen })}`}
           </p>
+          {d.z.format === 'docx' && (
+            /* Nachtrag N5: Woher kommen die Seitenzahlen? Wer in Word nach
+               „Seite 42" sucht, muss wissen, ob das Words Seite ist. */
+            <div className="space-y-tight rounded-xl bg-line/5 p-2.5 text-micro">
+              <p>
+                <span className="text-dim">{t('paar.quelle')}: </span>
+                <span className="font-semibold">{t(`paar.${d.z.seitenQuelle}`)}</span>
+              </p>
+              {d.z.pdfPaar?.warnung && <Badge tone="wait">{t(`paar.warnung.${d.z.pdfPaar.warnung}`, { prozent: Math.round(d.z.pdfPaar.abweichung * 100) })}</Badge>}
+              {d.z.seitenQuelle !== 'pdf_pair' && aktiv(docCheckSettings, 'pdfPairing') && (
+                <>
+                  <p className="text-dim">{t('paar.fehlt')}</p>
+                  <Button variant="ghost" className="!min-h-9 !py-1 text-small" disabled={paart} onClick={() => pdfEingabe.current?.click()}>
+                    <span className="flex items-center gap-1.5">
+                      <Link2 size={15} /> {paart ? t('paar.laeuft') : t('paar.dazulegen')}
+                    </span>
+                  </Button>
+                  <input
+                    ref={pdfEingabe}
+                    type="file"
+                    accept=".pdf"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0]
+                      e.target.value = ''
+                      if (!f) return
+                      setPaart(true)
+                      try {
+                        const z = await pdfDazulegen(d.id, f, standardVerbindung())
+                        toast(z.seitenQuelle === 'pdf_pair' ? t('paar.ok') : t('paar.nichtUebernommen'), z.seitenQuelle === 'pdf_pair' ? 'ok' : 'wait')
+                      } finally {
+                        setPaart(false)
+                      }
+                    }}
+                  />
+                </>
+              )}
+            </div>
+          )}
           {d.z.format === 'docx' && (d.z.lenkung.aenderungen > 0 || d.z.lenkung.kommentare > 0 || d.z.lenkung.revisionsbalken > 0) && (
             <p className="text-micro text-dim">{t('upload.lenkung', d.z.lenkung)}</p>
           )}

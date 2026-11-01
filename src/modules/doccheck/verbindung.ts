@@ -93,6 +93,13 @@ export class Verbindung {
     this.worker().postMessage({ typ: 'ocr', id, seiten })
   }
 
+  /** Word-PDF-Paar (Nachtrag N5): Ergebnis kommt über `beiOcr`-Hörer
+   *  wie jede nachträgliche Aktualisierung. */
+  paaren(id: string, daten: Uint8Array): void {
+    const kopie = daten.slice()
+    this.worker().postMessage({ typ: 'paaren', id, daten: kopie }, [kopie.buffer])
+  }
+
   beiOcr(h: (z: Zusammenfassung) => void): () => void {
     this.ocrHoerer.add(h)
     return () => this.ocrHoerer.delete(h)

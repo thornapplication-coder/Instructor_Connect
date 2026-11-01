@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { annehmbar, bibliotheksVergleich, hochladen, MAX_BYTES, MELDE_TAKT } from './hochladen'
+import { annehmbar, bibliotheksVergleich, hochladen, MAX_BYTES, MELDE_TAKT, pdfDazulegen, stamm } from './hochladen'
 import type { Zusammenfassung } from './kern'
 import { datei, entfernen, fuerNutzer, lesenZustand, setzen } from './sitzung'
 
 const zf = (id: string, meta: Zusammenfassung['meta'] = {}): Zusammenfassung => ({
   id, format: 'pdf', seiten: 1, zeichen: 1, ocrKandidaten: [], ocrSeiten: 0, tabellen: 0, sha256: 's' + id, meta, duplikat: null, labels: [], outline: [],
-  lenkung: { aenderungen: 0, kommentare: 0, revisionsbalken: 0, textfelder: 0, kopfzeilen: 0, fusszeilen: 0 },
+  lenkung: { aenderungen: 0, kommentare: 0, revisionsbalken: 0, textfelder: 0, kopfzeilen: 0, fusszeilen: 0 }, seitenQuelle: 'native',
 })
 const datei_ = (name: string, size = 3) => ({ name, size, arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer })
 
@@ -78,5 +78,51 @@ describe('hochladen', () => {
     expect(lesenZustand().docs).toEqual([])
     await hochladen([datei_('b.pdf')], 'review', { lesen: async (a: { id: string }) => zf(a.id), titel } as never)
     expect(titel).not.toHaveBeenCalled()
+  })
+})
+
+describe('Word-PDF-Paar beim Hochladen (Nachtrag N5)', () => {
+  const verbindung = () => {
+    let hoerer: ((z: Zusammenfassung) => void) | null = null
+    const paaren = vi.fn((id: string) => hoerer?.({ ...zf(id), format: 'docx', seitenQuelle: 'pdf_pair' }))
+    return {
+      lesen: vi.fn(async (a: { id: string; name: string }) => ({ ...zf(a.id), format: /docx$/.test(a.name) ? ('docx' as const) : ('pdf' as const) })),
+      titel: vi.fn(),
+      paaren,
+      beiOcr: (h: (z: Zusammenfassung) => void) => ((hoerer = h), () => (hoerer = null)),
+    }
+  }
+
+  it('gleichnamiges PDF wird gepaart statt als eigenes Dokument geladen', async () => {
+    const v = verbindung()
+    await hochladen([datei_('TM_E1R0.docx'), datei_('tm_e1r0.PDF'), datei_('anderes.pdf')], 'review', v as never)
+    expect(lesenZustand().docs.map((d) => d.name)).toEqual(['TM_E1R0.docx', 'anderes.pdf'])
+    const d = lesenZustand().docs[0]
+    expect(v.paaren).toHaveBeenCalledWith(d.id, expect.any(Uint8Array))
+    expect(d.z?.seitenQuelle).toBe('pdf_pair')
+    expect(datei(`${d.id}#pdf`)).toBeDefined()
+  })
+
+  it('Feature-Schalter aus: keine Paarung, beide Dateien sind Dokumente', async () => {
+    const v = verbindung()
+    await hochladen([datei_('a.docx'), datei_('a.pdf')], 'review', v as never, undefined, { paaren: false })
+    expect(lesenZustand().docs).toHaveLength(2)
+    expect(v.paaren).not.toHaveBeenCalled()
+  })
+
+  it('pdfDazulegen ignoriert Meldungen zu anderen Dokumenten', async () => {
+    let hoerer: ((z: Zusammenfassung) => void) | null = null
+    const p = pdfDazulegen('x', datei_('x.pdf'), {
+      beiOcr: (h) => ((hoerer = h), () => (hoerer = null)),
+      paaren: () => {
+        hoerer?.(zf('anderes'))
+        hoerer?.(zf('x'))
+      },
+    })
+    await expect(p).resolves.toMatchObject({ id: 'x' })
+  })
+
+  it('stamm', () => {
+    expect(stamm(' PLM.E1R0.DOCX')).toBe('plm.e1r0')
   })
 })
