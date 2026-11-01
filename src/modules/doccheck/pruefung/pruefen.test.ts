@@ -141,6 +141,6 @@ describe('Schalter', () => {
     const g = await dateiLesen({ name: 'f.pdf', daten: sbxFormal01() }, deps, { standardFontDataUrl })
     const p = dokumentPruefen({ dokId: 'd', dokName: 'f', dateiname: 'f.pdf', roh: g.roh, meta: g.meta }, { formal: false, word: false, rechnen: false })
     // Auch die Rechenprüfung (N6) und die Verweise (N7, mit der Formalprüfung) bleiben aus.
-    expect(p).toEqual({ befunde: [], ampel: { formal: {}, word: {}, sprache: {}, referenz: {}, rechnen: {}, verweis: {} }, dokumentSprache: null })
+    expect(p).toEqual({ befunde: [], ampel: { formal: {}, word: {}, sprache: {}, referenz: {}, rechnen: {}, verweis: {}, regelwerk: {} }, dokumentSprache: null })
   })
 })

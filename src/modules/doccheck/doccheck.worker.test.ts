@@ -26,9 +26,10 @@ describe('Worker-Nachrichtenschicht', () => {
 
   it('lesen meldet Fortschritt und Ergebnis', async () => {
     const z = { id: 'd' }
-    const a = aufbau({ lesen: async (_auf, melde) => (melde?.(1, 2), z as never) })
+    // Ein gelesenes Regelwerk (N8) zieht die Prüfdokumente nach
+    const a = aufbau({ lesen: async (_auf, melde) => (melde?.(1, 2), z as never), nachLesen: () => [{ id: 'p' } as never] })
     await a.senden({ typ: 'lesen', auftrag: { id: 'd', name: 'x.pdf', daten: new Uint8Array() } })
-    expect(a.raus).toEqual([{ typ: 'fortschritt', id: 'd', seite: 1, gesamt: 2 }, { typ: 'fertig', id: 'd', z }])
+    expect(a.raus).toEqual([{ typ: 'fortschritt', id: 'd', seite: 1, gesamt: 2 }, { typ: 'fertig', id: 'd', z }, { typ: 'fertig', id: 'p', z: { id: 'p' } }])
   })
 
   it('Lesefehler kommen als Code, nie als Meldungstext', async () => {
@@ -39,7 +40,7 @@ describe('Worker-Nachrichtenschicht', () => {
 
   it('abbrechen, entfernen, titel, seite und ocr werden durchgereicht', async () => {
     const kern = {
-      abbrechen: vi.fn(), entfernen: vi.fn(), titelSetzen: vi.fn(), seitenText: vi.fn(() => 'T'),
+      abbrechen: vi.fn(), entfernen: vi.fn(() => [{ id: 'nach' } as never]), titelSetzen: vi.fn(), seitenText: vi.fn(() => 'T'),
       ocrEinspielen: vi.fn((id: string) => (id === 'd' ? ({ id } as never) : null)),
       paaren: vi.fn(async (id: string) => (id === 'd' ? ({ id, seitenQuelle: 'pdf_pair' } as never) : null)),
       referenzenSetzen: vi.fn(() => [{ id: 'd', ref: true } as never]),
@@ -64,7 +65,7 @@ describe('Worker-Nachrichtenschicht', () => {
     expect(kern.abbrechen).toHaveBeenCalledWith('d')
     expect(kern.entfernen).toHaveBeenCalledWith('d')
     expect(kern.titelSetzen).toHaveBeenCalledWith('d', 'T')
-    expect(a.raus).toEqual([{ typ: 'seite', nr: 3, text: 'T' }, { typ: 'fertig', id: 'd', z: { id: 'd' } }, { typ: 'fertig', id: 'd', z: { id: 'd', seitenQuelle: 'pdf_pair' } }, { typ: 'fertig', id: 'd', z: { id: 'd', ref: true } }])
+    expect(a.raus).toEqual([{ typ: 'fertig', id: 'nach', z: { id: 'nach' } }, { typ: 'seite', nr: 3, text: 'T' }, { typ: 'fertig', id: 'd', z: { id: 'd' } }, { typ: 'fertig', id: 'd', z: { id: 'd', seitenQuelle: 'pdf_pair' } }, { typ: 'fertig', id: 'd', z: { id: 'd', ref: true } }])
   })
 })
 

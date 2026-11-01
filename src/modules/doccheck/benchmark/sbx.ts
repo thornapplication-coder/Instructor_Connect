@@ -533,3 +533,60 @@ export function sbxCalc01(): Promise<Uint8Array> {
     ['6 Routes', 1, ['Route: LOWW RUPET RUPET LOWI', 'Alternate route: LOWW RUPET LOWI']],
   ])
 }
+
+/* ------------------------------- SBX-EAR-01 ------------------------------- */
+
+/**
+ * Synthetischer Regelwerksauszug (Nachtrag N8, Abnahme Kap. 11). Die
+ * Regel-IDs sind die öffentlichen Bezeichnungen; der TEXT ist frei
+ * erfunden und als „synthetic" markiert — echte Regelinhalte gehören nicht
+ * in ein öffentliches Repo (CLAUDE.md, Nachtrag Kap. 21 Punkt 6).
+ */
+export const SBX_EAR_01_NAME = 'SBX-EAR-01_Part-ORA_extract.pdf'
+
+export function sbxEar01(): Uint8Array {
+  const seiten: string[][] = [
+    ['Easy Access Rules Part-ORA (synthetic extract SBX-EAR-01)', 'Revision 2026-07'],
+    [
+      'ORA.ATO.125 Training programme',
+      '(a) A training programme shall exist for each course (synthetic).',
+      '(b) The programme shall contain:',
+      '(1) the structure of the course (synthetic);',
+      '(2) the time allocated to each phase (synthetic).',
+      'AMC1 ORA.ATO.125 Training programme',
+      '(a) GENERAL',
+      '(1) The programme should list all exercises (synthetic).',
+      '(2) The programme should state the course duration (synthetic).',
+    ],
+    [
+      'ORA.ATO.230 Training manual and operations manual',
+      '(a) The ATO shall maintain a training manual (synthetic).',
+      '(b) The ATO shall maintain an operations manual (synthetic).',
+      'GM1 ORA.ATO.230(a) Training manual',
+      'This guidance text is synthetic; see ORA.ATO.999 for nothing.',
+    ],
+  ]
+  return pdfBauen(seiten.map((zeilen) => ({ texte: zeilen.map((t, k) => ({ text: t, x: 50, y: 780 - k * 18, groesse: 10 })) })))
+}
+
+/** Prüfdokument mit Regelverweisen: richtige, eine erfundene ID, ein falscher Absatz, eine Quelle außerhalb des Auszugs. */
+export const SBX_EAR_01_VERWEISE = {
+  verifiziert: ['ORA.ATO.125(a)', 'ORA.ATO.125(b)(2)', 'AMC1 ORA.ATO.125(a)(1)', 'ORA.ATO.230', 'GM1 ORA.ATO.230(a)'],
+  erfunden: 'ORA.ATO.127',
+  falscherAbsatz: 'ORA.ATO.230(d)',
+  ohneQuelle: 'FCL.725(b)',
+}
+
+export function sbxEar01Pruefdokument(): Promise<Uint8Array> {
+  const v = SBX_EAR_01_VERWEISE
+  return kapitelDocx('SBX-EAR-01 Review Document', [
+    ['1 Compliance', 1, [
+      `The training programme follows ${v.verifiziert[0]} and ${v.verifiziert[1]}.`,
+      `Exercises are listed as required by ${v.verifiziert[2]}.`,
+      `The manuals are maintained IAW ${v.verifiziert[3]} and ${v.verifiziert[4]}.`,
+      `Course approval follows ${v.erfunden}.`,
+      `The safety manual is required by ${v.falscherAbsatz}.`,
+      `Type rating requirements: ${v.ohneQuelle}.`,
+    ]],
+  ])
+}

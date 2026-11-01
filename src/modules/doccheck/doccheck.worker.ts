@@ -60,6 +60,8 @@ export function verbinden(bereich: Bereich, kernFuer: (basis: string) => Kern): 
         try {
           const z = await k().lesen(a.auftrag, (seite, gesamt) => bereich.postMessage({ typ: 'fortschritt', id: a.auftrag.id, seite, gesamt }))
           bereich.postMessage({ typ: 'fertig', id: a.auftrag.id, z })
+          // Neues Regelwerk (N8): Prüfdokumente neu bewerten
+          for (const n of k().nachLesen(a.auftrag.id)) bereich.postMessage({ typ: 'fertig', id: n.id, z: n })
         } catch (e) {
           bereich.postMessage({ typ: 'fehler', id: a.auftrag.id, code: fehlerCode(e) })
         }
@@ -68,7 +70,7 @@ export function verbinden(bereich: Bereich, kernFuer: (basis: string) => Kern): 
         k().abbrechen(a.id)
         return
       case 'entfernen':
-        k().entfernen(a.id)
+        for (const n of k().entfernen(a.id)) bereich.postMessage({ typ: 'fertig', id: n.id, z: n })
         return
       case 'titel':
         k().titelSetzen(a.id, a.titel)

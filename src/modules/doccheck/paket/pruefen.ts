@@ -3,6 +3,8 @@ import type { DocPage } from '../parse/model'
 import { vergleichsform } from '../parse/seitenzuordnung'
 import { ampelAus, idsVergeben, type Ampel, type Befund, type Fundstelle } from '../pruefung/befund'
 import { dokForm } from '../recheck/fremdliste'
+import { editierabstand } from '../pruefung/kontext'
+export { editierabstand }
 import type { OutlineNode } from '../parse/model'
 import { abschnitte, kapitelNummern, kreise, nurVerweis, uebungsNummern, verweiseIn, vorhanden } from '../pruefung/verweise'
 
@@ -239,13 +241,6 @@ export function wortDiff(a: string[], b: string[]): { weg: string[]; neu: string
     else neu.push(b[j++])
   }
   return { weg: [...weg, ...a.slice(i)], neu: [...neu, ...b.slice(j)] }
-}
-
-export function editierabstand(a: string, b: string): number {
-  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...new Array<number>(b.length).fill(0)])
-  for (let j = 1; j <= b.length; j++) d[0][j] = j
-  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))
-  return d[a.length][b.length]
 }
 
 type Regeln = Record<string, { onlyIn: Record<string, string[]> }>

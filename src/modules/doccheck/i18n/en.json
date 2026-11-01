@@ -389,7 +389,10 @@
     "doppelt": "Repeated words",
     "uebung": "Exercise numbers",
     "zirkel": "Circular references",
-    "verweise": "Cross-document references"
+    "verweise": "Cross-document references",
+    "regelids": "Rule IDs",
+    "absaetze": "Paragraphs",
+    "quelle": "Source available"
   },
   "anleitung": {
     "unsichtbar": "In Word: File → Info → Check for Issues → Inspect Document → remove “Hidden text”. White font: select text, set font colour to “Automatic” and review the content before deleting it.",
@@ -441,7 +444,9 @@
     "paket": "Package",
     "paketPunkte": "Package check",
     "rechnen": "Calculation check",
-    "verweis": "References"
+    "verweis": "References",
+    "regelwerk": "Rule references",
+    "regelwerkStand": "Regulation: {{quellen}} · {{verweise}} references, {{verifiziert}} verified, {{zuPruefen}} to verify, {{ohneQuelle}} without source"
   },
   "prio": {
     "High": "High",
@@ -463,11 +468,14 @@
     "referenz": "Reference lists",
     "paket": "Package",
     "rechnen": "Calculation check",
-    "verweis": "References"
+    "verweis": "References",
+    "regelwerk": "Rule references"
   },
   "verifizierung": {
     "regel": "Verified (rule-based)",
-    "quelleFehlt": "Not verifiable – source missing"
+    "quelleFehlt": "Not verifiable – source missing",
+    "zuPruefen": "To verify",
+    "ohneBibliothek": "To verify – source not in library"
   },
   "pruefungKurz": {
     "titel": "Check",

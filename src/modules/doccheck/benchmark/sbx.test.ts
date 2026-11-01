@@ -11,7 +11,7 @@ import { docxLesen } from '../parse/docx'
 import { dateiLesen } from '../parse/lesen'
 import type { PdfJs } from '../parse/pdf'
 import { pdfBauen } from '../parse/pdfBauen'
-import { absatz, lauf, SBX_CALC_01_FEHLER, SBX_CALC_01_NAME, SBX_FL_01, SBX_FL_01_KOPF, SBX_PKG_01_FEHLER, sbxCalc01, SBX_WORD_01_NAME, sbxFl01, sbxPage01, sbxPkg01, sbxWord01, umbrechen } from './sbx'
+import { absatz, lauf, SBX_CALC_01_FEHLER, SBX_CALC_01_NAME, SBX_EAR_01_NAME, SBX_EAR_01_VERWEISE, sbxEar01, sbxEar01Pruefdokument, SBX_FL_01, SBX_FL_01_KOPF, SBX_PKG_01_FEHLER, sbxCalc01, SBX_WORD_01_NAME, sbxFl01, sbxPage01, sbxPkg01, sbxWord01, umbrechen } from './sbx'
 
 const standardFontDataUrl = fileURLToPath(new URL('../../../../node_modules/pdfjs-dist/standard_fonts/', import.meta.url))
 const kern = () => new Kern({ pdfjs: async () => pdfjs as unknown as PdfJs, standardFontDataUrl })
@@ -266,5 +266,39 @@ describe('Abnahme N6: SBX-CALC-01 (Rechen- und Plausibilitätsprüfung)', () => 
     expect(text('einheiten')).toEqual(['Unit conversion does not match: 11930 lbs = 5411.4 kg, stated 5834 kg (tolerance 1 %).'])
     expect(text('doppelt')).toEqual(['Repeated word or waypoint: "RUPET RUPET" (1×).'])
     expect(p.ampel.rechnen).toEqual({ summen: 'bad', kumuliert: 'wait', session: 'wait', einheiten: 'wait', metar: 'wait', doppelt: 'wait' })
+  })
+})
+
+describe('Abnahme N8: Regelwerksverweise gegen SBX-EAR-01', () => {
+  it('erfundene ID und falscher Absatz → To verify, fremdes Regelwerk → source not in library, korrekte IDs ohne Befund', async () => {
+    const k = kern()
+    const pz = await k.lesen({ id: 'p', name: 'review.docx', daten: await sbxEar01Pruefdokument(), pruefen: { formal: true, word: false } })
+    // Ohne geladenes Regelwerk: nicht anwendbar, keine Befunde
+    expect(pz.pruefung!.ampel.regelwerk).toEqual({ regelids: 'na', absaetze: 'na', quelle: 'na' })
+    expect(pz.pruefung!.befunde.filter((b) => b.quelle === 'regelwerk')).toEqual([])
+
+    await k.lesen({ id: 'ear', name: SBX_EAR_01_NAME, daten: sbxEar01() })
+    // Das Regelwerk zieht das Prüfdokument nach
+    const [neu] = k.nachLesen('ear')
+    expect(neu.id).toBe('p')
+    const r = neu.pruefung!.befunde.filter((b) => b.quelle === 'regelwerk')
+    expect(r.map((b) => [b.pruefpunkt, b.verifizierung, b.text])).toEqual([
+      ['absaetze', 'To verify', 'Rule reference ORA.ATO.230(d) — paragraph not found. ORA.ATO.230 has (a), (b).'],
+      ['regelids', 'To verify', 'Rule reference ORA.ATO.127 not found in the loaded regulation (Easy Access Rules Part-ORA (synthetic extract SBX-EAR-01)). Nearest existing: ORA.ATO.125.'],
+      ['quelle', 'To verify – source not in library', '1 rule reference to FCL cannot be verified: source not in library.'],
+    ])
+    expect(neu.pruefung!.regelwerk).toMatchObject({ verweise: 8, verifiziert: SBX_EAR_01_VERWEISE.verifiziert.length, zuPruefen: 2, ohneQuelle: 1 })
+    expect(neu.pruefung!.ampel.regelwerk).toEqual({ regelids: 'wait', absaetze: 'wait', quelle: 'wait' })
+
+    // Regelwerk entfernt → wieder nicht anwendbar
+    const [weg] = k.entfernen('ear')
+    expect(weg.pruefung!.ampel.regelwerk).toEqual({ regelids: 'na', absaetze: 'na', quelle: 'na' })
+    // Alle Schalter aus: Mit Regelwerk läuft N8 trotzdem
+    const k2 = kern()
+    await k2.lesen({ id: 'ear', name: SBX_EAR_01_NAME, daten: sbxEar01() })
+    const nurN8 = await k2.lesen({ id: 'p', name: 'review.docx', daten: await sbxEar01Pruefdokument(), pruefen: { formal: false, word: false } })
+    expect(nurN8.pruefung!.befunde.map((b) => b.quelle)).toEqual(['regelwerk', 'regelwerk', 'regelwerk'])
+    expect(k2.nachLesen('p')).toEqual([])
+    expect(k.entfernen('p')).toEqual([])
   })
 })

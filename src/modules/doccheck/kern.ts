@@ -9,6 +9,7 @@ import { regelIds } from './parse/regeln'
 import { Suchindex, type Treffer } from './search/suche'
 import { dokumentPruefen, type Pruefung } from './pruefung/pruefen'
 import { REGELN } from './pruefung/kontext'
+import { regelIndex, type RegelIndex } from './pruefung/regelwerk'
 import type { ReferenzListe } from './referenz/liste'
 import { befundPruefen, type ReErgebnis } from './recheck/pruefen'
 import type { FremdBefund, Ziel } from './recheck/fremdliste'
@@ -103,12 +104,43 @@ export class Kern {
   private fassen(id: string): Zusammenfassung {
     const d = this.docs.get(id)!
     const z = zusammenfassen(id, d.roh, d.sha256, d.meta, d.duplikat, d.pdfPaar)
-    if (d.pruefen && (d.pruefen.formal || d.pruefen.word || d.pruefen.rechnen || this.referenzen.length)) {
-      z.pruefung = dokumentPruefen({ dokId: id, dokName: d.titel, dateiname: d.name, roh: d.roh, meta: d.meta }, d.pruefen, REGELN, this.referenzen)
+    // Regelwerksverweise (N8) haben keinen Schalter — sie laufen, sobald ein Regelwerk geladen ist.
+    if (d.pruefen && (d.pruefen.formal || d.pruefen.word || d.pruefen.rechnen || this.referenzen.length || this.regelwerk().eintraege.size)) {
+      z.pruefung = dokumentPruefen({ dokId: id, dokName: d.titel, dateiname: d.name, roh: d.roh, meta: d.meta }, d.pruefen, REGELN, this.referenzen, this.regelwerk())
     }
     return z
   }
   private index = new Suchindex()
+  private regeln: { index: RegelIndex; kennung: string } | null = null
+
+  /** Regelwerke (N8) = alle Nicht-Prüfdokumente; Index zwischengespeichert, bis sich dort etwas ändert. */
+  private regelwerk(): RegelIndex {
+    if (!this.regeln) {
+      const index = regelIndex([...this.docs.values()].filter((d) => !d.pruefen).map((d) => ({ titel: d.titel, pages: d.roh.pages })))
+      const kennung = JSON.stringify([...index.eintraege.values()].map((e) => [e.schluessel, [...e.absaetze].sort()]).sort())
+      this.regeln = { index, kennung }
+    }
+    return this.regeln.index
+  }
+
+  /**
+   * Nach Lesen, OCR oder Entfernen eines Regelwerks: Hat sich der Index
+   * geändert, sind alle Prüfdokumente neu zu prüfen — ihre „To verify"-
+   * Befunde hängen daran. Liefert deren neue Zusammenfassungen.
+   */
+  private regelwerkGeaendert(): Zusammenfassung[] {
+    const alt = this.regeln?.kennung
+    this.regeln = null
+    this.regelwerk()
+    if (alt === this.regeln!.kennung) return []
+    return [...this.docs.entries()].filter(([, d]) => d.pruefen).map(([id]) => this.fassen(id))
+  }
+
+  /** Aufruf nach dem Lesen: War es ein Regelwerk (kein Prüfdokument), Prüfdokumente nachziehen. */
+  nachLesen(id: string): Zusammenfassung[] {
+    const d = this.docs.get(id)
+    return d && !d.pruefen ? this.regelwerkGeaendert() : []
+  }
   private laufend = new Map<string, AbortController>()
   private referenzen: ReferenzListe[] = []
 
@@ -149,10 +181,13 @@ export class Kern {
     this.laufend.get(id)?.abort()
   }
 
-  entfernen(id: string): void {
+  /** Entfernen; war es ein Regelwerk, kommen die neu geprüften Prüfdokumente zurück. */
+  entfernen(id: string): Zusammenfassung[] {
     this.abbrechen(id)
+    const warRegelwerk = this.docs.has(id) && !this.docs.get(id)!.pruefen
     this.docs.delete(id)
     this.index.entfernen(id)
+    return warRegelwerk ? this.regelwerkGeaendert() : []
   }
 
   /** Titel geändert (Nutzer hat den erkannten Wert korrigiert) — Treffer sollen ihn zeigen. */
@@ -189,6 +224,8 @@ export class Kern {
     }
     d.roh.ocrKandidaten = d.roh.ocrKandidaten.filter((n) => !seiten.some((s) => s.n === n))
     this.index.hinzufuegen({ id, titel: d.titel, pages: d.roh.pages })
+    // OCR in einem gescannten Regelwerk kann neue Regeln sichtbar machen
+    if (!d.pruefen) this.regeln = null
     return this.fassen(id)
   }
 

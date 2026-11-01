@@ -70,7 +70,8 @@ Stand: **Phase 2 + Word-Check (Sandbox)** — Dokumente einlesen und
 durchsuchen, Word-Extrakt, Seitenangaben bei DOCX, Formalprüfung, Word-Check
 (N4), Sprache/Platzhalter (N9), Referenzlisten als Soll, Re-Check fremder
 Findinglisten (N3, regelbasiert), Dokumentpakete und Geschwister (N1, N2),
-Rechen-/Plausibilitätsprüfung (N6), Verweise (N7); kein Backend, KI simuliert. Festlegungen:
+Rechen-/Plausibilitätsprüfung (N6), Verweise (N7), Regelwerksverweise (N8,
+gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
 
 - **Die Testwachen gelten auch hier.** `testGuard` globt `src/modules/**`,
   die Abdeckungsschwelle ebenso. Ansichten (`*.tsx`) sind wie `src/pages`
@@ -187,6 +188,16 @@ Rechen-/Plausibilitätsprüfung (N6), Verweise (N7); kein Backend, KI simuliert.
   „Not verifiable – source missing" und erscheint nie als verifiziert.
   Kapitelnummern kommen aus der Gliederung UND aus nummerierten Absätzen —
   sonst wäre jeder Verweis auf „1.4.1.1 The PIC …" kaputt.
+- **Regelwerksverweise** (`pruefung/regelwerk.ts`, N8): Der Index enthält
+  nur Regeln, die in einem Nicht-Prüfdokument als ÜBERSCHRIFT stehen —
+  eine Erwähnung im Fließtext definiert nichts. Kein Schalter: läuft, sobald
+  ein Regelwerk geladen ist; ohne Regelwerk „nicht anwendbar" statt
+  hunderter „To verify". Eine Regel ohne erfasste Absätze lässt sich nicht
+  widerlegen und gilt als verifiziert. Ändert sich das Regelwerk, prüft der
+  Kern alle Prüfdokumente neu und schickt sie von sich aus — dafür hört
+  `DocCheckApp` DAUERHAFT auf `beiOcr`; vorher gab es nur vorübergehende
+  Hörer, und solche Aktualisierungen gingen verloren. CS-Kennungen erkennt
+  die v1.1-Regex nur als ganzes Regelwerk („CS-FCD"), nicht je Artikel.
 - **Submission gate** warnt ab Werk (`gateSperrt: false`, Entscheidung
   vom 01.11.2026); Sperre ist Einstellung des Superadmins.
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise

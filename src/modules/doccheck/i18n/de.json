@@ -389,7 +389,10 @@
     "doppelt": "Doppelte Wörter",
     "uebung": "Übungsnummern",
     "zirkel": "Zirkelverweise",
-    "verweise": "Verweise zwischen Dokumenten"
+    "verweise": "Verweise zwischen Dokumenten",
+    "regelids": "Regel-IDs",
+    "absaetze": "Absätze",
+    "quelle": "Quelle vorhanden"
   },
   "anleitung": {
     "unsichtbar": "In Word: Datei → Informationen → Auf Probleme überprüfen → Dokument prüfen → „Ausgeblendeter Text“ entfernen. Weiße Schrift: Text markieren, Schriftfarbe auf „Automatisch“ setzen und Inhalt prüfen, bevor er gelöscht wird.",
@@ -441,7 +444,9 @@
     "paket": "Paket",
     "paketPunkte": "Paketprüfung",
     "rechnen": "Rechenprüfung",
-    "verweis": "Verweise"
+    "verweis": "Verweise",
+    "regelwerk": "Regelwerksverweise",
+    "regelwerkStand": "Regelwerk: {{quellen}} · {{verweise}} Verweise, {{verifiziert}} verifiziert, {{zuPruefen}} zu prüfen, {{ohneQuelle}} ohne Quelle"
   },
   "prio": {
     "High": "Hoch",
@@ -463,11 +468,14 @@
     "referenz": "Referenzlisten",
     "paket": "Paket",
     "rechnen": "Rechenprüfung",
-    "verweis": "Verweise"
+    "verweis": "Verweise",
+    "regelwerk": "Regelwerksverweise"
   },
   "verifizierung": {
     "regel": "Verifiziert (regelbasiert)",
-    "quelleFehlt": "Nicht prüfbar – Quelle fehlt"
+    "quelleFehlt": "Nicht prüfbar – Quelle fehlt",
+    "zuPruefen": "Zu prüfen",
+    "ohneBibliothek": "Zu prüfen – Quelle nicht in Bibliothek"
   },
   "pruefungKurz": {
     "titel": "Prüfung",

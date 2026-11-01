@@ -12,6 +12,7 @@ import { REFERENZ_PUNKTE } from '../pruefung/referenzCheck'
 import { PAKET_PUNKTE } from '../paket/pruefen'
 import { RECHEN_PUNKTE } from '../pruefung/rechnen'
 import { VERWEIS_PUNKTE } from '../pruefung/verweise'
+import { REGELWERK_PUNKTE } from '../pruefung/regelwerk'
 import { useSitzung } from '../sitzung'
 import { aktiv } from '../settings'
 import { useViewer } from './Viewer'
@@ -97,6 +98,10 @@ export function FindingsTab() {
               <Ampelzeile titel={t('gate.referenz')} punkte={REFERENZ_PUNKTE} ampel={d.z!.pruefung!.ampel.referenz ?? {}} />
               <Ampelzeile titel={t('gate.rechnen')} punkte={RECHEN_PUNKTE} ampel={d.z!.pruefung!.ampel.rechnen ?? {}} />
               <Ampelzeile titel={t('gate.verweis')} punkte={VERWEIS_PUNKTE} ampel={d.z!.pruefung!.ampel.verweis ?? {}} />
+              <Ampelzeile titel={t('gate.regelwerk')} punkte={REGELWERK_PUNKTE} ampel={d.z!.pruefung!.ampel.regelwerk ?? {}} />
+              {d.z!.pruefung!.regelwerk && d.z!.pruefung!.regelwerk.quellen.length > 0 && (
+                <p className="text-micro text-dim">{t('gate.regelwerkStand', { ...d.z!.pruefung!.regelwerk, quellen: d.z!.pruefung!.regelwerk.quellen.join(', ') })}</p>
+              )}
             </div>
           ))}
           {paket && (
@@ -123,7 +128,7 @@ export function FindingsTab() {
         </select>
         <select aria-label={t('findings.filter.quelle')} className={`${selectCls} !w-auto !py-1.5`} value={quelle} onChange={(e) => setQuelle(e.target.value)}>
           <option value="">{t('findings.filter.alleQuellen')}</option>
-          {(['formal', 'word', 'sprache', 'referenz', 'rechnen', 'verweis', ...(paket ? (['paket'] as const) : [])] as const).map((q) => (
+          {(['formal', 'word', 'sprache', 'referenz', 'rechnen', 'verweis', 'regelwerk', ...(paket ? (['paket'] as const) : [])] as const).map((q) => (
             <option key={q} value={q}>{t(`quelle.${q}`)}</option>
           ))}
         </select>
@@ -163,7 +168,15 @@ export function FindingsTab() {
                     <td className="whitespace-nowrap px-2 py-2"><Badge tone="wait">{t('status.Open')}</Badge></td>
                     <td className="whitespace-nowrap px-2 py-2">
                       {/* Nicht prüfbar darf nie als „verifiziert" erscheinen (N8, N11) */}
-                      {b.verifizierung === 'Not verifiable – source missing' ? <Badge tone="dim">{t('verifizierung.quelleFehlt')}</Badge> : <Badge tone="ok">{t('verifizierung.regel')}</Badge>}
+                      {b.verifizierung === 'Not verifiable – source missing' ? (
+                        <Badge tone="dim">{t('verifizierung.quelleFehlt')}</Badge>
+                      ) : b.verifizierung === 'To verify – source not in library' ? (
+                        <Badge tone="dim">{t('verifizierung.ohneBibliothek')}</Badge>
+                      ) : b.verifizierung === 'To verify' ? (
+                        <Badge tone="wait">{t('verifizierung.zuPruefen')}</Badge>
+                      ) : (
+                        <Badge tone="ok">{t('verifizierung.regel')}</Badge>
+                      )}
                     </td>
                   </tr>
                   {auf && (

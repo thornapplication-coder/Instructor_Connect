@@ -867,3 +867,23 @@ Einlesen jedes Prüfdokuments und erneut nach OCR oder Word-PDF-Paar.
   Quelle erweitert — alle gefunden, der gültige Verweis nicht gemeldet.
 - Bewusst nicht doppelt: Interne Kapitelverweise bleiben bei der
   Formalprüfung. Ob ein Verweisziel inhaltlich passt, prüft erst die KI.
+
+## 1.16.0 — 2026-11-01
+
+- **DocCheck: Prüfung der Regelwerksverweise (Nachtrag N8).** Jede Regel-ID
+  im Prüfdokument (z. B. `ORA.ATO.125(b)(2)`, `AMC1 ORA.ATO.125(a)(1)`,
+  `FCL.725`) wird gegen die Regeln geprüft, die in geladenen Master- oder
+  Sitzungsdokumenten definiert sind: Regel und Absatz vorhanden →
+  „Verified (rule-based)"; Regel oder Absatz fehlt → „To verify" mit der
+  nächstliegenden vorhandenen ID; Regelwerk nicht geladen → „To verify –
+  source not in library". Im Submission gate: Regelwerksstand und Zählung.
+- Neue Regelwerke wirken sofort: Laden oder Entfernen eines Auszugs prüft
+  alle Prüfdokumente neu. Behoben dabei: Aktualisierungen, die der Worker
+  von sich aus schickt, gingen ohne laufende OCR/Paarung verloren.
+- Verifizierungsspalte: „Zu prüfen" und „Zu prüfen – Quelle nicht in
+  Bibliothek" als eigene Marken.
+- **Abnahme:** `SBX-EAR-01` (synthetischer Part-ORA-Auszug) — erfundene ID
+  und falscher Absatzbuchstabe „To verify", Part-FCL „source not in
+  library", korrekte IDs ohne Befund.
+- Mit der Bibliothek (Phase 3) wird sie zur zweiten Quelle des Index; die
+  Prüflogik bleibt.

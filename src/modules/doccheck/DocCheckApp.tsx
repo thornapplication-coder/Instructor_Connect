@@ -11,7 +11,7 @@ import { aktiv } from './settings'
 import { registriereDocCheckTexte } from './i18n'
 import { aktuellerStand, nachSammlung, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EMPFEHLUNGEN, SANDBOX_SAMMLUNGEN, SANDBOX_STAENDE, standLabel } from './library'
 import { useAnsichtsmodus } from './viewMode'
-import { fuerNutzer } from './sitzung'
+import { aktualisiert, fuerNutzer, setzen } from './sitzung'
 import { standardVerbindung } from './verbindung'
 import { ViewerProvider } from './components/Viewer'
 import { AdminTab } from './components/AdminTab'
@@ -293,6 +293,15 @@ export default function DocCheckApp() {
   useEffect(() => {
     if (fuerNutzer(currentUser?.id ?? null)) standardVerbindung().beenden()
   }, [currentUser?.id])
+  // Dauerhafter Empfänger für Aktualisierungen, die der Worker von sich aus
+  // schickt — etwa neu geprüfte Prüfdokumente, nachdem ein Regelwerk (N8)
+  // geladen oder entfernt wurde. Ohne ihn gingen sie verloren.
+  useEffect(() => {
+    const ab = standardVerbindung().beiOcr((z) => setzen((s) => aktualisiert(s, z)))
+    return () => {
+      ab()
+    }
+  }, [])
   // Doppelter Riegel: Die Route prueft schon, aber ein Rollenwechsel in der
   // Sandbox („View as") darf nicht in einer offenen Ansicht stehen bleiben.
   if (docCheckRolle === 'keine') {

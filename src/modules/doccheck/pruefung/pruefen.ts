@@ -8,6 +8,7 @@ import { wordCheck } from './wordCheck'
 import { referenzCheck } from './referenzCheck'
 import { rechenPruefung } from './rechnen'
 import { verweisPruefung } from './verweise'
+import { regelwerkPruefung, type RegelIndex, type RegelwerkStand } from './regelwerk'
 import type { ReferenzListe } from '../referenz/liste'
 
 /**
@@ -18,7 +19,9 @@ import type { ReferenzListe } from '../referenz/liste'
 
 export interface Pruefung {
   befunde: Befund[]
-  ampel: { formal: Record<string, Ampel>; word: Record<string, Ampel>; sprache: Record<string, Ampel>; referenz: Record<string, Ampel>; rechnen?: Record<string, Ampel>; verweis?: Record<string, Ampel> }
+  ampel: { formal: Record<string, Ampel>; word: Record<string, Ampel>; sprache: Record<string, Ampel>; referenz: Record<string, Ampel>; rechnen?: Record<string, Ampel>; verweis?: Record<string, Ampel>; regelwerk?: Record<string, Ampel> }
+  /** Regelwerksstand (N8): geladene Quellen und Zählung der Verweise */
+  regelwerk?: RegelwerkStand
   dokumentSprache: string | null
 }
 
@@ -28,6 +31,8 @@ export function dokumentPruefen(
   schalter: { formal: boolean; word: boolean; rechnen?: boolean },
   regeln: Regeln = REGELN,
   referenzen: ReferenzListe[] = [],
+  /** Index der geladenen Regelwerke (N8) — läuft unabhängig von den Schaltern, sobald einer da ist */
+  regelIndex?: RegelIndex,
 ): Pruefung {
   const k = { ...d, regeln }
   const formal = schalter.formal ? formalPruefung(k) : null
@@ -37,10 +42,12 @@ export function dokumentPruefen(
   const referenz = referenzen.length ? referenzCheck(k, referenzen, d.dateiname) : null
   const rechnen = schalter.rechnen ? rechenPruefung(k) : null
   const verweis = schalter.formal ? verweisPruefung(k) : null
+  const regelwerk = regelIndex ? regelwerkPruefung(k, regelIndex) : null
   const aus = (x: { ampel: Record<string, Ampel> } | null) => x?.ampel ?? {}
   return {
-    befunde: sortieren(idsVergeben([...(formal?.befunde ?? []), ...(word?.befunde ?? []), ...(sprache?.befunde ?? []), ...(referenz?.befunde ?? []), ...(rechnen?.befunde ?? []), ...(verweis?.befunde ?? [])])),
-    ampel: { formal: aus(formal), word: aus(word), sprache: aus(sprache), referenz: aus(referenz), rechnen: aus(rechnen), verweis: aus(verweis) },
+    befunde: sortieren(idsVergeben([...(formal?.befunde ?? []), ...(word?.befunde ?? []), ...(sprache?.befunde ?? []), ...(referenz?.befunde ?? []), ...(rechnen?.befunde ?? []), ...(verweis?.befunde ?? []), ...(regelwerk?.befunde ?? [])])),
+    ampel: { formal: aus(formal), word: aus(word), sprache: aus(sprache), referenz: aus(referenz), rechnen: aus(rechnen), verweis: aus(verweis), regelwerk: aus(regelwerk) },
+    ...(regelwerk ? { regelwerk: regelwerk.stand } : {}),
     dokumentSprache: sprache?.sprache ?? null,
   }
 }
