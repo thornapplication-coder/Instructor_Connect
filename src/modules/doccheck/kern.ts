@@ -8,6 +8,8 @@ import type { PdfJs } from './parse/pdf'
 import { regelIds } from './parse/regeln'
 import { Suchindex, type Treffer } from './search/suche'
 import { dokumentPruefen, type Pruefung } from './pruefung/pruefen'
+import { REGELN } from './pruefung/kontext'
+import type { ReferenzListe } from './referenz/liste'
 
 /**
  * Was im Worker läuft: Dokumente lesen, im Speicher halten, durchsuchen.
@@ -98,13 +100,23 @@ export class Kern {
   private fassen(id: string): Zusammenfassung {
     const d = this.docs.get(id)!
     const z = zusammenfassen(id, d.roh, d.sha256, d.meta, d.duplikat, d.pdfPaar)
-    if (d.pruefen && (d.pruefen.formal || d.pruefen.word)) {
-      z.pruefung = dokumentPruefen({ dokId: id, dokName: d.titel, dateiname: d.name, roh: d.roh, meta: d.meta }, d.pruefen)
+    if (d.pruefen && (d.pruefen.formal || d.pruefen.word || this.referenzen.length)) {
+      z.pruefung = dokumentPruefen({ dokId: id, dokName: d.titel, dateiname: d.name, roh: d.roh, meta: d.meta }, d.pruefen, REGELN, this.referenzen)
     }
     return z
   }
   private index = new Suchindex()
   private laufend = new Map<string, AbortController>()
+  private referenzen: ReferenzListe[] = []
+
+  /**
+   * Referenzlisten setzen (Soll) — alle Prüfdokumente werden neu geprüft,
+   * denn eine neue Liste ändert ihre Befunde. Liefert deren Zusammenfassungen.
+   */
+  referenzenSetzen(listen: ReferenzListe[]): Zusammenfassung[] {
+    this.referenzen = listen
+    return [...this.docs.entries()].filter(([, d]) => d.pruefen).map(([id]) => this.fassen(id))
+  }
 
   constructor(private deps: { pdfjs: () => Promise<PdfJs>; standardFontDataUrl?: string }) {}
 

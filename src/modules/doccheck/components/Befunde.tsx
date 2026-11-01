@@ -8,6 +8,7 @@ import { gate, sortieren, type Ampel, type Befund, type Prioritaet } from '../pr
 import { FORMAL_PUNKTE } from '../pruefung/formal'
 import { SPRACH_PUNKTE } from '../pruefung/sprachCheck'
 import { WORD_PUNKTE } from '../pruefung/wordCheck'
+import { REFERENZ_PUNKTE } from '../pruefung/referenzCheck'
 import { useSitzung } from '../sitzung'
 import { useViewer } from './Viewer'
 
@@ -84,6 +85,7 @@ export function FindingsTab() {
               <Ampelzeile titel={t('gate.formal')} punkte={FORMAL_PUNKTE} ampel={d.z!.pruefung!.ampel.formal} />
               <Ampelzeile titel={t('gate.word')} punkte={WORD_PUNKTE} ampel={d.z!.pruefung!.ampel.word} />
               <Ampelzeile titel={t('gate.sprache')} punkte={SPRACH_PUNKTE} ampel={d.z!.pruefung!.ampel.sprache} />
+              <Ampelzeile titel={t('gate.referenz')} punkte={REFERENZ_PUNKTE} ampel={d.z!.pruefung!.ampel.referenz ?? {}} />
             </div>
           ))}
         </Card>
@@ -104,7 +106,7 @@ export function FindingsTab() {
         </select>
         <select aria-label={t('findings.filter.quelle')} className={`${selectCls} !w-auto !py-1.5`} value={quelle} onChange={(e) => setQuelle(e.target.value)}>
           <option value="">{t('findings.filter.alleQuellen')}</option>
-          {(['formal', 'word', 'sprache'] as const).map((q) => (
+          {(['formal', 'word', 'sprache', 'referenz'] as const).map((q) => (
             <option key={q} value={q}>{t(`quelle.${q}`)}</option>
           ))}
         </select>

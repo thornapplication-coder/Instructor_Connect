@@ -79,8 +79,9 @@ describe('Verbindung zum Worker', () => {
     v.titel('d', 'T')
     v.entfernen('d')
     v.paaren('d', new Uint8Array([1]))
-    expect(gesendet.slice(-3).map((g) => g.a.typ)).toEqual(['titel', 'entfernen', 'paaren'])
     expect(gesendet[gesendet.length - 1].transfer).toHaveLength(1)
+    v.referenzen([])
+    expect(gesendet.slice(-4).map((g) => g.a.typ)).toEqual(['titel', 'entfernen', 'paaren', 'referenzen'])
   })
 
   it('beenden: Worker weg, offene Zusagen gelöst statt hängend', async () => {

@@ -363,7 +363,11 @@
     "fragmente": "Fragments",
     "fremdsprache": "Foreign language",
     "einschuebe": "Insertions",
-    "platzhalter": "Placeholders"
+    "platzhalter": "Placeholders",
+    "glossar": "Glossary",
+    "abkuerzungsliste": "Abbreviation list",
+    "register": "Document register",
+    "kennungen": "Identifiers"
   },
   "anleitung": {
     "unsichtbar": "In Word: File → Info → Check for Issues → Inspect Document → remove “Hidden text”. White font: select text, set font colour to “Automatic” and review the content before deleting it.",
@@ -388,7 +392,11 @@
     "querverweise": "Correct the target or insert it again as a cross-reference (Insert → Cross-reference).",
     "abkuerzungen": "Add missing entries to the abbreviation list or remove unused ones.",
     "resteHoch": "Review → Accept/Reject all changes; delete comments; reinsert broken references and press Ctrl+A → F9.",
-    "reste": "Replace TBD/XXX/DRAFT with final text."
+    "reste": "Replace TBD/XXX/DRAFT with final text.",
+    "glossar": "Replace the variant with the preferred spelling (Word: Ctrl+H, enable “Match case” and “Find whole words only”).",
+    "abkuerzungsliste": "Add the abbreviation to the reference list or spell it out in the text.",
+    "register": "Correct revision/date in the document or in the document register — one of them is outdated.",
+    "kennungen": "Check the identifier against the reference list (typo or missing entry)."
   },
   "gate": {
     "titel": "Submission gate",
@@ -406,7 +414,8 @@
       "wait": "finding",
       "bad": "high finding",
       "na": "not applicable"
-    }
+    },
+    "referenz": "Reference lists"
   },
   "prio": {
     "High": "High",
@@ -424,7 +433,8 @@
   "quelle": {
     "formal": "Formal check",
     "word": "Word check",
-    "sprache": "Language/placeholders"
+    "sprache": "Language/placeholders",
+    "referenz": "Reference lists"
   },
   "verifizierung": {
     "regel": "Verified (rule-based)"
@@ -436,5 +446,24 @@
     "befunde_other": "{{count}} findings",
     "hoch_one": "1 high",
     "hoch_other": "{{count}} high"
+  },
+  "referenz": {
+    "titel": "Reference lists",
+    "hinweis": "Excel, CSV or Markdown with a header row: glossary, abbreviations, document register (revision/date) or identifiers. Every review document is checked against them; nothing is stored.",
+    "drop": "Add list",
+    "format": "{{name}}: Excel, CSV or Markdown only",
+    "unbekannt": "{{name}}: columns not recognised — please choose the type",
+    "entfernen": "Remove {{name}}",
+    "art": "List type",
+    "nichtErkannt": "— not recognised —",
+    "arten": {
+      "glossar": "Glossary (spellings)",
+      "abkuerzungen": "Abbreviations",
+      "register": "Document register",
+      "kennungen": "Identifiers (devices, S/N)"
+    },
+    "eintraege_one": "1 entry",
+    "eintraege_other": "{{count}} entries",
+    "spaltenFehlen": "matching columns missing"
   }
 }

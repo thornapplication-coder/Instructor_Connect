@@ -363,7 +363,11 @@
     "fragmente": "Fragmente",
     "fremdsprache": "Fremdsprache",
     "einschuebe": "Einschübe",
-    "platzhalter": "Platzhalter"
+    "platzhalter": "Platzhalter",
+    "glossar": "Glossar",
+    "abkuerzungsliste": "Abkürzungsliste",
+    "register": "Dokumentregister",
+    "kennungen": "Kennungen"
   },
   "anleitung": {
     "unsichtbar": "In Word: Datei → Informationen → Auf Probleme überprüfen → Dokument prüfen → „Ausgeblendeter Text“ entfernen. Weiße Schrift: Text markieren, Schriftfarbe auf „Automatisch“ setzen und Inhalt prüfen, bevor er gelöscht wird.",
@@ -388,7 +392,11 @@
     "querverweise": "Verweisziel korrigieren oder als Querverweis neu einfügen (Einfügen → Querverweis).",
     "abkuerzungen": "Abkürzungsverzeichnis ergänzen bzw. unbenutzte Einträge entfernen.",
     "resteHoch": "Überprüfen → Annehmen/Ablehnen aller Änderungen; Kommentare löschen; defekte Verweise neu setzen und Strg+A → F9.",
-    "reste": "TBD/XXX/DRAFT durch endgültigen Text ersetzen."
+    "reste": "TBD/XXX/DRAFT durch endgültigen Text ersetzen.",
+    "glossar": "Variante durch die Soll-Schreibweise ersetzen (Word: Strg+H, „Groß-/Kleinschreibung beachten“ und „Nur ganzes Wort“ aktivieren).",
+    "abkuerzungsliste": "Abkürzung in die Referenzliste aufnehmen oder im Text ausschreiben.",
+    "register": "Revision/Datum im Dokument oder im Dokumentregister korrigieren — eines von beiden ist veraltet.",
+    "kennungen": "Kennung gegen die Referenzliste prüfen (Tippfehler oder fehlender Eintrag)."
   },
   "gate": {
     "titel": "Submission gate",
@@ -406,7 +414,8 @@
       "wait": "Befund",
       "bad": "Hoch-Befund",
       "na": "nicht anwendbar"
-    }
+    },
+    "referenz": "Referenzlisten (Soll)"
   },
   "prio": {
     "High": "Hoch",
@@ -424,7 +433,8 @@
   "quelle": {
     "formal": "Formalprüfung",
     "word": "Word-Check",
-    "sprache": "Sprache/Platzhalter"
+    "sprache": "Sprache/Platzhalter",
+    "referenz": "Referenzlisten"
   },
   "verifizierung": {
     "regel": "Verifiziert (regelbasiert)"
@@ -436,5 +446,24 @@
     "befunde_other": "{{count}} Befunde",
     "hoch_one": "davon 1 Hoch",
     "hoch_other": "davon {{count}} Hoch"
+  },
+  "referenz": {
+    "titel": "Referenzlisten (Soll)",
+    "hinweis": "Excel, CSV oder Markdown mit Kopfzeile: Glossar, Abkürzungen, Dokumentregister (Revision/Datum) oder Kennungen. Jedes Prüfdokument wird dagegen geprüft; nichts wird gespeichert.",
+    "drop": "Liste hinzufügen",
+    "format": "{{name}}: nur Excel, CSV oder Markdown",
+    "unbekannt": "{{name}}: Spalten nicht erkannt — Art bitte wählen",
+    "entfernen": "{{name}} entfernen",
+    "art": "Art der Liste",
+    "nichtErkannt": "— nicht erkannt —",
+    "arten": {
+      "glossar": "Glossar (Schreibweisen)",
+      "abkuerzungen": "Abkürzungen",
+      "register": "Dokumentregister",
+      "kennungen": "Kennungen (Geräte, S/N)"
+    },
+    "eintraege_one": "1 Eintrag",
+    "eintraege_other": "{{count}} Einträge",
+    "spaltenFehlen": "passende Spalten fehlen"
   }
 }

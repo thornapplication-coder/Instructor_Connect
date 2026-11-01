@@ -1,6 +1,7 @@
 import type { Anfrage, Antwort } from './doccheck.worker'
 import type { LeseAuftrag, Zusammenfassung } from './kern'
 import type { Treffer } from './search/suche'
+import type { ReferenzListe } from './referenz/liste'
 
 /**
  * Hauptfenster-Seite des Workers: Anfragen als Promises, Fortschritt als
@@ -98,6 +99,11 @@ export class Verbindung {
   paaren(id: string, daten: Uint8Array): void {
     const kopie = daten.slice()
     this.worker().postMessage({ typ: 'paaren', id, daten: kopie }, [kopie.buffer])
+  }
+
+  /** Referenzlisten (Soll) an den Worker — neu geprüfte Dokumente kommen über die `beiOcr`-Hörer. */
+  referenzen(listen: ReferenzListe[]): void {
+    this.worker().postMessage({ typ: 'referenzen', listen })
   }
 
   beiOcr(h: (z: Zusammenfassung) => void): () => void {

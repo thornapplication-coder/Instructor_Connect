@@ -1,5 +1,6 @@
 import { Kern, type LeseAuftrag, type Zusammenfassung } from './kern'
 import { pdfjsLaden } from './pdfjsLaden'
+import type { ReferenzListe } from './referenz/liste'
 import type { Treffer } from './search/suche'
 
 /**
@@ -19,6 +20,7 @@ export type Anfrage =
   | { typ: 'seite'; nr: number; id: string; seite: number }
   | { typ: 'ocr'; id: string; seiten: { n: number; text: string }[] }
   | { typ: 'paaren'; id: string; daten: Uint8Array }
+  | { typ: 'referenzen'; listen: ReferenzListe[] }
 
 export type Antwort =
   | { typ: 'fortschritt'; id: string; seite: number; gesamt: number }
@@ -69,6 +71,9 @@ export function verbinden(bereich: Bereich, kernFuer: (basis: string) => Kern): 
         return
       case 'seite':
         bereich.postMessage({ typ: 'seite', nr: a.nr, text: k().seitenText(a.id, a.seite) })
+        return
+      case 'referenzen':
+        for (const z of k().referenzenSetzen(a.listen)) bereich.postMessage({ typ: 'fertig', id: z.id, z })
         return
       case 'paaren': {
         const z = await k().paaren(a.id, a.daten)

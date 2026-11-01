@@ -1,7 +1,7 @@
 import { datumFinden, revisionFinden } from '../parse/meta'
 import { vergleichsform } from '../parse/seitenzuordnung'
 import { ampelAus, type Befund, type Fundstelle, type Prioritaet } from './befund'
-import { absaetze, befund, fundstelle, kurz, seitenName, type PruefKontext } from './kontext'
+import { absaetze, befund, fundstelle, kurz, seitenName, verwendeteAbkuerzungen, type PruefKontext } from './kontext'
 
 /**
  * Formalprüfung (Spez. v1.1 Kap. 8.8) — lokal, ohne KI, sofort nach dem
@@ -222,18 +222,7 @@ export function formalPruefung(k: PruefKontext): { befunde: Ergebnis[]; ampel: R
         if (m) liste.set(m[1], m[2])
       }
     }
-    const EINHEITEN = new Set(['KIAS', 'KTAS', 'KCAS', 'KT', 'FT', 'NM', 'LBS', 'KG', 'PSI', 'HPA', 'FPM', 'RPM', 'VDC', 'VAC', 'II', 'III', 'IV', 'VI', 'VII', 'VIII', 'IX', 'XI', 'XII'])
-    const verwendet = new Map<string, string>()
-    pages.forEach((p, i) => {
-      if (listenSeiten.has(i)) return
-      // CAS-Meldungen (zwei und mehr Großbuchstaben-Wörter in Folge) zählen nicht als Abkürzung.
-      const ohneCas = p.text.replace(/\b[A-Z0-9]{2,}(?:\s+[A-Z0-9]{1,}){1,}\b/g, ' ')
-      for (const m of ohneCas.matchAll(/\b[A-Z][A-Z0-9]{1,5}\b/g)) {
-        const t = m[0]
-        if (EINHEITEN.has(t) || /^\d/.test(t) || !/[A-Z]{2}/.test(t)) continue
-        if (!verwendet.has(t)) verwendet.set(t, seitenName(p))
-      }
-    })
+    const verwendet = verwendeteAbkuerzungen(roh, listenSeiten)
     const ohneEintrag = [...verwendet].filter(([t]) => !liste.has(t))
     const unbenutzt = [...liste.keys()].filter((t) => !verwendet.has(t) && !pages.some((p, i) => !listenSeiten.has(i) && p.text.includes(t)))
     const fs = [...ohneEintrag.map(([t, s]) => ({ seite: s, auszug: `Used but not in the list: ${t}` })), ...unbenutzt.map((t) => ({ seite: seitenName(pages[abkSeiten[0]]), auszug: `Listed but never used: ${t}` }))]

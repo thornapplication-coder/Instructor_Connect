@@ -734,3 +734,21 @@ Einlesen jedes Prüfdokuments und erneut nach OCR oder Word-PDF-Paar.
   auf dunkler Vorlagen-Schattierung und Adresszeile nicht) und
   `SBX-FORMAL-01` (alle neun eingebauten Formalfehler gefunden).
 
+## 1.10.0 — 2026-11-01
+
+- **DocCheck: Referenzlisten als Soll.** Excel (jedes Blatt eine Liste),
+  CSV oder Markdown mit Kopfzeile; die Art wird an den Spaltenköpfen
+  erkannt (deutsch/englisch, Titelzeilen davor werden übersprungen) und
+  lässt sich umstellen:
+  - **Glossar:** zu vermeidende Varianten im Dokument → Befund mit allen
+    Seiten und Quelle,
+  - **Abkürzungen:** benutzt, aber nicht in der Liste,
+  - **Dokumentregister:** Revision/Datum des Dokuments weicht vom
+    Register ab (Excel-Seriendaten werden gelesen); nicht im Register,
+  - **Kennungen:** Kennung gleicher Bauart, die es laut Liste nicht gibt.
+  Jede Änderung der Listen prüft alle Prüfdokumente neu; Befunde und Ampel
+  stehen im selben Submission gate. Nichts wird gespeichert.
+- Abkürzungserkennung: Teile von Kennungen (`SBX-REF-01`, `AT-FFS-0199`)
+  zählen nicht mehr als Abkürzung — in Formalprüfung und Referenzprüfung
+  gleich (eine Regel in `pruefung/kontext.ts`).
+

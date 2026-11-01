@@ -84,3 +84,26 @@ export function kurz(s: string, n = 120): string {
 export function fundstelle(a: PruefAbsatz, auszug = a.text): Fundstelle {
   return { ...(a.seite ? { seite: a.seite } : {}), ...(a.ort ? { ort: a.ort } : {}), auszug: kurz(auszug) }
 }
+
+const EINHEITEN = new Set(['KIAS', 'KTAS', 'KCAS', 'KT', 'FT', 'NM', 'LBS', 'KG', 'PSI', 'HPA', 'FPM', 'RPM', 'VDC', 'VAC', 'II', 'III', 'IV', 'VI', 'VII', 'VIII', 'IX', 'XI', 'XII'])
+
+/**
+ * Im Text benutzte Abkürzungen mit der ersten Seite ihres Auftretens.
+ * EINE Regel für Formalprüfung und Referenzliste: CAS-Meldungen (zwei und
+ * mehr Großbuchstaben-Wörter in Folge), Einheiten und römische Zahlen
+ * zählen nicht.
+ */
+export function verwendeteAbkuerzungen(roh: Rohdokument, ausgenommen: Set<number> = new Set()): Map<string, string> {
+  const verwendet = new Map<string, string>()
+  roh.pages.forEach((p, i) => {
+    if (ausgenommen.has(i)) return
+    const ohneCas = p.text.replace(/\b[A-Z0-9]{2,}(?:\s+[A-Z0-9]{1,}){1,}\b/g, ' ')
+    // Teile von Kennungen (SBX-REF-01, AT-FFS-0199) sind keine Abkürzungen.
+    for (const m of ohneCas.matchAll(/(?<![\w-])[A-Z][A-Z0-9]{1,5}(?![\w-])/g)) {
+      const t = m[0]
+      if (EINHEITEN.has(t) || !/[A-Z]{2}/.test(t)) continue
+      if (!verwendet.has(t)) verwendet.set(t, seitenName(p))
+    }
+  })
+  return verwendet
+}

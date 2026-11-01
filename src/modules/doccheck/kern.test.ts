@@ -78,3 +78,15 @@ describe('Kern — regelbasierte Prüfung nach dem Einlesen', () => {
     expect(aus.pruefung).toBeUndefined()
   })
 })
+
+describe('Kern — Referenzlisten', () => {
+  it('neue Listen prüfen alle Prüfdokumente neu, Sitzungs-Master nicht', async () => {
+    const k = kern()
+    await k.lesen({ id: 'r', name: 'r.pdf', daten: pdf(['Before takeoff check the flaps and the system.']), pruefen: { formal: false, word: false } })
+    await k.lesen({ id: 'm', name: 'm.pdf', daten: pdf(['takeoff']) })
+    const z = k.referenzenSetzen([{ id: 'g', name: 'g', art: 'glossar', eintraege: [{ soll: 'take-off', varianten: ['takeoff'] }] }])
+    expect(z.map((x) => x.id)).toEqual(['r'])
+    expect(z[0].pruefung?.befunde.map((b) => b.pruefpunkt)).toEqual(['glossar'])
+    expect(k.referenzenSetzen([])[0].pruefung).toBeUndefined()
+  })
+})

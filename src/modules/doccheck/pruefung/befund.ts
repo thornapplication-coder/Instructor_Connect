@@ -10,7 +10,7 @@
 
 export type Kategorie = 'Non-Compliance' | 'Gap' | 'Inconsistency' | 'Document Control' | 'Editorial' | 'Recommendation'
 export type Prioritaet = 'High' | 'Medium' | 'Low'
-export type Quelle = 'formal' | 'word' | 'sprache'
+export type Quelle = 'formal' | 'word' | 'sprache' | 'referenz'
 
 export interface Fundstelle {
   /** Seitenbezeichnung wie im Dokument („S. 12", „6-04-15 Page 2", „ca. 3") */
@@ -68,8 +68,8 @@ export function ampelAus(punkte: string[], befunde: Befund[], nichtAnwendbar: st
 
 /** Fortlaufende, lesbare IDs je Dokument: „F-01", „W-03", „L-02". */
 export function idsVergeben(befunde: Omit<Befund, 'id'>[]): Befund[] {
-  const zaehler: Record<Quelle, number> = { formal: 0, word: 0, sprache: 0 }
-  const kuerzel: Record<Quelle, string> = { formal: 'F', word: 'W', sprache: 'L' }
+  const zaehler: Record<Quelle, number> = { formal: 0, word: 0, sprache: 0, referenz: 0 }
+  const kuerzel: Record<Quelle, string> = { formal: 'F', word: 'W', sprache: 'L', referenz: 'R' }
   return befunde.map((b) => ({ ...b, id: `${kuerzel[b.quelle]}-${String(++zaehler[b.quelle]).padStart(2, '0')}` }))
 }
 

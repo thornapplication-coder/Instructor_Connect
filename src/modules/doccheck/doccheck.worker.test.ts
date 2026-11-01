@@ -42,6 +42,7 @@ describe('Worker-Nachrichtenschicht', () => {
       abbrechen: vi.fn(), entfernen: vi.fn(), titelSetzen: vi.fn(), seitenText: vi.fn(() => 'T'),
       ocrEinspielen: vi.fn((id: string) => (id === 'd' ? ({ id } as never) : null)),
       paaren: vi.fn(async (id: string) => (id === 'd' ? ({ id, seitenQuelle: 'pdf_pair' } as never) : null)),
+      referenzenSetzen: vi.fn(() => [{ id: 'd', ref: true } as never]),
     }
     const a = aufbau(kern)
     await a.senden({ typ: 'abbrechen', id: 'd' })
@@ -52,10 +53,11 @@ describe('Worker-Nachrichtenschicht', () => {
     await a.senden({ typ: 'ocr', id: 'fehlt', seiten: [] })
     await a.senden({ typ: 'paaren', id: 'd', daten: new Uint8Array() })
     await a.senden({ typ: 'paaren', id: 'fehlt', daten: new Uint8Array() })
+    await a.senden({ typ: 'referenzen', listen: [] })
     expect(kern.abbrechen).toHaveBeenCalledWith('d')
     expect(kern.entfernen).toHaveBeenCalledWith('d')
     expect(kern.titelSetzen).toHaveBeenCalledWith('d', 'T')
-    expect(a.raus).toEqual([{ typ: 'seite', nr: 3, text: 'T' }, { typ: 'fertig', id: 'd', z: { id: 'd' } }, { typ: 'fertig', id: 'd', z: { id: 'd', seitenQuelle: 'pdf_pair' } }])
+    expect(a.raus).toEqual([{ typ: 'seite', nr: 3, text: 'T' }, { typ: 'fertig', id: 'd', z: { id: 'd' } }, { typ: 'fertig', id: 'd', z: { id: 'd', seitenQuelle: 'pdf_pair' } }, { typ: 'fertig', id: 'd', z: { id: 'd', ref: true } }])
   })
 })
 

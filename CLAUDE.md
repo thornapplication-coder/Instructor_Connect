@@ -68,7 +68,8 @@ bestehender Findinglisten, Dokumentpakete, Word-Check). Der Nachtrag geht
 für die dort geregelten Punkte vor; seine Phasenzuordnung steht in Kap. 19.
 Stand: **Phase 2 + Word-Check (Sandbox)** — Dokumente einlesen und
 durchsuchen, Word-Extrakt, Seitenangaben bei DOCX, Formalprüfung, Word-Check
-(N4), Sprache/Platzhalter (N9); kein Backend, KI simuliert. Festlegungen:
+(N4), Sprache/Platzhalter (N9), Referenzlisten als Soll; kein Backend, KI
+simuliert. Festlegungen:
 
 - **Die Testwachen gelten auch hier.** `testGuard` globt `src/modules/**`,
   die Abdeckungsschwelle ebenso. Ansichten (`*.tsx`) sind wie `src/pages`
@@ -124,6 +125,10 @@ durchsuchen, Word-Extrakt, Seitenangaben bei DOCX, Formalprüfung, Word-Check
   (Export), Handlungsanweisungen in der Sprache der Oberfläche. Keine
   erfundenen Regelzitate. Ein Prüfpunkt, der für ein Format nicht passt,
   ist „nicht anwendbar", nicht grün.
+- **Referenzlisten** (`referenz/`) werden an den Spaltenköpfen erkannt
+  (`SPALTEN` in `referenz/liste.ts`); nicht erkannt heißt: der Nutzer
+  wählt, es wird nicht geraten. Die Listen liegen wie Prüfdokumente nur im
+  Speicher; jede Änderung prüft alle Prüfdokumente im Worker neu.
 - **Submission gate** warnt ab Werk (`gateSperrt: false`, Entscheidung
   vom 01.11.2026); Sperre ist Einstellung des Superadmins.
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise

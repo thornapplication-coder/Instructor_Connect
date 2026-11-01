@@ -140,6 +140,6 @@ describe('Schalter', () => {
   it('ausgeschaltete Prüfungen liefern nichts', async () => {
     const g = await dateiLesen({ name: 'f.pdf', daten: sbxFormal01() }, deps, { standardFontDataUrl })
     const p = dokumentPruefen({ dokId: 'd', dokName: 'f', dateiname: 'f.pdf', roh: g.roh, meta: g.meta }, { formal: false, word: false })
-    expect(p).toEqual({ befunde: [], ampel: { formal: {}, word: {}, sprache: {} }, dokumentSprache: null })
+    expect(p).toEqual({ befunde: [], ampel: { formal: {}, word: {}, sprache: {}, referenz: {} }, dokumentSprache: null })
   })
 })

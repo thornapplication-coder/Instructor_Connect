@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { duplikatPruefen, type Duplikat, type Vergleichsdokument } from './parse/duplikat'
 import type { Zusammenfassung } from './kern'
+import type { ReferenzListe } from './referenz/liste'
 
 /**
  * Prüf- und Sitzungsdokumente der laufenden Sitzung (Spez. 4.1, 5.4).
@@ -28,9 +29,19 @@ export interface SitzungsDok {
   erkannt: Feld[]
 }
 
+/** Eine hochgeladene Referenzliste (Soll) samt Rohtabelle — die Art lässt
+ *  sich nachträglich umstellen, ohne die Datei erneut zu lesen. */
+export interface SitzungsReferenz {
+  liste: ReferenzListe | null
+  datei: string
+  blatt?: string
+  zeilen: string[][]
+}
+
 export interface Zustand {
   nutzer: string | null
   docs: SitzungsDok[]
+  referenzen?: SitzungsReferenz[]
 }
 
 export const LEER: Zustand = { nutzer: null, docs: [] }
@@ -110,6 +121,15 @@ export function duplikatFuer(d: SitzungsDok, z: Zustand, bibliothek: Vergleichsd
     ...z.docs.filter((x) => x.id !== d.id && x.z).map((x) => ({ id: x.id, bezeichnung: x.felder.titel || x.name, herkunft: (x.rolle === 'review' ? 'review' : 'session') as Vergleichsdokument['herkunft'], sha256: x.z!.sha256, nummer: x.felder.nummer, revision: x.felder.revision })),
   ]
   return duplikatPruefen({ id: d.id, sha256: d.z.sha256, nummer: d.felder.nummer, revision: d.felder.revision }, andere)
+}
+
+export function referenzenSetzen(z: Zustand, r: SitzungsReferenz[]): Zustand {
+  return { ...z, referenzen: r }
+}
+
+/** Die gültigen Listen (erkannt oder zugeordnet) für die Prüfung. */
+export function aktiveListen(z: Zustand): ReferenzListe[] {
+  return (z.referenzen ?? []).map((r) => r.liste).filter((l): l is ReferenzListe => l !== null)
 }
 
 /* --------------------------- Speicher ---------------------------- */

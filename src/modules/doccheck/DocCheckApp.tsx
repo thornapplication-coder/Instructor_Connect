@@ -17,6 +17,7 @@ import { AdminTab } from './components/AdminTab'
 import { LibraryPanel, Phase, ReviewDocsPanel, SessionDocsPanel } from './components/Panels'
 import { ChatTab, ExportTab, PruefungTab, RevisionenTab, VerwaltenTab } from './components/Tabs'
 import { FindingsTab } from './components/Befunde'
+import { ReferenzPanel } from './components/Referenzen'
 
 // Die Texte kommen erst mit dem Modul — wer DocCheck nie oeffnet, laedt sie
 // nie. Registriert wird beim Laden dieses Bundles, also vor dem ersten Render.
@@ -141,7 +142,12 @@ function Desktop() {
             Seitenspalten gehoeren zur Pruefung, und zwischen ihnen blieben
             fuer Tabellen keine 40 Zeichen. */}
         <div className={`grid items-start gap-stack ${verwaltung ? '' : 'xl:grid-cols-[15rem_minmax(0,1fr)_18rem]'}`}>
-          {!verwaltung && <ReviewDocsPanel />}
+          {!verwaltung && (
+            <div className="space-y-stack">
+              <ReviewDocsPanel />
+              <ReferenzPanel />
+            </div>
+          )}
           <Card className="min-w-0 p-0">
             <div role="tablist" aria-label="DocCheck" className="flex gap-1 overflow-x-auto border-b border-line/10 px-2 pt-2">
               {reiterListe.map((r) => (
