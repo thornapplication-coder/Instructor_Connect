@@ -1,0 +1,19 @@
+# Supabase-Projekt von Instructor Connect — lokal (Phase 1b, Etappe 1).
+# Werte, die hier nicht stehen, sind die Vorgaben der Supabase-CLI.
+project_id = "instructor-connect"
+
+[api]
+schemas = ["public", "doccheck"]
+
+[auth]
+site_url = "http://localhost:5173"
+# Nur eingeladene Nutzer: Konten legt der Superadmin an (Einladung),
+# niemand registriert sich selbst. Die App fragt den Code deshalb mit
+# shouldCreateUser: false an.
+enable_signup = false
+
+[auth.email]
+enable_signup = false
+# Anmeldung per E-Mail-Code statt Passwort — wie bisher in der App.
+otp_length = 6
+otp_expiry = 600

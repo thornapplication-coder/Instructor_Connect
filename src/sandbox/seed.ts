@@ -19,8 +19,8 @@ const SIG =
 
 /**
  * Sandbox-Seed-Daten (Spez. §14) — reiner Simulatorbetrieb mit den Mustern
- * CL30 und C560 XLS+. Drei Rollen: Patrick Thorn (Superadmin),
- * Christian Terler (Admin), Michael Holy (Mitglied/Instruktor).
+ * CL30 und C560 XLS+. Drei Rollen: Alex Beispiel (Superadmin),
+ * Chris Beispiel (Admin), Mika Beispiel (Mitglied/Instruktor).
  */
 export function createSeedState(): AppState {
   const now = Date.now()
@@ -42,16 +42,16 @@ export function createSeedState(): AppState {
 function seedState(now: number): AppState {
   return {
     users: [
-      { id: 'u-patrick', name: 'Patrick Thorn', email: 'patrick.thorn@aviationacademy.at', phone: '+43 664 1000001', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
-      { id: 'u-christian', name: 'Christian Terler', email: 'christian.terler@aviationacademy.at', phone: '+43 664 1000002', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30'], active: true },
-      { id: 'u-michael', name: 'Michael Holy', email: 'michael.holy@aviationacademy.at', phone: '+43 664 1000003', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['C560 XLS+'], active: true },
+      { id: 'u-patrick', name: 'Alex Beispiel', email: 'alex.beispiel@example.test', phone: '+43 1 5550 401', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
+      { id: 'u-christian', name: 'Chris Beispiel', email: 'chris.beispiel@example.test', phone: '+43 1 5550 402', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30'], docCheckAccess: true, docCheckAdmin: true, active: true },
+      { id: 'u-michael', name: 'Mika Beispiel', email: 'mika.beispiel@example.test', phone: '+43 1 5550 403', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['C560 XLS+'], docCheckAccess: true, active: true },
       // Der Training Admin fuehrt Muster, obwohl seine Sicht nicht daran
       // haengt (er steht in OHNE_SCHRANKE). Hier stand als Begruendung, er
       // saehe sonst nichts — das war schlicht falsch und beim Gegenlesen
       // aufgefallen. Der echte Grund ist ein anderer: Wird die Rolle spaeter
       // auf Mitglied herabgestuft, greift die Musterpflicht, und ohne
       // Zuordnung liesse `updateUser` die Herabstufung gar nicht zu.
-      { id: 'u-max', name: 'Steven Fermie', email: 'training.admin@aviationacademy.at', phone: '+43 1 5550 300', role: 'training_admin', canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
+      { id: 'u-max', name: 'Sam Beispiel', email: 'training.admin@aviationacademy.at', phone: '+43 1 5550 300', role: 'training_admin', canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
     ],
     groups: [
       {
@@ -208,7 +208,7 @@ function seedState(now: number): AppState {
     starredInfo: { 'u-michael': ['i2'] },
     contacts: [
       { id: 'c1', department: 'Simulator-Technik', position: 'FSTD-Technik', name: 'Daniel Düsentrieb', phone: '+43 1 5550 200', email: 'daniel.duesentrieb@aviationacademy.at' },
-      { id: 'c2', department: 'Training', position: 'Training Admin', name: 'Steven Fermie', phone: '+43 1 5550 300', email: 'training.admin@aviationacademy.at' },
+      { id: 'c2', department: 'Training', position: 'Training Admin', name: 'Sam Beispiel', phone: '+43 1 5550 300', email: 'training.admin@aviationacademy.at' },
       { id: 'c3', department: 'Administration', position: 'Office / Dispo Sim-Planung', name: 'James Bond', phone: '+43 1 5550 100', email: 'james.bond@aviationacademy.at' },
     ],
     changelog: [{ version: '1.0.0', at: now, changes: 'Erststand.' }],
@@ -232,7 +232,8 @@ function seedState(now: number): AppState {
         approvalNumberUK: 'GBR.ATO.0541',
         formRevision: 'OM Appendix 5, Rev. 0.2',
       },
-      allowedDomains: ['aviationacademy.at'],
+      // example.test: Platzhalter-Adressen der Demo-Nutzer — keine echten Personendaten im öffentlichen Repo
+      allowedDomains: ['aviationacademy.at', 'example.test'],
       imprint: { de: IMPRINT_DE, en: IMPRINT_EN },
       grading: GRADING_DEFAULTS,
       aircraftTypes: ['ATR 42/72', 'C525 CJ1+', 'C525 M2', 'C560 XLS', 'C560 XLS+', 'CL30', 'CL604/605', 'EMB505'],
@@ -460,7 +461,7 @@ function seedState(now: number): AppState {
         header: { aircraftType: 'CL30', trainingDevice: 'FFS', event: 'TRI Standardisierung', date: iso(now - 2 * d), operation: 'MPO', program: 'PRG 1*', candidateQual: 'TRI Candidate', candidateSeat: 'RH Seat', coiSeat: 'IOS' },
         trainees: [
           {
-            traineeId: '', traineeName: 'Christian Terler', position: '', seat: '',
+            traineeId: '', traineeName: 'Chris Beispiel', position: '', seat: '',
             grades: [
               { code: 'PRE', grade: 5, comment: '' }, { code: 'CLI', grade: 5, comment: 'Created a very positive learning atmosphere.' },
               { code: 'PRK', grade: 4, comment: '' }, { code: 'TEM', grade: 4, comment: '' },

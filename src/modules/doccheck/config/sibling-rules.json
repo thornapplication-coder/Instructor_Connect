@@ -1,0 +1,23 @@
+{
+  "_hinweis": "Nachtrag N2.2: erlaubte Unterschiede je Gruppentyp. onlyIn: Begriffe, die NUR in dieser Fassung vorkommen dürfen. Erstbefüllung durch den Superadmin (offener Punkt 4); bis dahin das Beispiel der Spezifikation. exceptPhrases: feste Wendungen, in denen ein onlyIn-Begriff in JEDER Fassung stehen darf (\"cabin crew\" ist kein Rest der MP-Fassung).",
+  "MP_SP": {
+    "onlyIn": {
+      "MP": [
+        "PM",
+        "PNF",
+        "crew",
+        "MCC",
+        "Captain",
+        "First Officer"
+      ],
+      "SP": []
+    },
+    "exceptPhrases": [
+      "cabin crew",
+      "flight crew",
+      "Crew Resource Management",
+      "crew member",
+      "crew members"
+    ]
+  }
+}

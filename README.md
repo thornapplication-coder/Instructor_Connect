@@ -40,6 +40,14 @@ Twilio oder Kosten. Der Anwendungszustand wird im Browser gespeichert und
   Superadmin und Training Admin sehen jedes Logbuch, ein Gruppenadmin fremde
   nur gefiltert auf seine Muster, ein Member nur sein eigenes. Schreiben kann
   jeder ausschließlich ins eigene.
+- **DocCheck** — Prüfung eigener Dokumente (OM, TM, PLM, CMM, Formulare)
+  gegen OEM-Handbücher und EASA-Regelwerk vor der Einreichung. Derzeit
+  Phase 2: Kachel, Rechte, Oberfläche, Dokumente einlesen (PDF, DOCX,
+  XLSX, OCR), Metadaten-Erkennung, Duplikat-Warnung, Suche und Viewer —
+  alles im Browser, nichts gespeichert. Bibliothek, Prüf-Engine und Exporte
+  folgen. Nur für
+  freigeschaltete Nutzer (Admin Panel → Berechtigungen → DocCheck). Code
+  unter `src/modules/doccheck/`, wird erst beim Öffnen geladen.
 - **Admin Panel** — Benutzer, Rechte-Matrix, Grading-Konfiguration, Chats,
   Feedback, Einstellungen, Impressum und Changelog. Der Superadmin sieht alles,
   ein Gruppenadmin nur seine eigenen Gruppen und deren Rückmeldungen. Die

@@ -692,7 +692,7 @@ function UsersTab() {
  */
 function PermissionsTab() {
   const { t } = useTranslation()
-  const { state, setPermission, updateUser } = useStore()
+  const { state, setPermission, updateUser, setDocCheckRights } = useStore()
   const roles: ConfigurableRole[] = ['group_admin', 'training_admin']
   const [suche, setSuche] = useState('')
 
@@ -792,6 +792,56 @@ function PermissionsTab() {
             </tbody>
           </table>
           {personen.length === 0 && <p className="py-4 text-center text-small text-dim">{t('admin.noUsersFound')}</p>}
+        </Card>
+      </div>
+
+      {/* DocCheck-Rechte stehen HIER und nicht in einer eigenen Verwaltung
+          des Moduls: Rechte werden an einer Stelle vergeben (CLAUDE.md).
+          Eigene Tabelle statt zwei weiterer PERSON_PERMS-Spalten, weil sie
+          anders funktionieren: nur der Superadmin, mit Protokoll, und der
+          Superadmin selbst hat sie automatisch. */}
+      <div className="space-y-stack">
+        <SectionHeading>{t('admin.docCheckHeading')}</SectionHeading>
+        <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small leading-relaxed text-dim">
+          {t('admin.docCheckHint')}
+        </p>
+        <Card className="overflow-x-auto p-4">
+          <table className="w-full min-w-[26rem] text-small">
+            <thead>
+              <tr className="border-b border-line/15 text-left text-micro uppercase tracking-wide text-dim">
+                <th className="pb-2 pr-3 font-semibold">{t('contacts.name')}</th>
+                <th className="pb-2 pr-3 text-center font-semibold">{t('admin.docCheckAccess')}</th>
+                <th className="pb-2 pr-3 text-center font-semibold">{t('admin.docCheckAdmin')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {personen.map((u) => (
+                <tr key={u.id} className="border-b border-line/[0.06] last:border-0">
+                  <td className="py-2.5 pr-3">
+                    <span className={u.active ? '' : 'text-dim line-through'}>{u.name}</span>
+                    <span className="block text-micro text-dim">{t(`roles.${u.role}`)}</span>
+                  </td>
+                  {u.role === 'superadmin' ? (
+                    <td colSpan={2} className="py-2.5 pr-3 text-center text-micro text-dim">
+                      {t('admin.docCheckAuto')}
+                    </td>
+                  ) : (
+                    (['docCheckAccess', 'docCheckAdmin'] as const).map((f) => (
+                      <td key={f} className="py-2.5 pr-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={!!u[f]}
+                          onChange={(e) => setDocCheckRights(u.id, { [f]: e.target.checked })}
+                          className="h-6 w-6 accent-accent"
+                          aria-label={`${u.name}: ${t(`admin.${f}`)}`}
+                        />
+                      </td>
+                    ))
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </Card>
       </div>
 

@@ -290,7 +290,7 @@ export function SignaturePad({ value, onChange, label }: { value: string | null;
       {/*
         Beschriftung und Knöpfe UMBRECHEN als Ganzes, statt sich gegenseitig zu
         quetschen: Die Trainee-Zeile trägt den Namen des Piloten („Trainee
-        signature — Michael Holy"), und am Telefon blieben daneben nur noch
+        signature — Mika Beispiel"), und am Telefon blieben daneben nur noch
         wenige Millimeter für die Knöpfe. Die projektweite Umbruchregel
         (`overflow-wrap: anywhere`) griff dann genau dort, wofür sie nicht
         gedacht ist, und aus „Clear" wurde „Clea" / „r". Deshalb: die Knöpfe

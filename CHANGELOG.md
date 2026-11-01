@@ -367,7 +367,7 @@ Lese-Bestätigungen: die Regel steht jetzt dort, wo sie geprüft wird.
 Auf Nachfrage kontrolliert, ob bei einem Instructor-Info-Eintrag mit Muster
 wirklich nur die bestätigen müssen, die für dieses Muster freigeschaltet
 sind. **Sie stimmt** — im Browser gemessen: Ein Eintrag mit „C560 XLS+"
-führt 0/2 (Michael Holy, Patrick Thorn); der CL30-Admin steht weder in der
+führt 0/2 (Mika Beispiel, Alex Beispiel); der CL30-Admin steht weder in der
 Quote noch in der Kontrollliste, noch sieht er den Bestätigen-Knopf. Ein
 Eintrag ohne Muster führt 1/3, also alle.
 
@@ -505,10 +505,10 @@ Seite `src/pages/Logbook.tsx`, Bereich `src/pages/admin/LogbookAdmin.tsx`,
 Store-Aktionen für Overrides und manuelle Einträge, Kachel auf der
 Startseite (als letzte, nach Notes).
 
-Im Browser nachgemessen: Michael sieht im eigenen Logbuch 3 Einträge /
-16:30 (je 308: 4:00 Session + 1:00 + 0:30); Christian im eigenen 3 / 14:30;
-Christian (CL30-Admin) sieht in Michaels C560-Logbuch 0 Einträge; Steven
-(Training Admin) sieht Michaels 3 Einträge, ohne Bearbeiten-Knöpfe.
+Im Browser nachgemessen: Mika sieht im eigenen Logbuch 3 Einträge /
+16:30 (je 308: 4:00 Session + 1:00 + 0:30); Chris im eigenen 3 / 14:30;
+Chris (CL30-Admin) sieht in Mikas C560-Logbuch 0 Einträge; Sam
+(Training Admin) sieht Mikas 3 Einträge, ohne Bearbeiten-Knöpfe.
 
 ## 1.7.1 — 2026-08-14
 
@@ -563,7 +563,7 @@ Datumsformat:
   die Schreibweise des Geräts — das bestimmt der Browser, nicht die App.
 
 9 neue Testfälle (adminZeile, XLSX-Schreiber samt ZIP-Leser, kurzeZeit).
-Im Browser nachgemessen: Muster-Filter C560 XLS+ → Christian 1 Eintrag /
+Im Browser nachgemessen: Muster-Filter C560 XLS+ → Chris 1 Eintrag /
 05:30; ab 01.08. → 3 Einträge / 15:30; ohne Briefing → 22:00 statt 31:00;
 beide Downloads geprüft (CSV-Kopf mit Filtern, .xlsx öffnet als echte
 Arbeitsmappe).
@@ -615,3 +615,382 @@ Code — zwei hohe und sieben mittlere Befunde behoben.
 19 neue Testfälle (451 gesamt). Geprüft und in Ordnung: Kontraste 6,6–8,9
 in beiden Themes, kein seitliches Scrollen auf fünf Formaten, Dialoge mit
 Fokusführung, Kachel-Sichtbarkeit je Rolle, gültige .xlsx (openpyxl).
+
+## 1.6.0 — 2026-11-01
+
+- **DocCheck: Phase 1a (Sandbox).** Neue Kachel für die Prüfung eigener
+  Dokumente vor der Einreichung bei der Behörde. Sichtbar nur mit
+  Berechtigung; Kachelzahl = offene Nachprüf-Empfehlungen, für
+  DocCheck-Admins zusätzlich fällige Revisionserinnerungen.
+- **DocCheck: Modul wird erst beim Öffnen geladen** und liegt hinter einer
+  Fehlergrenze. Die Fehlerprobe in der Administration zeigt eine Meldung mit
+  Fehlercode; Startseite und alle anderen Kacheln laufen weiter. Der Service
+  Worker lädt die DocCheck-Dateien nicht mehr auf jedes Gerät vorab.
+- **DocCheck: Berechtigungen** („DocCheck access", „DocCheck admin") unter
+  Admin Panel → Berechtigungen; nur der Superadmin vergibt sie, jede
+  Änderung steht im DocCheck-Audit-Log. Der Superadmin hat DocCheck
+  automatisch.
+- **DocCheck: Oberfläche** mit drei Spalten (Prüfdokumente, Master-
+  Bibliothek, Sitzungsdokumente), Reitern je Rolle, Feature-Schaltern,
+  Modellwahl und einem Proxy-Testaufruf mit simulierter KI im Format der
+  Messages API. iPhone/iPad laufen im Ansichtsmodus (`pointer: coarse`).
+  Parser, Prüf-Engine und Exporte sind als „Folgt in Phase n" markiert.
+- **DocCheck: Revisionserinnerung** je Bibliotheksdokument (12 Monate),
+  „Stand bestätigt" setzt die Frist zurück; folgt dem Zeitraffer.
+- **Prioritätsfarben** Hoch/Mittel/Niedrig als eigene Tokens, Kontrast
+  ≥ 4,5:1 in beiden Themen, mechanisch geprüft.
+- **Testwache erweitert:** `testGuard` und die Abdeckungsschwelle erfassen
+  jetzt auch `src/modules/**`. Vorher wäre ein ganzes Modul in einem
+  Unterordner von beiden Wachen befreit gewesen.
+
+Bewusst noch NICHT enthalten: Backend, Anmeldung über Supabase,
+serverseitige Rechte (RLS) und der echte KI-Proxy — Phase 1b, sobald die
+Backend-Entscheidung gefallen ist. Bis dahin sind die DocCheck-Rechte
+Bedienkomfort, keine Durchsetzung.
+
+## 1.7.0 — 2026-11-01
+
+- **DocCheck: Phase 2 — Dokumente einlesen.** Prüf- und Sitzungsdokumente
+  (PDF, DOCX, XLSX, bis 500 MB) per Auswahl oder Drag & Drop. Verarbeitung
+  in einem Web Worker mit Fortschritt und Abbruch; nichts wird gespeichert,
+  Abmelden verwirft alles.
+- **DocCheck: PDF** über pdf.js — Zeilen aus Koordinaten, Spalten und
+  Abbildungsbeschriftungen getrennt (kein „or or"), Kopf-/Fußzeilen ab
+  60 % Wiederkehr entfernt, gedruckte Seitenbezeichnung übernommen,
+  Silbentrennung nur aufgelöst, wo das Wort im Dokument nicht mit
+  Bindestrich vorkommt (kein „goaround").
+- **DocCheck: DOCX** über jszip mit eigener XML-Auswertung (statt mammoth):
+  Überschriften als Abschnittspfad, Tabellen, Kopf-/Fußzeilen, Textfelder,
+  nicht angenommene Änderungen, Kommentare, Revisionsbalken.
+  **XLSX** mit eigenem Leser (statt SheetJS, dessen npm-Fassung bekannte
+  Sicherheitslücken hat).
+- **DocCheck: OCR** für Seiten ohne Textebene nach Rückfrage (tesseract.js,
+  englisch, 200 dpi); alle Dateien lokal ausgeliefert, kein CDN.
+- **DocCheck: Metadaten-Erkennung** (Titel, Nummer, Revision, Datum, Typ)
+  als „erkannt" markiert, **Duplikat-Warnung** über SHA-256 sowie Nummer
+  und Revision, **Regel-IDs** inkl. Part-FCL/MED und CS.
+- **DocCheck: Suche** (MiniSearch plus exakter Index für CAS-Meldungen,
+  Zahl+Einheit, Regel-IDs) und **Viewer** mit hervorgehobener Fundstelle.
+- Gemessen: synthetisches 2 600-Seiten-PDF in 8,8 s gelesen, Index in
+  1,7 s, Suche 0,16 s (Ziel: < 3 min).
+- **Service Worker:** DocCheck-Teile (pdf.js, Worker, OCR) stehen nicht im
+  Vorab-Cache; die Ausnahme folgt jetzt auch dynamischen Importen und per
+  Adresse geladenen Dateien.
+
+## 1.8.0 — 2026-11-01
+
+DocCheck: Phase-2-Anteile aus dem Nachtrag v1.2 (Kap. 19).
+
+- **Word-Extrakt (Grundlage für den Word-Check N4):** je Lauf die wirksamen
+  Eigenschaften (Farbe, Größe, Sprache, `noProof`, `vanish`, Textmarker,
+  Schattierung) über Dokumentvorgabe → Tabellenvorlage samt Bedingung →
+  Absatzvorlage → Zeichenvorlage → direkt; dazu der wirksame Hintergrund
+  (Lauf → Absatz → Zelle → Tabellenvorlage → Form/Textfeld → Seite).
+  Abschnitte mit ihren Kopf-/Fußzeilen, ungenutzte Kopf-/Fußzeilen,
+  Inhaltsverzeichnis mit Seitenzahlen, `docProps` (Autor, zuletzt geändert,
+  Seiten), Kompatibilitätsmodus.
+- **Seitenangaben bei DOCX (N5):** über das Inhaltsverzeichnis „S. 42 (±1)",
+  exakt mit dem aus Word exportierten PDF (gleichnamig mithochladen oder
+  „PDF dazulegen"); Warnung bei mehr als 2 % Textabweichung oder älterem
+  PDF. Läuft ein Absatz über eine Seitengrenze, wird er dort geteilt. Der
+  Viewer zeigt dann Words Seite aus dem PDF.
+- **Abnahme:** `SBX-WORD-01` (alle Laufeigenschaften im Extrakt, weiße
+  Tabellenkopfzeile auf dunkler Vorlagen-Schattierung korrekt nicht weiß
+  hinterlegt) und `SBX-PAGE-01` (mit PDF 20/20 Stichproben exakt, ohne PDF
+  ≥ 90 % innerhalb ±1). Beide Dateien entstehen synthetisch aus Code
+  (`benchmark/sbx.ts`).
+- **Behoben:** Ein Textfeld im Absatz (typisch für Deckblätter) überschrieb
+  den umgebenden Absatz — dessen Text, oft der Titel, ging verloren.
+  Einträge des Inhaltsverzeichnisses werden nicht mehr als Titel erkannt.
+- Feature-Schalter `pdfPairing` (Nachtrag Kap. 17).
+
+## 1.9.0 — 2026-11-01
+
+DocCheck: Word-Check vorgezogen (Nachtrag N4, N9) und Formalprüfung (v1.1
+Kap. 8.8) — regelbasiert, ohne KI, ohne Backend, automatisch nach dem
+Einlesen jedes Prüfdokuments und erneut nach OCR oder Word-PDF-Paar.
+
+- **Word-Check (N4):** unsichtbarer Text nach WIRKSAMEM Hintergrund
+  (Kontrast < 1,5:1, verborgen, ≤ 2 pt), Textmarker (Hoch auf
+  Platzhaltern), Korrektursprache, „Rechtschreibung nicht prüfen",
+  Kompatibilitätsmodus, Dokumenteigenschaften, Kopf-/Fußzeilen je
+  Abschnitt inkl. leerer Schlussabschnitte und ungenutzter Teile,
+  Edition/Revision zwischen Deckblatt, Kopfzeilen und Dateiname, veraltetes
+  Inhaltsverzeichnis, verirrte Fragmente.
+- **Sprache und Platzhalter (N9):** fremdsprachige Absätze (Hoch bei
+  Arbeitskommentaren), einzelne landessprachige Wörter, Zahlplatzhalter
+  `nnnn`, `_XX`, Ausfüllfelder außerhalb von Unterschriftsblöcken; Adressen
+  und Zitate ausgenommen.
+- **Formalprüfung (8.8):** Revisionsstand, LEP, Seitennummerierung,
+  Revisionsverzeichnis/HoC, Inhaltsverzeichnis, Nummerierung, Querverweise,
+  Abkürzungen, Reste aus der Bearbeitung. Regeln in
+  `config/formal-rules.json`.
+- **Auch für Excel:** Formalprüfung, Sprache und Platzhalter laufen über
+  Excel-Formulare und -Checklisten (Blatt als Ort).
+- **Findings** mit Filtern, Fundstellen, „Seite anzeigen" und
+  Handlungsanweisung für Word; **Submission gate** mit Ampel je
+  Prüfpunkt. Ein offener Hoch-Befund warnt (Einstellung: sperren möglich).
+- **Abnahmen:** `SBX-WORD-01` (alle N4/N9-Fälle gefunden, weiße Kopfzeile
+  auf dunkler Vorlagen-Schattierung und Adresszeile nicht) und
+  `SBX-FORMAL-01` (alle neun eingebauten Formalfehler gefunden).
+
+## 1.10.0 — 2026-11-01
+
+- **DocCheck: Referenzlisten als Soll.** Excel (jedes Blatt eine Liste),
+  CSV oder Markdown mit Kopfzeile; die Art wird an den Spaltenköpfen
+  erkannt (deutsch/englisch, Titelzeilen davor werden übersprungen) und
+  lässt sich umstellen:
+  - **Glossar:** zu vermeidende Varianten im Dokument → Befund mit allen
+    Seiten und Quelle,
+  - **Abkürzungen:** benutzt, aber nicht in der Liste,
+  - **Dokumentregister:** Revision/Datum des Dokuments weicht vom
+    Register ab (Excel-Seriendaten werden gelesen); nicht im Register,
+  - **Kennungen:** Kennung gleicher Bauart, die es laut Liste nicht gibt.
+  Jede Änderung der Listen prüft alle Prüfdokumente neu; Befunde und Ampel
+  stehen im selben Submission gate. Nichts wird gespeichert.
+- Abkürzungserkennung: Teile von Kennungen (`SBX-REF-01`, `AT-FFS-0199`)
+  zählen nicht mehr als Abkürzung — in Formalprüfung und Referenzprüfung
+  gleich (eine Regel in `pruefung/kontext.ts`).
+
+## 1.11.0 — 2026-11-01
+
+- **DocCheck: Re-Check fremder Findinglisten (Nachtrag N3, regelbasiert).**
+  Eigener Reiter, ab Werk ausgeschaltet (Schalter „Re-Check" in der
+  Administration):
+  - Liste laden (XLSX mit Blattwahl, CSV), Kopfzeile unter Titelzeilen
+    finden, Spaltenzuordnung vorschlagen; die bestätigte Zuordnung wird
+    als Listenprofil gemerkt (nur Spaltennummern).
+  - „Dokument/Bereich" wird den Prüfdokumenten zugeordnet (APX 4 =
+    APPENDIX 4, TRAINING MANUAL = TM, Kürzel im Dateinamen); paketweite
+    Werte wie „Schreibweise" prüfen das ganze Paket, Unbekanntes ist
+    „Quelle fehlt".
+  - Prüfanweisung aus Befund und Empfehlung (ersetzen, „statt", „→",
+    streichen, ergänzen). Restfundstellen-Regel über das ganze Paket;
+    „evtl."/„could" ohne Umsetzung → „Closed – justification required";
+    Team-Kommentare werden überprüft, nicht übernommen.
+  - Vorschlagstabelle mit Filtern (Status, Dokument, Abweichung zum
+    Team-Status), Belegen mit „Seite anzeigen", Remark (deutsch, wahlweise
+    englisch) mit Dokument · Kapitel · Seite · Auszug und
+    Korrekturvorschlag; Einzel- und Sammelbestätigung mit Audit-Zeile;
+    Export als CSV.
+- **Abnahme:** `SBX-FL-01` (20 Befunde) gegen `SBX-PKG-01` R0.1 — alle
+  Statusvorschläge wie erwartet.
+- Noch offen: KI-Prüfung inhaltlicher Befunde und Rückschreiben in die
+  Originaldatei (N3.5).
+
+## 1.12.0 — 2026-11-01
+
+- **DocCheck: Rückschreiben in die Originaldatei der Findingliste
+  (Nachtrag N3.5).** Neuer Schritt im Re-Check: Die bestätigten
+  Vorschläge setzen die Status-Spalte auf einen Wert aus der Werteliste
+  der Liste (Dropdown, auch im x14-Erweiterungsbereich mit Bezug auf ein
+  verstecktes Blatt), rechts kommt eine Remark-Spalte im Stil der
+  Kopfzeile dazu (Umbruch, Breite 95). Die Statuszuordnung wird je Liste
+  gemerkt. Ausgabe als neue Datei mit Datum im Namen.
+  - Patch auf XML-Ebene: Dropdowns, bedingte Formatierung, verbundene
+    Zellen, fixierte Kopfzeile, Autofilter und Diagramme bleiben
+    unverändert; neue Formate werden angehängt, vorhandene Indizes
+    bleiben. `calcChain` entfällt, Neuberechnung beim Öffnen; gespeicherte
+    COUNTIF-Ergebnisse werden aktualisiert.
+  - Nicht bestätigte Vorschläge werden nicht geschrieben.
+- Fehler behoben: Der Excel-Leser übersprang leere Zeilen, ohne die
+  Excel-Zeilennummer zu behalten — Befunde hätten in die falsche Zeile
+  geschrieben werden können. Das Raster trägt jetzt die Zeilennummern.
+- **Abnahme:** `SBX-FL-01` jetzt mit x14-Dropdowns auf verstecktem Blatt,
+  bedingter Formatierung, verbundenen Zellen, Übersichtsblatt mit
+  Zählformeln und Diagramm, calcChain. Round-Trip-Test: alle nicht
+  betroffenen Teile byte-gleich; Datei öffnet in LibreOffice, Zählformeln
+  zeigen die neuen Werte. Öffnungsprobe in Microsoft Excel steht aus.
+
+## 1.13.0 — 2026-11-01
+
+- **DocCheck Re-Check: Lücken zum Nachtrag geschlossen.**
+  - Restfundstellen-Regel (N3.4) mit Ausnahmen: Verbform eines
+    Schreibweisen-Paars („to call out"), erkennbares Zitat (Anführungszeichen
+    im selben Absatz) und Sätze, die wörtlich in einem Master-Dokument
+    stehen. Solche Treffer erscheinen als „nicht gezählt" mit Fundstelle,
+    der Remark nennt ihre Zahl.
+  - Export mit „Confirmed by" UND „Confirmed on" (N11); die Zeile ist bei
+    Excel-Listen die Excel-Zeile.
+  - Mobil (Nachtrag Kap. 18): Segment „Re-Check" zeigt die Vorschläge der
+    Sitzung mit Remark und lässt sie einzeln oder gesammelt bestätigen;
+    gestartet wird weiterhin am Desktop.
+- Abnahme `SBX-PKG-01`: Das Training Manual enthält jetzt ein wörtliches
+  Zitat mit dem beanstandeten Text; Befund 1 bleibt „Resolved", das Zitat
+  wird gezeigt, nicht gezählt.
+
+## 1.14.0 — 2026-11-01
+
+- **DocCheck: Dokumentpakete und Geschwistergruppen (Nachtrag N1, N2).**
+  Im Prüfungsreiter Umschalter „Einzeldokumente | Paket"; Schalter
+  `packageCheck` (ab Werk an).
+  - Paketstruktur je Prüfdokument (Kürzel, Ebene, Gruppe, Variante),
+    vorbelegt aus Dateiname und Titel (TM, APX/APPENDIX, ANX/ANNEX,
+    Ziffern-Präfix, MP/SP, „Variant A–D"); Geschwister werden vorgeschlagen.
+  - Package overview mit Revision und Datum je Dokument.
+  - Prüfpunkte: Anhangsliste des TM gegen das Paket (Lücke, nicht gelistet,
+    Titel weicht ab), Revisionsstand, Hierarchieregel bei Stundenangaben
+    (Befund beim tieferen Dokument, höheres unter „Other affected
+    documents"), Geschwisterabgleich (verdächtige Unterschiede,
+    Tippfehler mit Zuordnung zum fehlerhaften Dokument), Reste der
+    Gegenfassung, Fix-Propagation aus bestätigten Re-Check-Korrekturen.
+  - Paketbefunde erscheinen in Findings mit eigener Ampelzeile im
+    Submission gate.
+- **Abnahme:** `SBX-PKG-01` jetzt mit TM, 2 Appendices, 4 Annexes (davon
+  zwei Geschwister MP/SP) und acht eingebauten Paketfehlern — alle
+  gefunden, die Variantenbezeichnungen nicht gemeldet. Die Re-Check-Abnahme
+  `SBX-FL-01` gilt unverändert.
+- Noch nicht enthalten: Vergleich gemeinsamer Textbausteine
+  (Approval-Block, Adresse) und die Ausnahme der Hierarchieregel, wenn das
+  höhere Dokument selbst regelwidrig ist (braucht die Bibliothek).
+
+## 1.15.0 — 2026-11-01
+
+- **DocCheck: Rechen- und Plausibilitätsprüfung (Nachtrag N6).** Schalter
+  `calcCheck` (ab Werk an). Prüfpunkte: Tabellensummen (TOTAL gegen die
+  Zeilen, H:MM und Dezimal), kumulierte Zeitleisten, Sessiondauer gegen die
+  Zeitblöcke, Einheitenumrechnung (lbs/kg, ft/m, kt/km/h, NM/km, °C/°F,
+  Toleranz 1 %), METAR-Plausibilität (Format, Taupunkt, Nebel/Spread,
+  Sicht ohne Wettererscheinung, Vertikalsicht), doppelte Wörter und
+  Wegpunkte. Jeder Befund nennt die gerechneten Werte.
+- **DocCheck: Verweise (Nachtrag N7).** Je Dokument: Übungsnummern gegen die
+  Referenzliste, Zirkelverweise ohne Inhalt. Im Paket: Verweise auf andere
+  Dokumente (Kapitel bzw. Übung vorhanden?), „Annex" statt „Appendix",
+  Zirkel über Dokumentgrenzen; fehlt das Ziel (z. B. OMM), lautet die
+  Verifizierung „Not verifiable – source missing".
+- Findings: Ampelzeilen „Rechenprüfung" und „Verweise", Filter je Quelle;
+  die Verifizierungsspalte zeigt „Nicht prüfbar – Quelle fehlt" statt
+  pauschal „verifiziert".
+- **Abnahmen:** `SBX-CALC-01` (alle eingebauten Rechenfehler gefunden,
+  korrekte Gegenstücke ohne Meldung); `SBX-PKG-01` um Verweisfehler
+  (nicht existierende Übung, falsches Kapitel, Zirkel) und eine fehlende
+  Quelle erweitert — alle gefunden, der gültige Verweis nicht gemeldet.
+- Bewusst nicht doppelt: Interne Kapitelverweise bleiben bei der
+  Formalprüfung. Ob ein Verweisziel inhaltlich passt, prüft erst die KI.
+
+## 1.16.0 — 2026-11-01
+
+- **DocCheck: Prüfung der Regelwerksverweise (Nachtrag N8).** Jede Regel-ID
+  im Prüfdokument (z. B. `ORA.ATO.125(b)(2)`, `AMC1 ORA.ATO.125(a)(1)`,
+  `FCL.725`) wird gegen die Regeln geprüft, die in geladenen Master- oder
+  Sitzungsdokumenten definiert sind: Regel und Absatz vorhanden →
+  „Verified (rule-based)"; Regel oder Absatz fehlt → „To verify" mit der
+  nächstliegenden vorhandenen ID; Regelwerk nicht geladen → „To verify –
+  source not in library". Im Submission gate: Regelwerksstand und Zählung.
+- Neue Regelwerke wirken sofort: Laden oder Entfernen eines Auszugs prüft
+  alle Prüfdokumente neu. Behoben dabei: Aktualisierungen, die der Worker
+  von sich aus schickt, gingen ohne laufende OCR/Paarung verloren.
+- Verifizierungsspalte: „Zu prüfen" und „Zu prüfen – Quelle nicht in
+  Bibliothek" als eigene Marken.
+- **Abnahme:** `SBX-EAR-01` (synthetischer Part-ORA-Auszug) — erfundene ID
+  und falscher Absatzbuchstabe „To verify", Part-FCL „source not in
+  library", korrekte IDs ohne Befund.
+- Mit der Bibliothek (Phase 3) wird sie zur zweiten Quelle des Index; die
+  Prüflogik bleibt.
+
+## 1.17.0 — 2026-11-01
+
+- **Backend, Phase 1b Etappe 1 (lokal): Anmeldung und Rechte.**
+  - `supabase/`: Projektkonfiguration (nur eingeladene Nutzer, Anmeldung
+    per E-Mail-Code) und Migration mit `profiles` (Rolle, Status, Muster,
+    Personenrechte, DocCheck-Rechte), Schutzregeln als Trigger (eigene
+    Rolle, letzter Superadmin, DocCheck-Rechte nur mit Audit),
+    DocCheck-Matrix als Tabelle, Einstellungen, Audit-Log und
+    Bibliotheks-Metadaten mit Row Level Security.
+  - Rollentest gegen echtes Postgres (PGlite) in `npm test`: jede
+    Matrixzeile mit jeder Rolle gleich `access.ts`, dazu alle Schutzregeln.
+    Gegenprobe mit Postgres 16.
+  - `src/backend/`: Konfiguration (Sandbox bleibt Vorgabe; service_role-
+    Schlüssel wird abgewiesen), Anmeldung per Code ohne Ausforschen von
+    Konten, Zuordnung Profil ↔ User — gegen die Migration getestet.
+  - Testwachen und Abdeckungsschwelle gelten auch für `src/backend/`.
+- Noch nicht: Anmeldemaske an das Backend anschließen, Einladen von
+  Nutzern in der Verwaltung, Daten der App (Chats, Grading, Logbuch) in die
+  Datenbank — folgen, sobald ein Projekt angelegt ist.
+
+## 1.18.0 — 2026-11-01
+
+Ergebnis einer Sicherheits- und Datenschutzprüfung (vier unabhängige
+Prüfungen: UI/UX, Barrierefreiheit, Spezifikation, Sicherheit).
+
+- **Datenschutz:** echte Namen, persönliche E-Mail-Adressen und
+  Mobilnummern in Code, Tests und Doku durch Platzhalter ersetzt.
+- **Schlüssel:** nur öffentliche Supabase-Schlüssel; Build bricht bei
+  Geheimnissen in `VITE_*` ab, Veröffentlichung prüft das Bundle;
+  `.env*` ignoriert.
+- **Datenbank gehärtet:** Supabase-Standardrechte entzogen (Testumgebung
+  bildet sie jetzt nach), Rechte-Schutz ohne setzbare Sitzungseinstellung,
+  letzter Superadmin auch gegen Löschen und gleichzeitiges Herabstufen
+  geschützt, Einstellungen nur mit Audit, Re-Check-Audit strukturiert und
+  begrenzt, Verzeichnis-Sicht statt voller Profile, E-Mail aus der
+  Anmeldung, Löschen von Konten möglich (Audit ohne Personenbezug).
+  Gegenprobe mit Postgres 16.
+- **Dateien:** Grenzen gegen Zip-Bomben (angegebene und tatsächlich
+  entpackte Größe); ungültige Zeichenreferenzen brechen kein Dokument mehr ab.
+
+## 1.19.0 — 2026-11-01
+
+DocCheck: fachliche Fehlalarme aus der Prüfung vom 01.11.2026 behoben.
+
+- **Regel-IDs:** „ORA.ATO.230(a)" und „CS FCD.420" werden vollständig
+  erkannt, „AT.ATO.106" ist keine Regel. Eine Regel ohne erfasste Absätze
+  heißt „nicht widerlegbar", nicht „verifiziert".
+- **Re-Check:** „Resolved" allein aufgrund eines fehlenden Zitats wird als
+  solches ausgewiesen und nicht in die Sammelbestätigung genommen; ein vom
+  Vorschlag abweichender Status braucht eine Begründung; Weitergabe ins
+  Paket nur für bestätigte Korrekturen.
+- **Rechnen/Wetter:** Zwischensummen, Einheiten nur bei verknüpften
+  Paaren, METAR mit MIFG, Pistenangaben und variablem Wind.
+- **Nicht anwendbar statt grün**, wo nichts prüfbar war: Word-Check
+  (Sprache, Edition, Felder, Fragmente), Nummerierung, Summen, Kumuliert,
+  Sitzungsdauer, Wettermeldung, Hierarchie.
+- **Paket:** feste Wendungen („cabin crew", „Crew Resource Management")
+  sind kein Rest der Gegenfassung; Angaben je Einheit werden nicht mit
+  Programmsummen verglichen; Hierarchiebefunde Medium.
+- **Verweise** in fremde Regelwerke („Appendix 9 to Part-FCL") sind kein
+  fehlendes Ziel.
+- „Verified (rule-based)" als Einordnung (Akzent), nicht als „erledigt".
+- Doku: offene Punkte N3.1.6 (Blatt „New findings", Nummerierung neuer
+  Befunde) ausdrücklich genannt.
+
+## 1.20.0 — 2026-11-01
+
+DocCheck: Bedienung und Barrierefreiheit (Punkte C und D der Prüfung vom
+01.11.2026).
+
+- **Keine Selbstaussperrung:** Der Wartungshinweis bietet dem Superadmin
+  „DocCheck wieder einschalten".
+- **„Erneut prüfen"** behält Bestätigungen, deren Vorschlag gleich blieb,
+  und meldet, wie viele aufgehoben wurden.
+- **Layout ab 1024 px** zweispaltig mit den Reitern oben (vorher unter
+  allen Dokumentkarten).
+- **Kompakter:** Submission gate zeigt nur auffällige Prüfpunkte;
+  Dokumentkarten klappen fertige Angaben ein; Entfernen mit Rückfrage.
+- **Startreiter** zeigt zuerst die laufende regelbasierte Prüfung mit
+  Sprung zu den Findings; die KI-Prüfung ist als „folgt" gekennzeichnet.
+- **Revision** aus dem Dateinamen, wenn das Dokument keine nennt; ein
+  fehlendes Pflichtfeld mahnt (gelb) statt rot.
+- **Tastatur:** Befundzeilen per Knopf aufklappbar, Reiter mit Pfeiltasten,
+  Viewer führt den Fokus wie jeder Dialog.
+- **Kontrast:** Statusmarken mit Schrift in Textfarbe (vorher 3,4–4,3:1),
+  „nicht anwendbar" ohne Deckkraftabsenkung.
+- **Ansagen und Sprache:** Einlesen fertig/fehlgeschlagen wird angesagt,
+  Befundtext als Englisch ausgezeichnet, fehlende Überschriftenebene ergänzt.
+- Status-Spalte der Befundtabelle entfernt (stand ohne Ablauf immer „Open").
+
+## 1.21.0 — 2026-11-01
+
+DocCheck Re-Check: neue Befunde als eigenes Blatt (Nachtrag N3.1 Schritt 6,
+N3.5) — damit ist N3 vollständig.
+
+- Beim Rückschreiben optional ein Blatt „New findings“ / „Neue Findings“ im
+  Stil der Liste: Kopfzeile, Spaltenbreiten, Zellformate, Dropdowns und
+  bedingte Formatierungen der Quelle, Prioritätsfarben, fixierte Kopfzeile,
+  Autofilter, A4 quer. Arbeitsmappe, Beziehungen, Inhaltstypen und
+  `docProps/app.xml` nachgezogen; alle übrigen Teile byte-gleich.
+- Nummern im Anschluss an die höchste Nummer der Liste, in ihrem Format.
+- Dublettenregel: Restfundstellen alter Befunde werden nicht zusätzlich als
+  neue Befunde geführt; die Oberfläche nennt, wie viele ausgenommen wurden.
+- Neue Spaltenrolle „Priorität“ in der Zuordnung.
+- Gegenprobe: LibreOffice öffnet und speichert die Datei ohne Verlust.
+  Offen bleibt die Öffnungsprobe in Microsoft Excel.

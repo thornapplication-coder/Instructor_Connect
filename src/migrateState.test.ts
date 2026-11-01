@@ -154,8 +154,8 @@ describe('migrateState — Zusagen, die bisher niemand geprueft hat', () => {
     st.users = st.users.map((u) => (u.id === 'u-max' ? { ...u, name: 'Max Mustermann' } : u))
     st.contacts = st.contacts.map((c) => (c.id === 'c2' ? { ...c, name: 'Max Mustermann' } : c))
     const neu = migrateState(st)
-    expect(neu.users.find((u) => u.id === 'u-max')?.name).toBe('Steven Fermie')
-    expect(neu.contacts.find((c) => c.id === 'c2')?.name).toBe('Steven Fermie')
+    expect(neu.users.find((u) => u.id === 'u-max')?.name).toBe('Sam Beispiel')
+    expect(neu.contacts.find((c) => c.id === 'c2')?.name).toBe('Sam Beispiel')
 
     // Ein bewusst vergebener eigener Name bleibt stehen
     const eigen = createSeedState()

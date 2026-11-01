@@ -17,7 +17,7 @@ import {
  */
 
 const CTX = {
-  existing: [{ email: 'patrick.thorn@aviationacademy.at' }],
+  existing: [{ email: 'alex.beispiel@example.test' }],
   allowedDomains: ['aviationacademy.at'],
   aircraftTypes: ['CL30', 'C560 XLS+'],
 }
@@ -97,7 +97,7 @@ describe('Pruefung je Zeile', () => {
   })
 
   it('weist eine bereits vergebene Adresse ab', () => {
-    const r = parseUserImport(datei('Patrick;patrick.thorn@aviationacademy.at;;superadmin;;;;;'), CTX)
+    const r = parseUserImport(datei('Alex;alex.beispiel@example.test;;superadmin;;;;;'), CTX)
     expect(r.rows[0].problems).toContain('emailTaken')
   })
 

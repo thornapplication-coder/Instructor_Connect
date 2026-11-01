@@ -17,6 +17,11 @@ export interface User {
   aircraftTypes: string[]
   /** vom Admin für den Chat gesperrt: kann lesen, aber nichts senden */
   chatBlocked?: boolean
+  /** DocCheck-Zugang und -Bibliothekspflege (Spez. DocCheck 3.4). Nur der
+   *  Superadmin setzt sie, und nur über `setDocCheckRights` — nicht über
+   *  `updateUser`, damit jede Änderung im DocCheck-Protokoll landet. */
+  docCheckAccess?: boolean
+  docCheckAdmin?: boolean
   active: boolean
 }
 
@@ -220,6 +225,10 @@ export interface Settings {
   /** Rechte-Matrix je konfigurierbarer Rolle — Superadmin darf immer alles,
    *  Mitglieder werden über die Flags am Nutzer gesteuert */
   permissions: Record<ConfigurableRole, Record<PermKey, boolean>>
+  /** DocCheck: nur die vom Superadmin GEÄNDERTEN Werte; der Rest kommt aus
+   *  den Vorgaben in src/modules/doccheck/settings.ts. Optional, damit ein
+   *  Altbestand ohne Nachtrag gültig bleibt. */
+  docCheck?: Partial<import('./modules/doccheck/types').DocCheckSettings>
 }
 
 /** Zuletzt-gesehen-Zeitstempel eines Nutzers für die „Neu“-Markierungen */
@@ -274,6 +283,9 @@ export interface AppState {
    *  migrateState). Ohne diese Marke liefe der Nachtrag bei JEDEM Start und
    *  machte jede spaetere Entziehung wieder rueckgaengig. */
   aircraftBackfilled?: boolean
+  /** DocCheck (Sandbox): Rechte-Protokoll und Bestätigungen „Stand
+   *  bestätigt". Mit Phase 1b wandert beides in das Schema `doccheck`. */
+  docCheck?: import('./modules/doccheck/types').DocCheckState
 }
 
 

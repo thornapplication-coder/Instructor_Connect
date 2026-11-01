@@ -413,7 +413,12 @@
     "permElsewhereUsers": "Rolle und Musterzuordnung gehören zur Identität eines Benutzers.",
     "permElsewhereGroups": "Wer einen Chat administriert, entscheidet sich am jeweiligen Chat.",
     "toPermissions": "Rechte dieser Person",
-    "noUsersFound": "Keine Person gefunden."
+    "noUsersFound": "Keine Person gefunden.",
+    "docCheckHeading": "DocCheck",
+    "docCheckHint": "Wer DocCheck sieht und wer die Master-Bibliothek pflegt. Nur der Superadmin vergibt diese Rechte; „DocCheck admin“ setzt „DocCheck access“ voraus und schaltet es mit ein. Der Superadmin hat DocCheck automatisch. Jede Änderung steht im Audit-Log von DocCheck.",
+    "docCheckAccess": "DocCheck access",
+    "docCheckAdmin": "DocCheck admin",
+    "docCheckAuto": "automatisch"
   },
   "imprint": {
     "title": "Impressum & Nutzungshinweise",
@@ -504,5 +509,18 @@
     "derivedHint": "Dieser Eintrag kommt aus einem unterschriebenen Formular. Geändert werden hier nur die Logbuch-Zeiten — das Formular selbst bleibt unangetastet.",
     "resetToForm": "Auf Formularwerte zurücksetzen",
     "deleteConfirm": "Diesen Eintrag aus dem Logbuch entfernen?"
+  },
+  "docCheck": {
+    "maintenanceTitle": "Wartung – vorübergehend nicht verfügbar",
+    "maintenanceBody": "DocCheck ist vom Superadmin abgeschaltet. Alle anderen Bereiche von Instructor Connect stehen wie gewohnt zur Verfügung.",
+    "maintenanceOn": "DocCheck wieder einschalten",
+    "maintenanceOnDone": "DocCheck ist wieder eingeschaltet.",
+    "errorTitle": "DocCheck konnte nicht geladen werden",
+    "errorBody": "Der Fehler betrifft nur DocCheck. Alle anderen Kacheln funktionieren weiter.",
+    "errorCode": "Fehlercode",
+    "toHome": "Zur Startseite",
+    "retry": "Erneut versuchen",
+    "loading": "DocCheck wird geladen …",
+    "badge": "offene Punkte in DocCheck"
   }
 }

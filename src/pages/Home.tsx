@@ -1,4 +1,4 @@
-import { BookMarked, BookOpenCheck, GraduationCap, LogOut, MessageSquareText, MessagesSquare, NotebookPen, Phone, Plane, RefreshCw, Share, ShieldCheck } from 'lucide-react'
+import { BookMarked, BookOpenCheck, FileCheck2, GraduationCap, LogOut, MessageSquareText, MessagesSquare, NotebookPen, Phone, Plane, RefreshCw, Share, ShieldCheck } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
@@ -25,6 +25,9 @@ const TILES = [
   { to: '/contacts', label: 'Who to call', icon: Phone },
   { to: '/notes', label: 'Notes', icon: NotebookPen },
   { to: '/logbook', label: 'my AAA Logbook', icon: BookMarked },
+  // DocCheck steht zuletzt: Es ist ein Werkzeug fuer wenige, und wer es
+  // nicht hat, sieht die Kachel gar nicht — die Reihe der anderen bleibt.
+  { to: '/doccheck', label: 'DocCheck', icon: FileCheck2 },
 ] as const
 
 export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
@@ -34,7 +37,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
   useEffect(() => {
     if (unknownRoute) navigate('/')
   }, [unknownRoute])
-  const { state, currentUser, logout, unreadGroups, hasNewInfo, hasNewContacts, openAcks, visibleGradingRecords, can, moduleAllowed } = useStore()
+  const { state, currentUser, logout, unreadGroups, hasNewInfo, hasNewContacts, openAcks, visibleGradingRecords, can, moduleAllowed, docCheckRolle, docCheckBadge } = useStore()
   const isDesktop = useIsDesktop()
   const [showInstall, setShowInstall] = useState(false)
   // Öffnet das iOS-Share-Sheet (dort: „Zum Home-Bildschirm") — sonst Anleitung
@@ -82,6 +85,9 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
     '/notes': 0,
     // Das Logbuch leitet sich aus dem Bestand ab — es gibt kein „Neu".
     '/logbook': 0,
+    // Offene Nachpruef-Empfehlungen, fuer Admins zusaetzlich faellige
+    // Revisionserinnerungen (Spez. DocCheck 3.2).
+    '/doccheck': docCheckBadge,
   }
 
   // Die Kacheln folgen der Rechte-Matrix: was der Superadmin einer Rolle
@@ -98,6 +104,9 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
     // Das Logbuch hat jede Rolle: Wer bewertet, fuehrt ein eigenes; der
     // Training Admin oeffnet fremde (lesend). Keine Modul-Schranke noetig.
     if (tl.to === '/logbook') return true
+    // Nur fuer Freigeschaltete (Spez. DocCheck 3.4) — fuer alle anderen
+    // erscheint die Kachel nicht, auch nicht ausgegraut.
+    if (tl.to === '/doccheck') return docCheckRolle !== 'keine'
     return true
   })
 
@@ -106,15 +115,15 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
       <header className="safe-top-6 mx-auto flex w-full max-w-3xl items-center justify-between px-5 xl:max-w-6xl xl:px-10">
         {/* Die Begrüßung gibt nach, die Bedienelemente nicht.
             Ohne `min-w-0`/`truncate` drückte ein längerer Vorname die rechte
-            Gruppe zusammen — gemessen am iPhone: „Hello, Christian" umbrach
+            Gruppe zusammen — gemessen am iPhone: „Hello, <neunstelliger Vorname>" umbrach
             auf zwei Zeilen, und der DE/EN-Schalter wurde so schmal, dass die
             globale Umbruchregel ihn zu „D E" / „E N" zerlegte. */}
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Avatar name={currentUser!.name} size={40} />
           <div className="min-w-0">
-            {/* Am schmalen Handy steht nur der Name: „Hello, Christian" passt
+            {/* Am schmalen Handy steht nur der Name: „Hello, <neunstelliger Vorname>" passt
                 bei 375 px nicht neben Aktualisieren, Thema und DE/EN und
-                wurde zu „Hello, Chri…" abgeschnitten — dann lieber den Namen
+                wurde zu „Hello, <Vorna…>" abgeschnitten — dann lieber den Namen
                 ganz zeigen. Ab Tablet ist Platz für die Begrüßung. */}
             <p className="truncate text-lead font-semibold leading-tight">
               <span className="sm:hidden">{firstName}</span>
@@ -189,7 +198,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
               ) : (
                 <CountBadge
                   count={news[to]}
-                  label={to === '/info' && openAcks > 0 ? t('home.openAcks') : t('common.new')}
+                  label={to === '/info' && openAcks > 0 ? t('home.openAcks') : to === '/doccheck' ? t('docCheck.badge') : t('common.new')}
                   className="right-2.5 top-2.5"
                 />
               )}

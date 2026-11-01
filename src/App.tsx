@@ -22,12 +22,13 @@ import { InstructorInfo } from './pages/InstructorInfo'
 import { Login } from './pages/Login'
 import { WhoToCall } from './pages/WhoToCall'
 import { navigate, useRoute } from './router'
+import { DocCheckRoute } from './modules/doccheck'
 import { StoreProvider, useStore } from './store'
 import type { ModuleKey } from './types'
 
 function Screen() {
   const route = useRoute()
-  const { currentUser, moduleAllowed } = useStore()
+  const { currentUser, moduleAllowed, docCheckRolle } = useStore()
 
   // Impressum und Gerätevorschau sind auch ohne Anmeldung erreichbar.
   if (route === '/imprint') return <Imprint />
@@ -92,6 +93,8 @@ function Screen() {
   else if (route === '/notes') page = <Notes />
   else if (route === '/logbook') page = <Logbook />
   else if (route === '/feedback') page = <Feedback />
+  // DocCheck: Ohne Berechtigung fuehrt auch die Adresszeile nicht hinein.
+  else if (route === '/doccheck') page = docCheckRolle === 'keine' ? <Home unknownRoute /> : <DocCheckRoute />
   // #/admin/<bereich>[/<unterbereich>] — die Verwaltung ist adressierbar
   else if (route.startsWith('/admin')) page = <Admin sub={route.slice('/admin'.length).replace(/^\//, '').split('?')[0]} />
   else page = <Home unknownRoute={route !== '/' && route !== ''} />

@@ -7,6 +7,10 @@ import { SANDBOX } from './sandbox/flag'
 import { musterFehlt, musterPflicht, nachMuster, sichtbarFuer } from './aircraftScope'
 import { adminTabsFor, hatAdminPanel } from './adminAccess'
 import { infoEntryAppliesTo } from './infoAcks'
+import { darf, docCheckRolle, kachelZahl, rechteAudit, rechteSetzen } from './modules/doccheck/access'
+import { einstellungen as docCheckEinstellungen } from './modules/doccheck/settings'
+import { faelligeErinnerungen, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EMPFEHLUNGEN } from './modules/doccheck/library'
+import type { DocCheckAuditEintrag, DocCheckFlags, DocCheckRolle, DocCheckSettings, DocCheckState } from './modules/doccheck/types'
 import type { LogbookManuell, LogbookOverride, LogbookStand } from './logbook'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type Note, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import { backupPersistedState, clearPersistedState, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
@@ -125,7 +129,24 @@ export interface Store {
   /** Code-Login: Code an die E-Mail „senden“ bzw. prüfen */
   requestLoginCode: (email: string) => boolean
   verifyLoginCode: (code: string) => boolean
+  /** DocCheck-Rolle des aktuellen Nutzers — abgeleitet, nie gespeichert. */
+  docCheckRolle: DocCheckRolle
+  /** Gespeicherte DocCheck-Einstellungen, ergänzt um die Vorgaben. */
+  docCheckSettings: DocCheckSettings
+  /** Zahl auf der DocCheck-Kachel (Spez. DocCheck 3.2). */
+  docCheckBadge: number
+  /** DocCheck-Rechte vergeben — nur Superadmin, jede Änderung protokolliert. */
+  setDocCheckRights: (userId: string, wunsch: DocCheckFlags) => void
+  /** DocCheck-Einstellungen ändern — nur Superadmin, protokolliert. */
+  updateDocCheckSettings: (patch: Partial<DocCheckSettings>) => void
+  /** Revisionserinnerung „Stand bestätigt" — DocCheck-Admin oder Superadmin. */
+  docCheckConfirmRevision: (docId: string) => void
+  /** Re-Check-Vorschläge bestätigt (Nachtrag N3/N11) — eine Audit-Zeile je
+   *  Bestätigung, mit Listennummern und Status, ohne Befundtext. */
+  docCheckRecheckConfirm: (liste: string, eintraege: { ref: string; status: string }[]) => void
 }
+
+const DC_LEER: DocCheckState = { audit: [], bestaetigt: {} }
 
 const StoreCtx = createContext<Store | null>(null)
 
@@ -666,6 +687,78 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       can: (key) => userHasPerm(state.settings, currentUser, key),
       moduleAllowed: (module) => userMayModule(state.settings, currentUser, module),
+      docCheckRolle: docCheckRolle(currentUser),
+      docCheckSettings: docCheckEinstellungen(state.settings.docCheck),
+      docCheckBadge: kachelZahl(
+        docCheckRolle(currentUser),
+        offeneEmpfehlungen(SANDBOX_EMPFEHLUNGEN).length,
+        faelligeErinnerungen(SANDBOX_DOKUMENTE, (state.docCheck ?? DC_LEER).bestaetigt, now()).length,
+      ),
+      // Die Rechte vergibt AUSSCHLIESSLICH der Superadmin (Spez. 3.4) — die
+      // Sperre steht hier im Store, nicht nur in der Ansicht. Und es gibt nur
+      // diesen einen Weg: `updateUser` laesst die beiden Felder fallen, sonst
+      // gaebe es eine Aenderung ohne Protokollzeile.
+      setDocCheckRights: (userId, wunsch) =>
+        patch((s) => {
+          if (!isSuper(s)) return null
+          const ziel = s.users.find((u) => u.id === userId)
+          if (!ziel) return null
+          const neu = rechteSetzen(ziel, wunsch)
+          const zeilen = rechteAudit(ziel, neu, { von: s.currentUserId!, ziel: userId, at: Date.now() + s.timeOffsetMs, id: () => uid('dca') })
+          if (!zeilen.length) return null
+          const dc = s.docCheck ?? DC_LEER
+          return {
+            users: s.users.map((u) => (u.id === userId ? { ...u, ...neu } : u)),
+            docCheck: { ...dc, audit: [...zeilen, ...dc.audit] },
+          }
+        }),
+      updateDocCheckSettings: (p) =>
+        patch((s) => {
+          if (!isSuper(s)) return null
+          const alt = docCheckEinstellungen(s.settings.docCheck)
+          const at = Date.now() + s.timeOffsetMs
+          const zeilen: DocCheckAuditEintrag[] = []
+          for (const [k, v] of Object.entries(p) as [keyof DocCheckSettings, unknown][]) {
+            if (k === 'features') {
+              for (const [f, an] of Object.entries(v as Record<string, boolean>)) {
+                const vorher = alt.features[f as keyof DocCheckSettings['features']]
+                if (vorher !== an) zeilen.push({ id: uid('dca'), at, von: s.currentUserId!, aktion: 'feature', ziel: f, wert: `${vorher} → ${an}` })
+              }
+            } else if (JSON.stringify(alt[k]) !== JSON.stringify(v)) {
+              zeilen.push({ id: uid('dca'), at, von: s.currentUserId!, aktion: 'einstellung', ziel: k, wert: `${JSON.stringify(alt[k])} → ${JSON.stringify(v)}` })
+            }
+          }
+          if (!zeilen.length) return null
+          const gespeichert = s.settings.docCheck ?? {}
+          const features = p.features ? { ...(gespeichert.features ?? {}), ...p.features } : gespeichert.features
+          const dc = s.docCheck ?? DC_LEER
+          return {
+            settings: { ...s.settings, docCheck: { ...gespeichert, ...p, ...(features ? { features } : {}) } },
+            docCheck: { ...dc, audit: [...zeilen, ...dc.audit] },
+          }
+        }),
+      docCheckConfirmRevision: (docId) =>
+        patch((s) => {
+          const rolle = docCheckRolle(actorOf(s))
+          if (rolle !== 'admin' && rolle !== 'superadmin') return null
+          if (!SANDBOX_DOKUMENTE.some((d) => d.id === docId)) return null
+          const at = Date.now() + s.timeOffsetMs
+          const dc = s.docCheck ?? DC_LEER
+          return {
+            docCheck: {
+              bestaetigt: { ...dc.bestaetigt, [docId]: at },
+              audit: [{ id: uid('dca'), at, von: s.currentUserId!, aktion: 'standBestaetigt', ziel: docId, wert: 'confirmed' }, ...dc.audit],
+            },
+          }
+        }),
+      docCheckRecheckConfirm: (liste, eintraege) =>
+        patch((s) => {
+          if (!eintraege.length || !darf(docCheckRolle(actorOf(s)), 'pruefen')) return null
+          const at = Date.now() + s.timeOffsetMs
+          const dc = s.docCheck ?? DC_LEER
+          const wert = eintraege.map((e) => `${e.ref}: ${e.status}`).join(', ')
+          return { docCheck: { ...dc, audit: [{ id: uid('dca'), at, von: s.currentUserId!, aktion: 'recheckBestaetigt', ziel: liste, wert: wert.length > 300 ? `${wert.slice(0, 297)}…` : wert }, ...dc.audit] } }
+        }),
       // Die Rechtematrix aendert ausschliesslich der Superadmin. Die Sperre
       // lag bisher allein in der Oberflaeche (Reiterliste im Admin-Panel) —
       // die Vergabe ALLER Rechte haengt damit an einer Anzeigeliste.
@@ -679,6 +772,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       logout: () => {
         persistUser(null)
         patch(() => ({ currentUserId: null }))
+        // DocCheck hält Dokumente nur im Speicher des Tabs — beim Abmelden
+        // werden sie verworfen (Spez. DocCheck 5.4). Ein Ereignis statt eines
+        // Imports: Der Store soll das nachgeladene Modul nicht mitziehen.
+        window.dispatchEvent(new Event('ic-abmelden'))
       },
       // Die drei Sandbox-Werkzeuge greifen NUR im Sandbox-Betrieb. Bisher
       // hing das allein daran, dass die Leiste sie anbietet — wer sie über
@@ -882,6 +979,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // Die Rolle vergibt ausschließlich der Superadmin. Sonst könnte sich
           // ein group_admin über eine offen gebliebene Ansicht selbst befördern.
           const safe: Partial<User> = isSuper(s) ? { ...p } : { ...p, role: undefined }
+          // DocCheck-Rechte laufen ausschliesslich ueber setDocCheckRights —
+          // dort wird protokolliert. Auch der Superadmin kommt hier nicht dran.
+          delete safe.docCheckAccess
+          delete safe.docCheckAdmin
           // E-Mail bleibt eindeutig — sie ist die einzige Anmeldekennung.
           if (safe.email !== undefined && (!safe.email.trim() || emailTaken(s, safe.email, id))) delete safe.email
           // Die Organisation braucht immer mindestens einen Superadmin.

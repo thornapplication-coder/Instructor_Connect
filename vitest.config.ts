@@ -59,8 +59,20 @@ export default defineConfig({
     ],
     coverage: {
       provider: 'v8',
-      include: ['src/*.ts'],
+      // src/modules/: DocCheck. Dieselbe Schwelle wie fuer den Bestand —
+      // ein Modul, das spaeter dazukam, bekommt keinen leichteren Massstab.
+      // src/backend/: Anbindung an Supabase (Phase 1b) — gleiche Schwelle.
+      include: ['src/*.ts', 'src/modules/**/*.ts', 'src/backend/**/*.ts'],
       exclude: [
+        'src/modules/doccheck/types.ts', // nur Typen, keine Logik
+        'src/modules/doccheck/parse/model.ts', // nur Typen und Konstanten (Datenmodell)
+        // Ansichten des Moduls — wie src/pages nicht unter der Schwelle; sie
+        // erschienen sonst mit 0 von 0 Anweisungen als „100 %".
+        'src/modules/**/*.tsx',
+        // Ansichten der App (router.tsx, App.tsx …) — gleiche Regel. Sie
+        // tauchten erst auf, als ein Komponententest (Ebene 2) ui.tsx lud und
+        // damit router.tsx mitzog; gemeint war die Schwelle nie für sie.
+        'src/*.tsx',
         'src/types.ts', // nur Typen und Konstanten, keine Logik
         'src/vite-env.d.ts', // Typdeklaration
         'src/net.ts', // Ebene 2 offen: braucht Service-Worker-Registrierung, nicht nur fetch

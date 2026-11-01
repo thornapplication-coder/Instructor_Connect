@@ -1,0 +1,33 @@
+{
+  "_hinweis": "Spez. 8.8: Abschnittsnamen und Synonyme der Formalprüfung. Erweiterbar ohne Codeänderung; Kleinschreibung, Vergleich am Zeilenanfang.",
+  "abschnitte": {
+    "lep": ["list of effective pages", "lep", "liste der gültigen seiten", "verzeichnis der gültigen seiten"],
+    "revisionen": ["record of revisions", "revision record", "list of revisions", "revisionsverzeichnis", "änderungsnachweis"],
+    "hoc": ["highlights of change", "highlights of changes", "summary of changes", "list of changes", "änderungsübersicht"],
+    "inhalt": ["table of contents", "contents", "inhaltsverzeichnis", "inhalt"],
+    "abkuerzungen": ["list of abbreviations", "abbreviations", "acronyms", "abbreviations and acronyms", "abkürzungsverzeichnis", "abkürzungen"]
+  },
+  "reste": [
+    { "muster": "\\bTBD\\b", "prioritaet": "Medium" },
+    { "muster": "\\bTBC\\b", "prioritaet": "Medium" },
+    { "muster": "\\bXXX+\\b", "prioritaet": "Medium" },
+    { "muster": "\\[(?:insert|add|tbd)[^\\]]*\\]", "prioritaet": "Medium", "flags": "i" },
+    { "muster": "lorem ipsum", "prioritaet": "Medium", "flags": "i" },
+    { "muster": "Error! Reference source not found\\.?", "prioritaet": "High" },
+    { "muster": "Error! Bookmark not defined\\.?", "prioritaet": "High" },
+    { "muster": "Fehler! Verweisquelle konnte nicht gefunden werden\\.?", "prioritaet": "High" },
+    { "muster": "Fehler! Textmarke nicht definiert\\.?", "prioritaet": "High" },
+    { "muster": "\\bDRAFT\\b", "prioritaet": "Medium" },
+    { "muster": "\\bWIP\\b", "prioritaet": "Medium" }
+  ],
+  "platzhalter": [
+    { "name": "zahlplatzhalter", "muster": "\\b[A-Z0-9]+(?:[-/][A-Z0-9]+)*[-/: ]n{3,}(?:[-/]n{3,})*\\b" },
+    { "name": "xx-suffix", "muster": "\\b[A-Z][A-Z0-9]*_XX\\b|\\b[A-Z]{2,}[A-Z0-9-]*XX\\b" },
+    { "name": "ausfuellfeld", "muster": "_{4,}" }
+  ],
+  "unterschrift": ["signature", "signed", "date:", "name:", "unterschrift", "datum:"],
+  "einschuebe": {
+    "de": ["und", "oder", "siehe", "nicht", "bitte", "prüfen", "noch", "offen", "Seite", "Normale", "für", "Achtung", "Hinweis", "ändern", "fehlt", "überprüfen", "entfernen", "hier", "laut", "gemäß"]
+  },
+  "adresse": ["straße", "strasse", "gasse", "weg", "platz", "allee", "ring", "postfach", "via", "calle", "rue"]
+}
