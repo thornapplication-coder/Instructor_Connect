@@ -801,3 +801,20 @@ Einlesen jedes Prüfdokuments und erneut nach OCR oder Word-PDF-Paar.
   Zählformeln und Diagramm, calcChain. Round-Trip-Test: alle nicht
   betroffenen Teile byte-gleich; Datei öffnet in LibreOffice, Zählformeln
   zeigen die neuen Werte. Öffnungsprobe in Microsoft Excel steht aus.
+
+## 1.13.0 — 2026-11-01
+
+- **DocCheck Re-Check: Lücken zum Nachtrag geschlossen.**
+  - Restfundstellen-Regel (N3.4) mit Ausnahmen: Verbform eines
+    Schreibweisen-Paars („to call out"), erkennbares Zitat (Anführungszeichen
+    im selben Absatz) und Sätze, die wörtlich in einem Master-Dokument
+    stehen. Solche Treffer erscheinen als „nicht gezählt" mit Fundstelle,
+    der Remark nennt ihre Zahl.
+  - Export mit „Confirmed by" UND „Confirmed on" (N11); die Zeile ist bei
+    Excel-Listen die Excel-Zeile.
+  - Mobil (Nachtrag Kap. 18): Segment „Re-Check" zeigt die Vorschläge der
+    Sitzung mit Remark und lässt sie einzeln oder gesammelt bestätigen;
+    gestartet wird weiterhin am Desktop.
+- Abnahme `SBX-PKG-01`: Das Training Manual enthält jetzt ein wörtliches
+  Zitat mit dem beanstandeten Text; Befund 1 bleibt „Resolved", das Zitat
+  wird gezeigt, nicht gezählt.

@@ -18,7 +18,7 @@ import { AdminTab } from './components/AdminTab'
 import { LibraryPanel, Phase, ReviewDocsPanel, SessionDocsPanel } from './components/Panels'
 import { ChatTab, ExportTab, PruefungTab, RevisionenTab, VerwaltenTab } from './components/Tabs'
 import { FindingsTab } from './components/Befunde'
-import { ReCheckTab } from './components/ReCheck'
+import { ReCheckMobil, ReCheckTab } from './components/ReCheck'
 import { ReferenzPanel } from './components/Referenzen'
 
 // Die Texte kommen erst mit dem Modul — wer DocCheck nie oeffnet, laedt sie
@@ -190,13 +190,15 @@ function Desktop() {
   )
 }
 
-type Segment = 'bibliothek' | 'nachpruefungen' | 'befunde' | 'chat'
+type Segment = 'bibliothek' | 'nachpruefungen' | 'befunde' | 'recheck' | 'chat'
 
 /** Ansichtsmodus iPhone/iPad (Spez. 3.8, 6.9): einspaltig, keine Prüfläufe. */
 function Ansicht() {
   const { t } = useTranslation('doccheck')
+  const { docCheckSettings } = useStore()
   const [seg, setSeg] = useState<Segment>('bibliothek')
   const empf = offeneEmpfehlungen(SANDBOX_EMPFEHLUNGEN)
+  const segmente: Segment[] = ['bibliothek', 'nachpruefungen', 'befunde', ...(aktiv(docCheckSettings, 'recheck') ? (['recheck'] as const) : []), 'chat']
   return (
     <div className="flex flex-1 flex-col">
       <Kopf modell="" setModell={() => {}} zeigeModell={false} />
@@ -207,14 +209,15 @@ function Ansicht() {
           </p>
           {/* 2 x 2 am Handy: Vier Segmente in einer Reihe liessen „Nachpruefungen"
               mitten im Wort umbrechen (gemessen am iPhone 13, 390 px). */}
-          <div role="tablist" className="grid grid-cols-2 gap-1 rounded-2xl bg-line/5 p-1 sm:grid-cols-4">
-            {(['bibliothek', 'nachpruefungen', 'befunde', 'chat'] as const).map((s) => (
+          <div role="tablist" className={`grid grid-cols-2 gap-1 rounded-2xl bg-line/5 p-1 ${segmente.length === 5 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
+            {segmente.map((s, i) => (
               <button
                 key={s}
                 role="tab"
                 aria-selected={seg === s}
                 onClick={() => setSeg(s)}
-                className={`min-h-11 rounded-xl px-1 text-small transition ${seg === s ? 'bg-surface font-semibold text-ink shadow-soft' : 'text-dim'}`}
+                // Ungerade Anzahl: das letzte Segment nimmt am Handy die ganze Zeile.
+                className={`min-h-11 rounded-xl px-1 text-small transition ${segmente.length % 2 && i === segmente.length - 1 ? 'col-span-2 sm:col-span-1' : ''} ${seg === s ? 'bg-surface font-semibold text-ink shadow-soft' : 'text-dim'}`}
               >
                 {t(`mobile.${s}`)}
               </button>
@@ -263,6 +266,7 @@ function Ansicht() {
               <Phase n={6} />
             </Card>
           )}
+          {seg === 'recheck' && <ReCheckMobil />}
           {seg === 'chat' && (
             <Card className="space-y-stack p-4 text-center text-small text-dim">
               <p>{t('mobile.chatLimit')}</p>

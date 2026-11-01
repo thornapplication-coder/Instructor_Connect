@@ -136,6 +136,13 @@ Findinglisten (N3, regelbasiert); kein Backend, KI simuliert. Festlegungen:
   nicht raten. **Resolved nur, wenn der beanstandete Text im ganzen Paket
   fehlt** (N3.4); die Korrektur selbst ist kein Rest („ATO.106" in
   „AT.ATO.106"). Team-Kommentare sind Behauptungen, die geprüft werden.
+  Keine Restfundstelle sind (N3.4): die Verbform eines Schreibweisen-Paars
+  („to call out" bei „call out" → „callout"), ein erkennbares Zitat und ein
+  Satz, der wörtlich in einem Master-Dokument steht. Sie werden gezeigt und
+  im Remark gezählt, nicht verschwiegen. Die Zitat-Erkennung zählt
+  Anführungszeichen nur innerhalb der Zeile bzw. des Absatzes — ein Fenster
+  über Absatzgrenzen schnitte Paare an und erklärte echte Reste zu Zitaten;
+  im Zweifel zählt der Treffer.
   Das Kapitel einer Fundstelle ist die letzte Überschrift VOR ihr, nicht
   das der Seite — ein DOCX ohne Umbrüche ist sonst eine Seite mit dem
   letzten Kapitel. Bestätigen schreibt eine Audit-Zeile ohne Befundtext.

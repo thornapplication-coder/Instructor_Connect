@@ -28,7 +28,7 @@ import {
 import { werteLaden, werteSpeichern } from '../recheck/profil'
 import { ausgabeName, listenWerte, rueckschreiben, werteVorschlagen, type WerteZuordnung } from '../recheck/rueckschreiben'
 import { ROLLEN, type Rolle, type Ziel } from '../recheck/fremdliste'
-import { remark, STATUS_NAME, type ReStatus } from '../recheck/pruefen'
+import { remark, STATUS_NAME, type Fundstelle, type ReStatus } from '../recheck/pruefen'
 import { setzen, useSitzung } from '../sitzung'
 import { standardVerbindung } from '../verbindung'
 import { useViewer } from './Viewer'
@@ -58,9 +58,99 @@ function Schritt({ n, titel, children }: { n: number; titel: string; children: R
   )
 }
 
+/** Bestätigen — eine Stelle für Desktop und mobil, damit beide dieselbe Audit-Zeile schreiben. */
+function useBestaetigen() {
+  const { t } = useTranslation('doccheck')
+  const { currentUser, now, docCheckRecheckConfirm } = useStore()
+  const { recheck: r } = useSitzung()
+  return (zs: number[]) => {
+    if (!r?.ergebnisse || !zs.length) return
+    aendernRe((x) => bestaetigen(x, zs, currentUser!.id, now()))
+    docCheckRecheckConfirm(r.datei, zs.map((z) => ({ ref: r.befunde.find((b) => b.zeile === z)!.ref, status: STATUS_NAME[r.ergebnisse!.find((e) => e.zeile === z)!.status] })))
+    toast(t('recheck.bestaetigtToast', { count: zs.length }))
+  }
+}
+
+/**
+ * Mobil (Nachtrag Kap. 18): Ergebnisse ansehen und Vorschläge bestätigen —
+ * starten nur am Desktop. Gezeigt wird, was in dieser Sitzung geprüft wurde.
+ */
+export function ReCheckMobil() {
+  const { t } = useTranslation('doccheck')
+  const { state, now } = useStore()
+  const { recheck: r } = useSitzung()
+  const bestaetigenZeilen = useBestaetigen()
+  const [nurOffen, setNurOffen] = useState(true)
+  const [offen, setOffen] = useState<number | null>(null)
+  const name = (id: string) => state.users.find((u) => u.id === id)?.name ?? id
+  if (!r?.ergebnisse) {
+    return (
+      <Card className="space-y-stack p-4 text-center text-small text-dim">
+        <p>{t('recheck.mobil.leer')}</p>
+      </Card>
+    )
+  }
+  const anzahl = zaehlen(r)
+  const liste = zeilen(r, { status: 'alle', dok: 'alle', nurAbweichung: false }).filter(({ befund }) => !nurOffen || !r.bestaetigt[befund.zeile])
+  const sammel = sammelKandidaten(r)
+  return (
+    <div className="space-y-stack">
+      <Card className="space-y-stack p-4">
+        <p className="break-words text-small font-semibold">{r.datei}</p>
+        <div className="flex flex-wrap gap-1.5">
+          {STATI.map((s) => (
+            <Badge key={s} tone={TON[s]}>{`${t(`recheck.status.${s}`)}: ${anzahl[s]}`}</Badge>
+          ))}
+        </div>
+        <label className="flex min-h-11 items-center gap-2 text-small">
+          <input type="checkbox" className="h-5 w-5 accent-accent" checked={nurOffen} onChange={(e) => setNurOffen(e.target.checked)} />
+          {t('recheck.mobil.nurOffen')}
+        </label>
+        {sammel.length > 0 && (
+          <Button variant="ghost" className="w-full" onClick={() => bestaetigenZeilen(sammel)}>
+            <span className="flex items-center justify-center gap-1.5"><CheckCheck size={16} /> {t('recheck.sammel', { count: sammel.length })}</span>
+          </Button>
+        )}
+      </Card>
+      {liste.length === 0 && <p className="py-section text-center text-small text-dim">{t('recheck.mobil.alleBestaetigt')}</p>}
+      {liste.map(({ befund: b, ergebnis: e }) => {
+        const ok = r.bestaetigt[b.zeile]
+        const auf = offen === b.zeile
+        return (
+          <Card key={b.zeile} className="space-y-tight p-4 text-small">
+            <div className="flex items-start justify-between gap-2">
+              <p className="min-w-0 font-semibold">
+                {b.ref} · {b.dokument || '—'}
+              </p>
+              <Badge tone={TON[e.status]}>{t(`recheck.status.${e.status}`)}</Badge>
+            </div>
+            <p className="break-words">{b.befund || b.empfehlung}</p>
+            <p className="text-micro text-dim">
+              {t('recheck.col.team')}: {b.teamStatus || '—'}
+              {e.abweichung && <span className="text-wait"> · {t('recheck.abweichung')}</span>}
+            </p>
+            <button className="flex min-h-11 items-center gap-1 text-micro text-accent" onClick={() => setOffen(auf ? null : b.zeile)} aria-expanded={auf}>
+              {auf ? <ChevronDown size={14} /> : <ChevronRight size={14} />} {t('recheck.remark')}
+            </button>
+            {auf && <p className="whitespace-pre-wrap break-words rounded-xl border border-line/10 bg-surface/60 p-3 font-mono text-micro leading-relaxed">{remark(e, new Date(now()).toISOString(), r.sprache)}</p>}
+            {ok ? (
+              <p className="text-micro text-ok">{t('recheck.bestaetigtVon', { name: name(ok.von) })}</p>
+            ) : (
+              <Button className="w-full" onClick={() => bestaetigenZeilen([b.zeile])}>
+                <span className="flex items-center justify-center gap-1.5"><CheckCheck size={15} /> {t('recheck.bestaetigen', { status: t(`recheck.status.${e.status}`) })}</span>
+              </Button>
+            )}
+          </Card>
+        )
+      })}
+      <p className="text-center text-micro text-dim">{t('recheck.mobil.startDesktop')}</p>
+    </div>
+  )
+}
+
 export function ReCheckTab() {
   const { t } = useTranslation('doccheck')
-  const { state, currentUser, now, docCheckRecheckConfirm } = useStore()
+  const { state, now } = useStore()
   const sitzung = useSitzung()
   const { docs, recheck: r } = sitzung
   const oeffnen = useViewer()
@@ -104,12 +194,7 @@ export function ReCheckTab() {
     toast(t('recheck.fertig', { count: erg.length }))
   }
 
-  const bestaetigenZeilen = (zs: number[]) => {
-    if (!r?.ergebnisse || !zs.length) return
-    aendernRe((x) => bestaetigen(x, zs, currentUser!.id, now()))
-    docCheckRecheckConfirm(r.datei, zs.map((z) => ({ ref: r.befunde.find((b) => b.zeile === z)!.ref, status: STATUS_NAME[r.ergebnisse!.find((e) => e.zeile === z)!.status] })))
-    toast(t('recheck.bestaetigtToast', { count: zs.length }))
-  }
+  const bestaetigenZeilen = useBestaetigen()
 
   const zielWert = (z: Ziel | undefined) => (!z || z.art === 'fehlt' ? 'fehlt' : z.art === 'paket' ? 'paket' : z.ids[0])
   const kopf = r?.blaetter[r.blatt]?.zeilen[r.kopf] ?? []
@@ -309,7 +394,12 @@ export function ReCheckTab() {
                 {liste.map(({ befund: b, ergebnis: e }) => {
                   const auf = offen === b.zeile
                   const ok = r.bestaetigt[b.zeile]
-                  const fund = [...e.rest.map((f) => ({ f, art: 'rest' as const })), ...e.belegt.map((f) => ({ f, art: 'belegt' as const }))]
+                  const fund: { f: Fundstelle; art: 'rest' | 'belegt' | 'aus'; label: string }[] = [
+                    ...e.rest.map((f) => ({ f, art: 'rest' as const, label: t('recheck.rest') })),
+                    ...e.belegt.map((f) => ({ f, art: 'belegt' as const, label: t('recheck.belegt') })),
+                    // Nicht gezählt (N3.4) — sichtbar, damit niemand dem Ausschluss blind folgen muss
+                    ...(e.ausgenommen ?? []).map((f) => ({ f, art: 'aus' as const, label: f.quelle ? t('recheck.aus.bibliothekVon', { quelle: f.quelle }) : t(`recheck.aus.${f.grund}`) })),
+                  ]
                   return (
                     <Fragment key={b.zeile}>
                       <tr className="cursor-pointer border-b border-line/[0.06] align-top hover:bg-line/[0.03]" onClick={() => setOffen(auf ? null : b.zeile)}>
@@ -336,9 +426,9 @@ export function ReCheckTab() {
                             <p className="text-micro text-dim">{t(`recheck.grund.${e.grund}`)}</p>
                             {fund.length > 0 && (
                               <ul className="space-y-tight">
-                                {fund.map(({ f, art }, i) => (
+                                {fund.map(({ f, art, label }, i) => (
                                   <li key={i} className="flex items-start gap-2 text-small">
-                                    <Badge tone={art === 'rest' ? 'bad' : 'ok'}>{t(`recheck.${art}`)}</Badge>
+                                    <Badge tone={art === 'rest' ? 'bad' : art === 'belegt' ? 'ok' : 'dim'}>{label}</Badge>
                                     <span className="w-44 shrink-0 text-micro text-dim">{[f.dok, f.kapitel, f.seite].filter(Boolean).join(' · ')}</span>
                                     <span className="min-w-0 flex-1 break-words font-mono text-micro leading-relaxed">{f.auszug}</span>
                                     <button

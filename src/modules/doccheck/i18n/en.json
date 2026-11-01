@@ -224,6 +224,7 @@
     "bibliothek": "Library",
     "nachpruefungen": "Re-checks",
     "befunde": "Findings",
+    "recheck": "Re-check",
     "chat": "Chat",
     "startOnDesktop": "Start the re-check on a desktop",
     "openState": "Open a review state file (.doccheck.json), view and export findings.",
@@ -573,6 +574,18 @@
       "start": "Create new Excel file",
       "fertig": "{{name}} created",
       "fehler": "The file could not be written — the original is unchanged."
+    },
+    "mobil": {
+      "leer": "No re-check in this session yet. It is started on the desktop; afterwards the proposals can be viewed and confirmed here.",
+      "nurOffen": "Unconfirmed proposals only",
+      "alleBestaetigt": "All proposals are confirmed.",
+      "startDesktop": "Loading the list and starting the check: desktop only."
+    },
+    "aus": {
+      "verb": "Verb form – not counted",
+      "zitat": "Quotation – not counted",
+      "bibliothek": "Found in source – not counted",
+      "bibliothekVon": "Quotation from {{quelle}} – not counted"
     }
   }
 }

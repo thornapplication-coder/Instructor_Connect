@@ -63,9 +63,19 @@ export interface ReErgebnis {
   behauptungWiderlegt: boolean
   /** Vorschlag weicht vom Team-Status ab */
   abweichung: boolean
+  /** Treffer, die nach N3.4 KEINE Restfundstelle sind — gezeigt, nicht gezählt */
+  ausgenommen: Ausgenommen[]
 }
 
-const norm = (s: string) => s.replace(/­/g, '').replace(/\s+/g, ' ').toLowerCase()
+/**
+ * Warum ein Treffer nicht zählt (N3.4): Verbform eines Nomen/Verb-Paars
+ * („to call out" bei einem „callout"-Befund), als Zitat erkennbar, oder
+ * wörtlich in einem Master-Dokument belegt (Regelwerk/OEM-Zitat).
+ */
+export type Ausnahme = 'verb' | 'zitat' | 'bibliothek'
+export type Ausgenommen = Fundstelle & { grund: Ausnahme; quelle?: string }
+
+const norm = (s: string) => s.replace(/\u00AD/g, '').replace(/\s+/g, ' ').toLowerCase()
 
 /** Team-Status, der „erledigt" meint (Spaltenwerte der Fremdliste). */
 const ERLEDIGT = /\b(closed|resolved|completed?|done|fixed|erledigt|geschlossen|behoben|abgeschlossen|umgesetzt|ok)\b/i
@@ -74,14 +84,77 @@ export function teamErledigt(s: string): boolean {
   return ERLEDIGT.test(s) && !/\b(not|nicht|un|partial|teilweise)\b/i.test(s)
 }
 
+/** Wörter, nach denen eine getrennte Schreibung das Verb ist: „to call out", „shall call out". */
+const VERB_VOR = /(?:^|[^\p{L}])(to|shall|will|must|should|can|cannot|may|might|would|could|not|please|also)\s$/u
+const ANFZ = /["“”„«»]/g
+
+/**
+ * Liegt Position i zwischen Anführungszeichen? Gezählt wird nur innerhalb
+ * der Zeile bzw. des Absatzes [von, bis): ungerade Zahl davor, mindestens
+ * eines danach. Ein Fenster über Absatzgrenzen könnte ein Zitatpaar
+ * anschneiden und einen echten Rest als Zitat ausgeben — der Fehler muss
+ * in die sichere Richtung gehen (im Zweifel Rest).
+ */
+export function inZitat(n: string, i: number, laenge: number, von = 0, bis = n.length): boolean {
+  const vor = n.slice(von, i).match(ANFZ)?.length ?? 0
+  const nach = n.slice(i + laenge, bis).match(ANFZ)?.length ?? 0
+  return vor % 2 === 1 && nach > 0
+}
+
+/** Seitentext normalisiert, mit Startpositionen der Zeilen/Absätze. */
+function zeilenText(text: string): { t: string; starts: number[] } {
+  const zeilen = text.replace(/\u00AD/g, '').split(/\n+/).map((z) => z.replace(/\s+/g, ' ').trim()).filter(Boolean)
+  const starts: number[] = []
+  let pos = 0
+  for (const z of zeilen) {
+    starts.push(pos)
+    pos += z.length + 1
+  }
+  return { t: zeilen.join(' '), starts }
+}
+
+const kompakt = (s: string) => norm(s).replace(/[\s-]+/g, '')
+
+interface Pruefer {
+  soll?: string[]
+  /** Normalisierte Texte der Master-Dokumente — für „in der Bibliothek belegbar" */
+  quellen?: { titel: string; n: string }[]
+}
+
 /**
  * Fundstellen von `text`. Treffer, die in einer Fundstelle des Soll-Texts
  * liegen, zählen nicht: Bei „ATO.106" → „AT.ATO.106" ist die Korrektur
- * selbst kein Rest.
+ * selbst kein Rest. Ausnahmen nach N3.4 landen in `ausgenommen`.
  */
-function suchen(docs: PaketDok[], text: string, max = 12, soll: string[] = []): Fundstelle[] {
+function suchen(docs: PaketDok[], text: string, max = 12, opt: Pruefer = {}): { treffer: Fundstelle[]; ausgenommen: Ausgenommen[] } {
+  const soll = opt.soll ?? []
+  const ausgenommen: Ausgenommen[] = []
+  // Nomen/Verb-Paar: getrennt geschriebenes Suchwort, dessen Soll die
+  // zusammengeschriebene Form ist („call out" → „callout").
+  const verbPaar = /[\s-]/.test(text.trim()) && soll.some((s) => kompakt(s) === kompakt(text) && !/[\s-]/.test(s.trim()))
+  const ausnahme = (n: string, i: number, q: string, starts: number[]): { grund: Ausnahme; quelle?: string } | null => {
+    if (verbPaar && VERB_VOR.test(n.slice(Math.max(0, i - 12), i))) return { grund: 'verb' }
+    let z = 0
+    while (z + 1 < starts.length && starts[z + 1] <= i) z++
+    if (inZitat(n, i, q.length, starts[z] ?? 0, starts[z + 1] ?? n.length)) return { grund: 'zitat' }
+    if (opt.quellen?.length) {
+      // Der Satz um den Treffer (höchstens je 80 Zeichen) — ein Satz, der
+      // wörtlich im Master steht, ist ein Zitat. Ein festes Fenster liefe
+      // über die Satzgrenze und fände sich dort nie.
+      const vor = n.slice(Math.max(0, i - 80), i)
+      const nach = n.slice(i + q.length, i + q.length + 80)
+      const anfang = vor.search(/[^.;:!?"“”„]*$/)
+      const ende = nach.search(/[.;:!?"“”„]/)
+      const umfeld = (vor.slice(anfang) + q + (ende < 0 ? nach : nach.slice(0, ende))).trim()
+      if (umfeld.length >= q.length + 20) {
+        const q2 = opt.quellen.find((x) => x.n.includes(umfeld))
+        if (q2) return { grund: 'bibliothek', quelle: q2.titel }
+      }
+    }
+    return null
+  }
   const q = norm(text)
-  if (!q) return []
+  if (!q) return { treffer: [], ausgenommen }
   const huellen = soll.map(norm).filter((x) => x !== q && x.includes(q))
   const umhuellt = (n: string, i: number) =>
     huellen.some((h) => {
@@ -91,7 +164,7 @@ function suchen(docs: PaketDok[], text: string, max = 12, soll: string[] = []): 
   const out: Fundstelle[] = []
   for (const d of docs)
     for (const p of d.pages) {
-      const t = p.text.replace(/­/g, '').replace(/\s+/g, ' ')
+      const { t, starts } = zeilenText(p.text)
       const n = t.toLowerCase()
       let i = n.indexOf(q)
       while (i >= 0 && out.length < max) {
@@ -103,7 +176,7 @@ function suchen(docs: PaketDok[], text: string, max = 12, soll: string[] = []): 
           if (wortgrenze(nach) || !/[\p{L}\p{N}]/u.test(q[q.length - 1])) {
             const a = Math.max(0, i - 40)
             const e = Math.min(t.length, i + q.length + 40)
-            out.push({
+            const f: Fundstelle = {
               dokId: d.id,
               dok: d.titel,
               kapitel: kapitelBei(d, p, n, i),
@@ -111,13 +184,16 @@ function suchen(docs: PaketDok[], text: string, max = 12, soll: string[] = []): 
               index: p.index,
               auszug: `${a > 0 ? '…' : ''}${t.slice(a, e).trim()}${e < t.length ? '…' : ''}`,
               text,
-            })
+            }
+            const aus = ausnahme(n, i, q, starts)
+            if (!aus) out.push(f)
+            else if (ausgenommen.length < max) ausgenommen.push({ ...f, ...aus })
           }
         }
         i = n.indexOf(q, i + q.length)
       }
     }
-  return out
+  return { treffer: out, ausgenommen }
 }
 
 /**
@@ -143,9 +219,13 @@ function kapitelBei(d: PaketDok, p: DocPage, n: string, i: number): string {
 
 const hatText = (docs: PaketDok[]) => docs.some((d) => d.pages.some((p) => p.text.trim().length > 0))
 
-export function befundPruefen(b: FremdBefund, ziel: Ziel, paket: PaketDok[]): ReErgebnis {
+/**
+ * @param quellen Master-Dokumente (Bibliothek, Sitzungsdokumente): Ein
+ * Treffer, dessen Umfeld dort wörtlich steht, ist ein Zitat — kein Rest.
+ */
+export function befundPruefen(b: FremdBefund, ziel: Ziel, paket: PaketDok[], quellen: PaketDok[] = []): ReErgebnis {
   const anweisung = anweisungAus(b)
-  const basis = { ref: b.ref, zeile: b.zeile, anweisung, rest: [] as Fundstelle[], belegt: [] as Fundstelle[], fehlt: [] as string[], behauptungWiderlegt: false }
+  const basis = { ref: b.ref, zeile: b.zeile, anweisung, rest: [] as Fundstelle[], belegt: [] as Fundstelle[], fehlt: [] as string[], behauptungWiderlegt: false, ausgenommen: [] as Ausgenommen[] }
   const fertig = (status: ReStatus, grund: Grund, x: Partial<ReErgebnis> = {}): ReErgebnis => {
     const r = { ...basis, ...x, status, grund }
     const team = teamErledigt(b.teamStatus)
@@ -164,22 +244,27 @@ export function befundPruefen(b: FremdBefund, ziel: Ziel, paket: PaketDok[]): Re
   const andere = paket.filter((d) => !ziele.includes(d))
   const rest: Fundstelle[] = []
   const restAnders: Fundstelle[] = []
+  const ausgenommen: Ausgenommen[] = []
+  const opt: Pruefer = { soll: anweisung.da, quellen: quellen.map((q) => ({ titel: q.titel, n: norm(q.pages.map((p) => p.text).join(' ')) })) }
   let wegErledigt = 0
   for (const w of anweisung.weg) {
-    const hier = suchen(ziele, w, 12, anweisung.da)
-    const dort = suchen(andere, w, 12, anweisung.da)
-    rest.push(...hier)
-    restAnders.push(...dort)
-    if (!hier.length) wegErledigt++
+    const hier = suchen(ziele, w, 12, opt)
+    const dort = suchen(andere, w, 12, opt)
+    rest.push(...hier.treffer)
+    restAnders.push(...dort.treffer)
+    ausgenommen.push(...hier.ausgenommen, ...dort.ausgenommen)
+    if (!hier.treffer.length) wegErledigt++
   }
   const belegt: Fundstelle[] = []
   const fehlt: string[] = []
   for (const d of anweisung.da) {
+    // Für den Nachweis zählt jeder Treffer — auch in einem Zitat steht der Text da.
     const f = suchen(ziele, d, 1)
-    if (f.length) belegt.push(...f)
+    const alle = [...f.treffer, ...f.ausgenommen]
+    if (alle.length) belegt.push(alle[0])
     else fehlt.push(d)
   }
-  const x = { rest: [...rest, ...restAnders], belegt, fehlt }
+  const x = { rest: [...rest, ...restAnders], belegt, fehlt, ausgenommen }
   const soll = anweisung.weg.length + anweisung.da.length
   const umgesetzt = wegErledigt + belegt.length
 
@@ -229,9 +314,9 @@ const SATZ: Record<RemarkSprache, Record<Grund, string>> = {
   },
 }
 
-const W: Record<RemarkSprache, { rest: string; fehlt: string; widerlegt: string; vorschlag: string; seite: string }> = {
-  de: { rest: 'Noch vorhanden', fehlt: 'Fehlt', widerlegt: 'Team-Kommentar meldet die Korrektur, im Dokument nicht nachweisbar.', vorschlag: 'Korrekturvorschlag', seite: 'S.' },
-  en: { rest: 'Still present', fehlt: 'Missing', widerlegt: 'Team comment reports the correction; not found in the document.', vorschlag: 'Proposed correction', seite: 'p.' },
+const W: Record<RemarkSprache, { rest: string; fehlt: string; widerlegt: string; vorschlag: string; seite: string; ausgenommen: (n: number) => string }> = {
+  de: { rest: 'Noch vorhanden', fehlt: 'Fehlt', widerlegt: 'Team-Kommentar meldet die Korrektur, im Dokument nicht nachweisbar.', vorschlag: 'Korrekturvorschlag', seite: 'S.', ausgenommen: (n) => `Nicht als Rest gezählt (Zitat bzw. Verbform): ${n} Fundstelle${n === 1 ? '' : 'n'}.` },
+  en: { rest: 'Still present', fehlt: 'Missing', widerlegt: 'Team comment reports the correction; not found in the document.', vorschlag: 'Proposed correction', seite: 'p.', ausgenommen: (n) => `Not counted as remaining (quotation or verb form): ${n} occurrence${n === 1 ? '' : 's'}.` },
 }
 
 const zeile = (f: Fundstelle, s: RemarkSprache) => `• ${[f.dok, f.kapitel, /^\d+$/.test(f.seite) ? `${W[s].seite} ${f.seite}` : f.seite, `„${f.auszug}"`].filter(Boolean).join(' · ')}`
@@ -252,6 +337,7 @@ export function remark(r: ReErgebnis, datum: string, s: RemarkSprache = 'de'): s
   }
   if (r.fehlt.length) teile.push(`${W[s].fehlt}: ${r.fehlt.map((x) => `„${x}"`).join(', ')}`)
   if (r.behauptungWiderlegt) teile.push(W[s].widerlegt)
+  if (r.ausgenommen?.length) teile.push(W[s].ausgenommen(r.ausgenommen.length))
   const { weg, da } = r.anweisung
   if ((r.status === 'open' || r.status === 'partial') && weg.length && da.length) teile.push(`${W[s].vorschlag}: „${weg[0]}" → „${da[0]}"`)
   return teile.join('\n')

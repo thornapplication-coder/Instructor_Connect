@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { formatDateTime } from '../../../datum'
 import { csvLesen } from '../referenz/liste'
 import type { SitzungsDok } from '../sitzung'
 import { sbxFl01 } from '../benchmark/sbx'
@@ -112,15 +113,22 @@ describe('Re-Check-Ablauf (N3.1)', () => {
     expect(zuruecknehmen(b, 1).bestaetigt).toEqual({ 2: { status: 'resolved', von: 'u-p', at: 5 } })
   })
 
-  it('CSV-Export: englischer Kopf, Remark in gewählter Sprache, bestätigt von', async () => {
-    const r = bestaetigen(pruefen(await laden()), [2], 'u-p', 5)
+  it('CSV-Export: englischer Kopf, Remark in gewählter Sprache, bestätigt von UND am (N11)', async () => {
+    const am = Date.UTC(2026, 10, 1, 9, 30)
+    const r = bestaetigen(pruefen(await laden()), [2], 'u-p', am)
     const zeilenCsv = csvLesen(csvExport(r, '2026-11-01', (id) => (id === 'u-p' ? 'Patrick' : id)))
-    expect(zeilenCsv[0]).toEqual(['Row', 'No.', 'Document', 'Page (list)', 'Team status', 'Proposed status', 'Deviation', 'Confirmed status', 'Confirmed by', 'Remark'])
-    expect(zeilenCsv[1].slice(0, 8)).toEqual(['2', '1', 'TM', '', 'Closed', 'Not resolved', 'yes', ''])
-    expect(zeilenCsv[1][9]).toMatch(/^NICHT BEHOBEN \(Re-Check 01\.11\.2026\)/)
-    expect(zeilenCsv[2].slice(5, 9)).toEqual(['Resolved', 'yes', 'Resolved', 'Patrick'])
-    expect(csvLesen(csvExport({ ...r, sprache: 'en' }, '2026-11-01', String))[3][9]).toMatch(/^NOT VERIFIABLE/)
+    expect(zeilenCsv[0]).toEqual(['Row', 'No.', 'Document', 'Page (list)', 'Team status', 'Proposed status', 'Deviation', 'Confirmed status', 'Confirmed by', 'Confirmed on', 'Remark'])
+    expect(zeilenCsv[1].slice(0, 10)).toEqual(['2', '1', 'TM', '', 'Closed', 'Not resolved', 'yes', '', '', ''])
+    expect(zeilenCsv[1][10]).toMatch(/^NICHT BEHOBEN \(Re-Check 01\.11\.2026\)/)
+    expect(zeilenCsv[2].slice(5, 10)).toEqual(['Resolved', 'yes', 'Resolved', 'Patrick', formatDateTime(am)])
+    expect(csvLesen(csvExport({ ...r, sprache: 'en' }, '2026-11-01', String))[3][10]).toMatch(/^NOT VERIFIABLE/)
     expect(csvExport({ ...r, ergebnisse: null }, '2026-11-01', String).split('\n').filter(Boolean)).toHaveLength(1)
+  })
+
+  it('CSV-Export nennt bei XLSX die Excel-Zeile, nicht die Rasterzeile', async () => {
+    const d = await sbxFl01()
+    const r = pruefen(blattWaehlen('SBX-FL-01.xlsx', await listeLesen('SBX-FL-01.xlsx', d), 0, docs, ablage(), d))
+    expect(csvLesen(csvExport(r, '2026-11-01', String))[1][0]).toBe('4')
   })
 
   it('Rückschreiben: nur bei XLSX mit Original; nur bestätigte Zeilen, Excel-Zeilennummern, Status nach Werteliste', async () => {

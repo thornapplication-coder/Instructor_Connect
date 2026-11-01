@@ -224,6 +224,7 @@
     "bibliothek": "Bibliothek",
     "nachpruefungen": "Nachprüfungen",
     "befunde": "Befunde",
+    "recheck": "Re-Check",
     "chat": "Chat",
     "startOnDesktop": "Nachprüfung am Desktop starten",
     "openState": "Prüfstand-Datei (.doccheck.json) öffnen, Befunde ansehen und exportieren.",
@@ -573,6 +574,18 @@
       "start": "Neue Excel-Datei erzeugen",
       "fertig": "{{name}} erzeugt",
       "fehler": "Die Datei konnte nicht geschrieben werden – das Original ist unverändert."
+    },
+    "mobil": {
+      "leer": "Noch kein Re-Check in dieser Sitzung. Gestartet wird er am Desktop; danach lassen sich die Vorschläge hier ansehen und bestätigen.",
+      "nurOffen": "Nur unbestätigte Vorschläge",
+      "alleBestaetigt": "Alle Vorschläge sind bestätigt.",
+      "startDesktop": "Liste laden und Prüfung starten nur am Desktop."
+    },
+    "aus": {
+      "verb": "Verbform – nicht gezählt",
+      "zitat": "Zitat – nicht gezählt",
+      "bibliothek": "In Quelle belegt – nicht gezählt",
+      "bibliothekVon": "Zitat aus {{quelle}} – nicht gezählt"
     }
   }
 }

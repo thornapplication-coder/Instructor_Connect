@@ -1,5 +1,5 @@
 import { csvRow } from '../../../csv'
-import { formatDate } from '../../../datum'
+import { formatDate, formatDateTime } from '../../../datum'
 import { xlsxTabellen } from '../parse/xlsx'
 import { csvLesen } from '../referenz/liste'
 import type { SitzungsDok } from '../sitzung'
@@ -167,11 +167,12 @@ export function zaehlen(r: ReCheckSitzung): Record<ReStatus, number> {
  * Remarks in der gewählten Sprache.
  */
 export function csvExport(r: ReCheckSitzung, datum: string, name: (id: string) => string): string {
-  const kopf = ['Row', 'No.', 'Document', 'Page (list)', 'Team status', 'Proposed status', 'Deviation', 'Confirmed status', 'Confirmed by', 'Remark']
+  // N11: „Confirmed by / on" — wer und wann, beides.
+  const kopf = ['Row', 'No.', 'Document', 'Page (list)', 'Team status', 'Proposed status', 'Deviation', 'Confirmed status', 'Confirmed by', 'Confirmed on', 'Remark']
   const reihen = (r.ergebnisse ?? []).map((e) => {
     const b = r.befunde.find((x) => x.zeile === e.zeile)!
     const ok = r.bestaetigt[e.zeile]
-    return csvRow([e.zeile + 1, b.ref, b.dokument, b.seite, b.teamStatus, STATUS_NAME[e.status], e.abweichung ? 'yes' : '', ok ? STATUS_NAME[ok.status] : '', ok ? name(ok.von) : '', remark(e, datum, r.sprache)])
+    return csvRow([b.excelZeile ?? e.zeile + 1, b.ref, b.dokument, b.seite, b.teamStatus, STATUS_NAME[e.status], e.abweichung ? 'yes' : '', ok ? STATUS_NAME[ok.status] : '', ok ? name(ok.von) : '', ok ? formatDateTime(ok.at) : '', remark(e, datum, r.sprache)])
   })
   return [csvRow(kopf), ...reihen].join('')
 }

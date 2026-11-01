@@ -231,8 +231,11 @@ export class Kern {
    * Paket — alle Prüfdokumente, nicht nur das genannte (N3.4).
    */
   nachpruefen(auftraege: { befund: FremdBefund; ziel: Ziel }[]): ReErgebnis[] {
-    const paket = [...this.docs.entries()].filter(([, d]) => d.pruefen).map(([id, d]) => ({ id, titel: d.titel, pages: d.roh.pages, outline: d.roh.outline }))
-    return auftraege.map((a) => befundPruefen(a.befund, a.ziel, paket))
+    const alle = [...this.docs.entries()].map(([id, d]) => ({ id, titel: d.titel, pages: d.roh.pages, outline: d.roh.outline, pruefen: !!d.pruefen }))
+    // Master- und Sitzungsdokumente sind die Quelle wörtlicher Zitate (N3.4).
+    const paket = alle.filter((d) => d.pruefen)
+    const quellen = alle.filter((d) => !d.pruefen)
+    return auftraege.map((a) => befundPruefen(a.befund, a.ziel, paket, quellen))
   }
 
   get anzahl(): number {

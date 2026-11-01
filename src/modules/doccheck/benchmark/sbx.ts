@@ -292,7 +292,8 @@ function kapitelDocx(titel: string, kapitel: [string, number, string[]][]): Prom
 export async function sbxPkg01(): Promise<{ name: string; titel: string; kuerzel: string; daten: Uint8Array }[]> {
   const tm = await kapitelDocx('SBX-PKG-01 Training Manual R0.1', [
     ['1 General', 1, ['This Training Manual applies to the ATO AT.ATO.106.', 'The checklist shall be used for every flight. The callout "V1" is made by the PM.', 'Abbreviations: PF pilot flying, PM pilot monitoring. The LEP lists all pages.']],
-    ['1.1 Training Records', 2, ['Training records are kept for 5 years.']],
+    // Wörtliches Zitat (N3.4): „check list" im Zitat ist kein Rest von Befund 1.
+    ['1.1 Training Records', 2, ['Training records are kept for 5 years. The authority requires: "Each check list shall be signed by the instructor."']],
     ['2 Simulator Training', 1, ['Each Revision of the syllabus is approved by the Head of Training. The Revsion history is kept with the manual.']],
     ['3 Assessment', 1, ['The instructor assesses the competency of the trainee. Threat management is briefed before each session.']],
   ])

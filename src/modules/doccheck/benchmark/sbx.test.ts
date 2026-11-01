@@ -178,6 +178,8 @@ describe('Abnahme N3.6: SBX-FL-01 gegen SBX-PKG-01 R0.1 (regelbasiert)', () => {
     expect(r2.belegt).toEqual([expect.objectContaining({ dokId: 'TM', kapitel: '1 General' })])
     expect(ergebnisse[5].rest[0].kapitel).toBe('2 Simulator Training')
     expect(remark(r2, '2026-11-01')).toMatch(/^TEILWEISE BEHOBEN \(Re-Check 01\.11\.2026\)/)
+    // Zitat im TM wird gezeigt, aber nicht als Rest gezählt (N3.4) — #1 bleibt behoben.
+    expect(ergebnisse[0].ausgenommen).toEqual([expect.objectContaining({ grund: 'zitat', kapitel: '1.1 Training Records' })])
     // Behauptung im Team-Kommentar wird überprüft, nicht übernommen.
     expect(ergebnisse[2].behauptungWiderlegt).toBe(true)
     expect(ergebnisse[16].behauptungWiderlegt).toBe(true)

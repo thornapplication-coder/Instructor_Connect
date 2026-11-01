@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { FremdBefund } from './fremdliste'
-import { befundPruefen, remark, STATUS_NAME, teamErledigt, type PaketDok } from './pruefen'
+import { befundPruefen, inZitat, remark, STATUS_NAME, teamErledigt, type PaketDok } from './pruefen'
 
 const seite = (index: number, text: string, kapitel?: string) => ({ index, text, label: index === 2 ? 'S. 2 (±1)' : undefined, sectionPath: kapitel ? ['Teil', kapitel] : undefined })
 const paket: PaketDok[] = [
@@ -103,3 +103,55 @@ describe('Remark (N3.2)', () => {
     expect(r.rest[0].auszug).toMatch(/^….*ZIEL.*…$/)
   })
 })
+
+describe('Restfundstellen-Regel: Ausnahmen (N3.4)', () => {
+  const dok = (text: string): PaketDok[] => [{ id: 'd', titel: 'D', pages: [{ index: 1, text }] }]
+  const ersetzen = 'Replace "call out" with "callout"'
+
+  it('Nomen/Verb-Paar: „to call out" ist keine Restfundstelle, „each call out" schon', () => {
+    const r = befundPruefen(b({ befund: ersetzen }), { art: 'paket' }, dok('The PM will call out the speed. The callout is standard. Each call out is logged. Pilots need to call out "V1".'))
+    expect(r.rest.map((f) => f.auszug.includes('Each call out'))).toEqual([true])
+    expect(r.ausgenommen.map((f) => f.grund)).toEqual(['verb', 'verb'])
+    // „callout" steht schon da, ein „call out" auch noch → teilweise
+    expect(r.status).toBe('partial')
+    expect(befundPruefen(b({ befund: ersetzen }), { art: 'paket' }, dok('Crews shall call out deviations. The callout is standard.')).status).toBe('resolved')
+  })
+
+  it('Verbform gilt nur bei einem Schreibweisen-Paar — „delete" eines Ausdrucks zählt jeden Treffer', () => {
+    const r = befundPruefen(b({ befund: 'Delete "call out"' }), { art: 'paket' }, dok('Crews shall call out deviations.'))
+    expect(r).toMatchObject({ status: 'open', ausgenommen: [] })
+  })
+
+  it('erkennbares Zitat zählt nicht; Anführungszeichen in einer anderen Zeile machen keinen Treffer zum Zitat', () => {
+    const r = befundPruefen(b({ befund: 'Replace "check list" with "checklist"' }), { art: 'paket' }, dok('AMC1 states: “The check list shall be used.”\nOur check list is used. The checklist is new.'))
+    expect(r.ausgenommen).toEqual([expect.objectContaining({ grund: 'zitat' })])
+    expect(r.rest).toHaveLength(1)
+    // Zitat beginnt in Zeile 1, Treffer in Zeile 2 — im Zweifel Rest (sichere Richtung)
+    const z = befundPruefen(b({ befund: 'Delete "check list"' }), { art: 'paket' }, dok('He wrote "see\nthe check list" today.'))
+    expect([z.rest.length, z.ausgenommen.length]).toEqual([1, 0])
+  })
+
+  it('wörtlich in einem Master-Dokument belegt → Zitat aus der Bibliothek; zu kurzes Umfeld wird nicht geprüft', () => {
+    const quelle: PaketDok[] = [{ id: 'm', titel: 'AMC1 ORA.ATO.230', pages: [{ index: 1, text: 'The instructor shall verify the check list before each training flight.' }] }]
+    const r = befundPruefen(b({ befund: 'Delete "check list"' }), { art: 'paket' }, dok('As required: The instructor shall verify the check list before each training flight. Our check list differs.'), quelle)
+    expect(r.ausgenommen).toEqual([expect.objectContaining({ grund: 'bibliothek', quelle: 'AMC1 ORA.ATO.230' })])
+    expect(r.rest).toHaveLength(1)
+    expect(befundPruefen(b({ befund: 'Delete "check list"' }), { art: 'paket' }, dok('check list'), quelle).rest).toHaveLength(1)
+  })
+
+  it('Remark nennt die nicht gezählten Fundstellen; der Nachweis zählt auch in einem Zitat', () => {
+    const r = befundPruefen(b({ befund: ersetzen }), { art: 'paket' }, dok('Crews shall call out deviations. "The callout" is defined.'))
+    expect(r.belegt).toHaveLength(1)
+    expect(remark(r, '2026-11-01')).toBe('BEHOBEN (Re-Check 01.11.2026): Korrektur im gesamten Paket umgesetzt.\nNicht als Rest gezählt (Zitat bzw. Verbform): 1 Fundstelle.')
+    const zwei = befundPruefen(b({ befund: ersetzen }), { art: 'paket' }, dok('to call out; must call out. The callout.'))
+    expect(remark(zwei, '2026-11-01', 'en')).toContain('Not counted as remaining (quotation or verb form): 2 occurrences.')
+  })
+
+  it('inZitat zählt nur im angegebenen Bereich', () => {
+    expect(inZitat('a "b c" d', 3, 1)).toBe(true)
+    expect(inZitat('a "b c" d', 8, 1)).toBe(false)
+    expect(inZitat('"x" y "z', 4, 1)).toBe(false)
+    expect(inZitat('" | a b"', 4, 1, 3)).toBe(false)
+  })
+})
+
