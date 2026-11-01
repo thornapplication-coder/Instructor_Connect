@@ -1,5 +1,6 @@
 import { vergleichsform } from '../parse/seitenzuordnung'
 import type { Zuordnung } from './fremdliste'
+import type { WerteZuordnung } from './rueckschreiben'
 
 /**
  * Listenprofile (N3.1 Schritt 2): Die bestätigte Spaltenzuordnung wird
@@ -12,6 +13,8 @@ import type { Zuordnung } from './fremdliste'
  */
 
 export const PROFIL_KEY = 'dc-listenprofile'
+/** Werte-Mapping DocCheck-Status → Werte der Fremdliste (Nachtrag Kap. 18) — eigener Schlüssel, damit alte Profile gültig bleiben. */
+export const WERTE_KEY = 'dc-werteprofile'
 
 export function signatur(kopf: string[]): string {
   return kopf.map(vergleichsform).join('|')
@@ -19,9 +22,9 @@ export function signatur(kopf: string[]): string {
 
 type Ablage = Pick<Storage, 'getItem' | 'setItem'>
 
-function alle(ablage: Ablage): Record<string, Zuordnung> {
+function alle<T = Zuordnung>(ablage: Ablage, key = PROFIL_KEY): Record<string, T> {
   try {
-    return JSON.parse(ablage.getItem(PROFIL_KEY) ?? '{}') as Record<string, Zuordnung>
+    return JSON.parse(ablage.getItem(key) ?? '{}') as Record<string, T>
   } catch {
     return {}
   }
@@ -36,5 +39,17 @@ export function profilSpeichern(kopf: string[], z: Zuordnung, ablage: Ablage): v
     ablage.setItem(PROFIL_KEY, JSON.stringify({ ...alle(ablage), [signatur(kopf)]: z }))
   } catch {
     /* voller oder gesperrter Speicher: dann eben ohne Profil */
+  }
+}
+
+export function werteLaden(kopf: string[], ablage: Ablage): WerteZuordnung | null {
+  return alle<WerteZuordnung>(ablage, WERTE_KEY)[signatur(kopf)] ?? null
+}
+
+export function werteSpeichern(kopf: string[], w: WerteZuordnung, ablage: Ablage): void {
+  try {
+    ablage.setItem(WERTE_KEY, JSON.stringify({ ...alle<WerteZuordnung>(ablage, WERTE_KEY), [signatur(kopf)]: w }))
+  } catch {
+    /* wie oben */
   }
 }

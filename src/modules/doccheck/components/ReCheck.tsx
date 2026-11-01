@@ -1,4 +1,4 @@
-import { CheckCheck, ChevronDown, ChevronRight, Download, Eye, FileSpreadsheet, RotateCcw, SearchCheck, Undo2 } from 'lucide-react'
+import { CheckCheck, ChevronDown, ChevronRight, Download, Eye, FileDown, FileSpreadsheet, RotateCcw, SearchCheck, Undo2 } from 'lucide-react'
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, CardHeading, Field, selectCls } from '../../../components/ui'
@@ -20,9 +20,13 @@ import {
   zieleAuffrischen,
   zuordnungAendern,
   zuruecknehmen,
+  kannZurueckschreiben,
+  rueckschreibAuftrag,
   type Filter,
   type ReCheckSitzung,
 } from '../recheck/ablauf'
+import { werteLaden, werteSpeichern } from '../recheck/profil'
+import { ausgabeName, listenWerte, rueckschreiben, werteVorschlagen, type WerteZuordnung } from '../recheck/rueckschreiben'
 import { ROLLEN, type Rolle, type Ziel } from '../recheck/fremdliste'
 import { remark, STATUS_NAME, type ReStatus } from '../recheck/pruefen'
 import { setzen, useSitzung } from '../sitzung'
@@ -76,9 +80,11 @@ export function ReCheckTab() {
   const laden = async (f: File | undefined) => {
     if (!f) return
     try {
-      const blaetter = await listeLesen(f.name, new Uint8Array(await f.arrayBuffer()))
+      const daten = new Uint8Array(await f.arrayBuffer())
+      const blaetter = await listeLesen(f.name, daten)
       if (!blaetter.length) return toast(t('recheck.leer', { name: f.name }), 'wait')
-      const re = blattWaehlen(f.name, blaetter, 0, docs, localStorage)
+      // Original nur bei XLSX behalten — dorthin wird zurückgeschrieben (N3.5).
+      const re = blattWaehlen(f.name, blaetter, 0, docs, localStorage, /\.xlsx$/i.test(f.name) ? daten : undefined)
       setzen((s) => ({ ...s, recheck: re }))
       setOffen(null)
       if (re.ausProfil) toast(t('recheck.profilGeladen'))
@@ -139,7 +145,7 @@ export function ReCheckTab() {
             </p>
             {r.blaetter.length > 1 && (
               <Field label={t('recheck.blatt')}>
-                <select className={selectCls} value={r.blatt} onChange={(e) => setzen((s) => ({ ...s, recheck: blattWaehlen(r.datei, r.blaetter, Number(e.target.value), docs, localStorage) }))}>
+                <select className={selectCls} value={r.blatt} onChange={(e) => setzen((s) => ({ ...s, recheck: blattWaehlen(r.datei, r.blaetter, Number(e.target.value), docs, localStorage, r.original) }))}>
                   {r.blaetter.map((b, i) => (
                     <option key={b.name} value={i}>{b.name}</option>
                   ))}
@@ -375,6 +381,96 @@ export function ReCheckTab() {
           <p className="text-micro text-dim">{t('recheck.folgt')}</p>
         </Schritt>
       )}
+
+      {r && kannZurueckschreiben(r) && <Rueckschreiben r={r} />}
     </div>
+  )
+}
+
+const ZU_SCHREIBEN: ReStatus[] = ['resolved', 'partial', 'open', 'justify', 'unverifiable']
+
+/**
+ * Schritt 5: In die Originaldatei zurückschreiben (N3.5). Nur bestätigte
+ * Vorschläge; Status aus der Werteliste der Fremdliste, Zuordnung im
+ * Listenprofil gemerkt. Ausgabe als NEUE Datei — das Original bleibt.
+ */
+function Rueckschreiben({ r }: { r: ReCheckSitzung }) {
+  const { t } = useTranslation('doccheck')
+  const { now } = useStore()
+  const kopf = r.blaetter[r.blatt].zeilen[r.kopf] ?? []
+  const [werteListe, setWerteListe] = useState<string[]>([])
+  const [werte, setWerte] = useState<WerteZuordnung | null>(null)
+  const [laeuft, setLaeuft] = useState(false)
+  const sp = r.zuordnung.status
+  const ersteZeile = r.befunde.find((b) => b.excelZeile)?.excelZeile ?? 1
+
+  useEffect(() => {
+    let aktiv = true
+    const vorhandene = r.befunde.map((b) => b.teamStatus)
+    void (sp === undefined ? Promise.resolve([] as string[]) : listenWerte(r.original!, r.blaetter[r.blatt].name, sp, ersteZeile, vorhandene)).then((liste) => {
+      if (!aktiv) return
+      setWerteListe(liste)
+      setWerte(werteLaden(kopf, localStorage) ?? werteVorschlagen(liste))
+    })
+    return () => {
+      aktiv = false
+    }
+  }, [r.original, r.blatt, sp])
+
+  const anzahl = Object.keys(r.bestaetigt).length
+  const schreiben = async () => {
+    if (!werte) return
+    setLaeuft(true)
+    try {
+      const datum = new Date(now()).toISOString()
+      const { daten } = await rueckschreiben(r.original!, rueckschreibAuftrag(r, werte, datum))
+      werteSpeichern(kopf, werte, localStorage)
+      const url = URL.createObjectURL(new Blob([daten], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = ausgabeName(r.datei, datum)
+      a.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      toast(t('recheck.rs.fertig', { name: a.download }))
+    } catch {
+      toast(t('recheck.rs.fehler'), 'bad')
+    } finally {
+      setLaeuft(false)
+    }
+  }
+
+  return (
+    <Schritt n={5} titel={t('recheck.rs.titel')}>
+      <p className="text-micro leading-relaxed text-dim">{t('recheck.rs.hinweis')}</p>
+      {sp === undefined ? (
+        <p className="text-small text-wait">{t('recheck.rs.ohneStatus')}</p>
+      ) : (
+        <div className="grid gap-stack sm:grid-cols-2 xl:grid-cols-3">
+          {ZU_SCHREIBEN.map((s) => (
+            <Field key={s} label={t('recheck.rs.wert', { status: t(`recheck.status.${s}`) })}>
+              <select
+                className={selectCls}
+                value={werte?.[s] ?? ''}
+                onChange={(e) => werte && setWerte({ ...werte, [s]: e.target.value || null })}
+              >
+                <option value="">{t('recheck.rs.unveraendert')}</option>
+                {werteListe.map((w) => (
+                  <option key={w} value={w}>{w}</option>
+                ))}
+              </select>
+            </Field>
+          ))}
+        </div>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-stack">
+        <p className="text-small">
+          {t('recheck.rs.zeilen', { count: anzahl })}
+          {anzahl < r.befunde.length && <span className="block text-micro text-dim">{t('recheck.rs.nurBestaetigt')}</span>}
+        </p>
+        <Button onClick={schreiben} disabled={laeuft || !anzahl || !werte}>
+          <span className="flex items-center gap-1.5"><FileDown size={16} /> {t('recheck.rs.start')}</span>
+        </Button>
+      </div>
+    </Schritt>
   )
 }

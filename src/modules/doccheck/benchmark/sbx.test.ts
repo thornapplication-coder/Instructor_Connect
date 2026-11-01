@@ -158,11 +158,14 @@ describe('Abnahme N3.6: SBX-FL-01 gegen SBX-PKG-01 R0.1 (regelbasiert)', () => {
     const paket = await sbxPkg01()
     for (const d of paket) await kern.lesen({ id: d.kuerzel, name: d.name, daten: d.daten, titel: d.titel, pruefen: { formal: false, word: false } })
 
-    const [blatt, listen] = await xlsxTabellen(await sbxFl01())
-    expect(listen.name).toBe('Lists')
+    const [blatt, overview, listen] = await xlsxTabellen(await sbxFl01())
+    expect([overview.name, listen.name]).toEqual(['Overview', 'Lists'])
     const kopf = kopfzeileFinden(blatt.zeilen)
     expect(blatt.zeilen[kopf]).toEqual(SBX_FL_01_KOPF)
-    const befunde = befundeLesen(blatt.zeilen, kopf, zuordnungVorschlagen(blatt.zeilen[kopf]))
+    // Leere Zeile 2: Rasterzeile 1, Excel-Zeile 3
+    expect([kopf, blatt.zeilenNr[kopf]]).toEqual([1, 3])
+    const befunde = befundeLesen(blatt.zeilen, kopf, zuordnungVorschlagen(blatt.zeilen[kopf]), blatt.zeilenNr)
+    expect([befunde[0].excelZeile, befunde[19].excelZeile]).toEqual([4, 23])
     expect(befunde).toHaveLength(20)
 
     const namen = paket.map((d) => ({ id: d.kuerzel, namen: [d.kuerzel, d.titel, d.name] }))

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PROFIL_KEY, profilLaden, profilSpeichern, signatur } from './profil'
+import { PROFIL_KEY, profilLaden, profilSpeichern, signatur, WERTE_KEY, werteLaden, werteSpeichern } from './profil'
 
 const ablage = () => {
   const m = new Map<string, string>()
@@ -25,5 +25,17 @@ describe('Listenprofile (N3.1 Schritt 2)', () => {
     const kaputt = { getItem: () => '{', setItem: () => { throw new Error('quota') } }
     expect(profilLaden(['x'], kaputt)).toBeNull()
     expect(() => profilSpeichern(['x'], {}, kaputt)).not.toThrow()
+  })
+
+  it('Werte-Mapping je Liste — getrennt vom Spaltenprofil, kaputter Speicher ohne Absturz', () => {
+    const a = ablage()
+    const w = { resolved: 'Closed', partial: 'In Review', open: 'Open', justify: null, unverifiable: null }
+    werteSpeichern(['No.', 'Status'], w, a)
+    expect(werteLaden(['no', 'STATUS'], a)).toEqual(w)
+    expect(a.m.has(PROFIL_KEY)).toBe(false)
+    expect(a.m.has(WERTE_KEY)).toBe(true)
+    const kaputt = { getItem: () => '{', setItem: () => { throw new Error('quota') } }
+    expect(werteLaden(['x'], kaputt)).toBeNull()
+    expect(() => werteSpeichern(['x'], w, kaputt)).not.toThrow()
   })
 })

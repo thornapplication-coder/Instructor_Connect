@@ -1,6 +1,6 @@
 import JSZip from 'jszip'
 import { describe, expect, it } from 'vitest'
-import { blattZeilen, geteilteTexte, xlsxLesen } from './xlsx'
+import { blattRaster, blattZeilen, geteilteTexte, xlsxLesen, xlsxTabellen } from './xlsx'
 
 export async function xlsxBauen(): Promise<Uint8Array> {
   const zip = new JSZip()
@@ -38,5 +38,14 @@ describe('XLSX lesen (Spez. 7.4)', () => {
     z2.file('xl/workbook.xml', '<workbook><sheets><sheet r:id="rX"/></sheets></workbook>')
     const r = await xlsxLesen(await z2.generateAsync({ type: 'uint8array' }))
     expect(r.pages.map((p) => p.label)).toEqual(['Sheet1'])
+  })
+
+  it('Raster mit Excel-Zeilennummern: leere Zeilen fallen weg, die Nummern bleiben (fürs Rückschreiben)', async () => {
+    const nr: number[] = []
+    const xml = '<row r="1"><c r="A1" t="inlineStr"><is><t>Titel</t></is></c></row><row r="2"/><row r="5"><c r="C5"><v>7</v></c></row><row><c r="A6"><v>8</v></c></row>'
+    expect(blattRaster(xml, [], nr)).toEqual([['Titel'], ['', '', '7'], ['8']])
+    expect(nr).toEqual([1, 5, 6])
+    const [limits] = await xlsxTabellen(await xlsxBauen())
+    expect(limits.zeilenNr).toEqual([1, 2])
   })
 })

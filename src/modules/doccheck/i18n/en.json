@@ -560,6 +560,19 @@
     "zuruecknehmen": "Withdraw confirmation",
     "bestaetigtToast_one": "{{count}} proposal confirmed",
     "bestaetigtToast_other": "{{count}} proposals confirmed",
-    "folgt": "Next: AI check of content findings and write-back into the original file (layout, drop-downs and charts preserved)."
+    "folgt": "Next: AI check of content findings and the “New findings” sheet for findings raised by the re-check itself.",
+    "rs": {
+      "titel": "Write back to the original file",
+      "hinweis": "DocCheck sets the status column to the confirmed value from the list's own value list and adds a remark column on the right. Everything else stays as it is — drop-downs, conditional formatting, charts. The original is not overwritten: a new file with the date in its name is created.",
+      "ohneStatus": "No status column mapped — only remarks will be written.",
+      "wert": "“{{status}}” writes",
+      "unveraendert": "— leave unchanged —",
+      "zeilen_one": "{{count}} confirmed row will be written.",
+      "zeilen_other": "{{count}} confirmed rows will be written.",
+      "nurBestaetigt": "Unconfirmed proposals are left out — in the original a proposal would look like a decision.",
+      "start": "Create new Excel file",
+      "fertig": "{{name}} created",
+      "fehler": "The file could not be written — the original is unchanged."
+    }
   }
 }

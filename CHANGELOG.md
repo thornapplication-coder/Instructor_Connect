@@ -777,3 +777,27 @@ Einlesen jedes Prüfdokuments und erneut nach OCR oder Word-PDF-Paar.
   Statusvorschläge wie erwartet.
 - Noch offen: KI-Prüfung inhaltlicher Befunde und Rückschreiben in die
   Originaldatei (N3.5).
+
+## 1.12.0 — 2026-11-01
+
+- **DocCheck: Rückschreiben in die Originaldatei der Findingliste
+  (Nachtrag N3.5).** Neuer Schritt im Re-Check: Die bestätigten
+  Vorschläge setzen die Status-Spalte auf einen Wert aus der Werteliste
+  der Liste (Dropdown, auch im x14-Erweiterungsbereich mit Bezug auf ein
+  verstecktes Blatt), rechts kommt eine Remark-Spalte im Stil der
+  Kopfzeile dazu (Umbruch, Breite 95). Die Statuszuordnung wird je Liste
+  gemerkt. Ausgabe als neue Datei mit Datum im Namen.
+  - Patch auf XML-Ebene: Dropdowns, bedingte Formatierung, verbundene
+    Zellen, fixierte Kopfzeile, Autofilter und Diagramme bleiben
+    unverändert; neue Formate werden angehängt, vorhandene Indizes
+    bleiben. `calcChain` entfällt, Neuberechnung beim Öffnen; gespeicherte
+    COUNTIF-Ergebnisse werden aktualisiert.
+  - Nicht bestätigte Vorschläge werden nicht geschrieben.
+- Fehler behoben: Der Excel-Leser übersprang leere Zeilen, ohne die
+  Excel-Zeilennummer zu behalten — Befunde hätten in die falsche Zeile
+  geschrieben werden können. Das Raster trägt jetzt die Zeilennummern.
+- **Abnahme:** `SBX-FL-01` jetzt mit x14-Dropdowns auf verstecktem Blatt,
+  bedingter Formatierung, verbundenen Zellen, Übersichtsblatt mit
+  Zählformeln und Diagramm, calcChain. Round-Trip-Test: alle nicht
+  betroffenen Teile byte-gleich; Datei öffnet in LibreOffice, Zählformeln
+  zeigen die neuen Werte. Öffnungsprobe in Microsoft Excel steht aus.

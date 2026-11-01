@@ -560,6 +560,19 @@
     "zuruecknehmen": "Bestätigung zurücknehmen",
     "bestaetigtToast_one": "{{count}} Vorschlag bestätigt",
     "bestaetigtToast_other": "{{count}} Vorschläge bestätigt",
-    "folgt": "Folgt: KI-Prüfung inhaltlicher Befunde und Rückschreiben in die Originaldatei (Layout, Dropdowns und Diagramme bleiben erhalten)."
+    "folgt": "Folgt: KI-Prüfung inhaltlicher Befunde und das Blatt „Neue Findings“ für Befunde, die erst der Re-Check findet.",
+    "rs": {
+      "titel": "In Originaldatei zurückschreiben",
+      "hinweis": "DocCheck setzt die Status-Spalte auf den bestätigten Wert aus der Werteliste der Liste und fügt rechts eine Remark-Spalte an. Alles andere bleibt, wie es ist – Dropdowns, bedingte Formatierung, Diagramme. Das Original wird nicht überschrieben: Es entsteht eine neue Datei mit Datum im Namen.",
+      "ohneStatus": "Keine Status-Spalte zugeordnet – es werden nur Remarks geschrieben.",
+      "wert": "„{{status}}“ schreibt",
+      "unveraendert": "— unverändert lassen —",
+      "zeilen_one": "{{count}} bestätigte Zeile wird geschrieben.",
+      "zeilen_other": "{{count}} bestätigte Zeilen werden geschrieben.",
+      "nurBestaetigt": "Nicht bestätigte Vorschläge bleiben draußen – im Original sähe ein Vorschlag aus wie eine Entscheidung.",
+      "start": "Neue Excel-Datei erzeugen",
+      "fertig": "{{name}} erzeugt",
+      "fehler": "Die Datei konnte nicht geschrieben werden – das Original ist unverändert."
+    }
   }
 }

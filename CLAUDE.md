@@ -140,7 +140,18 @@ Findinglisten (N3, regelbasiert); kein Backend, KI simuliert. Festlegungen:
   das der Seite — ein DOCX ohne Umbrüche ist sonst eine Seite mit dem
   letzten Kapitel. Bestätigen schreibt eine Audit-Zeile ohne Befundtext.
   Schalter `recheck` ab Werk **aus** (Nachtrag Kap. 17), bis die Abnahme
-  inkl. Rückschreiben (N3.5) bestanden ist.
+  inkl. Rückschreiben (N3.5) bestanden ist — offen ist allein die
+  Öffnungsprobe in Microsoft Excel (hier nicht verfügbar).
+- **Rückschreiben in Fremdlisten** (`recheck/rueckschreiben.ts`, N3.5)
+  patcht Zeichenketten im XML, statt es neu zu serialisieren: Nur Blatt,
+  `styles.xml` (neue `cellXfs` werden ANGEHÄNGT, alte Indizes bleiben),
+  Arbeitsmappe, Beziehungen und Inhaltstypen ändern sich; `calcChain`
+  fällt weg, `fullCalcOnLoad` wird gesetzt, gespeicherte COUNTIF-Ergebnisse
+  werden nachgezogen. Der Round-Trip-Test vergleicht alle übrigen Teile
+  byte-genau. Geschrieben werden nur **bestätigte** Vorschläge; der Status
+  nur mit einem Wert aus der Werteliste der Liste (Dropdown). Der Leser
+  liefert dafür Excel-Zeilennummern (`zeilenNr`), weil das Raster leere
+  Zeilen überspringt. Das Original wird nie überschrieben.
 - **Submission gate** warnt ab Werk (`gateSperrt: false`, Entscheidung
   vom 01.11.2026); Sperre ist Einstellung des Superadmins.
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise

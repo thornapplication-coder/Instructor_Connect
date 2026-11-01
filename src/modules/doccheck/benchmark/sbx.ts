@@ -271,28 +271,6 @@ export function sbxFormal01(): Uint8Array {
 
 const x = (s: string) => esc(s).replace(/"/g, '&quot;')
 
-/** Schlanke XLSX aus Zeilen — Inline-Strings, wie sie auch das Rückschreiben (N3.5) setzt. */
-export async function xlsxPacken(blaetter: { name: string; zeilen: string[][]; versteckt?: boolean }[]): Promise<Uint8Array> {
-  const zip = new JSZip()
-  const sp = (i: number) => String.fromCharCode(65 + i)
-  zip.file('[Content_Types].xml', '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="xml" ContentType="application/xml"/></Types>')
-  zip.file(
-    'xl/workbook.xml',
-    `<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${blaetter
-      .map((b, i) => `<sheet name="${x(b.name)}" sheetId="${i + 1}"${b.versteckt ? ' state="hidden"' : ''} r:id="rId${i + 1}"/>`)
-      .join('')}</sheets></workbook>`,
-  )
-  zip.file('xl/_rels/workbook.xml.rels', `<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${blaetter.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}</Relationships>`)
-  blaetter.forEach((b, i) => {
-    const rows = b.zeilen
-      .map((z, r) => `<row r="${r + 1}">${z.map((c, k) => (c === '' ? '' : `<c r="${sp(k)}${r + 1}" t="inlineStr"><is><t xml:space="preserve">${x(c)}</t></is></c>`)).join('')}</row>`)
-      .join('')
-    zip.file(`xl/worksheets/sheet${i + 1}.xml`, `<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${rows}</sheetData></worksheet>`)
-  })
-  for (const f of Object.values(zip.files)) f.date = new Date(Date.UTC(2026, 0, 1))
-  return zip.generateAsync({ type: 'uint8array' })
-}
-
 const STILE_H = `<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>
   <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/></w:style>
   <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/></w:style>`
@@ -356,10 +334,86 @@ export const SBX_FL_01: { zeile: string[]; erwartet: 'resolved' | 'partial' | 'o
   { zeile: ['20', 'APX 4', '8', '1', 'Replace "is prepared" with "is prepared and checked".', '', 'Closed', '', 'CK'], erwartet: 'open', fall: 'Korrektur enthält den alten Text, fehlt aber' },
 ]
 
-/** Fremdliste mit Titelzeile über der Kopfzeile und verstecktem Listen-Blatt (Werteliste der Dropdowns). */
+/* Status-Werte der Dropdown-Liste von SBX-FL-01 (verstecktes Blatt „Lists"). */
+export const SBX_FL_01_WERTE = ['Open', 'In Review', 'Closed']
+
+const NS_MAIN = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
+const NS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships'
+const NS_PKG = 'http://schemas.openxmlformats.org/package/2006/relationships'
+
+/**
+ * Fremdliste wie aus dem Anlassfall (Nachtrag 6.5, Round-Trip-Abnahme):
+ * Titelzeile als verbundene Zelle, Kopfzeile in Zeile 3 (Zeile 2 leer),
+ * Formatvorlagen mit dunkler Kopfzeile, fixierte Kopfzeile und Autofilter,
+ * bedingte Formatierung der Status-Spalte, Dropdowns im Erweiterungsbereich
+ * `x14:dataValidations` mit Bezug auf das versteckte Blatt „Lists", ein
+ * Übersichtsblatt mit COUNTIF-Formeln samt Diagramm und eine calcChain.
+ * Genau die Teile, die gängige Bibliotheken beim Speichern verlieren.
+ */
 export function sbxFl01(): Promise<Uint8Array> {
-  return xlsxPacken([
-    { name: 'Findings', zeilen: [['Finding list TM / APX 4 – audit 2026'], [], SBX_FL_01_KOPF, ...SBX_FL_01.map((f) => f.zeile)] },
-    { name: 'Lists', versteckt: true, zeilen: [['Status'], ['Open'], ['In Review'], ['Closed']] },
-  ])
+  const zip = new JSZip()
+  const texte: string[] = []
+  const ss = (t: string) => {
+    const i = texte.indexOf(t)
+    if (i >= 0) return i
+    texte.push(t)
+    return texte.length - 1
+  }
+  const sp = (i: number) => String.fromCharCode(65 + i)
+  const zelleS = (ref: string, t: string, s: number) => (t === '' ? `<c r="${ref}" s="${s}"/>` : `<c r="${ref}" s="${s}" t="s"><v>${ss(t)}</v></c>`)
+
+  // Blatt 1: Findings
+  const kopfZeile = `<row r="3" spans="1:9" ht="30" customHeight="1">${SBX_FL_01_KOPF.map((k, i) => zelleS(`${sp(i)}3`, k, 1)).join('')}</row>`
+  const daten = SBX_FL_01.map((f, n) => `<row r="${n + 4}" spans="1:9">${f.zeile.map((w, i) => zelleS(`${sp(i)}${n + 4}`, w, 2)).join('')}</row>`).join('')
+  const letzte = SBX_FL_01.length + 3
+  const findings = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="${NS_MAIN}" xmlns:r="${NS_REL}" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" mc:Ignorable="x14ac"><dimension ref="A1:I${letzte}"/><sheetViews><sheetView tabSelected="1" workbookViewId="0"><pane ySplit="3" topLeftCell="A4" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A4" sqref="A4"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="15" x14ac:dyDescent="0.25"/><cols><col min="1" max="1" width="6" customWidth="1"/><col min="2" max="4" width="12" customWidth="1"/><col min="5" max="6" width="48" customWidth="1"/><col min="7" max="7" width="16" customWidth="1"/><col min="8" max="9" width="18" customWidth="1"/></cols><sheetData><row r="1" spans="1:9" ht="24" customHeight="1">${zelleS('A1', 'Finding list TM / APX 4 – audit 2026', 3)}</row><row r="2" spans="1:9"/>${kopfZeile}${daten}</sheetData><autoFilter ref="A3:I${letzte}"/><mergeCells count="1"><mergeCell ref="A1:I1"/></mergeCells><conditionalFormatting sqref="G4:G${letzte}"><cfRule type="cellIs" dxfId="0" priority="1" operator="equal"><formula>"Closed"</formula></cfRule><cfRule type="cellIs" dxfId="1" priority="2" operator="equal"><formula>"Open"</formula></cfRule></conditionalFormatting><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/><pageSetup paperSize="9" orientation="landscape"/><extLst><ext uri="{CCE6A557-97BC-4b89-ADB6-D9C93CAAB3DF}" xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main"><x14:dataValidations count="1" xmlns:xm="http://schemas.microsoft.com/office/excel/2006/main"><x14:dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1"><x14:formula1><xm:f>Lists!$A$2:$A$4</xm:f></x14:formula1><xm:sqref>G4:G${letzte}</xm:sqref></x14:dataValidation></x14:dataValidations></ext></extLst></worksheet>`
+
+  // Blatt 2: Overview mit Zählformeln (gespeicherte Ergebnisse passend zur Liste)
+  const zaehl = (w: string) => SBX_FL_01.filter((f) => f.zeile[6] === w).length
+  const overview = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="${NS_MAIN}" xmlns:r="${NS_REL}"><dimension ref="A1:B5"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetFormatPr defaultRowHeight="15"/><sheetData><row r="1">${zelleS('A1', 'Status', 1)}${zelleS('B1', 'Count', 1)}</row>${SBX_FL_01_WERTE.map((w, i) => `<row r="${i + 2}">${zelleS(`A${i + 2}`, w, 0)}<c r="B${i + 2}"><f>COUNTIF(Findings!$G$4:$G$${letzte},A${i + 2})</f><v>${zaehl(w)}</v></c></row>`).join('')}<row r="5">${zelleS('A5', 'Closed (text)', 0)}<c r="B5"><f>COUNTIF(Findings!G:G,"Closed")</f><v>${zaehl('Closed')}</v></c></row></sheetData><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/><drawing r:id="rId1"/></worksheet>`
+
+  // Blatt 3: Lists (versteckt) — Werteliste der Dropdowns
+  const lists = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="${NS_MAIN}" xmlns:r="${NS_REL}"><dimension ref="A1:A4"/><sheetData><row r="1">${zelleS('A1', 'Status', 0)}</row>${SBX_FL_01_WERTE.map((w, i) => `<row r="${i + 2}">${zelleS(`A${i + 2}`, w, 0)}</row>`).join('')}</sheetData><pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/></worksheet>`
+
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="${NS_MAIN}"><fonts count="3"><font><sz val="11"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font><font><b/><sz val="14"/><name val="Calibri"/><family val="2"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF1F3864"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"><color auto="1"/></left><right style="thin"><color auto="1"/></right><top style="thin"><color auto="1"/></top><bottom style="thin"><color auto="1"/></bottom><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="4"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1"><alignment vertical="top"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles><dxfs count="2"><dxf><fill><patternFill><bgColor rgb="FFC6EFCE"/></patternFill></fill></dxf><dxf><fill><patternFill><bgColor rgb="FFFFC7CE"/></patternFill></fill></dxf></dxfs></styleSheet>`
+
+  const chart = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="${NS_REL}"><c:chart><c:autoTitleDeleted val="1"/><c:plotArea><c:layout/><c:barChart><c:barDir val="col"/><c:grouping val="clustered"/><c:varyColors val="0"/><c:ser><c:idx val="0"/><c:order val="0"/><c:cat><c:strRef><c:f>Overview!$A$2:$A$4</c:f></c:strRef></c:cat><c:val><c:numRef><c:f>Overview!$B$2:$B$4</c:f></c:numRef></c:val></c:ser><c:axId val="1001"/><c:axId val="1002"/></c:barChart><c:catAx><c:axId val="1001"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="b"/><c:crossAx val="1002"/></c:catAx><c:valAx><c:axId val="1002"/><c:scaling><c:orientation val="minMax"/></c:scaling><c:delete val="0"/><c:axPos val="l"/><c:crossAx val="1001"/></c:valAx></c:plotArea><c:plotVisOnly val="1"/></c:chart></c:chartSpace>`
+  const drawing = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><xdr:twoCellAnchor><xdr:from><xdr:col>3</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>1</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>10</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>16</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:graphicFrame macro=""><xdr:nvGraphicFramePr><xdr:cNvPr id="2" name="Status chart"/><xdr:cNvGraphicFramePr/></xdr:nvGraphicFramePr><xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm><a:graphic><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart"><c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart" xmlns:r="${NS_REL}" r:id="rId1"/></a:graphicData></a:graphic></xdr:graphicFrame><xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>`
+
+  const ct = 'application/vnd.openxmlformats-officedocument'
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="${ct}.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="${ct}.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="${ct}.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="${ct}.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet3.xml" ContentType="${ct}.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="${ct}.spreadsheetml.styles+xml"/><Override PartName="/xl/sharedStrings.xml" ContentType="${ct}.spreadsheetml.sharedStrings+xml"/><Override PartName="/xl/calcChain.xml" ContentType="${ct}.spreadsheetml.calcChain+xml"/><Override PartName="/xl/drawings/drawing1.xml" ContentType="${ct}.drawing+xml"/><Override PartName="/xl/charts/chart1.xml" ContentType="${ct}.drawingml.chart+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="${ct}.extended-properties+xml"/></Types>`)
+  zip.file('_rels/.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="${NS_PKG}"><Relationship Id="rId1" Type="${NS_REL}/officeDocument" Target="xl/workbook.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="${NS_REL}/extended-properties" Target="docProps/app.xml"/></Relationships>`)
+  zip.file('docProps/app.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>Microsoft Excel</Application><TitlesOfParts><vt:vector size="3" baseType="lpstr"><vt:lpstr>Findings</vt:lpstr><vt:lpstr>Overview</vt:lpstr><vt:lpstr>Lists</vt:lpstr></vt:vector></TitlesOfParts></Properties>`)
+  zip.file('docProps/core.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title>SBX-FL-01 Finding list</dc:title><dcterms:modified xsi:type="dcterms:W3CDTF">2026-10-15T08:00:00Z</dcterms:modified></cp:coreProperties>`)
+  zip.file('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="${NS_MAIN}" xmlns:r="${NS_REL}"><workbookPr defaultThemeVersion="164011"/><bookViews><workbookView xWindow="0" yWindow="0" windowWidth="28800" windowHeight="12300"/></bookViews><sheets><sheet name="Findings" sheetId="1" r:id="rId1"/><sheet name="Overview" sheetId="2" r:id="rId2"/><sheet name="Lists" sheetId="3" state="hidden" r:id="rId3"/></sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">Findings!$A$3:$I$${letzte}</definedName></definedNames><calcPr calcId="191029"/></workbook>`)
+  zip.file('xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="${NS_PKG}"><Relationship Id="rId1" Type="${NS_REL}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${NS_REL}/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="${NS_REL}/worksheet" Target="worksheets/sheet3.xml"/><Relationship Id="rId4" Type="${NS_REL}/styles" Target="styles.xml"/><Relationship Id="rId5" Type="${NS_REL}/sharedStrings" Target="sharedStrings.xml"/><Relationship Id="rId6" Type="${NS_REL}/calcChain" Target="calcChain.xml"/></Relationships>`)
+  zip.file('xl/worksheets/sheet1.xml', findings)
+  zip.file('xl/worksheets/sheet2.xml', overview)
+  zip.file('xl/worksheets/sheet3.xml', lists)
+  zip.file('xl/worksheets/_rels/sheet2.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="${NS_PKG}"><Relationship Id="rId1" Type="${NS_REL}/drawing" Target="../drawings/drawing1.xml"/></Relationships>`)
+  zip.file('xl/drawings/drawing1.xml', drawing)
+  zip.file('xl/drawings/_rels/drawing1.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="${NS_PKG}"><Relationship Id="rId1" Type="${NS_REL}/chart" Target="../charts/chart1.xml"/></Relationships>`)
+  zip.file('xl/charts/chart1.xml', chart)
+  zip.file('xl/styles.xml', styles)
+  zip.file('xl/calcChain.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<calcChain xmlns="${NS_MAIN}"><c r="B2" i="2"/><c r="B3"/><c r="B4"/><c r="B5"/></calcChain>`)
+  // Shared Strings zuletzt — erst jetzt sind alle Texte gesammelt.
+  zip.file('xl/sharedStrings.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<sst xmlns="${NS_MAIN}" count="${texte.length}" uniqueCount="${texte.length}">${texte.map((t) => `<si><t xml:space="preserve">${x(t)}</t></si>`).join('')}</sst>`)
+  for (const f of Object.values(zip.files)) f.date = new Date(Date.UTC(2026, 0, 1))
+  return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' })
 }

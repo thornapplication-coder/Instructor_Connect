@@ -1,10 +1,12 @@
 import { csvRow } from '../../../csv'
+import { formatDate } from '../../../datum'
 import { xlsxTabellen } from '../parse/xlsx'
 import { csvLesen } from '../referenz/liste'
 import type { SitzungsDok } from '../sitzung'
 import { befundeLesen, kopfzeileFinden, zielVorschlagen, zuordnungVorschlagen, type FremdBefund, type Rolle, type Ziel, type Zuordnung } from './fremdliste'
 import { profilLaden, profilSpeichern } from './profil'
 import { remark, STATUS_NAME, type ReErgebnis, type RemarkSprache, type ReStatus } from './pruefen'
+import type { RueckschreibAuftrag, WerteZuordnung } from './rueckschreiben'
 
 /**
  * Ablauf des Re-Checks (N3.1) als reine Übergänge auf dem Sitzungsstand.
@@ -21,7 +23,9 @@ export interface Bestaetigung {
 
 export interface ReCheckSitzung {
   datei: string
-  blaetter: { name: string; zeilen: string[][] }[]
+  blaetter: { name: string; zeilen: string[][]; zeilenNr?: number[] }[]
+  /** Originaldatei (nur XLSX) — fürs Rückschreiben; bleibt wie alles hier im Speicher */
+  original?: Uint8Array
   blatt: number
   kopf: number
   zuordnung: Zuordnung
@@ -64,20 +68,21 @@ function zieleFuer(befunde: FremdBefund[], docs: SitzungsDok[], alt: Record<stri
   return out
 }
 
-export function blattWaehlen(datei: string, blaetter: ReCheckSitzung['blaetter'], blatt: number, docs: SitzungsDok[], ablage: Ablage): ReCheckSitzung {
+export function blattWaehlen(datei: string, blaetter: ReCheckSitzung['blaetter'], blatt: number, docs: SitzungsDok[], ablage: Ablage, original?: Uint8Array): ReCheckSitzung {
   const zeilen = blaetter[blatt]?.zeilen ?? []
+  const zeilenNr = blaetter[blatt]?.zeilenNr
   const kopf = kopfzeileFinden(zeilen)
   const profil = zeilen[kopf] ? profilLaden(zeilen[kopf], ablage) : null
   const zuordnung = profil ?? zuordnungVorschlagen(zeilen[kopf] ?? [])
-  const befunde = befundeLesen(zeilen, kopf, zuordnung)
-  return { datei, blaetter, blatt, kopf, zuordnung, ausProfil: !!profil, ziele: zieleFuer(befunde, docs), befunde, ergebnisse: null, bestaetigt: {}, sprache: 'de' }
+  const befunde = befundeLesen(zeilen, kopf, zuordnung, zeilenNr)
+  return { datei, blaetter, ...(original ? { original } : {}), blatt, kopf, zuordnung, ausProfil: !!profil, ziele: zieleFuer(befunde, docs), befunde, ergebnisse: null, bestaetigt: {}, sprache: 'de' }
 }
 
 /** Spalte einer Rolle ändern (null = keine). Eine Spalte gehört höchstens einer Rolle. */
 export function zuordnungAendern(r: ReCheckSitzung, rolle: Rolle, spalte: number | null, docs: SitzungsDok[]): ReCheckSitzung {
   const z: Zuordnung = Object.fromEntries(Object.entries(r.zuordnung).filter(([k, v]) => k !== rolle && v !== spalte))
   if (spalte !== null) z[rolle] = spalte
-  const befunde = befundeLesen(r.blaetter[r.blatt].zeilen, r.kopf, z)
+  const befunde = befundeLesen(r.blaetter[r.blatt].zeilen, r.kopf, z, r.blaetter[r.blatt].zeilenNr)
   return { ...r, zuordnung: z, ausProfil: false, befunde, ziele: zieleFuer(befunde, docs, r.ziele), ergebnisse: null, bestaetigt: {} }
 }
 
@@ -169,4 +174,35 @@ export function csvExport(r: ReCheckSitzung, datum: string, name: (id: string) =
     return csvRow([e.zeile + 1, b.ref, b.dokument, b.seite, b.teamStatus, STATUS_NAME[e.status], e.abweichung ? 'yes' : '', ok ? STATUS_NAME[ok.status] : '', ok ? name(ok.von) : '', remark(e, datum, r.sprache)])
   })
   return [csvRow(kopf), ...reihen].join('')
+}
+
+/* ----------------------------- Rückschreiben ----------------------------- */
+
+/** Geht das Rückschreiben? Nur bei XLSX mit Originaldatei und Excel-Zeilen. */
+export function kannZurueckschreiben(r: ReCheckSitzung): boolean {
+  return !!r.original && !!r.blaetter[r.blatt]?.zeilenNr && !!r.ergebnisse
+}
+
+/**
+ * Auftrag fürs Rückschreiben (N3.5). Geschrieben werden NUR bestätigte
+ * Vorschläge (N11) — ein Vorschlag im Original des Teams sähe aus wie eine
+ * Entscheidung. Der Status folgt der Werteliste der Fremdliste; ohne
+ * passenden Wert bleibt die Zelle, und der Remark sagt, was gilt.
+ */
+export function rueckschreibAuftrag(r: ReCheckSitzung, werte: WerteZuordnung, datum: string): RueckschreibAuftrag {
+  const b = r.blaetter[r.blatt]
+  const zeilen = (r.ergebnisse ?? [])
+    .filter((e) => r.bestaetigt[e.zeile])
+    .map((e) => {
+      const f = r.befunde.find((x) => x.zeile === e.zeile)!
+      return { excelZeile: f.excelZeile!, status: werte[r.bestaetigt[e.zeile].status], remark: remark(e, datum, r.sprache) }
+    })
+    .filter((z) => z.excelZeile)
+  return {
+    blatt: b.name,
+    kopfZeile: b.zeilenNr![r.kopf],
+    ...(r.zuordnung.status !== undefined ? { statusSpalte: r.zuordnung.status } : {}),
+    remarkTitel: r.sprache === 'de' ? `Remark Re-Check ${formatDate(datum.slice(0, 10))}` : `Remark re-check ${datum.slice(0, 10)}`,
+    zeilen,
+  }
 }

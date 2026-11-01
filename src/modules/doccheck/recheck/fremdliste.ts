@@ -53,8 +53,10 @@ export function kopfzeileFinden(zeilen: string[][]): number {
 export interface FremdBefund {
   /** Nummer aus der Liste, sonst „Zeile n" */
   ref: string
-  /** Zeile im Blatt (0-basiert) — für das spätere Rückschreiben */
+  /** Rasterzeile (0-basiert, leere Zeilen übersprungen) — Schlüssel in der Sitzung */
   zeile: number
+  /** Zeile in Excel (ab 1) — fürs Rückschreiben; fehlt bei CSV */
+  excelZeile?: number
   dokument: string
   seite: string
   kapitel: string
@@ -65,15 +67,16 @@ export interface FremdBefund {
   verantwortlich: string
 }
 
-export function befundeLesen(zeilen: string[][], kopf: number, z: Zuordnung): FremdBefund[] {
+export function befundeLesen(zeilen: string[][], kopf: number, z: Zuordnung, zeilenNr?: number[]): FremdBefund[] {
   const zelle = (row: string[], r: Rolle) => (z[r] !== undefined ? (row[z[r]!] ?? '').trim() : '')
   return zeilen
     .slice(kopf + 1)
     .map((row, i) => ({ row, zeile: kopf + 1 + i }))
     .filter(({ row }) => zelle(row, 'befund') || zelle(row, 'empfehlung'))
     .map(({ row, zeile }) => ({
-      ref: zelle(row, 'id') || `#${zeile + 1}`,
+      ref: zelle(row, 'id') || `#${zeilenNr?.[zeile] ?? zeile + 1}`,
       zeile,
+      ...(zeilenNr?.[zeile] ? { excelZeile: zeilenNr[zeile] } : {}),
       dokument: zelle(row, 'dokument'),
       seite: zelle(row, 'seite'),
       kapitel: zelle(row, 'kapitel'),

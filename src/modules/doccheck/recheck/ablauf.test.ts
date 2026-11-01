@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { csvLesen } from '../referenz/liste'
 import type { SitzungsDok } from '../sitzung'
 import { sbxFl01 } from '../benchmark/sbx'
-import { auftraege, bestaetigen, paketStand, blattWaehlen, csvExport, dokNamen, listeLesen, sammelKandidaten, zaehlen, zeilen, zielAendern, zieleAuffrischen, zuordnungAendern, zuruecknehmen, type ReCheckSitzung } from './ablauf'
+import { auftraege, bestaetigen, kannZurueckschreiben, paketStand, rueckschreibAuftrag, blattWaehlen, csvExport, dokNamen, listeLesen, sammelKandidaten, zaehlen, zeilen, zielAendern, zieleAuffrischen, zuordnungAendern, zuruecknehmen, type ReCheckSitzung } from './ablauf'
 import { befundPruefen } from './pruefen'
 import { PROFIL_KEY } from './profil'
 
@@ -28,7 +28,7 @@ const pruefen = (r: ReCheckSitzung): ReCheckSitzung => ({ ...r, ergebnisse: auft
 
 describe('Re-Check-Ablauf (N3.1)', () => {
   it('liest XLSX (alle nichtleeren Blätter) und CSV; andere Formate werden abgewiesen', async () => {
-    expect((await listeLesen('SBX-FL-01.xlsx', await sbxFl01())).map((b) => b.name)).toEqual(['Findings', 'Lists'])
+    expect((await listeLesen('SBX-FL-01.xlsx', await sbxFl01())).map((b) => b.name)).toEqual(['Findings', 'Overview', 'Lists'])
     expect(await listeLesen('leer.csv', new Uint8Array())).toEqual([])
     await expect(listeLesen('x.pdf', new Uint8Array())).rejects.toThrow('DC-RECHECK-FORMAT')
   })
@@ -121,5 +121,24 @@ describe('Re-Check-Ablauf (N3.1)', () => {
     expect(zeilenCsv[2].slice(5, 9)).toEqual(['Resolved', 'yes', 'Resolved', 'Patrick'])
     expect(csvLesen(csvExport({ ...r, sprache: 'en' }, '2026-11-01', String))[3][9]).toMatch(/^NOT VERIFIABLE/)
     expect(csvExport({ ...r, ergebnisse: null }, '2026-11-01', String).split('\n').filter(Boolean)).toHaveLength(1)
+  })
+
+  it('Rückschreiben: nur bei XLSX mit Original; nur bestätigte Zeilen, Excel-Zeilennummern, Status nach Werteliste', async () => {
+    expect(kannZurueckschreiben(pruefen(await laden()))).toBe(false)
+    const d = await sbxFl01()
+    const roh = blattWaehlen('SBX-FL-01.xlsx', await listeLesen('SBX-FL-01.xlsx', d), 0, docs, ablage(), d)
+    expect(kannZurueckschreiben(roh)).toBe(false)
+    const r = bestaetigen(pruefen(roh), [roh.befunde[0].zeile, roh.befunde[2].zeile], 'u', 1)
+    expect(kannZurueckschreiben(r)).toBe(true)
+    const werte = { resolved: 'Closed', partial: 'In Review', open: 'Open', justify: null, unverifiable: null }
+    const a = rueckschreibAuftrag(r, werte, '2026-11-01T09:00:00Z')
+    expect(a).toMatchObject({ blatt: 'Findings', kopfZeile: 3, statusSpalte: 6, remarkTitel: 'Remark Re-Check 01.11.2026' })
+    expect(a.zeilen.map((z) => [z.excelZeile, z.status])).toEqual([[4, werte[r.bestaetigt[roh.befunde[0].zeile].status]], [6, werte[r.bestaetigt[roh.befunde[2].zeile].status]]])
+    expect(a.zeilen[0].remark).toMatch(/\(Re-Check 01\.11\.2026\)/)
+    const en = rueckschreibAuftrag({ ...r, sprache: 'en', zuordnung: { ...r.zuordnung, status: undefined } }, werte, '2026-11-01')
+    expect(en.remarkTitel).toBe('Remark re-check 2026-11-01')
+    expect(en.statusSpalte).toBeUndefined()
+    // CSV-Befunde ohne Excel-Zeile werden übersprungen
+    expect(rueckschreibAuftrag({ ...r, befunde: r.befunde.map(({ excelZeile: _x, ...b }) => b), blaetter: [{ ...r.blaetter[0] }] }, werte, '2026-11-01').zeilen).toEqual([])
   })
 })
