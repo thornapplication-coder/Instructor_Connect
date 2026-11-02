@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LEERE_LENKUNG, type Rohdokument, type WordExtrakt } from '../parse/model'
+import { stileLesen } from '../parse/wordStile'
+import { teilLesen } from '../parse/wordTeil'
 import { REGELN } from './kontext'
 import { ausDateiname, editionVon, WORD_PUNKTE, wordCheck } from './wordCheck'
 
@@ -85,5 +87,29 @@ describe('Word-Check — Bausteine', () => {
     expect(r.befunde.find((b) => b.pruefpunkt === 'markierung')!.prioritaet).toBe('Low')
     const zweiter = wordCheck({ dokId: 'd', dokName: 'D', roh: roh(word({ abschnitte: [{ nr: 1, kopf: [{ typ: 'default', teil: 'word/header1.xml', text: 'Edition 3' }], fuss: [] }] })), meta: { revision: 'Edition 2' }, regeln: REGELN }, 'x.docx')
     expect(zweiter.befunde.find((b) => b.pruefpunkt === 'editionRevision')!.fundstellen[0].auszug).toBe('Edition 3, cover: Edition 2')
+  })
+})
+
+describe('Word-Check — Textfeld mit Rahmen (Audit 11/2026, FRD-04)', () => {
+  // Durch den echten Leser: Die Rahmenfarbe war vorher als Füllung gewertet.
+  const textfeld = (spPr: string, text: string, farbe: string) =>
+    teilLesen(`<w:p><w:r><w:drawing><wps:wsp><wps:spPr>${spPr}</wps:spPr><wps:txbx><w:txbxContent><w:p><w:r><w:rPr><w:color w:val="${farbe}"/></w:rPr><w:t>${text}</w:t></w:r></w:p></w:txbxContent></wps:txbx></wps:wsp></w:drawing></w:r></w:p>`, { teil: 'word/document.xml', ort: 'body', stile: stileLesen(''), startNr: 0 })
+
+  it('helle Box mit Rahmen in Schriftfarbe und dunkle Box mit weißem Rahmen: kein „Invisible text"', () => {
+    for (const t of [
+      textfeld('<a:solidFill><a:srgbClr val="F2F2F2"/></a:solidFill><a:ln w="6350"><a:solidFill><a:srgbClr val="1F3864"/></a:solidFill></a:ln>', 'CONTROLLED COPY', '1F3864'),
+      textfeld('<a:solidFill><a:srgbClr val="1F3864"/></a:solidFill><a:ln w="6350"><a:solidFill><a:srgbClr val="FFFFFF"/></a:solidFill></a:ln>', 'WHITE ON NAVY', 'FFFFFF'),
+      textfeld('<a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="FFFFFF"/></a:gs></a:gsLst></a:gradFill>', 'ON GRADIENT', 'FFFFFF'),
+    ]) {
+      expect(pruefe(roh(word({ absaetze: t.absaetze, laeufe: t.laeufe }))).befunde.filter((b) => b.pruefpunkt === 'unsichtbar')).toEqual([])
+    }
+    // Gegenstück: Füllung wirklich in Schriftfarbe — das bleibt ein Befund
+    const echt = textfeld('<a:solidFill><a:srgbClr val="1F3864"/></a:solidFill>', 'HIDDEN', '1F3864')
+    expect(pruefe(roh(word({ absaetze: echt.absaetze, laeufe: echt.laeufe }))).befunde.find((b) => b.pruefpunkt === 'unsichtbar')!.fundstellen[0].auszug).toBe('HIDDEN — font colour equals background (1F3864 on 1F3864)')
+  })
+
+  it('verborgener Text auf unbestimmbarem Grund nennt den Grund „unknown background"', () => {
+    const t = teilLesen('<w:p><w:r><w:drawing><wps:wsp><wps:spPr><a:noFill/></wps:spPr><wps:txbx><w:txbxContent><w:p><w:r><w:rPr><w:vanish/></w:rPr><w:t>gone</w:t></w:r></w:p></w:txbxContent></wps:txbx></wps:wsp></w:drawing></w:r></w:p>', { teil: 'word/document.xml', ort: 'body', stile: stileLesen(''), startNr: 0 })
+    expect(pruefe(roh(word({ absaetze: t.absaetze, laeufe: t.laeufe }))).befunde.find((b) => b.pruefpunkt === 'unsichtbar')!.fundstellen[0].auszug).toBe('gone — hidden (vanish) (auto on unknown background)')
   })
 })

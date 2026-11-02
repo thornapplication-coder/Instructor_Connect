@@ -32,6 +32,7 @@ import {
 import { werteLaden, werteSpeichern } from '../recheck/profil'
 import { ausgabeName, listenWerte, rueckschreiben, werteVorschlagen, type WerteZuordnung } from '../recheck/rueckschreiben'
 import { ROLLEN, type Rolle, type Ziel } from '../recheck/fremdliste'
+import { LISTE_MAX_MB, listeGroessePruefen } from '../referenz/liste'
 import { remark, STATUS_NAME, type Fundstelle, type ReStatus } from '../recheck/pruefen'
 import { setzen, useSitzung } from '../sitzung'
 import { aktiv } from '../settings'
@@ -220,6 +221,8 @@ export function ReCheckTab() {
   const laden = async (f: File | undefined) => {
     if (!f) return
     try {
+      // Größe vor dem Einlesen — eine präparierte Riesendatei soll gar nicht erst in den Speicher (SEC-01)
+      listeGroessePruefen(f.size)
       const daten = new Uint8Array(await f.arrayBuffer())
       const blaetter = await listeLesen(f.name, daten)
       if (!blaetter.length) return toast(t('recheck.leer', { name: f.name }), 'wait')
@@ -228,8 +231,10 @@ export function ReCheckTab() {
       setzen((s) => ({ ...s, recheck: re }))
       setOffen(null)
       if (re.ausProfil) toast(t('recheck.profilGeladen'))
-    } catch {
-      toast(t('recheck.format', { name: f.name }), 'bad')
+    } catch (e) {
+      // Zu groß — ob gepackt oder entpackt — ist keine Formatfrage (Audit 11/2026, DC-16)
+      const code = e instanceof Error ? e.message : ''
+      toast(code === 'DC-LISTE-GROSS' || code === 'DC-ZIP-GROSS' ? `${f.name}: ${t(`fehler.${code}`, { mb: LISTE_MAX_MB })}` : t('recheck.format', { name: f.name }), 'bad')
     }
   }
 

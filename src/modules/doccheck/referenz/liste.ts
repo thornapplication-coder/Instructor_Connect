@@ -77,7 +77,10 @@ export function kopfzeile(zeilen: string[][]): number {
   return i < 0 ? 0 : i
 }
 
-const teilen = (s?: string) => (s ?? '').split(/[;,/\n]|\s+\|\s+/).map((x) => x.trim()).filter(Boolean)
+// „|" trennt nur mit Leerraum davor und danach — als Umgebung je EIN
+// Zeichen geprüft: „\s+\|\s+" lief an langen Leerzeichenfolgen quadratisch
+// (Audit 11/2026, SEC-01); den übrigen Leerraum entfernt trim().
+const teilen = (s?: string) => (s ?? '').split(/[;,/\n]|(?<=\s)\|(?=\s)/).map((x) => x.trim()).filter(Boolean)
 
 export function listeAusTabelle(name: string, zeilen: string[][], vorgabe?: ListenArt, blatt?: string): ReferenzListe | null {
   const k = kopfzeile(zeilen)
@@ -99,6 +102,16 @@ export function listeAusTabelle(name: string, zeilen: string[][], vorgabe?: List
     case 'kennungen':
       return { ...basis, art, eintraege: daten.map((z) => ({ kennung: zelle(z, 'kennung'), ...(zelle(z, 'bezeichnung') ? { bezeichnung: zelle(z, 'bezeichnung') } : {}) })).filter((e) => e.kennung) }
   }
+}
+
+/** Größte Liste, die gelesen wird (Referenz- und Fremdlisten). Echte Listen
+ *  haben wenige hundert KB; die Grenze hält eine präparierte Datei vom
+ *  Hauptfenster fern, das diese Listen liest (Audit 11/2026, SEC-01). */
+export const LISTE_MAX_MB = 20
+
+/** Vor dem Lesen (Größe in Byte, am File schon vor dem Einlesen bekannt): zu groß → DC-LISTE-GROSS. */
+export function listeGroessePruefen(bytes: number): void {
+  if (bytes > LISTE_MAX_MB * 1024 * 1024) throw new Error('DC-LISTE-GROSS')
 }
 
 /** CSV mit Komma, Semikolon oder Tab; Anführungszeichen nach RFC 4180. */
@@ -136,6 +149,9 @@ export function mdTabelle(text: string): string[][] {
   return text
     .split(/\r?\n/)
     .filter((z) => z.trim().startsWith('|'))
-    .filter((z) => !/^\s*\|?[\s:|-]+\|?\s*$/.test(z))
+    // Trennzeile: nur |, :, - und Leerraum. Dieselbe Menge wie vorher
+    // „^\s*\|?[\s:|-]+\|?\s*$", aber ohne überlappende Wiederholungen — die
+    // brauchten für zehn präparierte Zeilen Sekunden (SEC-01).
+    .filter((z) => !/^[\s:|-]+$/.test(z))
     .map((z) => z.trim().replace(/^\||\|$/g, '').split('|').map((x) => x.trim()))
 }

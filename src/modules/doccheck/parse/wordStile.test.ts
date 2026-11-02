@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { farbe, rPrAnwenden, stileLesen, tabellenHintergrund, tabellenRPr, vorlageAufloesen, vorlageEbene } from './wordStile'
+import { farbe, rPrAnwenden, stileLesen, tabellenHintergrund, tabellenRPr, vorlageAufloesen, vorlageEbene, vorlageNummer } from './wordStile'
 
 const XML = `<w:styles>
   <w:docDefaults><w:rPrDefault><w:rPr><w:sz w:val="20"/><w:lang w:val="de-AT"/></w:rPr></w:rPrDefault></w:docDefaults>
@@ -37,6 +37,27 @@ describe('Formatvorlagen', () => {
     expect(vorlageEbene(st, 'Verzeichnis1')).toMatchObject({ toc: 1 })
     expect(vorlageEbene(st, 'Normal')).toEqual({ name: 'Normal' })
     expect(vorlageEbene(st, undefined)).toEqual({ name: undefined })
+  })
+
+  it('Listenbindung der Vorlage (w:numPr), vererbt; Liste und Ebene aus derselben Vorlage (Audit 11/2026, FRD-01)', () => {
+    const n = stileLesen(`<w:styles>
+      <w:style w:type="paragraph" w:styleId="H1"><w:name w:val="heading 1"/><w:pPr><w:numPr><w:numId w:val="10"/></w:numPr></w:pPr></w:style>
+      <w:style w:type="paragraph" w:styleId="H2"><w:name w:val="heading 2"/><w:basedOn w:val="H1"/><w:pPr><w:numPr><w:ilvl w:val="1"/><w:numId w:val="10"/></w:numPr></w:pPr></w:style>
+      <w:style w:type="paragraph" w:styleId="Kapitel"><w:name w:val="Kapitel"/><w:basedOn w:val="H2"/></w:style>
+      <w:style w:type="paragraph" w:styleId="Ohne"><w:name w:val="Ohne"/><w:basedOn w:val="H2"/><w:pPr><w:numPr><w:numId w:val="0"/></w:numPr></w:pPr></w:style>
+      <w:style w:type="table" w:styleId="T"><w:name w:val="T"/><w:tblStylePr w:type="firstRow"><w:pPr><w:numPr><w:numId w:val="7"/></w:numPr></w:pPr></w:tblStylePr></w:style></w:styles>`)
+    expect([vorlageNummer(n, 'H1'), vorlageNummer(n, 'H2'), vorlageNummer(n, 'Kapitel'), vorlageNummer(n, 'Ohne')]).toEqual([{ numId: '10' }, { numId: '10', ilvl: 1 }, { numId: '10', ilvl: 1 }, { numId: '0' }])
+    // Bedingtes Format einer Tabellenvorlage bindet keine Liste; ohne Vorlage nichts
+    expect([vorlageNummer(n, 'T'), vorlageNummer(n, undefined), vorlageNummer(st, 'Zyklus')]).toEqual([{}, {}, {}])
+  })
+
+  it('nachverfolgte Änderung einer Vorlage: der alte Stand (w:rPrChange, w:pPrChange) gilt nicht (Gegenprüfung Audit 11/2026)', () => {
+    const n = stileLesen(`<w:styles>
+      <w:style w:type="paragraph" w:styleId="H1"><w:name w:val="heading 1"/>
+        <w:pPr><w:shd w:fill="DDDDDD"/><w:pPrChange w:author="x"><w:pPr><w:numPr><w:numId w:val="9"/></w:numPr><w:shd w:fill="000000"/></w:pPr></w:pPrChange><w:numPr><w:numId w:val="10"/></w:numPr></w:pPr>
+        <w:rPr><w:color w:val="1F3864"/><w:rPrChange w:author="x"><w:rPr><w:color w:val="FFFFFF"/><w:vanish/></w:rPr></w:rPrChange><w:b/></w:rPr></w:style></w:styles>`)
+    const h = n.stile.get('H1')!
+    expect([h.numId, h.pShd, h.rPr]).toEqual(['10', 'DDDDDD', { farbe: '1F3864', fett: true }])
   })
 
   it('Tabellen: Bedingung vor Gesamt, Kopfzeile vor Band, Vererbung', () => {

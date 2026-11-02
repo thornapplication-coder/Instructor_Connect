@@ -16,6 +16,15 @@ describe('Werte und Tabellen', () => {
     expect([zeitText(50), zeitText(1440)]).toEqual(['0:50', '24:00'])
   })
 
+  it('hochgestelltes Verweiszeichen am Zellende gehört nicht zum Wert (Gegenprüfung Audit 11/2026, FRD-06)', () => {
+    expect([wertLesen('1.5¹'), wertLesen('12:30²³'), wertLesen('4ⁱᵛ'), wertLesen('7 hⁱ')]).toEqual([{ n: 1.5, zeit: false }, { n: 750, zeit: true }, { n: 4, zeit: false }, { n: 7, zeit: false }])
+    // Eine normale Ziffer ist Teil des Werts — nur die Hochzahl wird abgelöst
+    expect(wertLesen('1.51')).toEqual({ n: 1.51, zeit: false })
+    // Mit Fußnote in einer Datenzeile wird die Summe weiter geprüft
+    const tab = 'Lesson | Hours\nFI-01 | 1.5¹\nFI-02 | 2.0\nTotal | 4.0\n¹ Including ground time.'
+    expect(punkte(tab, 'docx')).toContain('summen')
+  })
+
   it('Tabellen: gleiche Zellenzahl hintereinander; Einzelzeilen nicht; PDF hat keine', () => {
     const t = tabellen(roh('Intro\nA | 1\nB | 2\nX | Y | Z\nText\nC | 3'))
     expect(t.map((x) => x.zeilen.length)).toEqual([2])
@@ -79,6 +88,23 @@ describe('Prüfungen', () => {
     expect(rechenPruefung(k('Item | Hours\nWBT | 2\nFFS | 4', 'docx')).ampel).toMatchObject({ summen: 'na', kumuliert: 'na', session: 'na', metar: 'na' })
     const voll = rechenPruefung(k('Item | Hours | Cumulative\nWBT | 2 | 2\nFFS | 4 | 6\nTotal | 6 | 6\nLOWW 27010KT 9999 12/05', 'docx')).ampel
     expect(voll).toMatchObject({ summen: 'ok', kumuliert: 'ok', metar: 'ok' })
+  })
+
+  it('Excel-Liste mit Leerzellen an ihrem Platz: falsche Summe und falsche Zeitsumme werden gefunden (Audit 11/2026, FRD-11)', () => {
+    const flights = 'Date | Lesson | Dual (h) | Mutual (h) | Total (h)\n02.03.2026 | FI-01 | 1.0 |  | 1.0\n03.03.2026 | FI-02 | 1.5 | 0.5 | 2.0\n05.03.2026 | FI-03 | 11.5 |  | 11.5\nTotal |  | 13.5 | 0.5 | 14.5'
+    // Dual: 1,0 + 1,5 + 11,5 = 14, ausgewiesen 13,5; Mutual und Total stimmen — die leeren Zellen verschieben nichts
+    expect(rechenPruefung(k(flights, 'xlsx')).befunde.map((b) => [b.prioritaet, b.text])).toEqual([['High', 'Table total does not match: sum of rows 14, stated 13.5.']])
+    const monthly = 'Month | Flight time | Briefing time\nMarch 2026 | 14:00 | 9:30\nApril 2026 | 12:30 | 8:15\nMay 2026 | 4:30 | 3:10\nTotal | 31:00 | 20:45'
+    expect(rechenPruefung(k(monthly, 'xlsx')).befunde.map((b) => [b.prioritaet, b.text])).toEqual([['High', 'Table total does not match: sum of rows 20:55, stated 20:45.']])
+  })
+
+  it('Summen „ok" nur, wenn wirklich gegen mindestens zwei Datenzeilen gerechnet wurde — sonst nicht anwendbar (Audit 11/2026, FRD-11)', () => {
+    // Summenzeile, die zu keiner Wertspalte passt (vorher: verrutschte Excel-Spalten)
+    expect(rechenPruefung(k('Item | Hours | Note\nA | 1 | x\nB | 2 | y\nTotal | n/a | -')).ampel.summen).toBe('na')
+    // Nur eine Datenzeile: verglichen ist da nichts
+    expect(rechenPruefung(k('Item | Hours\nA | 2\nTotal | 2')).ampel.summen).toBe('na')
+    expect(rechenPruefung(k('Item | Hours\nA | 2\nB | 3\nTotal | 5')).ampel.summen).toBe('ok')
+    expect(rechenPruefung(k('Item | Hours\nA | 2\nB | 3\nTotal | 6')).ampel.summen).toBe('bad')
   })
 
   it('Fehlalarme der Fachprüfung (01.11.2026): verschiedene Größen im selben Satz sind keine Umrechnung', () => {

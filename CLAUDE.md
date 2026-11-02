@@ -153,10 +153,16 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
 - **Ein Weg für alle Formate:** PDF, DOCX und XLSX laufen durch
   `parse/aufbereiten.ts`. Bewusst ohne mammoth und ohne SheetJS (siehe
   Changelog 1.7.0) — Office-XML liest `parse/xml.ts`.
-- **Laufzeitdateien** (OCR-Kern, Sprachdaten, pdf.js-Schriften) liefert
-  `docCheckDateien` in `vite.config.ts` unter festen Namen in `doccheck/`
-  aus. Ohne ausdrückliche Pfade lädt tesseract.js alles von einem CDN —
-  `ocr.test.ts` prüft das.
+- **Laufzeitdateien** (OCR-Kern, Sprachdaten, pdf.js-Schriften,
+  -Bilddecoder und -Farbprofil) liefert `docCheckDateien` in
+  `vite.config.ts` unter festen Namen in `doccheck/` aus. Ohne ausdrückliche
+  Pfade lädt tesseract.js alles von einem CDN — `ocr.test.ts` prüft das.
+  Die pdf.js-Adressen kommen für Worker, Viewer und OCR aus `pdfAblage`
+  (`pdfjsLaden.ts`). Im Worker gibt es kein `document`: pdf.js holt die
+  Dateien dort selbst (`useWorkerFetch`, `parse/pdfAblage.ts`), und sein
+  Worker-Teil hängt an einem eigenen MessageChannel (`kanalAnbinden`) statt
+  am Fake-Worker — sonst blieb die Schriftablage ungenutzt und jedes PDF
+  warnte (Audit 11/2026, DC-15/TEC-20).
 - **Word-Eigenschaften werden WIRKSAM ermittelt, nicht direkt gelesen**
   (`parse/wordStile.ts`, `parse/wordTeil.ts`): Rangfolge wie Word —
   Dokumentvorgabe ← Tabellenvorlage (mit Bedingung) ← Absatzvorlage ←
@@ -167,7 +173,11 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
 - **Seitenangaben bei DOCX tragen ihre Herkunft** (`seitenQuelle`:
   `pdf_pair` · `toc_mapping` · `approx`) und die Bezeichnung zeigt sie
   („S. 12", „S. 12 (±1)", „ca. 12"). Eine Zahl ohne Herkunft würde für
-  Words Seite gehalten.
+  Words Seite gehalten. Fußnoten und Textfelder stehen als eigene Einheit
+  direkt hinter ihrem Anker (in einer Tabelle: hinter der Tabelle) und sind
+  `nachgereicht` markiert — die Word-PDF-Paarung sucht sie, schiebt aber
+  den Lesezeiger nicht weiter: Im PDF steht die Fußnote am Seitenfuß, und
+  die nächste Überschrift fand sich sonst nur noch im Inhaltsverzeichnis.
 - **Testdokumente sind synthetisch:** `benchmark/sbx.ts` erzeugt die
   Abnahmedateien des Nachtrags (`SBX-…`) aus Code; `parse/pdfBauen.ts` erzeugt PDFs aus
   Text, DOCX/XLSX entstehen in den Tests mit jszip.
@@ -317,7 +327,10 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   heißt sie „gesunken", Kap. 19.1). Wird eine Kennzahl besser, die Baseline
   nachziehen — sonst schützt sie den neuen Stand nicht. Ein neuer
   eingebauter Fehler in `sbx.ts` braucht seinen Eintrag im Lösungsschlüssel,
-  ein neuer Fehlalarmfall seinen Eintrag in `SBX_WORD_01_FEHLALARME`.
+  ein neuer Fehlalarmfall seinen Eintrag in der Fehlalarmliste seiner
+  Abnahmedatei (`SBX_WORD_01_FEHLALARME`, `SBX_WORD_02_FEHLALARME`,
+  `SBX_PDF_02_FEHLALARME`); eine neue Abnahmedatei ihren Satz in
+  `baseline.json`.
   Die 100 % gelten für die synthetischen Fälle, an denen die Regeln gebaut
   wurden; über echte Dokumente sagen sie nichts — dafür ist der private
   Benchmark (Nachtrag Kap. 20) vorgesehen.

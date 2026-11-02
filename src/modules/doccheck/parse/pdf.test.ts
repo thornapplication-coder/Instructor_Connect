@@ -1,7 +1,7 @@
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { pdfLesen, stueckeAus, type PdfJs } from './pdf'
+import { FREIGABE_SEITEN, pdfLesen, stueckeAus, type PdfJs } from './pdf'
 import { pdfBauen, textSeite } from './pdfBauen'
 
 const lib = pdfjs as unknown as PdfJs
@@ -86,5 +86,65 @@ describe('Grenzfälle', () => {
     const r = await pdfLesen(new Uint8Array(), fake)
     expect(r.lenkung.eigenschaften).toEqual({})
     expect(r.pages[0].text).toBe('Hello world text long enough for no OCR at all')
+  })
+})
+
+/** pdf.js im Fake-Worker (so lief es im DocCheck-Worker bis TEC-20): jede Antwort nur über Promise.resolve, nie über einen Macrotask. */
+function microtaskPdfJs(seiten: number): PdfJs & { gelesen: () => number } {
+  let gelesen = 0
+  const seite = { getTextContent: () => Promise.resolve({ items: [{ str: 'Synthetic page text for the reader', transform: [1, 0, 0, 1, 50, 700], width: 160, height: 10 }] }), getOperatorList: () => Promise.resolve({ fnArray: [] }), cleanup: () => {} }
+  return {
+    OPS: {},
+    gelesen: () => gelesen,
+    getDocument: () => ({
+      promise: Promise.resolve({ numPages: seiten, getPage: () => (gelesen++, Promise.resolve(seite)), getMetadata: () => Promise.resolve({ info: {} }) }),
+      destroy: () => Promise.resolve(),
+    }),
+  }
+}
+
+describe('Abbrechen während des Lesens (Audit 11/2026, DC-01)', () => {
+  it('ein Abbruch, der als Macrotask kommt, beendet das Lesen nach wenigen Seiten', async () => {
+    const lib = microtaskPdfJs(200)
+    const c = new AbortController()
+    // Wie die Nachricht „abbrechen" an den Worker: erst nach dem Start, als eigener Task
+    const lesen = pdfLesen(new Uint8Array(), lib, { signal: c.signal, onFortschritt: (n) => n === 1 && setTimeout(() => c.abort(), 0) })
+    await expect(lesen).rejects.toThrow('DC-ABORTED')
+    expect(lib.gelesen()).toBeLessThanOrEqual(FREIGABE_SEITEN)
+  })
+
+  it('ohne Abbruch: alle Seiten, Fortschritt bis zum Ende', async () => {
+    const fortschritt: number[] = []
+    const r = await pdfLesen(new Uint8Array(), microtaskPdfJs(20), { onFortschritt: (n) => fortschritt.push(n) })
+    expect(r.pages).toHaveLength(20)
+    expect(fortschritt.at(-1)).toBe(20)
+  })
+})
+
+describe('Laufzeitdateien von pdf.js (Audit 11/2026, DC-15/TEC-20)', () => {
+  function spion() {
+    const aufrufe: Parameters<PdfJs['getDocument']>[0][] = []
+    const fake: PdfJs = {
+      OPS: {},
+      getDocument: (src) => {
+        aufrufe.push(src)
+        return { promise: Promise.resolve({ numPages: 0, getPage: () => Promise.reject(new Error('keine Seite')), getMetadata: () => Promise.resolve({ info: {} }) }), destroy: async () => {} }
+      },
+    }
+    return { fake, aufrufe }
+  }
+
+  it('Web-Adressen (Worker im Browser): pdf.js holt Schriften, Decoder und Profil selbst — ohne `document`', async () => {
+    const { fake, aufrufe } = spion()
+    const ablage = { standardFontDataUrl: 'https://app/doccheck/pdf-fonts/', wasmUrl: 'https://app/doccheck/pdf-wasm/', iccUrl: 'https://app/doccheck/pdf-iccs/' }
+    await pdfLesen(new Uint8Array(), fake, ablage)
+    expect(aufrufe[0]).toMatchObject({ ...ablage, useWorkerFetch: true, useSystemFonts: false, disableFontFace: true, isEvalSupported: false })
+  })
+
+  it('Dateipfad (Node): keine eigene Abfrage — die Schriften liest pdf.js vom Dateisystem', async () => {
+    const { fake, aufrufe } = spion()
+    await pdfLesen(new Uint8Array(), fake, { standardFontDataUrl })
+    expect(aufrufe[0].standardFontDataUrl).toBe(standardFontDataUrl)
+    expect(aufrufe[0]).not.toHaveProperty('useWorkerFetch')
   })
 })

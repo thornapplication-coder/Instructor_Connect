@@ -8,20 +8,32 @@ import { dokumentPruefen } from '../pruefung/pruefen'
 import { xlsxTabellen } from '../parse/xlsx'
 import { befundeLesen, kopfzeileFinden, zielVorschlagen, zuordnungVorschlagen } from '../recheck/fremdliste'
 import { gruppenVorschlagen, vorbelegen } from '../paket/struktur'
-import { SBX_CALC_01_FEHLER, SBX_CALC_01_NAME, SBX_EAR_01_NAME, SBX_FL_01, SBX_FORMAL_01_FEHLER, SBX_WORD_01_NAME, sbxCalc01, sbxEar01, sbxEar01Pruefdokument, sbxFl01, sbxFormal01, sbxPkg01, sbxWord01 } from './sbx'
+import { SBX_CALC_01_FEHLER, SBX_CALC_01_NAME, SBX_CALC_01_XLSX_FEHLER, SBX_CALC_01_XLSX_NAME, SBX_EAR_01_NAME, SBX_FL_01, SBX_FORMAL_01_FEHLER, SBX_PDF_02_NAME, SBX_WORD_01_NAME, SBX_WORD_02_NAME, sbxCalc01, sbxCalc01Xlsx, sbxEar01, sbxEar01Pruefdokument, sbxFl01, sbxFormal01, sbxPdf02, sbxPkg01, sbxWord01, sbxWord02 } from './sbx'
 import baseline from './baseline.json' with { type: 'json' }
-import { abgleichen, bericht, bewerten, kennzahlen, SBX_EAR_01_ERWARTET, SBX_PKG_01_ERWARTET, SBX_WORD_01_ERWARTET, SBX_WORD_01_FEHLALARME, SCHWELLE, tabelle, type Kennzahlen } from './qualitaet'
+import { abgleichen, bericht, bewerten, kennzahlen, SBX_EAR_01_ERWARTET, SBX_PDF_02_ERWARTET, SBX_PDF_02_FEHLALARME, SBX_PKG_01_ERWARTET, SBX_WORD_01_ERWARTET, SBX_WORD_01_FEHLALARME, SBX_WORD_02_ERWARTET, SBX_WORD_02_FEHLALARME, SCHWELLE, tabelle, type Kennzahlen } from './qualitaet'
 
 const standardFontDataUrl = fileURLToPath(new URL('../../../../node_modules/pdfjs-dist/standard_fonts/', import.meta.url))
 const kern = () => new Kern({ pdfjs: async () => pdfjs as unknown as PdfJs, standardFontDataUrl })
+
+/** Wie viele der Fehlalarmfälle einer Datei tatsächlich gemeldet wurden. */
+const fehlalarmeIn = (befunde: { pruefpunkt: string; fundstellen: { ort?: string; auszug: string }[] }[], faelle: { punkt: string; muster: RegExp }[]) =>
+  faelle.filter((f) => befunde.some((b) => b.pruefpunkt === f.punkt && b.fundstellen.some((x) => f.muster.test(`${x.ort ?? ''} ${x.auszug}`)))).length
 
 /** Alle Abnahmedateien durch den echten Prüfkern — wie im Browser, nur ohne Worker. */
 async function messen(): Promise<Kennzahlen> {
   // Word-Check, Sprache, Formalprüfung: SBX-WORD-01
   const k1 = kern()
   const w = (await k1.lesen({ id: 'w', name: SBX_WORD_01_NAME, daten: await sbxWord01(), pruefen: { formal: true, word: true } })).pruefung!.befunde
-  const wFehlalarme = SBX_WORD_01_FEHLALARME.filter((f) => w.some((b) => b.pruefpunkt === f.punkt && b.fundstellen.some((x) => f.muster.test(`${x.ort ?? ''} ${x.auszug}`)))).length
+  const wFehlalarme = fehlalarmeIn(w, SBX_WORD_01_FEHLALARME)
   const word = abgleichen('SBX-WORD-01', SBX_WORD_01_ERWARTET, w.map((b) => b.pruefpunkt), wFehlalarme)
+
+  // Automatische Kapitelnummerierung: SBX-WORD-02 (Audit 11/2026, FRD-01)
+  const w2 = (await k1.lesen({ id: 'w2', name: SBX_WORD_02_NAME, daten: await sbxWord02(), pruefen: { formal: true, word: true } })).pruefung!.befunde
+  const word2 = abgleichen('SBX-WORD-02', SBX_WORD_02_ERWARTET, w2.map((b) => b.pruefpunkt), fehlalarmeIn(w2, SBX_WORD_02_FEHLALARME))
+
+  // Lesereihenfolge im PDF: SBX-PDF-02 (Audit 11/2026, FRD-05)
+  const p2 = (await k1.lesen({ id: 'p2', name: SBX_PDF_02_NAME, daten: sbxPdf02(), pruefen: { formal: true, word: false } })).pruefung!.befunde
+  const pdf2 = abgleichen('SBX-PDF-02', SBX_PDF_02_ERWARTET, p2.map((b) => b.pruefpunkt), fehlalarmeIn(p2, SBX_PDF_02_FEHLALARME))
 
   // Formalprüfung: SBX-FORMAL-01
   const f = (await k1.lesen({ id: 'f', name: 'SBX-FORMAL-01.pdf', daten: sbxFormal01(), pruefen: { formal: true, word: false } })).pruefung!.befunde
@@ -31,6 +43,10 @@ async function messen(): Promise<Kennzahlen> {
   const g = await dateiLesen({ name: SBX_CALC_01_NAME, daten: await sbxCalc01() }, { pdfjs: async () => { throw new Error('kein PDF') } }, {})
   const c = dokumentPruefen({ dokId: 'c', dokName: 'SBX-CALC-01', dateiname: SBX_CALC_01_NAME, roh: g.roh, meta: g.meta }, { formal: false, word: false, rechnen: true }).befunde.filter((b) => b.quelle === 'rechnen')
   const rechnen = abgleichen('SBX-CALC-01', SBX_CALC_01_FEHLER.map((x) => `${x.punkt}|${x.auszug}`), c.map((b) => `${b.pruefpunkt}|${b.fundstellen[0].auszug}`))
+  // Dieselbe Prüfung an der Excel-Fassung (Audit 11/2026, FRD-11)
+  const gx = await dateiLesen({ name: SBX_CALC_01_XLSX_NAME, daten: await sbxCalc01Xlsx() }, { pdfjs: async () => { throw new Error('kein PDF') } }, {})
+  const cx = dokumentPruefen({ dokId: 'cx', dokName: 'SBX-CALC-01 XLSX', dateiname: SBX_CALC_01_XLSX_NAME, roh: gx.roh, meta: gx.meta }, { formal: false, word: false, rechnen: true }).befunde.filter((b) => b.quelle === 'rechnen')
+  const rechnenX = abgleichen('SBX-CALC-01-X', SBX_CALC_01_XLSX_FEHLER.map((x) => `${x.punkt}|${x.auszug}`), cx.map((b) => `${b.pruefpunkt}|${b.fundstellen[0].auszug}`))
 
   // Regelwerk: SBX-EAR-01
   const k2 = kern()
@@ -56,7 +72,7 @@ async function messen(): Promise<Kennzahlen> {
   const erg = k3.nachpruefen(befunde.map((befund) => ({ befund, ziel: zielVorschlagen(befund.dokument, namen) })))
   const mitRest = SBX_FL_01.map((x, i) => ({ x, e: erg[i] })).filter(({ x }) => x.erwartet === 'partial')
 
-  return kennzahlen([word, formal, rechnen, regelwerk, paketSatz], {
+  return kennzahlen([word, word2, pdf2, formal, rechnen, rechnenX, regelwerk, paketSatz], {
     richtig: erg.filter((r, i) => r.status === SBX_FL_01[i].erwartet).length,
     gesamt: SBX_FL_01.length,
     restGefunden: mitRest.filter(({ e }) => e.rest.length > 0).length,

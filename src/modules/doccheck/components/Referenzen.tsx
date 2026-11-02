@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { Badge, Card, CardHeading } from '../../../components/ui'
 import { toast } from '../../../components/Toast'
 import { aendern, hinzufuegen } from '../referenz/laden'
-import type { ListenArt } from '../referenz/liste'
+import { LISTE_MAX_MB, type ListenArt } from '../referenz/liste'
 import { useSitzung } from '../sitzung'
 import { standardVerbindung } from '../verbindung'
 
@@ -25,8 +25,9 @@ export function ReferenzPanel() {
     if (!liste?.length) return
     const passend = [...liste].filter((f) => /\.(xlsx|csv|md|txt)$/i.test(f.name))
     for (const f of [...liste].filter((x) => !passend.includes(x))) toast(t('referenz.format', { name: f.name }), 'bad')
-    const { unbekannt } = await hinzufuegen(passend, standardVerbindung())
+    const { unbekannt, fehler } = await hinzufuegen(passend, standardVerbindung())
     for (const u of unbekannt) toast(t('referenz.unbekannt', { name: u }), 'wait')
+    for (const f of fehler) toast(`${f.name}: ${t(`fehler.${f.code}`, { mb: LISTE_MAX_MB, defaultValue: t('fehler.DC-PARSE') })}`, 'bad')
   }
 
   return (

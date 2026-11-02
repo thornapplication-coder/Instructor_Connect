@@ -25,8 +25,13 @@ export interface Wert {
 }
 
 /** „2:30", „02:30h", „16:00 h", „2,5", „2.5 h", „40" → Wert; sonst null. */
+// Hochgestelltes Verweiszeichen am Zellende („1.5¹", „12:30ⁱ") — seit FRD-06
+// steht es wie in Word im Text; es gehört nicht zum Wert, sonst fiele die
+// ganze Spalte aus der Summenprüfung.
+const VERWEIS = /[\u00B9\u00B2\u00B3\u2070\u2074-\u2079\u2071\u1D5B\u02E3]+$/u
+
 export function wertLesen(s: string): Wert | null {
-  const t = s.trim().replace(/\s*(h|hrs?|hours?|std\.?)$/i, '')
+  const t = s.trim().replace(VERWEIS, '').replace(/\s*(h|hrs?|hours?|std\.?)$/i, '')
   const z = t.match(/^(\d{1,3}):([0-5]\d)$/)
   if (z) return { n: Number(z[1]) * 60 + Number(z[2]), zeit: true }
   if (/^-?\d+(?:[.,]\d+)?$/.test(t)) return { n: Number(t.replace(',', '.')), zeit: false }
@@ -83,8 +88,9 @@ function wertSpalten(t: Tabelle, von: number, bis: number): number[] {
 /** Zwischensumme — sie prüft die Zeilen seit der letzten (Zwischen-)Summe und zählt selbst nicht zur Gesamtsumme. */
 const ZWISCHEN = /^(sub-?totals?|zwischensumme|teilsumme)\b/i
 
-function summenPruefen(k: PruefKontext, tabs: Tabelle[]): Omit<Befund, 'id'>[] {
+function summenPruefen(k: PruefKontext, tabs: Tabelle[]): { befunde: Omit<Befund, 'id'>[]; verglichen: number } {
   const out: Omit<Befund, 'id'>[] = []
+  let verglichen = 0
   for (const t of tabs) {
     let abGesamt = 0
     let abZwischen = 0
@@ -101,13 +107,14 @@ function summenPruefen(k: PruefKontext, tabs: Tabelle[]): Omit<Befund, 'id'>[] {
         const soll = wertLesen(z[s] ?? '')
         if (!soll) continue
         const ist: Wert = { n: daten.reduce((a, r) => a + (wertLesen(r[s] ?? '')?.n ?? 0), 0), zeit: soll.zeit }
+        if (daten.length >= 2) verglichen++
         if (!gleich(ist, soll)) out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'summen', kategorie: 'Inconsistency', prioritaet: 'High', text: `Table ${zwischen ? 'subtotal' : 'total'} does not match: sum of rows ${zeigen(ist)}, stated ${zeigen(soll)}.`, fundstellen: [{ seite: t.seite, ort: 'Table', auszug: zeile(z) }] }))
       }
       abZwischen = i + 1
       if (!zwischen) abGesamt = i + 1
     })
   }
-  return out
+  return { befunde: out, verglichen }
 }
 
 const DAUER = /duration|dauer|time|zeit|min/i
@@ -266,11 +273,15 @@ function doppeltPruefen(k: PruefKontext): Omit<Befund, 'id'>[] {
 
 export function rechenPruefung(k: PruefKontext): { befunde: Omit<Befund, 'id'>[]; ampel: Record<string, Ampel> } {
   const tabs = tabellen(k.roh)
-  const befunde = [...summenPruefen(k, tabs), ...kumuliertPruefen(k, tabs), ...sessionPruefen(k, tabs), ...einheitenPruefen(k), ...metarPruefen(k), ...doppeltPruefen(k)]
+  const summen = summenPruefen(k, tabs)
+  const befunde = [...summen.befunde, ...kumuliertPruefen(k, tabs), ...sessionPruefen(k, tabs), ...einheitenPruefen(k), ...metarPruefen(k), ...doppeltPruefen(k)]
   // Nicht anwendbar, wo es nichts zu prüfen gab — Grün hieße sonst „geprüft, in Ordnung" (Fachprüfung 01.11.2026)
   const na: Punkt[] = []
   const zellen0 = (t: Tabelle) => t.zeilen.map((z) => z[0] ?? '')
-  if (!tabs.some((t) => zellen0(t).some((c) => SUMME.test(c) || ZWISCHEN.test(c)))) na.push('summen')
+  // Eine Summenzeile allein reicht nicht: „ok" nur, wenn sie wirklich gegen
+  // mindestens zwei Datenzeilen gerechnet wurde (Audit 11/2026, FRD-11 — die
+  // Excel-Summe passte zu keiner Spalte und stand trotzdem auf grün).
+  if (!tabs.some((t) => zellen0(t).some((c) => SUMME.test(c) || ZWISCHEN.test(c))) || (!summen.verglichen && !summen.befunde.length)) na.push('summen')
   if (!tabs.some((t) => t.zeilen[0].some((c) => KUMULIERT.test(c)))) na.push('kumuliert')
   if (!tabs.some((t) => t.davor.some((z) => SESSION.test(z)))) na.push('session')
   if (!k.roh.pages.some((p) => p.text.split('\n').some((z) => WIND.test(z)))) na.push('metar')

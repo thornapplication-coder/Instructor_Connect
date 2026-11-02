@@ -42,7 +42,14 @@ export async function docxPacken(teile: { dokument: string; stile?: string; weit
  * Absätze; `noProof` auf Überschriften; letzter leerer Abschnitt mit eigener
  * Kopfzeile und abweichendem Datum; Dateiname E2R0.0 bei Deckblatt
  * „Edition 1"; verirrtes Fragment auf dem Deckblatt. Dazu Textmarker,
- * Textfeld mit eigener Füllung, ungenutzte Kopfzeile, Eigenschaften.
+ * Textfeld mit eigener Füllung, ungenutzte Kopfzeile, Eigenschaften — und
+ * zwei Textfelder mit Rahmen in Schriftfarbe (KEIN Befund, Audit 11/2026,
+ * FRD-04): Der Rahmen ist nicht der Hintergrund.
+ *
+ * Text, den Word zeigt und der Leser verlor (FRD-13): geschützter
+ * Bindestrich, Symbolzeichen, Fußnote, verschachtelte Tabelle. Dazu eine
+ * nicht angenommene Verschiebung und eine Formatänderung (FRD-15) — offene
+ * Änderungen, also ein zweiter eingebauter Rest.
  */
 export const SBX_WORD_01_NAME = 'SBX-WORD-01_TM_E2R0.0.docx'
 
@@ -55,16 +62,22 @@ export async function sbxWord01(): Promise<Uint8Array> {
       <w:tblStylePr w:type="firstRow"><w:rPr><w:b/></w:rPr><w:tcPr><w:shd w:val="clear" w:fill="1F3864"/></w:tcPr></w:tblStylePr>
     </w:style>`
   const kopf = (text: string) => `<?xml version="1.0"?><w:hdr ${W}>${absatz(lauf(text))}</w:hdr>`
+  const aenderung = 'w:id="1" w:author="Document Control" w:date="2026-03-10T09:00:00Z"'
   const textfeld =
     '<w:r><mc:AlternateContent><mc:Choice><w:drawing><wps:wsp><wps:spPr><a:solidFill><a:srgbClr val="002060"/></a:solidFill></wps:spPr><wps:txbx><w:txbxContent>' +
     absatz(lauf('Doc No.: SBX-WORD-01', '<w:color w:val="FFFFFF"/>')) +
     '</w:txbxContent></wps:txbx></wps:wsp></w:drawing></mc:Choice><mc:Fallback><w:pict/></mc:Fallback></mc:AlternateContent></w:r>'
+  // Füllung, Rahmen und Schrift wie auf gängigen Deckblättern
+  const kasten = (fuellung: string, rahmen: string, schrift: string, text: string) =>
+    `<w:r><w:drawing><wps:wsp><wps:spPr><a:solidFill><a:srgbClr val="${fuellung}"/></a:solidFill><a:ln w="6350"><a:solidFill><a:srgbClr val="${rahmen}"/></a:solidFill></a:ln></wps:spPr><wps:txbx><w:txbxContent>` +
+    absatz(lauf(text, `<w:color w:val="${schrift}"/>`)) +
+    '</w:txbxContent></wps:txbx></wps:wsp></w:drawing></w:r>'
   const dokument = [
     absatz(lauf('Training Manual (synthetic)') + textfeld),
     absatz(lauf('Edition 1, Revision 0.0')),
     // Verirrtes Fragment auf dem Deckblatt — keine Überschrift.
     absatz(lauf('3.8.3.')),
-    absatz(lauf('Edition 1 | 01.03.2026'), '<w:sectPr><w:headerReference w:type="default" r:id="rIdH1"/></w:sectPr>'),
+    absatz(lauf('Edition 1 | 01.03.2026') + kasten('F2F2F2', '1F3864', '1F3864', 'CONTROLLED COPY') + kasten('1F3864', 'FFFFFF', 'FFFFFF', 'UNCONTROLLED WHEN PRINTED'), '<w:sectPr><w:headerReference w:type="default" r:id="rIdH1"/></w:sectPr>'),
     absatz(lauf('1 General'), '<w:pStyle w:val="Heading1"/>'),
     absatz(lauf('This paragraph is English but marked as Spanish.', '<w:lang w:val="es-ES"/>')),
     absatz(lauf('This paragraph is English but marked as Italian.', '<w:lang w:val="it-IT"/>')),
@@ -75,6 +88,16 @@ export async function sbxWord01(): Promise<Uint8Array> {
       // N9: landessprachiger Arbeitskommentar in einer Tabellenzelle.
       `<w:tr><w:tc>${absatz(lauf('MMO'))}</w:tc><w:tc>${absatz(lauf('Bitte noch prüfen, der Wert ist nicht mehr aktuell und muss geändert werden.'))}</w:tc></w:tr>` +
       '</w:tbl>',
+    // FRD-13: geschützter Bindestrich, Symbol „°", Fußnote, Tabelle in der Tabelle
+    absatz(lauf('Licences are issued under Part') + '<w:r><w:noBreakHyphen/></w:r>' + lauf('FCL; every approach ends in a landing or a go') + '<w:r><w:noBreakHyphen/></w:r>' + lauf('around.')),
+    absatz(lauf('Training flights require an outside air temperature of at least 5 ') + '<w:r><w:sym w:font="Symbol" w:char="F0B0"/></w:r>' + lauf('C') + '<w:r><w:rPr><w:vertAlign w:val="superscript"/></w:rPr><w:footnoteReference w:id="1"/></w:r>' + lauf('.')),
+    `<w:tbl><w:tr><w:tc>${absatz(lauf('Pre-flight figures'))}</w:tc><w:tc><w:tbl><w:tr><w:tc>${absatz(lauf('Fuel on board'))}</w:tc><w:tc>${absatz(lauf('120 litres'))}</w:tc></w:tr></w:tbl>${absatz('')}</w:tc></w:tr></w:tbl>`,
+    // FRD-15: nicht angenommene Verschiebung und Formatänderung
+    absatz(`<w:moveFrom ${aenderung}>${lauf('Check the fuel quantity visually before every flight.')}</w:moveFrom>`),
+    absatz(lauf('The aircraft is prepared by the student under supervision.')),
+    absatz(`<w:moveTo ${aenderung}>${lauf('Check the fuel quantity visually before every flight.')}</w:moveTo>`),
+    // Der alte Stand der Formatänderung war weiß — er gilt nicht mehr (kein „unsichtbar")
+    absatz(lauf('Solo flights require the approval of the head of training.', `<w:b/><w:rPrChange ${aenderung}><w:rPr><w:color w:val="FFFFFF"/></w:rPr></w:rPrChange>`)),
     // N9: einzelnes landessprachiges Wort, drei Platzhalterformen, Adresse.
     absatz(lauf('Select Normale mode before engine start.')),
     absatz(lauf('Device AT-FFS-nnnn, S/N: FFS-nnn-nnn, procedure NEMAL_XX.')),
@@ -94,9 +117,82 @@ export async function sbxWord01(): Promise<Uint8Array> {
       'word/header1.xml': kopf('Training Manual | Edition 1 | 01.03.2026'),
       'word/header2.xml': kopf('Training Manual | Edition 1 | 15.01.2025'),
       'word/header3.xml': kopf('Old draft header 2024'),
+      'word/footnotes.xml': `<?xml version="1.0"?><w:footnotes ${W}><w:footnote w:type="separator" w:id="-1">${absatz('<w:r><w:separator/></w:r>')}</w:footnote><w:footnote w:id="1">${absatz('<w:r><w:footnoteRef/></w:r>' + lauf(' Measured at the aerodrome reference point.'))}</w:footnote></w:footnotes>`,
       'word/settings.xml': `<w:settings ${W}><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="14"/></w:compat></w:settings>`,
       'docProps/core.xml': '<cp:coreProperties xmlns:cp="c" xmlns:dc="d" xmlns:dcterms="t"><dc:title></dc:title><dc:creator>A. Example</dc:creator><cp:lastModifiedBy>B. Example</cp:lastModifiedBy><dcterms:modified>2026-03-01T10:00:00Z</dcterms:modified></cp:coreProperties>',
       'docProps/app.xml': '<Properties><Pages>3</Pages></Properties>',
+    },
+  })
+}
+
+/* ------------------------------ SBX-WORD-02 ------------------------------ */
+
+/**
+ * Automatische Kapitelnummerierung wie in Word-Handbüchern (Audit 11/2026,
+ * FRD-01): „Heading 1–3" sind per Formatvorlage an EINE Liste gebunden, die
+ * Absätze tragen keinen Nummerntext; das Feldergebnis des
+ * Inhaltsverzeichnisses dagegen schon („1.2<Tab>Scope<Tab>2"). Dazu ein
+ * Absatz, der die Liste der Vorlage per numId 0 aufhebt, eine Aufzählung
+ * (a)/(b) und ein toter Kapitelverweis. Erwartet: nur `querverweise`.
+ */
+export const SBX_WORD_02_NAME = 'SBX-WORD-02_TM.docx'
+
+export async function sbxWord02(): Promise<Uint8Array> {
+  const titel = 'SBX-WORD-02 Training Manual (synthetic)'
+  const numPr = (ilvl: number, numId = 1) => `<w:numPr><w:ilvl w:val="${ilvl}"/><w:numId w:val="${numId}"/></w:numPr>`
+  const stile = `<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>
+    ${[1, 2, 3].map((n) => `<w:style w:type="paragraph" w:styleId="Heading${n}"><w:name w:val="heading ${n}"/><w:basedOn w:val="Normal"/><w:pPr>${n === 1 ? '<w:numPr><w:numId w:val="1"/></w:numPr>' : numPr(n - 1)}<w:outlineLvl w:val="${n - 1}"/></w:pPr></w:style>`).join('')}
+    ${[1, 2, 3].map((n) => `<w:style w:type="paragraph" w:styleId="TOC${n}"><w:name w:val="toc ${n}"/></w:style>`).join('')}`
+  const ebene = (n: number, text: string, extra = '') => `<w:lvl w:ilvl="${n}"><w:start w:val="1"/><w:numFmt w:val="${extra || 'decimal'}"/>${extra ? '' : `<w:pStyle w:val="Heading${n + 1}"/>`}<w:lvlText w:val="${text}"/><w:lvlJc w:val="left"/><w:pPr><w:ind w:left="${567 * (n + 1)}" w:hanging="567"/></w:pPr></w:lvl>`
+  const nummerierung = `<?xml version="1.0"?><w:numbering ${W}>
+    <w:abstractNum w:abstractNumId="0"><w:multiLevelType w:val="multilevel"/>${ebene(0, '%1')}${ebene(1, '%1.%2')}${ebene(2, '%1.%2.%3')}</w:abstractNum>
+    <w:abstractNum w:abstractNumId="1"><w:multiLevelType w:val="hybridMultilevel"/>${ebene(0, '(%1)', 'lowerLetter')}</w:abstractNum>
+    <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num><w:num w:numId="2"><w:abstractNumId w:val="1"/></w:num></w:numbering>`
+  // Kapitel: Ebene (0 = Überschrift ohne Nummer), Titel, Seite in Word, Absätze
+  const kapitel: [number, string, number, string[]][] = [
+    [0, 'Foreword', 2, ['This manual describes the synthetic training course of the ATO.']],
+    [1, 'General', 2, ['The general provisions apply to all phases.']],
+    [2, 'Purpose', 2, ['The purpose of the course is described in this section.']],
+    [2, 'Scope', 2, ['The scope is defined in Section 1.1 and applies to all instructors.']],
+    [1, 'Course Structure', 3, ['The course consists of two phases.']],
+    [2, 'Theoretical Phase', 3, ['The theoretical phase precedes the flight phase.']],
+    [3, 'Self-Study', 3, ['Self-study is supported by the learning platform; see Section 2.1 for the phase overview.']],
+    [1, 'Weather Minima', 4, ['Flights are conducted only within the following minima:']],
+  ]
+  const nr: number[] = []
+  const tocZeilen = kapitel.map(([e, t, s]) => {
+    if (e) {
+      nr.length = e
+      nr[e - 1] = (nr[e - 1] ?? 0) + 1
+    }
+    return absatz((e ? lauf(nr.join('.')) + '<w:r><w:tab/></w:r>' : '') + lauf(t) + '<w:r><w:tab/></w:r>' + lauf(String(s)), `<w:pStyle w:val="TOC${e || 1}"/>`)
+  })
+  const feld = (art: 'begin' | 'separate' | 'end') => `<w:r><w:fldChar w:fldCharType="${art}"/></w:r>`
+  const lang = (n: number) => 'Each lesson is briefed, flown and debriefed, and the instructor records the result in the training file. '.repeat(n)
+  const umbruch = '<w:p><w:r><w:br w:type="page"/></w:r></w:p>'
+  const dokument = [
+    absatz(lauf(titel)),
+    absatz(lauf('Contents')),
+    absatz(feld('begin') + '<w:r><w:instrText xml:space="preserve"> TOC \\o "1-3" \\h </w:instrText></w:r>' + feld('separate')),
+    ...tocZeilen,
+    absatz(feld('end')),
+    umbruch,
+    ...kapitel.map(([e, t, s, ps], i) =>
+      (i > 0 && kapitel[i - 1][2] !== s ? umbruch : '') +
+      // „Foreword": Vorlage „Heading 1", Liste per numId 0 aufgehoben — Word zeigt keine Nummer
+      absatz(lauf(t), `<w:pStyle w:val="Heading${e || 1}"/>${e ? '' : numPr(0, 0)}`) + ps.map((p) => absatz(lauf(p))).join('') + absatz(lauf(lang(4)))),
+    absatz(lauf('flights below 500 ft above ground are not permitted;'), numPr(0, 2)),
+    absatz(lauf('the ground visibility shall be at least 5 km.'), numPr(0, 2)),
+    // Eingebauter Fehler: Kapitel 9.9 gibt es nicht
+    absatz(lauf('Deviations require the approval of the Head of Training, see Section 9.9.')),
+  ].join('')
+  return docxPacken({
+    dokument,
+    stile,
+    weitere: {
+      'word/numbering.xml': nummerierung,
+      'docProps/core.xml': `<cp:coreProperties xmlns:cp="c" xmlns:dc="d" xmlns:dcterms="t"><dc:title>${esc(titel)}</dc:title><dcterms:modified>2026-03-01T10:00:00Z</dcterms:modified></cp:coreProperties>`,
+      'docProps/app.xml': '<Properties><Pages>4</Pages></Properties>',
     },
   })
 }
@@ -137,6 +233,10 @@ export interface SbxPage01 {
   /** 20 Fundstellen mit der Seite, auf der sie im Word-PDF stehen */
   stichproben: { text: string; seite: number }[]
   seiten: number
+  /** Kapitelüberschriften mit ihrer Seite im Word-PDF (wie im Inhaltsverzeichnis) */
+  kapitel: { titel: string; seite: number }[]
+  /** Seite, an deren Fuß die Fußnote steht */
+  fussnotenSeite: number
 }
 
 /**
@@ -145,6 +245,11 @@ export interface SbxPage01 {
  * 90 Zeichen je Zeile, 40 Zeilen je Seite. Im DOCX stehen — wie bei echten
  * Dateien, die nie gerendert wurden — KEINE Umbruchmarken außer nach dem
  * Inhaltsverzeichnis; die Näherung über Marken läge also daneben.
+ *
+ * Kapitel 1 trägt, wie übliche Handbücher, eine zweispaltige
+ * Abkürzungstabelle und einen Satz mit Fußnote (Audit 11/2026, FRD-06):
+ * Die Fußnotenziffer steht im PDF-Text, die Tabelle liest sich dort nur
+ * zeilenweise richtig. Beides darf das passende PDF nicht über 2 % treiben.
  */
 export async function sbxPage01(): Promise<SbxPage01> {
   const r = zufall(42)
@@ -156,20 +261,29 @@ export async function sbxPage01(): Promise<SbxPage01> {
     }),
   }))
 
+  // Kapitel 1 ist nur Abkürzungstabelle und Fußnotensatz: So folgt Kapitel 2
+  // auf derselben Seite wie die Fußnote (die Absätze sind trotzdem gezogen,
+  // damit der Zufall für alles Weitere derselbe bleibt).
+  abschnitte[0].absaetze.length = 0
+
   // Simulierter Umbruch: Seite 1 = Inhaltsverzeichnis, Inhalt ab Seite 2.
-  type Zeile = { text: string; seite: number }
-  const pdfSeiten: string[][] = [[]]
+  // Tabellenzeilen stehen im PDF als zwei Textstücke nebeneinander.
+  type Zeile = { text: string; seite: number; zellen?: [string, string] }
+  const pdfSeiten: (string | [string, string])[][] = [[]]
+  const fussnote = 'Issued by the competent authority of the State of licence issue.'
+  const mitFussnote = ['Instructors hold an FI certificate', 'and have completed the standardisation course of the school within the last twelve months.'] as const
   const zeilen: Zeile[] = []
   let seite = 2
   let belegt = 0
-  const setzen = (text: string) => {
+  const setzen = (text: string, zellen?: [string, string]) => {
     if (belegt >= ZEILEN_JE_SEITE) {
       seite++
       belegt = 0
     }
-    zeilen.push({ text, seite })
+    zeilen.push({ text, seite, ...(zellen ? { zellen } : {}) })
     belegt++
   }
+  let fussnotenSeite = 0
   const titelSeite: number[] = []
   for (const a of abschnitte) {
     if (belegt > ZEILEN_JE_SEITE - 4) {
@@ -179,18 +293,35 @@ export async function sbxPage01(): Promise<SbxPage01> {
     if (belegt > 0) setzen('')
     setzen(a.titel)
     titelSeite.push(zeilen[zeilen.length - 1].seite)
+    if (a === abschnitte[0]) {
+      for (const [k, b] of [['Abbreviation', 'Meaning'], ...SBX_PDF_02_ABKUERZUNGEN] as [string, string][]) setzen(`${k} | ${b}`, [k, b])
+      setzen('')
+    }
     for (const p of a.absaetze) {
       for (const z of umbrechen(p)) setzen(z)
       setzen('')
     }
+    if (a === abschnitte[0]) {
+      // Im PDF steht die Verweisziffer als „certificate1" im Text. Der Satz
+      // schließt das Kapitel: Direkt nach seiner Fußnote folgt im DOCX die
+      // nächste Überschrift — sie steht auch im Inhaltsverzeichnis und darf
+      // nicht dort landen (Gegenprüfung Audit 11/2026).
+      for (const z of umbrechen(`${mitFussnote[0]}1 ${mitFussnote[1]}`)) setzen(z)
+      fussnotenSeite = zeilen[zeilen.length - 1].seite
+      setzen('')
+    }
   }
   const letzte = seite
-  for (let s = 2; s <= letzte; s++) pdfSeiten[s - 1] = zeilen.filter((z) => z.seite === s && z.text).map((z) => z.text)
+  for (let s = 2; s <= letzte; s++) pdfSeiten[s - 1] = zeilen.filter((z) => z.seite === s && z.text).map((z) => z.zellen ?? z.text)
   pdfSeiten[0] = ['Contents', ...abschnitte.map((a, i) => `${a.titel} ${titelSeite[i]}`)]
 
   const pdf = pdfBauen(
     pdfSeiten.map((ls, i): PdfSeitenInhalt => ({
-      texte: [...ls.map((t, k) => ({ text: t, x: 50, y: 800 - k * 18, groesse: 9 })), { text: `SBX-PAGE-01 Page ${i + 1}`, x: 50, y: 20, groesse: 8 }],
+      texte: [
+        ...ls.flatMap((t, k) => (typeof t === 'string' ? [{ text: t, x: 50, y: 800 - k * 18, groesse: 9 }] : [{ text: t[0], x: 56, y: 800 - k * 18, groesse: 9 }, { text: t[1], x: 170, y: 800 - k * 18, groesse: 9 }])),
+        ...(i + 1 === fussnotenSeite ? [{ text: `1 ${fussnote}`, x: 50, y: 36, groesse: 7 }] : []),
+        { text: `SBX-PAGE-01 Page ${i + 1}`, x: 50, y: 20, groesse: 8 },
+      ],
     })),
   )
 
@@ -198,18 +329,24 @@ export async function sbxPage01(): Promise<SbxPage01> {
     <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/></w:style>
     <w:style w:type="paragraph" w:styleId="TOC1"><w:name w:val="toc 1"/></w:style>`
   const toc = abschnitte.map((a, i) => absatz(lauf(a.titel) + '<w:r><w:tab/></w:r>' + lauf(String(titelSeite[i])), '<w:pStyle w:val="TOC1"/>')).join('')
-  const inhalt = abschnitte.map((a) => absatz(lauf(a.titel), '<w:pStyle w:val="Heading1"/>') + a.absaetze.map((p) => absatz(lauf(p))).join('')).join('')
+  const abkuerzungen = tabelle([['Abbreviation', 'Meaning'], ...SBX_PDF_02_ABKUERZUNGEN]).xml
+  const fussnotenSatz = absatz(lauf(mitFussnote[0]) + '<w:r><w:rPr><w:vertAlign w:val="superscript"/></w:rPr><w:footnoteReference w:id="1"/></w:r>' + lauf(` ${mitFussnote[1]}`))
+  const inhalt = abschnitte
+    .map((a, i) => absatz(lauf(a.titel), '<w:pStyle w:val="Heading1"/>') + (i === 0 ? abkuerzungen : '') + a.absaetze.map((p) => absatz(lauf(p))).join('') + (i === 0 ? fussnotenSatz : ''))
+    .join('')
   const docx = await docxPacken({
     dokument: absatz(lauf('Contents')) + toc + '<w:p><w:r><w:br w:type="page"/></w:r></w:p>' + inhalt,
     stile,
     weitere: {
+      'word/footnotes.xml': `<?xml version="1.0"?><w:footnotes ${W}><w:footnote w:id="1">${absatz('<w:r><w:footnoteRef/></w:r>' + lauf(` ${fussnote}`))}</w:footnote></w:footnotes>`,
       'docProps/app.xml': `<Properties><Pages>${letzte}</Pages></Properties>`,
       'docProps/core.xml': '<cp:coreProperties xmlns:cp="c" xmlns:dc="d" xmlns:dcterms="t"><dcterms:modified>2026-03-01T10:00:00Z</dcterms:modified></cp:coreProperties>',
     },
   })
 
   // 20 Stichproben: fünf Wörter aus der Mitte einer Inhaltszeile.
-  const kandidaten = zeilen.filter((z) => z.text.split(' ').length >= 8 && !/^Marker/.test(z.text))
+  // Ohne die Fußnotenzeile: „certificate1" steht so nur im PDF.
+  const kandidaten = zeilen.filter((z) => z.text.split(' ').length >= 8 && !/^Marker/.test(z.text) && !z.text.includes(mitFussnote[0].slice(-11)))
   const stichproben: SbxPage01['stichproben'] = []
   const gewaehlt = new Set<number>()
   while (stichproben.length < 20) {
@@ -223,7 +360,71 @@ export async function sbxPage01(): Promise<SbxPage01> {
     if (zeilen.filter((z) => z.text.includes(text)).length !== 1) continue
     stichproben.push({ text, seite: kandidaten[i].seite })
   }
-  return { docx, pdf, stichproben, seiten: letzte }
+  return { docx, pdf, stichproben, seiten: letzte, kapitel: abschnitte.map((a, i) => ({ titel: a.titel, seite: titelSeite[i] })), fussnotenSeite }
+}
+
+/* ------------------------------ SBX-PDF-02 ------------------------------- */
+
+/**
+ * PDF-Lesereihenfolge (Audit 11/2026, FRD-05): geteilte Kopf- und Fußzeile
+ * („Titel … Revision 0" links/rechts, „Datum … Page n of 4") auf jeder
+ * Seite, eine zweispaltige Abkürzungstabelle, eine kurze Seite und ein
+ * echter Zweispalter mit versetzten Grundlinien. Eingebaut ist genau EIN
+ * Fehler: „QRH" steht im Text, aber nicht in der Liste. Werden Tabelle oder
+ * Spalten falsch gelesen, kommen Fehlalarme dazu (Kürzel ohne Eintrag,
+ * fehlende Seiten) — siehe `SBX_PDF_02_FEHLALARME`.
+ */
+export const SBX_PDF_02_NAME = 'SBX-PDF-02_TM.pdf'
+
+export const SBX_PDF_02_ABKUERZUNGEN: [string, string][] = [
+  ['ATO', 'Approved Training Organisation'], ['CFI', 'Chief Flight Instructor'], ['CRM', 'Crew Resource Management'],
+  ['EASA', 'European Union Aviation Safety Agency'], ['FCL', 'Flight Crew Licensing'], ['FI', 'Flight Instructor'],
+  ['HT', 'Head of Training'], ['METAR', 'Aerodrome routine meteorological report'], ['PPL', 'Private Pilot Licence'],
+  ['QNH', 'Altimeter setting to obtain elevation'], ['SERA', 'Standardised European Rules of the Air'], ['TEM', 'Threat and Error Management'],
+  ['VFR', 'Visual Flight Rules'], ['VMC', 'Visual Meteorological Conditions'],
+]
+
+export function sbxPdf02(): Uint8Array {
+  const n = 4
+  const rahmen = (s: number) => [
+    { text: 'SBX-PDF-02 Training Manual', x: 50, y: 815, groesse: 8 },
+    { text: 'Revision 0', x: 500, y: 815, groesse: 8 },
+    { text: '01.03.2026', x: 50, y: 25, groesse: 8 },
+    { text: `Page ${s} of ${n}`, x: 490, y: 25, groesse: 8 },
+  ]
+  const links = umbrechen(
+    'the instructor briefs every lesson with reference to TEM and CRM principles. a student who holds a PPL is assessed by an FI before solo flights. the CFI keeps the training records and reports to the HT once a month. abnormal procedures follow the QRH of the aircraft type.',
+    44,
+  )
+  const rechts = umbrechen(
+    'flights are conducted under VFR in VMC only. the instructor checks the METAR and the QNH before departure and applies the rules of SERA. the ATO follows the FCL requirements published by EASA and reviews them every year.',
+    44,
+  )
+  const seiten: PdfSeitenInhalt[] = [
+    { texte: [...rahmen(1), ...[`SBX-PDF-02 Training Manual (synthetic)`, 'Revision 0', 'Effective 01 March 2026'].map((t, k) => ({ text: t, x: 50, y: 700 - k * 20, groesse: 12 }))] },
+    {
+      texte: [
+        ...rahmen(2),
+        { text: 'List of Abbreviations', x: 50, y: 760, groesse: 11 },
+        { text: 'Abbreviation', x: 56, y: 740, groesse: 9 },
+        { text: 'Meaning', x: 170, y: 740, groesse: 9 },
+        ...SBX_PDF_02_ABKUERZUNGEN.flatMap(([k, b], i) => [{ text: k, x: 56, y: 727 - i * 13, groesse: 9 }, { text: b, x: 170, y: 727 - i * 13, groesse: 9 }]),
+      ],
+    },
+    // Kurze Seite: nur Kopf, zwei Zeilen, Fuß — die geteilten Rahmenzeilen sind keine Spalten
+    { texte: [...rahmen(3), { text: '1 General', x: 50, y: 760, groesse: 11 }, { text: 'This manual applies to all courses of the school.', x: 50, y: 740, groesse: 9 }] },
+    {
+      texte: [
+        ...rahmen(4),
+        { text: '2 Training', x: 50, y: 760, groesse: 11 },
+        { text: '3 Weather', x: 310, y: 760, groesse: 11 },
+        // Versetzte Grundlinien: links 12,5 pt, rechts 13 pt Zeilenabstand
+        ...links.map((t, i) => ({ text: t, x: 50, y: 740 - i * 12.5, groesse: 9 })),
+        ...rechts.map((t, i) => ({ text: t, x: 310, y: 740 - i * 13, groesse: 9 })),
+      ],
+    },
+  ]
+  return pdfBauen(seiten)
 }
 
 /* ----------------------------- SBX-FORMAL-01 ----------------------------- */
@@ -534,6 +735,64 @@ export function sbxCalc01(): Promise<Uint8Array> {
   ])
 }
 
+/**
+ * Dieselbe Prüfung an einer Excel-Liste (Audit 11/2026, FRD-11): Zeiten
+ * als Tagesbruch mit Format [h]:mm, Datum als Seriennummer, Stunden mit
+ * „0.0", leere Zellen mitten in der Zeile. Eingebaut: eine falsche
+ * Zeitsumme (24:00 statt 16:00) und eine um zehn Minuten falsche
+ * Briefing-Summe; das korrekte Gegenstück (Dezimalstunden) bleibt still.
+ */
+export const SBX_CALC_01_XLSX_NAME = 'SBX-CALC-01.xlsx'
+
+export const SBX_CALC_01_XLSX_FEHLER: { punkt: 'summen'; auszug: string }[] = [
+  { punkt: 'summen', auszug: 'TOTAL |  | 16:00 | 1:30' }, // Module ergeben 24:00
+  { punkt: 'summen', auszug: 'Total | 31:00 | 20:45' }, // Briefings ergeben 20:55
+]
+
+export function sbxCalc01Xlsx(): Promise<Uint8Array> {
+  const zip = new JSZip()
+  const texte: string[] = []
+  const t = (s: string) => {
+    if (!texte.includes(s)) texte.push(s)
+    return texte.indexOf(s)
+  }
+  // Zellen: Text, oder [Wert, Stilindex]; null = leere Zelle
+  const blatt = (zeilen: (string | [number, number] | null)[][]) =>
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="${NS_MAIN}"><sheetData>${zeilen
+      .map((z, r) => `<row r="${r + 1}">${z.map((c, s) => (c === null ? '' : typeof c === 'string' ? `<c r="${String.fromCharCode(65 + s)}${r + 1}" t="s"><v>${t(c)}</v></c>` : `<c r="${String.fromCharCode(65 + s)}${r + 1}" s="${c[1]}"><v>${c[0]}</v></c>`)).join('')}</row>`)
+      .join('')}</sheetData></worksheet>`
+  const [DATUM, ZEIT, DEZ] = [1, 2, 3]
+  const tag = (d: number) => [46082 + d, DATUM] as [number, number]
+  const h = (std: number) => [std / 24, ZEIT] as [number, number]
+  zip.file('xl/worksheets/sheet1.xml', blatt([
+    ['Module', 'Date', 'Dual', 'Mutual'],
+    ['Module A', tag(1), h(8), null],
+    ['Module B', tag(2), h(8), h(1.5)],
+    ['Module C', tag(3), h(8), null],
+    ['TOTAL', null, h(16), h(1.5)],
+  ]))
+  zip.file('xl/worksheets/sheet2.xml', blatt([
+    ['Month', 'Flight time', 'Briefing time'],
+    ['March 2026', h(14), h(9.5)],
+    ['April 2026', h(12.5), h(8.25)],
+    ['May 2026', h(4.5), h(3 + 10 / 60)],
+    ['Total', h(31), h(20.75)],
+  ]))
+  // Korrektes Gegenstück: Dezimalstunden mit leerer Zelle — keine Meldung
+  zip.file('xl/worksheets/sheet3.xml', blatt([
+    ['Item', 'Theory', 'Practice'],
+    ['Lesson 1', [1.5, DEZ], [2.5, DEZ]],
+    ['Lesson 2', [1, DEZ], null],
+    ['Total', [2.5, DEZ], [2.5, DEZ]],
+  ]))
+  zip.file('xl/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${NS_MAIN}"><numFmts count="3"><numFmt numFmtId="165" formatCode="dd\\.mm\\.yyyy"/><numFmt numFmtId="166" formatCode="[h]:mm"/><numFmt numFmtId="167" formatCode="0.0"/></numFmts><cellXfs count="4"><xf numFmtId="0"/><xf numFmtId="165" applyNumberFormat="1"/><xf numFmtId="166" applyNumberFormat="1"/><xf numFmtId="167" applyNumberFormat="1"/></cellXfs></styleSheet>`)
+  zip.file('xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="${NS_MAIN}" xmlns:r="${NS_REL}"><sheets><sheet name="Modules" sheetId="1" r:id="rId1"/><sheet name="Monthly" sheetId="2" r:id="rId2"/><sheet name="Decimal" sheetId="3" r:id="rId3"/></sheets></workbook>`)
+  zip.file('xl/_rels/workbook.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="${NS_PKG}">${[1, 2, 3].map((i) => `<Relationship Id="rId${i}" Type="${NS_REL}/worksheet" Target="worksheets/sheet${i}.xml"/>`).join('')}</Relationships>`)
+  zip.file('xl/sharedStrings.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><sst xmlns="${NS_MAIN}">${texte.map((s) => `<si><t>${x(s)}</t></si>`).join('')}</sst>`)
+  for (const f of Object.values(zip.files)) f.date = new Date(Date.UTC(2026, 0, 1))
+  return zip.generateAsync({ type: 'uint8array' })
+}
+
 /* ------------------------------- SBX-EAR-01 ------------------------------- */
 
 /**
@@ -565,16 +824,38 @@ export function sbxEar01(): Uint8Array {
       'GM1 ORA.ATO.230(a) Training manual',
       'This guidance text is synthetic; see ORA.ATO.999 for nothing.',
     ],
+    // Part-FCL Subpart J: Kennungen mit mehrbuchstabiger Endung (Audit 11/2026, FRD-12)
+    [
+      'FCL.915.FI FI - Prerequisites (synthetic)',
+      '(a) The applicant shall hold a licence (synthetic).',
+      '(b) The applicant shall pass a pre-entry test (synthetic).',
+      'FCL.930.FI FI - Training course (synthetic)',
+      '(a) The course shall start with a pre-entry test (synthetic).',
+      '(b) The course shall include:',
+      '(1) teaching and learning (synthetic);',
+      '(2) flight instruction (synthetic).',
+      'AMC1 FCL.930.FI FI - Training course',
+      '(a) The course may be integrated (synthetic).',
+      '(b) The course should state its hours (synthetic).',
+    ],
   ]
   return pdfBauen(seiten.map((zeilen) => ({ texte: zeilen.map((t, k) => ({ text: t, x: 50, y: 780 - k * 18, groesse: 10 })) })))
 }
 
-/** Prüfdokument mit Regelverweisen: richtige, eine erfundene ID, ein falscher Absatz, eine Quelle außerhalb des Auszugs. */
+/**
+ * Prüfdokument mit Regelverweisen: richtige, je eine erfundene ID und ein
+ * falscher Absatz in Part-ORA und in Part-FCL Subpart J (FRD-12: vorher
+ * galten „FCL.930.IRI" und „AMC1 FCL.930.FI(c)" als verifiziert), eine
+ * Quelle außerhalb des Auszugs. Seit der Auszug Part-FCL enthält, steht
+ * dafür eine Part-MED-Kennung.
+ */
 export const SBX_EAR_01_VERWEISE = {
-  verifiziert: ['ORA.ATO.125(a)', 'ORA.ATO.125(b)(2)', 'AMC1 ORA.ATO.125(a)(1)', 'ORA.ATO.230', 'GM1 ORA.ATO.230(a)'],
+  verifiziert: ['ORA.ATO.125(a)', 'ORA.ATO.125(b)(2)', 'AMC1 ORA.ATO.125(a)(1)', 'ORA.ATO.230', 'GM1 ORA.ATO.230(a)', 'FCL.930.FI(b)(1)', 'AMC1 FCL.930.FI(a)'],
   erfunden: 'ORA.ATO.127',
   falscherAbsatz: 'ORA.ATO.230(d)',
-  ohneQuelle: 'FCL.725(b)',
+  erfundenFcl: 'FCL.930.IRI',
+  falscherAbsatzFcl: 'AMC1 FCL.930.FI(c)',
+  ohneQuelle: 'MED.A.030(b)',
 }
 
 export function sbxEar01Pruefdokument(): Promise<Uint8Array> {
@@ -586,7 +867,10 @@ export function sbxEar01Pruefdokument(): Promise<Uint8Array> {
       `The manuals are maintained IAW ${v.verifiziert[3]} and ${v.verifiziert[4]}.`,
       `Course approval follows ${v.erfunden}.`,
       `The safety manual is required by ${v.falscherAbsatz}.`,
-      `Type rating requirements: ${v.ohneQuelle}.`,
+      `Instructor training follows ${v.verifiziert[5]} and ${v.verifiziert[6]}.`,
+      `The instrument instructor course follows ${v.erfundenFcl}.`,
+      `Course hours are defined in ${v.falscherAbsatzFcl}.`,
+      `Medical requirements: ${v.ohneQuelle}.`,
     ]],
   ])
 }

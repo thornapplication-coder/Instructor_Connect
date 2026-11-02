@@ -1,7 +1,8 @@
 import { ChevronLeft, ChevronRight, Minus, Plus, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { pdfjsLaden } from '../pdfjsLaden'
+import { ablageParameter, type AblageParameter } from '../parse/pdfAblage'
+import { pdfAblage, pdfjsLaden } from '../pdfjsLaden'
 import { datei, useSitzung } from '../sitzung'
 import { standardVerbindung } from '../verbindung'
 import { istGesperrteTaste } from '../viewerTasten'
@@ -40,7 +41,7 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
 }
 
 type PdfAnzeige = {
-  getDocument(src: { data: Uint8Array }): { promise: Promise<PdfDokAnzeige>; destroy(): Promise<void> }
+  getDocument(src: { data: Uint8Array } & AblageParameter): { promise: Promise<PdfDokAnzeige>; destroy(): Promise<void> }
   Util: { transform(a: number[], b: number[]): number[] }
 }
 type PdfDokAnzeige = { numPages: number; getPage(n: number): Promise<PdfSeiteAnzeige> }
@@ -107,7 +108,9 @@ function Viewer({ ziel, onClose }: { ziel: ViewerZiel; onClose: () => void }) {
     }
     let aufgabe: ReturnType<PdfAnzeige['getDocument']> | null = null
     const dok = (pdfjsLaden() as unknown as Promise<PdfAnzeige>).then((lib) => {
-      aufgabe = lib.getDocument({ data: daten.slice() })
+      // Nicht eingebettete Schriften und Bilddecoder aus derselben Ablage wie
+      // beim Lesen (Audit 11/2026, TEC-20)
+      aufgabe = lib.getDocument({ data: daten.slice(), ...ablageParameter(pdfAblage(new URL('doccheck/', document.baseURI).href)) })
       return aufgabe.promise
     })
     dokRef.current = { dok, destroy: async () => void (await aufgabe?.destroy()) }

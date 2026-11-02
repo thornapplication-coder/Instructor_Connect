@@ -14,6 +14,11 @@ describe('Kontrast und unsichtbarer Text (N4)', () => {
     expect(unsichtbar({ farbe: '777777' }, 'FFFFFF')).toBeNull()
   })
 
+  it('unbekannter Hintergrund: kein Farbbefund, Verborgenes bleibt einer (Audit 11/2026, FRD-04)', () => {
+    expect(unsichtbar({ farbe: 'FFFFFF' }, undefined)).toBeNull()
+    expect(unsichtbar({ vanish: true }, undefined)).toBe('vanish')
+  })
+
   it('„auto" ist nie unsichtbar; verborgen und Kleinstschrift schon', () => {
     expect(unsichtbar({ farbe: 'auto' }, '000000')).toBeNull()
     expect(unsichtbar({}, 'FFFFFF')).toBeNull()

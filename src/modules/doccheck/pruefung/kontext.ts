@@ -45,6 +45,11 @@ export function seiteFinder(roh: Rohdokument): (text: string) => string | undefi
   }
 }
 
+/** Fundort eines Notenabsatzes — englisch wie alle Fundstellen (Export). */
+export function notenOrt(teil: string): string {
+  return /endnote/i.test(teil) ? 'Endnote' : 'Footnote'
+}
+
 export interface PruefAbsatz {
   text: string
   seite?: string
@@ -63,8 +68,9 @@ export function absaetze(roh: Rohdokument): PruefAbsatz[] {
       .filter((a) => a.text.trim())
       .map((a) => ({
         text: a.text.replace(/\s+/g, ' ').trim(),
-        seite: a.ort === 'body' || a.ort === 'textfeld' ? seite(a.text) : undefined,
-        ort: a.ort === 'kopf' ? `Header (${a.teil.replace('word/', '')})` : a.ort === 'fuss' ? `Footer (${a.teil.replace('word/', '')})` : a.ort === 'textfeld' ? 'Text box' : a.tabelle ? `Table row ${a.tabelle.zeile + 1}, column ${a.tabelle.spalte + 1}` : undefined,
+        // Textfelder und Fußnoten stehen seit FRD-13 im Seitentext — ihre Seite ist auffindbar
+        seite: a.ort === 'body' || a.ort === 'textfeld' || a.ort === 'fussnote' ? seite(a.text) : undefined,
+        ort: a.ort === 'kopf' ? `Header (${a.teil.replace('word/', '')})` : a.ort === 'fuss' ? `Footer (${a.teil.replace('word/', '')})` : a.ort === 'textfeld' ? 'Text box' : a.ort === 'fussnote' ? notenOrt(a.teil) : a.tabelle ? `Table row ${a.tabelle.zeile + 1}, column ${a.tabelle.spalte + 1}` : undefined,
         wortOrt: a.ort,
       }))
   }

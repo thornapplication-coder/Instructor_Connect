@@ -2,7 +2,7 @@ import { datumFinden, revisionFinden } from '../parse/meta'
 import { tocPlausibel, vergleichsform } from '../parse/seitenzuordnung'
 import { ampelAus, type Befund, type Fundstelle } from './befund'
 import { unsichtbar } from './kontrast'
-import { befund, kurz, seiteFinder, type PruefKontext } from './kontext'
+import { befund, kurz, notenOrt, seiteFinder, type PruefKontext } from './kontext'
 import { dokumentSprache, spracheVon } from './sprache'
 
 /**
@@ -51,7 +51,7 @@ export function wordCheck(k: PruefKontext, dateiname: string): { befunde: Omit<B
     if (!a) return {}
     if (a.ort === 'kopf' || a.ort === 'fuss') return { ort: `${a.ort === 'kopf' ? 'Header' : 'Footer'} ${a.teil.replace('word/', '')}` }
     const s = seite(a.text)
-    return { ...(s ? { seite: s } : {}), ...(a.ort === 'textfeld' ? { ort: 'Text box' } : a.tabelle ? { ort: `Table row ${a.tabelle.zeile + 1}, column ${a.tabelle.spalte + 1}` } : {}) }
+    return { ...(s ? { seite: s } : {}), ...(a.ort === 'textfeld' ? { ort: 'Text box' } : a.ort === 'fussnote' ? { ort: notenOrt(a.teil) } : a.tabelle ? { ort: `Table row ${a.tabelle.zeile + 1}, column ${a.tabelle.spalte + 1}` } : {}) }
   }
 
   // 1 Unsichtbarer Text
@@ -65,7 +65,7 @@ export function wordCheck(k: PruefKontext, dateiname: string): { befunde: Omit<B
         kategorie: 'Document Control',
         prioritaet: 'High',
         text: `[Word check] Invisible text in ${versteckt.length} place(s): content is part of the submitted file but not visible on screen or in print.`,
-        fundstellen: versteckt.map((l) => ({ ...ortVon(l.absatz), auszug: `${kurz(l.text, 90)} — ${art(l)} (${l.eigenschaften.farbe ?? 'auto'} on ${l.hintergrund})` })),
+        fundstellen: versteckt.map((l) => ({ ...ortVon(l.absatz), auszug: `${kurz(l.text, 90)} — ${art(l)} (${l.eigenschaften.farbe ?? 'auto'} on ${l.hintergrund ?? 'unknown background'})` })),
         anleitung: 'unsichtbar',
       }),
     )

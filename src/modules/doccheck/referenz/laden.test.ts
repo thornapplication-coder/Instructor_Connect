@@ -2,6 +2,7 @@ import JSZip from 'jszip'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fuerNutzer, lesenZustand, neu, fertig, setzen } from '../sitzung'
 import { aendern, hinzufuegen, referenzDateiLesen } from './laden'
+import { LISTE_MAX_MB } from './liste'
 
 async function mappe(): Promise<Uint8Array> {
   const zip = new JSZip()
@@ -46,6 +47,25 @@ describe('Referenzlisten laden', () => {
     aendern(0, null, vb as never)
     expect(lesenZustand().referenzen).toHaveLength(1)
     expect(vb.referenzen).toHaveBeenLastCalledWith([])
+  })
+
+  it('übergroße Datei: abgewiesen, bevor sie gelesen wird; die übrigen Dateien kommen trotzdem an (Audit 11/2026, SEC-01)', async () => {
+    const zuGross = LISTE_MAX_MB * 1024 * 1024 + 1
+    await expect(referenzDateiLesen('riesig.csv', new Uint8Array(zuGross))).rejects.toThrow('DC-LISTE-GROSS')
+    const vb = v()
+    const gelesen = vi.fn(async () => new ArrayBuffer(0))
+    const kaputt = async () => new TextEncoder().encode('PK kaputt').buffer as ArrayBuffer
+    const r = await hinzufuegen(
+      [
+        { name: 'riesig.xlsx', size: zuGross, arrayBuffer: gelesen },
+        { name: 'kaputt.xlsx', arrayBuffer: kaputt },
+        { name: 'a.csv', size: 30, arrayBuffer: async () => new TextEncoder().encode('Abbreviation;Meaning\nAFM;Flight manual').buffer as ArrayBuffer },
+      ],
+      vb as never,
+    )
+    expect(gelesen).not.toHaveBeenCalled()
+    expect(r.fehler).toEqual([{ name: 'riesig.xlsx', code: 'DC-LISTE-GROSS' }, { name: 'kaputt.xlsx', code: 'DC-PARSE' }])
+    expect(vb.referenzen).toHaveBeenLastCalledWith([expect.objectContaining({ art: 'abkuerzungen' })])
   })
 
   it('Neu geprüfte Dokumente aus dem Worker landen in der Sitzung', async () => {

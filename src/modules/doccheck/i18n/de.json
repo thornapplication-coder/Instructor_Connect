@@ -281,6 +281,7 @@
     "seiteVon": "Seite {{seite}} von {{gesamt}}",
     "startet": "wird gelesen …",
     "abbrechen": "Abbrechen",
+    "bricht": "bricht ab …",
     "lenkung": "Änderungen: {{aenderungen}} · Kommentare: {{kommentare}} · Revisionsbalken: {{revisionsbalken}}",
     "duplikat": {
       "identisch": "Identisch mit {{mit}} ({{wo}})",
@@ -330,7 +331,10 @@
     "DC-PDF-PASSWORD": "PDF ist passwortgeschützt.",
     "DC-PDF-INVALID": "PDF ist beschädigt oder unvollständig.",
     "DC-DOCX-INVALID": "Word-Datei ist unvollständig.",
-    "DC-XLSX-INVALID": "Excel-Datei ist unvollständig."
+    "DC-XLSX-INVALID": "Excel-Datei ist unvollständig.",
+    "DC-LISTE-GROSS": "Liste zu groß – höchstens {{mb}} MB.",
+    "DC-ZIP-GROSS": "Datei ist entpackt zu groß oder hat zu viele Teile – zum Schutz nicht geöffnet.",
+    "DC-EMPTY": "Datei ist leer (0 Byte)."
   },
   "ocr": {
     "laeuft": "Texterkennung: {{fertig}} von {{gesamt}} Seiten …",

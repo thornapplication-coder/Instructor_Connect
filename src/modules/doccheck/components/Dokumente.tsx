@@ -8,7 +8,7 @@ import { useStore } from '../../../store'
 import { aktiv } from '../settings'
 import { ocrAusfuehren, type OcrPdf, type OcrTesseract } from '../ocr'
 import { pdfjsLaden } from '../pdfjsLaden'
-import { aktualisiert, bestaetigen, datei, dateiEntfernen, duplikatFuer, entfernen, feldSetzen, offenePflichtfelder, setzen, useSitzung, type Feld, type Rolle, type SitzungsDok } from '../sitzung'
+import { abbruchAnfordern, aktualisiert, bestaetigen, datei, dateiEntfernen, duplikatFuer, entfernen, feldSetzen, offenePflichtfelder, setzen, useSitzung, type Feld, type Rolle, type SitzungsDok } from '../sitzung'
 import { standardVerbindung } from '../verbindung'
 import { useViewer } from './Viewer'
 
@@ -201,10 +201,20 @@ function DokKarte({ d }: { d: SitzungsDok }) {
           <div className="h-1.5 overflow-hidden rounded-full bg-line/10" role="progressbar" aria-valuemin={0} aria-valuemax={d.fortschritt?.gesamt ?? 1} aria-valuenow={d.fortschritt?.seite ?? 0}>
             <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${d.fortschritt ? (100 * d.fortschritt.seite) / d.fortschritt.gesamt : 5}%` }} />
           </div>
-          <div className="flex items-center justify-between text-micro text-dim">
-            <span>{d.fortschritt ? t('upload.seiteVon', { seite: d.fortschritt.seite, gesamt: d.fortschritt.gesamt }) : t('upload.startet')}</span>
-            <button className="underline hover:text-ink" onClick={() => standardVerbindung().abbrechen(d.id)}>
-              {t('upload.abbrechen')}
+          <div className="flex items-center justify-between gap-2 text-micro text-dim">
+            <span className="min-w-0">{d.fortschritt ? t('upload.seiteVon', { seite: d.fortschritt.seite, gesamt: d.fortschritt.gesamt }) : t('upload.startet')}</span>
+            {/* Abbrechen braucht bis zur nächsten Freigabe des Lesers (DC-01) — bis
+                dahin sagt der Knopf, dass er gehört wurde, statt nochmal geklickt zu werden.
+                Einzeilig: In der schmalen Spalte brachen Zähler und Knopf sonst beide um. */}
+            <button
+              className="shrink-0 whitespace-nowrap underline hover:text-ink disabled:no-underline"
+              disabled={d.abbruch}
+              onClick={() => {
+                setzen((z) => abbruchAnfordern(z, d.id))
+                standardVerbindung().abbrechen(d.id)
+              }}
+            >
+              {d.abbruch ? t('upload.bricht') : t('upload.abbrechen')}
             </button>
           </div>
         </div>

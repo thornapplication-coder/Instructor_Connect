@@ -1,5 +1,6 @@
 import { datumFinden, revisionFinden } from '../parse/meta'
-import { vergleichsform } from '../parse/seitenzuordnung'
+import type { Aenderung } from '../parse/model'
+import { hatNummer, ohneNummer, vergleichsform } from '../parse/seitenzuordnung'
 import { ampelAus, type Befund, type Fundstelle, type Prioritaet } from './befund'
 import { fremdesRegelwerk } from './verweise'
 import { absaetze, befund, fundstelle, kurz, seitenName, verwendeteAbkuerzungen, type PruefKontext } from './kontext'
@@ -10,6 +11,15 @@ import { absaetze, befund, fundstelle, kurz, seitenName, verwendeteAbkuerzungen,
  * stehen deshalb KEINE erfundenen Regelzitate, nur der Befund und die
  * Fundstelle.
  */
+
+/** Englische Bezeichnung je Änderungsart — Fundstellen gehen so in den Export (FRD-15). */
+export const AENDERUNGSART: Record<Aenderung['art'], string> = {
+  ins: 'Inserted',
+  del: 'Deleted',
+  moveFrom: 'Moved away',
+  moveTo: 'Moved here',
+  format: 'Formatting changed',
+}
 
 export const FORMAL_PUNKTE = ['revisionsstand', 'lep', 'seiten', 'revisionen', 'inhalt', 'nummerierung', 'querverweise', 'abkuerzungen', 'reste'] as const
 
@@ -98,7 +108,9 @@ export function formalPruefung(k: PruefKontext): { befunde: Ergebnis[]; ampel: R
   } else na.push('lep')
 
   /* 3 Seitennummerierung — Lücken, Doppelungen, „Page x of y" */
-  if (labels.length >= 3 && !roh.word) {
+  // XLSX: Die „Seiten" sind Blätter mit Namen — keine Nummerierung, nichts zu
+  // prüfen; vorher stand der Punkt auf grün (Audit 11/2026, FRD-11).
+  if (labels.length >= 3 && !roh.word && roh.format !== 'xlsx') {
     const fs: Fundstelle[] = []
     const vonGesamt = pages.map((p) => p.label?.match(/(\d+)\s*(?:of|von|\/|\|)\s*(\d+)\s*$/i)).filter(Boolean) as RegExpMatchArray[]
     if (vonGesamt.length >= 3) {
@@ -139,11 +151,17 @@ export function formalPruefung(k: PruefKontext): { befunde: Ergebnis[]; ampel: R
   const ueberschriften = roh.outline.map((o) => o.titel)
   const formU = new Set(ueberschriften.map(vergleichsform))
   if (roh.word?.toc.length) {
-    const tocFormen = roh.word.toc.map((t) => vergleichsform(t.titel))
+    const tocFormen = new Set(roh.word.toc.map((t) => vergleichsform(t.titel)))
+    const tocOhneNr = new Set(roh.word.toc.map((t) => vergleichsform(ohneNummer(t.titel))))
+    // Trägt eine Überschrift keine Nummer, zählt beim Abgleich nur der Titel
+    // (Audit 11/2026, FRD-01): Sonst wäre „1 General" im Verzeichnis gegen
+    // „General" im Text ein Fehlalarm, obwohl der Befundtext „compared by
+    // title only" verspricht. Wer eine Nummer trägt, muss sie auch treffen.
+    const unnummeriert = new Set(roh.outline.filter((o) => !hatNummer(o.titel)).map((o) => vergleichsform(o.titel)))
     const maxEbene = Math.max(...roh.word.toc.map((t) => t.ebene))
     const fs: Fundstelle[] = [
-      ...roh.word.toc.filter((t) => !formU.has(vergleichsform(t.titel))).map((t) => ({ ort: 'Table of contents', auszug: `Entry without matching heading: ${t.titel}` })),
-      ...roh.outline.filter((o) => o.ebene <= maxEbene && !tocFormen.includes(vergleichsform(o.titel))).map((o) => ({ ort: 'Headings', auszug: `Heading missing in table of contents: ${o.titel}` })),
+      ...roh.word.toc.filter((t) => !formU.has(vergleichsform(t.titel)) && !unnummeriert.has(vergleichsform(ohneNummer(t.titel)))).map((t) => ({ ort: 'Table of contents', auszug: `Entry without matching heading: ${t.titel}` })),
+      ...roh.outline.filter((o) => o.ebene <= maxEbene && !tocFormen.has(vergleichsform(o.titel)) && (hatNummer(o.titel) || !tocOhneNr.has(vergleichsform(o.titel)))).map((o) => ({ ort: 'Headings', auszug: `Heading missing in table of contents: ${o.titel}` })),
     ]
     if (fs.length) neu('inhalt', 'Inconsistency', 'Low', `Table of contents does not match the headings (${fs.length}). DOCX: compared by title only.`, fs, 'inhalt')
   } else {
@@ -191,24 +209,32 @@ export function formalPruefung(k: PruefKontext): { befunde: Ergebnis[]; ampel: R
   const bilder = new Set(alle.filter((a) => a.text.length <= 120).map((a) => a.text.match(/^(?:Figure|Fig\.|Abbildung|Abb\.)\s+(\d+(?:[.-]\d+)*)/i)?.[1]?.replace(/-/g, '.')).filter(Boolean) as string[])
   const tabellen = new Set(alle.filter((a) => a.text.length <= 120).map((a) => a.text.match(/^(?:Table|Tabelle|Tab\.)\s+(\d+(?:[.-]\d+)*)/i)?.[1]?.replace(/-/g, '.')).filter(Boolean) as string[])
   const fsVerweis: Fundstelle[] = []
+  let verweise = 0
+  let geprueft = 0
   for (const a of alle) {
     for (const m of a.text.matchAll(/\b(?:see|refer to|refer|siehe|gemäß)\s+(chapter|section|para(?:graph)?|appendix|annex|figure|fig\.|table|kapitel|abschnitt|anhang|abbildung|abb\.|tabelle)\s+([A-Z]?\d+(?:\.\d+)*[A-Z]?|[A-Z])\b/gi)) {
       // Ziel in einem fremden Regelwerk („Annex I (Part-FCL)") — nicht im Dokument zu suchen
       if (fremdesRegelwerk(a.text.slice(m.index! + m[0].length))) continue
       const art = m[1].toLowerCase()
       const ziel = m[2].replace(/-/g, '.')
-      const ok = /^(chapter|section|para|paragraph|kapitel|abschnitt)$/.test(art)
-        ? kapitel.size === 0 || kapitel.has(ziel) || [...kapitel].some((n) => n.startsWith(`${ziel}.`))
+      // Ohne Ziele dieser Art lässt sich der Verweis weder belegen noch
+      // widerlegen — er zählt nicht als geprüft (Audit 11/2026, FRD-01: ein
+      // Word-Dokument ohne gelesene Kapitelnummern stand sonst auf grün).
+      const [ziele, ok] = /^(chapter|section|para|paragraph|kapitel|abschnitt)$/.test(art)
+        ? [kapitel, kapitel.has(ziel) || [...kapitel].some((n) => n.startsWith(`${ziel}.`))]
         : /^(appendix|annex|anhang)$/.test(art)
-          ? anhaenge.size === 0 || anhaenge.has(ziel.toUpperCase())
+          ? [anhaenge, anhaenge.has(ziel.toUpperCase())]
           : /^(figure|fig\.|abbildung|abb\.)$/.test(art)
-            ? bilder.size === 0 || bilder.has(ziel)
-            : tabellen.size === 0 || tabellen.has(ziel)
+            ? [bilder, bilder.has(ziel)]
+            : [tabellen, tabellen.has(ziel)]
+      verweise++
+      if (!ziele.size) continue
+      geprueft++
       if (!ok) fsVerweis.push(fundstelle(a, `${m[0]} — target not found`))
     }
   }
   if (fsVerweis.length) neu('querverweise', 'Inconsistency', 'Medium', `Cross-references point to targets that do not exist in the document (${fsVerweis.length}).`, fsVerweis, 'querverweise')
-  if (!kapitel.size && !anhaenge.size && !bilder.size && !tabellen.size) na.push('querverweise')
+  if ((!kapitel.size && !anhaenge.size && !bilder.size && !tabellen.size) || (verweise > 0 && geprueft === 0)) na.push('querverweise')
 
   /* 8 Abkürzungen — Liste gegen Verwendung */
   const abkSeiten = abschnittSeiten(pages, regeln.abschnitte.abkuerzungen)
@@ -244,7 +270,7 @@ export function formalPruefung(k: PruefKontext): { befunde: Ergebnis[]; ampel: R
     for (const a of alle) for (const m of a.text.matchAll(re)) (r.prioritaet === 'High' ? fsHoch : fsMittel).push(fundstelle(a, `${m[0]} — ${a.text}`))
   }
   const l = roh.lenkung
-  if (l.aenderungen.length) fsHoch.push(...l.aenderungen.map((x) => ({ ort: 'Tracked change', auszug: kurz(`${x.art === 'ins' ? 'Inserted' : 'Deleted'}${x.autor ? ` by ${x.autor}` : ''}: ${x.text}`) })))
+  if (l.aenderungen.length) fsHoch.push(...l.aenderungen.map((x) => ({ ort: 'Tracked change', auszug: kurz(`${AENDERUNGSART[x.art]}${x.autor ? ` by ${x.autor}` : ''}: ${x.text}`) })))
   if (l.kommentare.length) fsHoch.push(...l.kommentare.map((x) => ({ ort: 'Comment', auszug: kurz(`${x.autor ? `${x.autor}: ` : ''}${x.text}`) })))
   if (fsHoch.length) neu('reste', 'Document Control', 'High', `Unresolved editing remnants: open tracked changes, comments or broken field references (${fsHoch.length}).`, fsHoch, 'resteHoch')
   if (fsMittel.length) neu('reste', 'Editorial', 'Medium', `Editing remnants such as TBD, XXX, [insert …], DRAFT (${fsMittel.length}).`, fsMittel, 'reste')

@@ -34,6 +34,8 @@ export interface SitzungsDok {
   erkannt: Feld[]
   /** Stellung im Dokumentpaket (Nachtrag N1) — nur Prüfdokumente */
   paket?: PaketAngaben
+  /** „Abbrechen" geklickt, Antwort des Workers steht aus (DC-01) */
+  abbruch?: boolean
 }
 
 /** Eine hochgeladene Referenzliste (Soll) samt Rohtabelle — die Art lässt
@@ -95,6 +97,16 @@ export function fertig(z: Zustand, id: string, zf: Zusammenfassung): Zustand {
 /** OCR liefert eine neue Zusammenfassung — Felder bleiben, wie sie sind. */
 export function aktualisiert(z: Zustand, zf: Zusammenfassung): Zustand {
   return aendern(z, zf.id, (d) => ({ ...d, z: zf }))
+}
+
+/**
+ * „Abbrechen" angefordert (DC-01). Gemerkt in der Sitzung, nicht nur im
+ * Knopf: War der Worker schon fertig, als die Nachricht ankam, kommt
+ * statt des Abbruchs das Ergebnis — und das darf dann nicht aufgenommen
+ * werden (`hochladen`).
+ */
+export function abbruchAnfordern(z: Zustand, id: string): Zustand {
+  return aendern(z, id, (d) => (d.status === 'liest' ? { ...d, abbruch: true } : d))
 }
 
 export function fehler(z: Zustand, id: string, code: string): Zustand {

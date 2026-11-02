@@ -281,6 +281,7 @@
     "seiteVon": "Page {{seite}} of {{gesamt}}",
     "startet": "reading …",
     "abbrechen": "Cancel",
+    "bricht": "cancelling …",
     "lenkung": "Changes: {{aenderungen}} · comments: {{kommentare}} · revision bars: {{revisionsbalken}}",
     "duplikat": {
       "identisch": "Identical to {{mit}} ({{wo}})",
@@ -330,7 +331,10 @@
     "DC-PDF-PASSWORD": "The PDF is password-protected.",
     "DC-PDF-INVALID": "The PDF is damaged or incomplete.",
     "DC-DOCX-INVALID": "The Word file is incomplete.",
-    "DC-XLSX-INVALID": "The Excel file is incomplete."
+    "DC-XLSX-INVALID": "The Excel file is incomplete.",
+    "DC-LISTE-GROSS": "List too large – {{mb}} MB at most.",
+    "DC-ZIP-GROSS": "The file is too large when unpacked or has too many parts – not opened, for safety.",
+    "DC-EMPTY": "The file is empty (0 bytes)."
   },
   "ocr": {
     "laeuft": "Text recognition: {{fertig}} of {{gesamt}} pages …",

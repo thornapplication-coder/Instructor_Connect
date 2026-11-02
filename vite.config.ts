@@ -20,7 +20,8 @@ function listPublicFiles(dir = 'public', prefix = ''): string[] {
 
 /**
  * Feste Dateien für DocCheck, die pdf.js und tesseract.js zur LAUFZEIT per
- * Adresse laden: Standardschriften, OCR-Worker, OCR-Kern, englische
+ * Adresse laden: Standardschriften, Bilddecoder und Farbprofil von pdf.js
+ * (`pdfAblage` in pdfjsLaden.ts), OCR-Worker, OCR-Kern, englische
  * Sprachdaten. Sie stehen unter festen Namen in `doccheck/` (tesseract.js
  * setzt die Dateinamen selbst zusammen, Hash-Namen fände es nicht).
  *
@@ -33,6 +34,12 @@ const DOCCHECK_DATEIEN: [string, string][] = [
   ...['', 'simd-', 'relaxedsimd-'].map((v): [string, string] => [`doccheck/ocr/tesseract-core-${v}lstm.wasm.js`, `node_modules/tesseract.js-core/tesseract-core-${v}lstm.wasm.js`]),
   ['doccheck/ocr/eng.traineddata.gz', 'node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz'],
   ...readdirSync('node_modules/pdfjs-dist/standard_fonts').map((f): [string, string] => [`doccheck/pdf-fonts/${f}`, `node_modules/pdfjs-dist/standard_fonts/${f}`]),
+  // quickjs-eval gehört zur Skript-Sandbox von pdf.js — DocCheck führt
+  // keine PDF-Skripte aus (isEvalSupported: false).
+  ...readdirSync('node_modules/pdfjs-dist/wasm')
+    .filter((f) => !f.startsWith('quickjs'))
+    .map((f): [string, string] => [`doccheck/pdf-wasm/${f}`, `node_modules/pdfjs-dist/wasm/${f}`]),
+  ...readdirSync('node_modules/pdfjs-dist/iccs').map((f): [string, string] => [`doccheck/pdf-iccs/${f}`, `node_modules/pdfjs-dist/iccs/${f}`]),
 ]
 
 function docCheckDateien(): Plugin {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { formatDateTime } from '../../../datum'
-import { csvLesen } from '../referenz/liste'
+import { csvLesen, LISTE_MAX_MB } from '../referenz/liste'
 import type { SitzungsDok } from '../sitzung'
 import { sbxFl01 } from '../benchmark/sbx'
 import { auftraege, bestaetigen, bestaetigenMit, nachLauf, neueBefunde, neuesBlatt, remarkBestaetigt, korrekturen, kannZurueckschreiben, paketStand, rueckschreibAuftrag, blattWaehlen, csvExport, dokNamen, listeLesen, sammelKandidaten, zaehlen, zeilen, zielAendern, zieleAuffrischen, zuordnungAendern, zuruecknehmen, type ReCheckSitzung } from './ablauf'
@@ -33,6 +33,11 @@ describe('Re-Check-Ablauf (N3.1)', () => {
     expect((await listeLesen('SBX-FL-01.xlsx', await sbxFl01())).map((b) => b.name)).toEqual(['Findings', 'Overview', 'Lists'])
     expect(await listeLesen('leer.csv', new Uint8Array())).toEqual([])
     await expect(listeLesen('x.pdf', new Uint8Array())).rejects.toThrow('DC-RECHECK-FORMAT')
+  })
+
+  it('übergroße Fremdliste wird vor dem Lesen abgewiesen — sie liest im Hauptfenster (Audit 11/2026, SEC-01)', async () => {
+    await expect(listeLesen('fl.xlsx', new Uint8Array(LISTE_MAX_MB * 1024 * 1024 + 1))).rejects.toThrow('DC-LISTE-GROSS')
+    expect(await listeLesen('fl.csv', new TextEncoder().encode('No;Finding\n1;x'))).toHaveLength(1)
   })
 
   it('nur fertige Prüfdokumente kommen als Ziel infrage — mit allen Namen, unter denen eine Liste sie nennt', () => {

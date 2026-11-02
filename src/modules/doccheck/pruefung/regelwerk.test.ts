@@ -50,6 +50,25 @@ describe('Index (N8)', () => {
   })
 })
 
+describe('Part-FCL Subpart J im Index (Audit 11/2026, FRD-12)', () => {
+  const FCL = quelle('FCL', ['FCL.915.FI FI – Prerequisites (synthetic)', '(a) Licence.', '(b) Pre-entry test.', 'FCL.930.FI FI – Training course (synthetic)', '(a) Pre-entry test.', '(b) The course shall include:', '(1) teaching and learning;', 'AMC1 FCL.930.FI FI – Training course', '(a) Integrated course.', '(b) Hours.'].join('\n'))
+
+  it('je Kennung ein eigener Eintrag — FCL.930.FI und FCL.915.FI fallen nicht auf „FCL.930"/„FCL.915" zusammen', () => {
+    const i = regelIndex([FCL])
+    expect([...i.eintraege.keys()].sort()).toEqual(['AMC1 FCL.930.FI', 'FCL.915.FI', 'FCL.930.FI'])
+    expect([familie('FCL.930.FI'), zerlegen('AMC1 FCL.930.FI(b)(1)').basis]).toEqual(['FCL', 'FCL.930.FI'])
+  })
+
+  it('nicht geladene Kennung „To verify", fehlender Absatz „paragraph not found", richtiger Verweis verifiziert', () => {
+    const i = regelIndex([FCL])
+    expect(verweisPruefen('FCL.930.FI(b)(1)', i)).toEqual({ status: 'verified' })
+    expect(verweisPruefen('FCL.930.IRI', i)).toEqual({ status: 'fehlt', naechste: 'FCL.930.FI' })
+    expect(verweisPruefen('FCL.915.CRI', i)).toEqual({ status: 'fehlt', naechste: 'FCL.915.FI' })
+    expect(verweisPruefen('FCL.930.FI(b)(3)', i)).toEqual({ status: 'absatz', vorhanden: ['(a)', '(b)'] })
+    expect(verweisPruefen('AMC1 FCL.930.FI(c)', i)).toEqual({ status: 'absatz', vorhanden: ['(a)', '(b)'] })
+  })
+})
+
 describe('Prüfung je Dokument', () => {
   const roh = (text: string): Rohdokument => ({ format: 'docx', pages: [{ index: 1, label: 'S. 1', text }], outline: [], lenkung: LEERE_LENKUNG, ocrKandidaten: [], tabellen: 0 })
   const k = (text: string) => ({ dokId: 'd', dokName: 'D', roh: roh(text), meta: {}, regeln: REGELN })

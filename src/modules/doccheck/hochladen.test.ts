@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { annehmbar, bibliotheksVergleich, hochladen, MAX_BYTES, MELDE_TAKT, pdfDazulegen, stamm } from './hochladen'
 import type { Zusammenfassung } from './kern'
-import { datei, entfernen, fuerNutzer, lesenZustand, setzen } from './sitzung'
+import { abbruchAnfordern, datei, entfernen, fuerNutzer, lesenZustand, setzen } from './sitzung'
 
 const zf = (id: string, meta: Zusammenfassung['meta'] = {}): Zusammenfassung => ({
   id, format: 'pdf', seiten: 1, zeichen: 1, ocrKandidaten: [], ocrSeiten: 0, tabellen: 0, sha256: 's' + id, meta, duplikat: null, labels: [], outline: [],
@@ -69,6 +69,23 @@ describe('hochladen', () => {
     expect(lesenZustand().docs[1].fehler).toBe('DC-PARSE')
     await hochladen([datei_('c.pdf')], 'review', { lesen: async () => { throw new Error('DC-ABORTED') }, titel: vi.fn() } as never)
     expect(lesenZustand().docs.map((d) => d.name)).toEqual(['a.pdf', 'b.pdf'])
+  })
+
+  it('Abbrechen kam erst an, als der Worker schon fertig war: Ergebnis verworfen, auch im Worker (Gegenprüfung Audit 11/2026, DC-01)', async () => {
+    const entfernenImWorker = vi.fn()
+    const titel = vi.fn()
+    // Der Klick fällt zwischen „fertig" im Worker und die Antwort im Fenster
+    const lesen = async (a: { id: string }) => {
+      setzen((z) => abbruchAnfordern(z, a.id))
+      return zf(a.id, { titel: 'Spät' })
+    }
+    await hochladen([datei_('spaet.pdf')], 'review', { lesen, titel, entfernen: entfernenImWorker } as never)
+    expect(lesenZustand().docs).toEqual([])
+    expect(entfernenImWorker).toHaveBeenCalledTimes(1)
+    expect(titel).not.toHaveBeenCalled()
+    // Abbruch durch den Worker selbst: ebenso ganz weg
+    await hochladen([datei_('c.pdf')], 'review', { lesen: async () => { throw new Error('DC-ABORTED') }, titel, entfernen: entfernenImWorker } as never)
+    expect([lesenZustand().docs.length, entfernenImWorker.mock.calls.length]).toEqual([0, 2])
   })
 
   it('während des Lesens entfernt → wird nicht wieder aufgenommen; ohne Titel keine Meldung', async () => {

@@ -1,7 +1,7 @@
 import { csvRow } from '../../../csv'
 import { formatDate, formatDateTime } from '../../../datum'
 import { xlsxTabellen } from '../parse/xlsx'
-import { csvLesen } from '../referenz/liste'
+import { csvLesen, listeGroessePruefen } from '../referenz/liste'
 import type { SitzungsDok } from '../sitzung'
 import { befundeLesen, kopfzeileFinden, zielVorschlagen, zuordnungVorschlagen, type FremdBefund, type Rolle, type Ziel, type Zuordnung } from './fremdliste'
 import { profilLaden, profilSpeichern } from './profil'
@@ -53,6 +53,7 @@ export interface ReCheckSitzung {
 type Ablage = Pick<Storage, 'getItem' | 'setItem'>
 
 export async function listeLesen(name: string, daten: Uint8Array): Promise<ReCheckSitzung['blaetter']> {
+  listeGroessePruefen(daten.byteLength)
   if (/\.xlsx$/i.test(name)) return (await xlsxTabellen(daten)).filter((b) => b.zeilen.length)
   if (/\.(csv|txt)$/i.test(name)) {
     const zeilen = csvLesen(new TextDecoder().decode(daten))

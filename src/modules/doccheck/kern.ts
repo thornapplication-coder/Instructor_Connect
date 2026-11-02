@@ -5,6 +5,7 @@ import type { Format, OutlineNode, Rechtscharakter, Rohdokument, SeitenQuelle } 
 import { pdfLesen } from './parse/pdf'
 import { pdfDatum, pdfZuordnung, seitenAusEinheiten, teilen } from './parse/seitenzuordnung'
 import type { PdfJs } from './parse/pdf'
+import type { PdfAblage } from './parse/pdfAblage'
 import { regelIds } from './parse/regeln'
 import { Suchindex, type Treffer } from './search/suche'
 import { dokumentPruefen, type Pruefung } from './pruefung/pruefen'
@@ -153,7 +154,11 @@ export class Kern {
     return [...this.docs.entries()].filter(([, d]) => d.pruefen).map(([id]) => this.fassen(id))
   }
 
-  constructor(private deps: { pdfjs: () => Promise<PdfJs>; standardFontDataUrl?: string }) {}
+  constructor(private deps: { pdfjs: () => Promise<PdfJs> } & PdfAblage) {}
+
+  private get ablage(): PdfAblage {
+    return { standardFontDataUrl: this.deps.standardFontDataUrl, wasmUrl: this.deps.wasmUrl, iccUrl: this.deps.iccUrl }
+  }
 
   async lesen(a: LeseAuftrag, onFortschritt?: (seite: number, gesamt: number) => void): Promise<Zusammenfassung> {
     const ctrl = new AbortController()
@@ -162,7 +167,7 @@ export class Kern {
       const g = await dateiLesen({ name: a.name, daten: a.daten }, this.deps, {
         vorgabe: a.vorgabe,
         bestand: a.bestand,
-        standardFontDataUrl: this.deps.standardFontDataUrl,
+        ...this.ablage,
         onFortschritt,
         signal: ctrl.signal,
       })
@@ -239,7 +244,7 @@ export class Kern {
     if (!d || d.roh.format !== 'docx' || !d.roh.einheiten) return null
     let pdfDok: Rohdokument
     try {
-      pdfDok = await pdfLesen(pdf.slice(), await this.deps.pdfjs(), { standardFontDataUrl: this.deps.standardFontDataUrl })
+      pdfDok = await pdfLesen(pdf.slice(), await this.deps.pdfjs(), this.ablage)
     } catch {
       d.pdfPaar = { abweichung: 1, warnung: 'lesefehler' }
       return this.fassen(id)

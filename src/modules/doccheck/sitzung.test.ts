@@ -3,7 +3,7 @@ import { registrierteArbeitOffen } from '../../editGuard'
 import type { Zusammenfassung } from './kern'
 import type { ReCheckSitzung } from './recheck/ablauf'
 import {
-  abonnieren, offeneArbeit, referenzenSetzen, aktualisiert, bestaetigen, paketBestaetigen, paketSetzen, paketStruktur, paketVorbelegen, datei, dateiAblegen, dateiEntfernen, duplikatFuer, entfernen, fehler, feldSetzen, fertig, fortschritt, fuerNutzer, LEER, lesenZustand, neu, offenePflichtfelder, setzen,
+  abbruchAnfordern, abonnieren, offeneArbeit, referenzenSetzen, aktualisiert, bestaetigen, paketBestaetigen, paketSetzen, paketStruktur, paketVorbelegen, datei, dateiAblegen, dateiEntfernen, duplikatFuer, entfernen, fehler, feldSetzen, fertig, fortschritt, fuerNutzer, LEER, lesenZustand, neu, offenePflichtfelder, setzen,
 } from './sitzung'
 
 const zf = (id: string, meta: Partial<Zusammenfassung['meta']> = {}, sha = 'h' + id): Zusammenfassung => ({
@@ -52,6 +52,13 @@ describe('Sitzungsübergänge', () => {
     expect(z.docs[1].z?.ocrSeiten).toBe(2)
     expect(z.docs[1].felder.titel).toBe('B')
     expect(entfernen(z, 'a').docs.map((d) => d.id)).toEqual(['b'])
+  })
+
+  it('Abbrechen angefordert: nur während des Lesens gemerkt (DC-01)', () => {
+    let z = neu(neu(LEER, { id: 'a', rolle: 'review', name: 'a', groesse: 1 }), { id: 'b', rolle: 'review', name: 'b', groesse: 1 })
+    z = fertig(z, 'b', zf('b'))
+    z = abbruchAnfordern(abbruchAnfordern(z, 'a'), 'b')
+    expect(z.docs.map((d) => d.abbruch)).toEqual([true, undefined])
   })
 
   it('Pflichtfelder: Revision immer, Titel für Master', () => {

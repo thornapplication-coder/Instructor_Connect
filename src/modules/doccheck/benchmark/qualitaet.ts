@@ -18,18 +18,45 @@
 
 /* ---------------------------- Lösungsschlüssel ---------------------------- */
 
-/** SBX-WORD-01: eingebaute Fälle (Abnahme N4.4, N9). `reste`: das [TBD] ist ein eingebauter Platzhalter. */
+/**
+ * SBX-WORD-01: eingebaute Fälle (Abnahme N4.4, N9). `reste` zweimal: das
+ * [TBD] ist ein eingebauter Platzhalter (Medium), die nicht angenommene
+ * Verschiebung und Formatänderung sind offene Änderungen (High, Audit
+ * 11/2026, FRD-15).
+ */
 export const SBX_WORD_01_ERWARTET = [
-  'unsichtbar', 'korrektursprache', 'noProof', 'kopfFuss', 'editionRevision', 'fragmente', 'markierung', 'eigenschaften', 'kompatibilitaet', 'fremdsprache', 'einschuebe', 'platzhalter', 'reste',
+  'unsichtbar', 'korrektursprache', 'noProof', 'kopfFuss', 'editionRevision', 'fragmente', 'markierung', 'eigenschaften', 'kompatibilitaet', 'fremdsprache', 'einschuebe', 'platzhalter', 'reste', 'reste',
 ] as const
 
 /** Fehlalarmfälle: Auszug, der unter diesem Prüfpunkt NIE erscheinen darf. */
 export const SBX_WORD_01_FEHLALARME: { punkt: string; muster: RegExp; fall: string }[] = [
   { punkt: 'unsichtbar', muster: /\bItem\b|\bValue\b|Doc No/, fall: 'weiße Schrift in der per Vorlage dunkel schattierten Kopfzeile' },
   { punkt: 'unsichtbar', muster: /Textfeld|text box/i, fall: 'Textfeld auf dem Deckblatt' },
+  { punkt: 'unsichtbar', muster: /CONTROLLED COPY|UNCONTROLLED WHEN PRINTED/, fall: 'Textfeld mit Rahmen in Schriftfarbe (Audit 11/2026, FRD-04)' },
+  { punkt: 'unsichtbar', muster: /Solo flights/, fall: 'alter Stand einer Formatänderung (w:rPrChange) ist nicht wirksam (Audit 11/2026, FRD-15)' },
   { punkt: 'platzhalter', muster: /Signature/, fall: 'Unterschriftszeile' },
   { punkt: 'fremdsprache', muster: /Hauptstraße/, fall: 'Adresse mit landessprachigem Straßennamen' },
   { punkt: 'einschuebe', muster: /Hauptstraße/, fall: 'Adresse mit landessprachigem Straßennamen' },
+]
+
+/** SBX-WORD-02: Kapitelnummern aus der Liste der Formatvorlage (Audit 11/2026, FRD-01) — eingebaut ist nur der tote Kapitelverweis. */
+export const SBX_WORD_02_ERWARTET = ['querverweise'] as const
+
+/** Fehlalarmfälle von SBX-WORD-02 — wie bei SBX-WORD-01: Auszug, der unter diesem Prüfpunkt NIE erscheinen darf. */
+export const SBX_WORD_02_FEHLALARME: { punkt: string; muster: RegExp; fall: string }[] = [
+  { punkt: 'inhalt', muster: /Entry without matching heading: \d/, fall: 'Verzeichniseintrag mit Nummer, Überschrift per Liste nummeriert' },
+  { punkt: 'inhalt', muster: /Heading missing in table of contents: Foreword/, fall: 'Überschrift ohne Nummer (numId 0) gegen Eintrag ohne Nummer' },
+  { punkt: 'querverweise', muster: /Section (1\.1|2\.1)\b/, fall: 'gültiger Verweis auf ein automatisch nummeriertes Kapitel' },
+]
+
+/** SBX-PDF-02: Lesereihenfolge (Audit 11/2026, FRD-05) — eingebaut ist nur „QRH" ohne Listeneintrag. */
+export const SBX_PDF_02_ERWARTET = ['abkuerzungen'] as const
+
+/** Fehlalarmfälle von SBX-PDF-02: Folgen einer spaltenweise gelesenen Tabelle oder zerlegter Kopf-/Fußzeilen. */
+export const SBX_PDF_02_FEHLALARME: { punkt: string; muster: RegExp; fall: string }[] = [
+  { punkt: 'abkuerzungen', muster: /Used but not in the list: (?!QRH\b)|Listed but never used/, fall: 'zweispaltige Abkürzungstabelle als Spalten gelesen' },
+  { punkt: 'seiten', muster: /./, fall: 'geteilte Fußzeile „Datum … Page n of 4" zerlegt' },
+  { punkt: 'revisionsstand', muster: /./, fall: 'geteilte Kopfzeile „Titel … Revision 0" zerlegt' },
 ]
 
 /** SBX-PKG-01: Paketbefunde als „Dokument Prüfpunkt" (Abnahme N1.3, N2.3, N7). */
@@ -38,8 +65,8 @@ export const SBX_PKG_01_ERWARTET = [
   'TM liste', 'TM liste', 'TM verweise', 'TM verweise', 'TM verweise', 'TM verweise',
 ]
 
-/** SBX-EAR-01: drei Regelwerksbefunde, fünf verifizierte Verweise (Abnahme N8). */
-export const SBX_EAR_01_ERWARTET = ['absaetze', 'regelids', 'quelle']
+/** SBX-EAR-01: fünf Regelwerksbefunde (je zwei in Part-ORA und Part-FCL Subpart J, Audit 11/2026 FRD-12), sieben verifizierte Verweise (Abnahme N8). */
+export const SBX_EAR_01_ERWARTET = ['absaetze', 'absaetze', 'regelids', 'regelids', 'quelle']
 
 /* -------------------------------- Kennzahlen ------------------------------ */
 

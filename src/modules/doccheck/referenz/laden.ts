@@ -1,7 +1,7 @@
 import { xlsxTabellen } from '../parse/xlsx'
 import { aktiveListen, aktualisiert, lesenZustand, referenzenSetzen, setzen, type SitzungsReferenz } from '../sitzung'
 import type { Verbindung } from '../verbindung'
-import { csvLesen, listeAusTabelle, mdTabelle, type ListenArt } from './liste'
+import { csvLesen, listeAusTabelle, listeGroessePruefen, mdTabelle, type ListenArt } from './liste'
 
 /**
  * Referenzlisten laden: Excel (jedes Blatt eine Liste), CSV, Markdown.
@@ -10,6 +10,7 @@ import { csvLesen, listeAusTabelle, mdTabelle, type ListenArt } from './liste'
  */
 
 export async function referenzDateiLesen(name: string, daten: Uint8Array): Promise<SitzungsReferenz[]> {
+  listeGroessePruefen(daten.byteLength)
   if (/\.xlsx$/i.test(name)) {
     const blaetter = await xlsxTabellen(daten)
     return blaetter.filter((b) => b.zeilen.length).map((b) => ({ datei: name, blatt: b.name, zeilen: b.zeilen, liste: listeAusTabelle(name, b.zeilen, undefined, b.name) }))
@@ -32,12 +33,31 @@ export function anwenden(v: Pick<Verbindung, 'referenzen' | 'beiOcr'>): () => vo
   return ab
 }
 
-export async function hinzufuegen(dateien: { name: string; arrayBuffer(): Promise<ArrayBuffer> }[], v: Pick<Verbindung, 'referenzen' | 'beiOcr'>): Promise<{ unbekannt: string[] }> {
+/**
+ * Dateien als Referenzlisten aufnehmen. Eine Datei, die sich nicht lesen
+ * lässt (zu groß, kaputt), kommt mit ihrem Fehlercode zurück und hält die
+ * übrigen nicht auf — vorher brach die erste die ganze Auswahl ab, ohne
+ * Meldung (SEC-01).
+ */
+export async function hinzufuegen(
+  dateien: { name: string; size?: number; arrayBuffer(): Promise<ArrayBuffer> }[],
+  v: Pick<Verbindung, 'referenzen' | 'beiOcr'>,
+): Promise<{ unbekannt: string[]; fehler: { name: string; code: string }[] }> {
   const neu: SitzungsReferenz[] = []
-  for (const f of dateien) neu.push(...(await referenzDateiLesen(f.name, new Uint8Array(await f.arrayBuffer()))))
+  const fehler: { name: string; code: string }[] = []
+  for (const f of dateien) {
+    try {
+      // Die Größe steht am File schon VOR dem Einlesen in den Speicher
+      if (f.size !== undefined) listeGroessePruefen(f.size)
+      neu.push(...(await referenzDateiLesen(f.name, new Uint8Array(await f.arrayBuffer()))))
+    } catch (e) {
+      const m = e instanceof Error ? e.message : ''
+      fehler.push({ name: f.name, code: /^DC-[A-Z0-9-]+$/.test(m) ? m : 'DC-PARSE' })
+    }
+  }
   setzen((s) => referenzenSetzen(s, [...(s.referenzen ?? []), ...neu]))
   anwenden(v)
-  return { unbekannt: neu.filter((r) => !r.liste).map((r) => (r.blatt ? `${r.datei} / ${r.blatt}` : r.datei)) }
+  return { unbekannt: neu.filter((r) => !r.liste).map((r) => (r.blatt ? `${r.datei} / ${r.blatt}` : r.datei)), fehler }
 }
 
 export function aendern(index: number, art: ListenArt | null, v: Pick<Verbindung, 'referenzen' | 'beiOcr'>): void {

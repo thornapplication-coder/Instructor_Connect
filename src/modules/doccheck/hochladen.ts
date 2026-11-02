@@ -65,7 +65,7 @@ export async function pdfDazulegen(id: string, pdf: Datei, v: Pick<Verbindung, '
 export async function hochladen(
   dateien: Datei[],
   rolle: Rolle,
-  v: Pick<Verbindung, 'lesen' | 'titel'> & Partial<Pick<Verbindung, 'paaren' | 'beiOcr'>>,
+  v: Pick<Verbindung, 'lesen' | 'titel'> & Partial<Pick<Verbindung, 'paaren' | 'beiOcr' | 'entfernen'>>,
   jetzt: () => number = () => Date.now(),
   opts: { paaren?: boolean; pruefen?: { formal: boolean; word: boolean; rechnen?: boolean } } = {},
 ): Promise<{ abgelehnt: { name: string; grund: 'format' | 'groesse' }[] }> {
@@ -115,7 +115,13 @@ export async function hochladen(
             },
           )
           // Inzwischen entfernt (oder abgemeldet)? Dann nicht wieder aufnehmen.
-          if (!lesenZustand().docs.some((d) => d.id === id)) return
+          const jetztDa = lesenZustand().docs.find((d) => d.id === id)
+          if (!jetztDa) return
+          // Abgebrochen, aber der Worker war schon fertig, als die Nachricht
+          // ankam: Das Ergebnis wird verworfen — auch im Worker, sonst fände
+          // die Suche ein Dokument, das es auf dem Bildschirm nicht gibt
+          // (Gegenprüfung Audit 11/2026, DC-01).
+          if (jetztDa.abbruch) throw new Error('DC-ABORTED')
           setzen((s) => fertig(s, id, z))
           const titel = lesenZustand().docs.find((d) => d.id === id)?.felder.titel
           if (titel) v.titel(id, titel)
@@ -124,6 +130,7 @@ export async function hochladen(
         } catch (e) {
           const code = (e as Error).message
           if (code === 'DC-ABORTED') {
+            v.entfernen?.(id)
             setzen((s) => entfernen(s, id))
             dateiEntfernen(id)
           } else setzen((s) => fehler(s, id, /^DC-/.test(code) ? code : 'DC-PARSE'))

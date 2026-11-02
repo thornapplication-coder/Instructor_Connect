@@ -72,15 +72,35 @@ export function revisionAusDateiname(name: string): string | undefined {
   return r ? `Rev ${r[1]}` : undefined
 }
 
+const NUMMER_WORT = /\b(?:Doc(?:ument)?\.?\s*(?:No\.?|Nr\.?|Number|ID)|P\/N|Part\s*No\.?|Manual\s*No\.?|Reference|Ref\.)\s*:?\s*/gi
+// Der Wert in Großbuchstaben und mit mindestens einer Ziffer — das Schlüsselwort
+// darf beliebig geschrieben sein. Vorher galt die Groß-/Kleinschreibung für
+// beides nicht, und aus „Exercise reference list:" wurde die Nummer „list"
+// (Audit 11/2026, DC-06).
+const NUMMER_WERT = /^(?=[A-Z0-9\-./]*\d)[A-Z0-9][A-Z0-9\-./]{2,}/
+
 export function nummerFinden(text: string): string | undefined {
-  const m = text.match(/\b(?:Doc(?:ument)?\.?\s*(?:No\.?|Nr\.?|Number|ID)|P\/N|Part\s*No\.?|Manual\s*No\.?|Reference|Ref\.)\s*:?\s*([A-Z0-9][A-Z0-9\-./]{2,})/i)
-  return m?.[1]
+  for (const m of text.matchAll(NUMMER_WORT)) {
+    const w = text.slice(m.index! + m[0].length).match(NUMMER_WERT)?.[0].replace(/[./-]+$/, '')
+    // „Reference 2.1" ist ein Kapitelverweis, keine Dokumentnummer
+    if (w && w.length >= 3 && !/^\d+(\.\d+)+$/.test(w)) return w
+  }
+  return undefined
 }
 
 const TITEL_WORT = /\b(manual|handbook|guide|procedures?|checklist|programme|program|handbuch|syllabus|reference)\b/i
 
+/** Überschriften von Verzeichnissen — sie stehen oben auf der Seite, sind aber nicht der Titel (DC-06). */
+const VERZEICHNIS = /^(table of contents|contents|inhalt|inhaltsverzeichnis|list of effective pages|record of revisions|index)\s*:?$/i
+
+/** Zeile, die als Titel bzw. Deckblattangabe taugt: kein Verzeichniskopf, keine Tabellenzeile mit drei und mehr Zellen (Kopf einer Excel-Liste). */
+function kopfzeile(z: string): boolean {
+  return !VERZEICHNIS.test(z.trim()) && (z.match(/ \| /g) ?? []).length < 2
+}
+
 export function titelFinden(zeilen: string[]): string | undefined {
   const brauchbar = zeilen
+    .filter(kopfzeile)
     .map((z) => z.replace(/\s*\|\s*/g, ' ').trim())
     .filter((z) => z.length >= 8 && z.length <= 120 && /[A-Za-z]{3}/.test(z) && !revisionFinden(z) && !datumFinden(z) && !nummerFinden(z))
     // Einträge eines Inhaltsverzeichnisses („4 Normal Procedures 5") sind
@@ -107,21 +127,28 @@ export function typFinden(text: string): string | undefined {
   return TYPEN.find(([re]) => re.test(text))?.[1]
 }
 
+/** Wie viele Zeilen der ersten Seite als Deckblatt für den Typ gelten — mehr ist schon Fließtext. */
+export const DECKBLATT_ZEILEN = 3
+
 /**
  * Alle Felder aus den ersten Seiten (und, bei DOCX, den Eigenschaften).
  * Eigenschaften gehen vor: Sie hat jemand bewusst eingetragen.
  */
-export function metaErkennen(ersteSeiten: string[], eigenschaften: Record<string, string> = {}): ErkannteMeta {
+export function metaErkennen(ersteSeiten: string[], eigenschaften: Record<string, string> = {}, dateiname = ''): ErkannteMeta {
   const text = ersteSeiten.join('\n')
   const zeilen = ersteSeiten[0]?.split('\n') ?? []
   const titel = eigenschaften.title?.trim() || titelFinden(zeilen)
+  const deckblatt = zeilen.filter((z) => z.trim() && kopfzeile(z)).slice(0, DECKBLATT_ZEILEN).join('\n')
   return {
     titel,
     nummer: eigenschaften.docNumber?.trim() || nummerFinden(text),
     revision: eigenschaften.revision?.trim() || revisionFinden(text),
     datum: datumFinden(text),
     // Der Titel sagt, was das Dokument IST; der Fließtext nur, was es
-    // erwähnt. „Training manual" in einem EASA-Auszug macht ihn nicht zum TM.
-    typ: typFinden(titel ?? '') ?? typFinden(text),
+    // erwähnt. „Training manual" in einem EASA-Auszug macht ihn nicht zum
+    // TM, „See TM chapter 2.1" einen Appendix ebenso wenig — und der so
+    // „erkannte" Typ ging bis in die Befund-IDs (Audit 11/2026, DC-06).
+    // Deshalb nur Titel, Betreff, Dateiname und die obersten Zeilen.
+    typ: typFinden(titel ?? '') ?? typFinden(eigenschaften.subject ?? '') ?? typFinden(dateiname.replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[_.]+/g, ' ')) ?? typFinden(deckblatt),
   }
 }

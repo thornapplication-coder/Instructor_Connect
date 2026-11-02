@@ -1,5 +1,5 @@
 import { Kern, type LeseAuftrag, type Zusammenfassung } from './kern'
-import { pdfjsLaden } from './pdfjsLaden'
+import { pdfAblage, pdfjsLaden } from './pdfjsLaden'
 import type { ReferenzListe } from './referenz/liste'
 import type { Treffer } from './search/suche'
 import type { FremdBefund, Ziel } from './recheck/fremdliste'
@@ -106,5 +106,5 @@ export function verbinden(bereich: Bereich, kernFuer: (basis: string) => Kern): 
 
 declare const WorkerGlobalScope: unknown
 if (typeof WorkerGlobalScope !== 'undefined') {
-  verbinden(self as unknown as Bereich, (basis) => new Kern({ pdfjs: pdfjsLaden, standardFontDataUrl: basis ? `${basis}pdf-fonts/` : undefined }))
+  verbinden(self as unknown as Bereich, (basis) => new Kern({ pdfjs: pdfjsLaden, ...(basis ? pdfAblage(basis) : {}) }))
 }

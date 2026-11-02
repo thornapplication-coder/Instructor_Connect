@@ -15,10 +15,14 @@ const KLAMMERN = '(?:\\([a-z0-9]+\\))*'
 /**
  * Rumpf einer IR-ID: bis zu zwei Mittelglieder („ORA.ATO", „CAT.OP.MPA"),
  * drei- oder vierstellige Nummer („FCL.1015", „SERA.5001"), optional ein
- * Buchstaben-Suffix („FCL.740.A"). Am Ende keine weitere Ziffer — sonst
- * würde „FCL.1015" als „FCL.101" abgeschnitten (Fachprüfung 01.11.2026).
+ * Suffix aus Großbuchstaben („FCL.740.A", „FCL.930.FI", „FCL.915.CRI").
+ * Am Ende keine weitere Ziffer — sonst würde „FCL.1015" als „FCL.101"
+ * abgeschnitten (Fachprüfung 01.11.2026). Das Suffix durfte vorher nur EIN
+ * Buchstabe sein: Subpart J (FI, CRI, IRI, TRI …) fiel auf „FCL.930"
+ * zusammen, und erfundene Kennungen galten als verifiziert (Audit 11/2026,
+ * FRD-12). Ein Folgewort („FCL.740.Additional") ist kein Suffix.
  */
-const RUMPF = '(?:\\.[A-Z]{1,4}){0,2}\\.\\d{3,4}[A-Z]?(?:\\.[A-Z](?![A-Za-z]))?(?!\\d)'
+const RUMPF = '(?:\\.[A-Z]{1,4}){0,2}\\.\\d{3,4}[A-Z]?(?:\\.[A-Z]{1,4}(?![A-Za-z]))?(?!\\d)'
 /** CS als ganzes Regelwerk („CS-FCD", „CS-FSTD(A)") oder Artikel („CS FCD.420", „CS-25.1309"). */
 const CS_ID = 'CS-(?:[A-Z]{2,5}|\\d{2})(?:\\([A-Z]\\))?(?:\\.\\d{2,4}[A-Z]?|\\s+[A-Z]+\\.\\d+[A-Z]?)?|CS (?:[A-Z]{2,5}|\\d{2})(?:\\([A-Z]\\))?\\.\\d{2,4}[A-Z]?'
 

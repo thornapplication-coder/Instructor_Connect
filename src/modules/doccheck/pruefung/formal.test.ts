@@ -54,6 +54,20 @@ describe('Formalprüfung — Grenzfälle', () => {
     expect(b.fundstellen.map((f) => f.ort)).toEqual(['Tracked change', 'Comment'])
   })
 
+  it('Verschiebungen und Formatänderungen sind offene Änderungen — Hoch, Ampel rot (Audit 11/2026, FRD-15)', () => {
+    const aenderungen = [
+      { art: 'moveFrom' as const, text: 'Check the fuel quantity.', autor: 'DC' },
+      { art: 'moveTo' as const, text: 'Check the fuel quantity.', autor: 'DC' },
+      { art: 'format' as const, text: 'Solo flights require approval.' },
+      { art: 'ins' as const, text: 'neu' },
+    ]
+    const p = pruefe(roh(['Text'], { lenkung: { ...LEERE_LENKUNG, aenderungen } }))
+    const b = p.befunde.find((x) => x.pruefpunkt === 'reste')!
+    expect(b.prioritaet).toBe('High')
+    expect(b.fundstellen.map((f) => f.auszug)).toEqual(['Moved away by DC: Check the fuel quantity.', 'Moved here by DC: Check the fuel quantity.', 'Formatting changed: Solo flights require approval.', 'Inserted: neu'])
+    expect(p.ampel.reste).toBe('bad')
+  })
+
   it('PDF-Inhaltsverzeichnis: falsche Seitenzahl wird gemeldet, wenn die Seiten nur Zahlen tragen', () => {
     const r = roh(['Contents\n1 General ..... 2\n2 Systems ..... 2', '1 General\nx', '2 Systems\ny'], { outline: [{ titel: '1 General', ebene: 1, vonSeite: 2 }, { titel: '2 Systems', ebene: 1, vonSeite: 3 }] })
     const a = pruefe(r).befunde.find((b) => b.pruefpunkt === 'inhalt')!.fundstellen.map((f) => f.auszug)
@@ -69,6 +83,35 @@ describe('Formalprüfung — Grenzfälle', () => {
     const a = pruefe(r).befunde.find((b) => b.pruefpunkt === 'inhalt')!
     expect(a.text).toContain('DOCX: compared by title only')
     expect(a.fundstellen.map((f) => f.auszug)).toEqual(['Entry without matching heading: 3 C', 'Heading missing in table of contents: 2 B'])
+  })
+
+  it('DOCX-Inhaltsverzeichnis: Überschrift OHNE Nummer gegen Eintrag mit Nummer — nur der Titel zählt (Audit 11/2026, FRD-01)', () => {
+    const word = (toc: { titel: string; seite: number; ebene: number }[]) => ({ absaetze: [], laeufe: [], abschnitte: [], verwaisteKopfFuss: [], standard: {}, eigenschaften: {}, toc })
+    const r = roh(['General', 'Scope'], {
+      format: 'docx',
+      outline: [{ titel: 'General', ebene: 1, vonSeite: 1 }, { titel: 'Scope', ebene: 2, vonSeite: 1 }, { titel: '2 Systems', ebene: 1, vonSeite: 2 }, { titel: 'Annex', ebene: 1, vonSeite: 2 }],
+      word: word([{ titel: '1 General', seite: 1, ebene: 1 }, { titel: '1.1 Scope', seite: 1, ebene: 2 }, { titel: '3 Systems', seite: 2, ebene: 1 }, { titel: '4 Annex', seite: 2, ebene: 1 }]),
+    })
+    // „2 Systems" trägt eine Nummer — dann muss sie auch stimmen.
+    expect(pruefe(r).befunde.find((b) => b.pruefpunkt === 'inhalt')!.fundstellen.map((f) => f.auszug)).toEqual(['Entry without matching heading: 3 Systems', 'Heading missing in table of contents: 2 Systems'])
+  })
+
+  it('Kapitelverweis ohne Kapitelnummern im Dokument: nicht anwendbar statt grün (Audit 11/2026, FRD-01)', () => {
+    // Es gibt ein Verweisziel (Tabelle 1), aber keine Kapitelnummer — der einzige Verweis ist ungeprüft
+    const ohne = pruefe(roh(['General\nTable 1 Limits\nSee Section 6.2 for details.'], { outline: [{ titel: 'General', ebene: 1, vonSeite: 1 }] }))
+    expect(ohne.befunde.filter((b) => b.pruefpunkt === 'querverweise')).toEqual([])
+    expect(ohne.ampel.querverweise).toBe('na')
+    // Ein Ziel dieser Art existiert, der Verweis ist ungeprüft (keine Abbildungen) → weiterhin geprüft, was geht
+    const gemischt = pruefe(roh(['1 General\nSee Section 6.2. See Figure 4.'], { outline: [{ titel: '1 General', ebene: 1, vonSeite: 1 }] }))
+    expect(gemischt.befunde.find((b) => b.pruefpunkt === 'querverweise')!.fundstellen.map((f) => f.auszug.split(' — ')[0])).toEqual(['See Section 6.2'])
+    // Mit Kapitelnummern und gültigem Ziel: grün
+    expect(pruefe(roh(['1 General\nSee Section 1.'], { outline: [{ titel: '1 General', ebene: 1, vonSeite: 1 }] })).ampel.querverweise).toBe('ok')
+  })
+
+  it('XLSX: Blattnamen sind keine Seitennummern — Seitennummerierung nicht anwendbar statt grün (Audit 11/2026, FRD-11)', () => {
+    const r = roh(['a', 'b', 'c'], { format: 'xlsx' })
+    r.pages = r.pages.map((p, i) => ({ ...p, label: ['Flights', 'Monthly', 'Summary'][i] }))
+    expect(pruefe(r).ampel.seiten).toBe('na')
   })
 
   it('Abbildungen: doppelte Nummer mit Fundstelle', () => {

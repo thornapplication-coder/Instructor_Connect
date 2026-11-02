@@ -26,9 +26,10 @@ export function kontrast(a: string, b: string): number {
 
 export type Unsichtbar = 'farbe' | 'vanish' | 'groesse' | null
 
-export function unsichtbar(e: Laufeigenschaften, hintergrund: string): Unsichtbar {
+export function unsichtbar(e: Laufeigenschaften, hintergrund: string | undefined): Unsichtbar {
   if (e.vanish) return 'vanish'
   if (e.groesse !== undefined && e.groesse <= GROESSE_GRENZE) return 'groesse'
-  if (e.farbe && e.farbe !== 'auto' && /^[0-9A-F]{6}$/.test(hintergrund) && kontrast(e.farbe, hintergrund) < KONTRAST_GRENZE) return 'farbe'
+  // Unbekannter Hintergrund: kein Farbbefund — geraten wäre ein falscher High.
+  if (e.farbe && e.farbe !== 'auto' && hintergrund && /^[0-9A-F]{6}$/.test(hintergrund) && kontrast(e.farbe, hintergrund) < KONTRAST_GRENZE) return 'farbe'
   return null
 }
