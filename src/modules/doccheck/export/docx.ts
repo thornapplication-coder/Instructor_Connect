@@ -35,6 +35,8 @@ const FARBE_GESAMT: Record<Datenstand['gesamt'], { text: string; fill: string }>
   ready: { text: '067647', fill: 'DCFAE6' },
   afterCorrection: { text: '9C5700', fill: 'FFF4D6' },
   notReady: { text: 'B42318', fill: 'FDECEC' },
+  // Nicht bewertbar heißt „wartet" (Texterkennung), nicht „durchgefallen" (DC-03)
+  notAssessable: { text: '9C5700', fill: 'FFF4D6' },
 }
 const FARBE_PRIO: Record<string, { text: string; fill: string }> = {
   High: { text: 'B42318', fill: 'FDECEC' },

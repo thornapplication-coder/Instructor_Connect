@@ -11,6 +11,7 @@ import { aktiv, preiseVollstaendig } from '../settings'
 import { Dropzone, Phase } from './Panels'
 import { Suche } from './Suche'
 import { useSitzung } from '../sitzung'
+import { regelStand } from '../pruefung/befund'
 import { PaketPanel, PaketUmschalter } from './Paket'
 
 /* ------------------------------ Prüfung ------------------------------ */
@@ -23,20 +24,21 @@ import { PaketPanel, PaketUmschalter } from './Paket'
  */
 function RegelStand({ zuFindings }: { zuFindings: () => void }) {
   const { t } = useTranslation('doccheck')
-  const geprueft = useSitzung().docs.filter((d) => d.rolle === 'review' && d.z?.pruefung)
-  const befunde = geprueft.flatMap((d) => d.z!.pruefung!.befunde)
-  const hoch = befunde.filter((b) => b.prioritaet === 'High').length
+  const docs = useSitzung().docs.filter((d) => d.rolle === 'review' && d.z?.pruefung)
+  // „1 Prüfdokument geprüft: 0 Befunde" stand auch bei einem Scan ohne Textebene (Audit 11/2026, DC-03, DCF#5)
+  const s = regelStand(docs.map((d) => d.z!))
   return (
     <div className="flex flex-wrap items-center justify-between gap-stack rounded-2xl border border-accent/30 bg-accent/5 p-4">
       <div className="min-w-0 text-small">
         <p className="flex items-center gap-1.5 font-semibold">
           <CheckCircle2 size={16} className="text-ok" aria-hidden /> {t('pruefung.regel.titel')}
         </p>
-        <p className="text-dim">
-          {geprueft.length ? t('pruefung.regel.stand', { count: geprueft.length, befunde: befunde.length, hoch }) : t('pruefung.regel.leer')}
-        </p>
+        {!docs.length && <p className="text-dim">{t('pruefung.regel.leer')}</p>}
+        {s.geprueft > 0 && <p className="text-dim">{t('pruefung.regel.stand', { count: s.geprueft, befunde: s.befunde, hoch: s.hoch })}</p>}
+        {s.ocr > 0 && <p className="text-ink">{t('pruefung.regel.nichtBewertbar.ocr', { count: s.ocr })}</p>}
+        {s.ohneText > 0 && <p className="text-ink">{t('pruefung.regel.nichtBewertbar.ohneText', { count: s.ohneText })}</p>}
       </div>
-      {geprueft.length > 0 && <Button onClick={zuFindings}>{t('pruefung.regel.zuFindings')}</Button>}
+      {docs.length > 0 && <Button onClick={zuFindings}>{t('pruefung.regel.zuFindings')}</Button>}
     </div>
   )
 }

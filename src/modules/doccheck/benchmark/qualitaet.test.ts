@@ -8,9 +8,9 @@ import { dokumentPruefen } from '../pruefung/pruefen'
 import { xlsxTabellen } from '../parse/xlsx'
 import { befundeLesen, kopfzeileFinden, zielVorschlagen, zuordnungVorschlagen } from '../recheck/fremdliste'
 import { gruppenVorschlagen, vorbelegen } from '../paket/struktur'
-import { SBX_CALC_01_FEHLER, SBX_CALC_01_NAME, SBX_CALC_01_XLSX_FEHLER, SBX_CALC_01_XLSX_NAME, SBX_EAR_01_NAME, SBX_FL_01, SBX_FORMAL_01_FEHLER, SBX_PDF_02_NAME, SBX_WORD_01_NAME, SBX_WORD_02_NAME, sbxCalc01, sbxCalc01Xlsx, sbxEar01, sbxEar01Pruefdokument, sbxFl01, sbxFormal01, sbxPdf02, sbxPkg01, sbxWord01, sbxWord02 } from './sbx'
+import { SBX_CALC_01_FEHLER, SBX_CALC_01_NAME, SBX_CALC_01_XLSX_FEHLER, SBX_CALC_01_XLSX_NAME, SBX_EAR_01_NAME, SBX_FL_01, SBX_FORMAL_01_FEHLER, SBX_PDF_02_NAME, SBX_WORD_01_NAME, SBX_WORD_02_NAME, sbxCalc01, sbxCalc01Pdf, sbxCalc01Xlsx, sbxEar01, sbxEar01Pruefdokument, sbxFl01, sbxFormal01, sbxPdf02, sbxPkg01, sbxWord01, sbxWord02 } from './sbx'
 import baseline from './baseline.json' with { type: 'json' }
-import { abgleichen, bericht, bewerten, kennzahlen, SBX_EAR_01_ERWARTET, SBX_PDF_02_ERWARTET, SBX_PDF_02_FEHLALARME, SBX_PKG_01_ERWARTET, SBX_WORD_01_ERWARTET, SBX_WORD_01_FEHLALARME, SBX_WORD_02_ERWARTET, SBX_WORD_02_FEHLALARME, SCHWELLE, tabelle, type Kennzahlen } from './qualitaet'
+import { abgleichen, bericht, bewerten, kennzahlen, SBX_EAR_01_ERWARTET, SBX_FORMAL_01_FEHLALARME, SBX_PDF_02_ERWARTET, SBX_PDF_02_FEHLALARME, SBX_PKG_01_ERWARTET, SBX_WORD_01_ERWARTET, SBX_WORD_01_FEHLALARME, SBX_WORD_02_ERWARTET, SBX_WORD_02_FEHLALARME, SCHWELLE, tabelle, type Kennzahlen } from './qualitaet'
 
 const standardFontDataUrl = fileURLToPath(new URL('../../../../node_modules/pdfjs-dist/standard_fonts/', import.meta.url))
 const kern = () => new Kern({ pdfjs: async () => pdfjs as unknown as PdfJs, standardFontDataUrl })
@@ -37,7 +37,10 @@ async function messen(): Promise<Kennzahlen> {
 
   // Formalprüfung: SBX-FORMAL-01
   const f = (await k1.lesen({ id: 'f', name: 'SBX-FORMAL-01.pdf', daten: sbxFormal01(), pruefen: { formal: true, word: false } })).pruefung!.befunde
-  const formal = abgleichen('SBX-FORMAL-01', SBX_FORMAL_01_FEHLER, f.map((b) => b.pruefpunkt))
+  const formal = abgleichen('SBX-FORMAL-01', SBX_FORMAL_01_FEHLER, f.map((b) => b.pruefpunkt), fehlalarmeIn(f, SBX_FORMAL_01_FEHLALARME))
+  // Dieselben Fehler mit Fußzeilen „Page n of 7" und LEP-Tabelle (Audit 11/2026, FRD-07)
+  const fv = (await k1.lesen({ id: 'fv', name: 'SBX-FORMAL-01-V.pdf', daten: sbxFormal01('vonGesamt'), pruefen: { formal: true, word: false } })).pruefung!.befunde
+  const formalV = abgleichen('SBX-FORMAL-01-V', SBX_FORMAL_01_FEHLER, fv.map((b) => b.pruefpunkt), fehlalarmeIn(fv, SBX_FORMAL_01_FEHLALARME))
 
   // Rechnen: SBX-CALC-01
   const g = await dateiLesen({ name: SBX_CALC_01_NAME, daten: await sbxCalc01() }, { pdfjs: async () => { throw new Error('kein PDF') } }, {})
@@ -47,6 +50,11 @@ async function messen(): Promise<Kennzahlen> {
   const gx = await dateiLesen({ name: SBX_CALC_01_XLSX_NAME, daten: await sbxCalc01Xlsx() }, { pdfjs: async () => { throw new Error('kein PDF') } }, {})
   const cx = dokumentPruefen({ dokId: 'cx', dokName: 'SBX-CALC-01 XLSX', dateiname: SBX_CALC_01_XLSX_NAME, roh: gx.roh, meta: gx.meta }, { formal: false, word: false, rechnen: true }).befunde.filter((b) => b.quelle === 'rechnen')
   const rechnenX = abgleichen('SBX-CALC-01-X', SBX_CALC_01_XLSX_FEHLER.map((x) => `${x.punkt}|${x.auszug}`), cx.map((b) => `${b.pruefpunkt}|${b.fundstellen[0].auszug}`))
+  // Dieselbe Datei mit ihrem Word-PDF: Die Seiten brechen anders um, die Befunde bleiben (Audit 11/2026, FRD-02)
+  const kp = kern()
+  await kp.lesen({ id: 'cp', name: SBX_CALC_01_NAME, daten: await sbxCalc01(), pruefen: { formal: false, word: false, rechnen: true } })
+  const cp = (await kp.paaren('cp', sbxCalc01Pdf()))!.pruefung!.befunde.filter((b) => b.quelle === 'rechnen')
+  const rechnenP = abgleichen('SBX-CALC-01-P', SBX_CALC_01_FEHLER.map((x) => `${x.punkt}|${x.auszug}`), cp.map((b) => `${b.pruefpunkt}|${b.fundstellen[0].auszug}`))
 
   // Regelwerk: SBX-EAR-01
   const k2 = kern()
@@ -72,7 +80,7 @@ async function messen(): Promise<Kennzahlen> {
   const erg = k3.nachpruefen(befunde.map((befund) => ({ befund, ziel: zielVorschlagen(befund.dokument, namen) })))
   const mitRest = SBX_FL_01.map((x, i) => ({ x, e: erg[i] })).filter(({ x }) => x.erwartet === 'partial')
 
-  return kennzahlen([word, word2, pdf2, formal, rechnen, rechnenX, regelwerk, paketSatz], {
+  return kennzahlen([word, word2, pdf2, formal, formalV, rechnen, rechnenX, rechnenP, regelwerk, paketSatz], {
     richtig: erg.filter((r, i) => r.status === SBX_FL_01[i].erwartet).length,
     gesamt: SBX_FL_01.length,
     restGefunden: mitRest.filter(({ e }) => e.rest.length > 0).length,

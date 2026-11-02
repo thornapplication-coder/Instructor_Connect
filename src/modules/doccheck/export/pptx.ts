@@ -75,7 +75,7 @@ export function folien(d: Datenstand): PptxGenJS {
 
   // 3 Overall Assessment: große Statusanzeige + Kennzahl-Kacheln
   const f3 = folie(L.briefing.overall)
-  const farbe = d.gesamt === 'ready' ? AMPEL_FARBE.ok : d.gesamt === 'afterCorrection' ? AMPEL_FARBE.wait : AMPEL_FARBE.bad
+  const farbe = d.gesamt === 'ready' ? AMPEL_FARBE.ok : d.gesamt === 'afterCorrection' || d.gesamt === 'notAssessable' ? AMPEL_FARBE.wait : AMPEL_FARBE.bad
   f3.addText(L.overall[d.gesamt], { x: 0.6, y: 1.2, w: 12.1, h: 1.2, fontFace: SCHRIFT, fontSize: 30, bold: true, color: farbe, align: 'center', fill: { color: 'F2F4F7' }, fit: 'none' })
   const werte = [d.befunde.length, nachPrio('High'), nachPrio('Medium'), nachPrio('Low'), d.zuPruefen]
   L.briefing.tiles.forEach((titel, i) => {

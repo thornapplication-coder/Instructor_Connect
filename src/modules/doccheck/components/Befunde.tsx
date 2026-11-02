@@ -1,16 +1,16 @@
-import { ChevronDown, ChevronRight, Eye, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { ChevronDown, ChevronRight, Eye, ScanText, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { Fragment, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Card, CardHeading, selectCls } from '../../../components/ui'
 import { TrafficIcon } from '../../../pages/Grading'
 import { useStore } from '../../../store'
-import { gate, sortieren, type Ampel, type Befund, type Prioritaet } from '../pruefung/befund'
+import { gate, lesestand, sortieren, type Ampel, type Befund, type Prioritaet } from '../pruefung/befund'
 import { FORMAL_PUNKTE } from '../pruefung/formal'
 import { SPRACH_PUNKTE } from '../pruefung/sprachCheck'
 import { WORD_PUNKTE } from '../pruefung/wordCheck'
 import { REFERENZ_PUNKTE } from '../pruefung/referenzCheck'
 import { PAKET_PUNKTE } from '../paket/pruefen'
-import { RECHEN_PUNKTE } from '../pruefung/rechnen'
+import { RECHEN_PUNKTE, seitenAnfang } from '../pruefung/rechnen'
 import { VERWEIS_PUNKTE } from '../pruefung/verweise'
 import { REGELWERK_PUNKTE } from '../pruefung/regelwerk'
 import { useSitzung } from '../sitzung'
@@ -101,7 +101,9 @@ export function FindingsTab() {
   const [quelle, setQuelle] = useState('')
   const [offen, setOffen] = useState<string | null>(null)
   const liste = alle.filter((b) => (!dok || b.dokId === dok) && (!prio || b.prioritaet === prio) && (!quelle || b.quelle === quelle))
-  const g = gate(alle, docCheckSettings.gateSperrt)
+  // Ein Scan ohne Texterkennung ist nicht bewertbar, nicht einreichungsfähig (Audit 11/2026, DC-03)
+  const gelesen = lesestand(geprueft.map((d) => d.z!))
+  const g = gate(alle, docCheckSettings.gateSperrt, gelesen)
   const schluessel = (b: Befund) => `${b.dokId}:${b.id}`
 
   return (
@@ -111,17 +113,27 @@ export function FindingsTab() {
         <Card className="space-y-stack p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardHeading>{t('gate.titel')}</CardHeading>
-            {g.einreichungsfaehig ? (
-              <Badge tone="ok">
-                <span className="flex items-center gap-1"><ShieldCheck size={13} /> {t('gate.ok')}</span>
-              </Badge>
-            ) : (
-              <Badge tone="bad">
-                <span className="flex items-center gap-1"><ShieldAlert size={13} /> {t('gate.nichtOk', { count: g.hoch })}</span>
-              </Badge>
-            )}
+            <div className="flex flex-wrap gap-1.5">
+              {g.hoch > 0 && (
+                <Badge tone="bad">
+                  <span className="flex items-center gap-1"><ShieldAlert size={13} /> {t('gate.nichtOk', { count: g.hoch })}</span>
+                </Badge>
+              )}
+              {/* Schlüssel ausgeschrieben, nicht zusammengesetzt — so sieht sie die Textwache (i18n.test.ts) */}
+              {g.grund && (
+                <Badge tone="wait">
+                  <span className="flex items-center gap-1"><ScanText size={13} /> {g.grund === 'ocr' ? t('gate.nichtBewertbar.ocr') : t('gate.nichtBewertbar.ohneText')}</span>
+                </Badge>
+              )}
+              {g.einreichungsfaehig && (
+                <Badge tone="ok">
+                  <span className="flex items-center gap-1"><ShieldCheck size={13} /> {t('gate.ok')}</span>
+                </Badge>
+              )}
+            </div>
           </div>
-          {!g.einreichungsfaehig && <p className="rounded-xl bg-bad/10 p-3 text-small">{g.gesperrt ? t('gate.gesperrt') : t('gate.warnung')}</p>}
+          {g.grund && <p className="rounded-xl bg-wait/10 p-3 text-small">{g.grund === 'ocr' ? t('gate.hinweis.ocr', { count: gelesen.ocrSeiten }) : t('gate.hinweis.ohneText', { count: gelesen.ohneText })}</p>}
+          {g.hoch > 0 && <p className="rounded-xl bg-bad/10 p-3 text-small">{g.gesperrt ? t('gate.gesperrt') : t('gate.warnung')}</p>}
           {geprueft.map((d) => (
             <div key={d.id} className="space-y-tight border-t border-line/10 pt-3 first:border-0 first:pt-0">
               <p className="text-small font-semibold">
@@ -246,7 +258,8 @@ export function FindingsTab() {
                               {f.seite && (
                                 <button className="flex shrink-0 items-center gap-1 text-micro text-accent hover:underline" onClick={() => {
                                   const d = geprueft.find((x) => x.id === b.dokId)!
-                                  const index = d.z!.labels.findIndex((l) => l === f.seite)
+                                  // Eine Tabelle über die Seitengrenze nennt die Spanne („S. 10–11") — geöffnet wird ihre erste Seite
+                                  const index = d.z!.labels.findIndex((l) => l === f.seite || l === seitenAnfang(f.seite!))
                                   oeffnen({ docId: b.dokId, seite: index >= 0 ? index + 1 : Number(f.seite) || 1, q: f.auszug.split(' — ')[0].slice(0, 60) })
                                 }}>
                                   <Eye size={13} /> {t('findings.seiteAnzeigen')}

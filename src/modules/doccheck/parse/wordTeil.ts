@@ -39,7 +39,14 @@ interface TabellenKontext {
   zelleShd?: string
   zellText: string
   reihe: string[]
+  /** Rasterspalten der aktuellen Zelle (w:gridSpan) und leere Raster vor/nach der Zeile (w:gridBefore/w:gridAfter) */
+  spann: number
+  vor: number
+  nach: number
 }
+
+/** Word erlaubt höchstens 63 Spalten — eine gefälschte Angabe soll keine Riesenzeile bauen. */
+const rasterZahl = (v?: string) => Math.max(0, Math.min(63, Math.floor(Number(v)) || 0))
 
 /**
  * Nachverfolgte Formatänderungen und was sie ändern — der Text steht im
@@ -300,15 +307,23 @@ export function teilLesen(
         case 'w:tbl':
           if (!txbx) {
             if (tabStapel.length === 0) tabellen++
-            tabStapel.push({ look: new Set(), bandH: true, zeile: -1, spalte: -1, zeileCnf: new Set(), zelleCnf: new Set(), zellText: '', reihe: [] })
+            tabStapel.push({ look: new Set(), bandH: true, zeile: -1, spalte: -1, zeileCnf: new Set(), zelleCnf: new Set(), zellText: '', reihe: [], spann: 1, vor: 0, nach: 0 })
           }
           break
         case 'w:tblPr': inTblPr = true; break
         case 'w:tblStyle': if (t && inTblPr) t.stil = e.attr['w:val']; break
         case 'w:tblLook': if (t && inTblPr) Object.assign(t, tabellenLook(e.attr)); break
-        case 'w:tr': if (t && !txbx) { t.zeile++; t.spalte = -1; t.zeileCnf = new Set(); t.reihe = [] } break
-        case 'w:tc': if (t && !txbx) { t.spalte++; t.zelleCnf = new Set(); t.zelleShd = undefined; t.zellText = '' } break
+        case 'w:tr': if (t && !txbx) { t.zeile++; t.spalte = -1; t.zeileCnf = new Set(); t.reihe = []; t.vor = 0; t.nach = 0 } break
+        case 'w:tc': if (t && !txbx) { t.spalte++; t.zelleCnf = new Set(); t.zelleShd = undefined; t.zellText = ''; t.spann = 1 } break
         case 'w:tcPr': inTcPr = true; break
+        // Verbundene Zellen füllen ihr Raster mit leeren Zellen auf: Sonst hatte
+        // der zweizeilige Kopf „… | Flight time | Cumulative" über „… | Dual |
+        // Mutual | " eine Zelle weniger, die Rechenprüfung trennte ihn ab und
+        // summierte die Kumuliert-Spalte (Audit 11/2026, FRD-03). Fortgesetzte
+        // vMerge-Zellen sind eigene w:tc und bleiben leer.
+        case 'w:gridSpan': if (t && !txbx && inTcPr) t.spann = Math.max(1, rasterZahl(e.attr['w:val'])); break
+        case 'w:gridBefore': if (t && !txbx && !inTcPr) t.vor = rasterZahl(e.attr['w:val']); break
+        case 'w:gridAfter': if (t && !txbx && !inTcPr) t.nach = rasterZahl(e.attr['w:val']); break
         case 'w:cnfStyle': if (t && !txbx) { if (inTcPr) t.zelleCnf = cnf(e.attr); else if (!absatz) t.zeileCnf = cnf(e.attr) } break
         case 'w:p':
           stapel.push({ absatz, lauf })
@@ -500,9 +515,10 @@ export function teilLesen(
           }
           break
         }
-        case 'w:tc': if (t && !txbx) t.reihe.push(t.zellText); break
+        case 'w:tc': if (t && !txbx) t.reihe.push(t.zellText, ...new Array<string>(t.spann - 1).fill('')); break
         case 'w:tr':
           if (!t || txbx) break
+          t.reihe = [...new Array<string>(t.vor).fill(''), ...t.reihe, ...new Array<string>(t.nach).fill('')]
           if (tabStapel.length > 1) {
             // Zeile einer inneren Tabelle: Ihr Text gehört in die Zelle der
             // äußeren — vorher blieb er im inneren Kontext und fehlte ganz

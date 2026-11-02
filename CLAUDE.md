@@ -263,16 +263,23 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   gleich); bei PDF sind die Tabellenpunkte „nicht anwendbar". Jeder Befund
   nennt die gerechneten Werte. Kumuliert-Spalten werden nicht summiert;
   eine Tabelle ohne Zahlen darf die Prüfung nicht abbrechen (war ein
-  Absturz im Worker).
+  Absturz im Worker). DOCX-Seiten sind geschätzt oder gepaart: Eine
+  Tabelle läuft über die Seitengrenze weiter, wenn die nächste Seite mit
+  einer gleich breiten Zeile beginnt — je Seite gerechnet gab es falsche
+  High-Summen (Audit 11/2026, FRD-02). Verbundene Word-Zellen füllen ihr
+  Raster (`gridSpan`), der Kopf sind alle Zeilen vor dem ersten Wert.
 - **Verweise** (N7) haben je Art GENAU eine Regel: interne Kapitelverweise
-  prüft die Formalprüfung (`querverweise`, v1.1); `pruefung/verweise.ts`
-  prüft je Dokument nur Übungsnummern und Zirkel, die Paketprüfung alle
-  Verweise auf ein anderes Dokument. Fehlt das Ziel, heißt der Befund
-  „Not verifiable – source missing" und erscheint nie als verifiziert. Ein
-  Ziel in einem fremden Regelwerk („Appendix 9 to Part-FCL", „Annex I
-  (Part-FCL)") ist kein Verweis ins Dokument (`fremdesRegelwerk`).
-  Kapitelnummern kommen aus der Gliederung UND aus nummerierten Absätzen —
-  sonst wäre jeder Verweis auf „1.4.1.1 The PIC …" kaputt.
+  prüft die Formalprüfung (`querverweise`, v1.1) — mit Schlüsselwort („see
+  Section 9.4") UND in der Kurzform („see 9.4", `kurzverweise`; nicht bei
+  Einheit, Datum oder Kapitel eines anderen Dokuments, Audit 11/2026,
+  FRD-14); `pruefung/verweise.ts` prüft je Dokument nur Übungsnummern und
+  Zirkel, die Paketprüfung alle Verweise auf ein anderes Dokument. Fehlt
+  das Ziel, heißt der Befund „Not verifiable – source missing" und
+  erscheint nie als verifiziert. Ein Ziel in einem fremden Regelwerk
+  („Appendix 9 to Part-FCL", „Annex I (Part-FCL)") ist kein Verweis ins
+  Dokument (`fremdesRegelwerk`). Kapitelnummern kommen aus der Gliederung
+  UND aus nummerierten Absätzen — sonst wäre jeder Verweis auf „1.4.1.1
+  The PIC …" kaputt; das gilt für beide Regeln.
 - **Regelwerksverweise** (`pruefung/regelwerk.ts`, N8): Der Index enthält
   nur Regeln, die in einem Nicht-Prüfdokument als ÜBERSCHRIFT stehen —
   eine Erwähnung im Fließtext definiert nichts. Kein Schalter: läuft, sobald
@@ -309,8 +316,9 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   `docx`, PowerPoint mit `pptxgenjs` — beide NUR per `import()` in
   `ausgabe.ts`, also nie im Startbundle. Word ohne Inhaltsverzeichnis-FELD
   (Aktualisierungsdialog); Links auf Textmarken. Gesamtbewertung ist ein
-  VORSCHLAG aus den Regeln (High offen → nicht einreichungsfähig) und im
-  Excel ein Dropdown. Die Compliance Matrix bleibt ehrlich leer, bis die
+  VORSCHLAG aus den Regeln (High offen → nicht einreichungsfähig; Seiten
+  ohne Textebene → nicht bewertbar, DC-03) und im Excel ein Dropdown.
+  Die Compliance Matrix bleibt ehrlich leer, bis die
   KI-Prüfung sie füllt. Organisationsname aus `organisation` der
   Einstellungen, nie hart codiert. `pptxgenjs` zieht `image-size` mit einer
   bekannten Schwachstelle — `overrides` in package.json erzwingt die
@@ -329,13 +337,16 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   eingebauter Fehler in `sbx.ts` braucht seinen Eintrag im Lösungsschlüssel,
   ein neuer Fehlalarmfall seinen Eintrag in der Fehlalarmliste seiner
   Abnahmedatei (`SBX_WORD_01_FEHLALARME`, `SBX_WORD_02_FEHLALARME`,
-  `SBX_PDF_02_FEHLALARME`); eine neue Abnahmedatei ihren Satz in
-  `baseline.json`.
+  `SBX_PDF_02_FEHLALARME`, `SBX_FORMAL_01_FEHLALARME`); eine neue
+  Abnahmedatei ihren Satz in `baseline.json`.
   Die 100 % gelten für die synthetischen Fälle, an denen die Regeln gebaut
   wurden; über echte Dokumente sagen sie nichts — dafür ist der private
   Benchmark (Nachtrag Kap. 20) vorgesehen.
 - **Submission gate** warnt ab Werk (`gateSperrt: false`, Entscheidung
-  vom 01.11.2026); Sperre ist Einstellung des Superadmins.
+  vom 01.11.2026); Sperre ist Einstellung des Superadmins. Ein Scan, der
+  auf die Texterkennung wartet, ist „nicht bewertbar", nie
+  „einreichungsfähig" — ohne Text sind die Textprüfpunkte „nicht
+  anwendbar" (`textAuswertbar`, Audit 11/2026, DC-03).
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise
   keine Kostenschätzung und kein Start.
 - **Keine echten OEM-Dokumente im Repo** — der Sandbox-Bestand ist

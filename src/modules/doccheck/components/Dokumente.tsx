@@ -10,6 +10,7 @@ import { ocrAusfuehren, type OcrPdf, type OcrTesseract } from '../ocr'
 import { pdfjsLaden } from '../pdfjsLaden'
 import { abbruchAnfordern, aktualisiert, bestaetigen, datei, dateiEntfernen, duplikatFuer, entfernen, feldSetzen, offenePflichtfelder, setzen, useSitzung, type Feld, type Rolle, type SitzungsDok } from '../sitzung'
 import { standardVerbindung } from '../verbindung'
+import { leseMeldung } from '../pruefung/befund'
 import { useViewer } from './Viewer'
 
 /**
@@ -97,8 +98,11 @@ function DokKarte({ d }: { d: SitzungsDok }) {
   // (Barrierefreiheitsprüfung 01.11.2026). Der Toast trägt role="status".
   const statusVorher = useRef(d.status)
   useEffect(() => {
-    if (statusVorher.current === 'liest' && d.status === 'fertig') toast(t('upload.gelesen', { name: d.name, count: d.z?.pruefung?.befunde.length ?? 0 }))
-    else if (statusVorher.current === 'liest' && d.status === 'fehler') toast(t('upload.nichtGelesen', { name: d.name }), 'bad')
+    // Ein Scan ohne Textebene oder ein Master ist gelesen, aber nicht geprüft — „0 Befunde" klang nach bestanden (Audit 11/2026, DC-03, DCF#5)
+    if (statusVorher.current === 'liest' && d.status === 'fertig' && d.z) {
+      const m = leseMeldung(d.z)
+      toast(t(`upload.${m.schluessel}`, { name: d.name, count: m.count }), m.ton)
+    } else if (statusVorher.current === 'liest' && d.status === 'fehler') toast(t('upload.nichtGelesen', { name: d.name }), 'bad')
     statusVorher.current = d.status
   }, [d.status, d.name, d.z, t])
   // Entfernen in zwei Schritten: Gelesenes und Prüfergebnis sind danach weg
@@ -232,8 +236,14 @@ function DokKarte({ d }: { d: SitzungsDok }) {
           {d.z.pruefung && (
             <p className="flex flex-wrap items-center gap-1.5 text-micro">
               <span className="text-dim">{t('pruefungKurz.titel')}:</span>
+              {/* Ohne gelesenen Text ist „ohne Befund" keine Aussage (DC-03) */}
+              {d.z.ocrKandidaten.length > 0 ? (
+                <Badge tone="wait">{t('pruefungKurz.ocrAusstehend')}</Badge>
+              ) : d.z.pruefung.ohneText ? (
+                <Badge tone="wait">{t('pruefungKurz.ohneText')}</Badge>
+              ) : null}
               {d.z.pruefung.befunde.length === 0 ? (
-                <Badge tone="ok">{t('pruefungKurz.ohne')}</Badge>
+                !d.z.ocrKandidaten.length && !d.z.pruefung.ohneText && <Badge tone="ok">{t('pruefungKurz.ohne')}</Badge>
               ) : (
                 <>
                   <Badge tone={d.z.pruefung.befunde.some((b) => b.prioritaet === 'High') ? 'bad' : 'wait'}>{t('pruefungKurz.befunde', { count: d.z.pruefung.befunde.length })}</Badge>

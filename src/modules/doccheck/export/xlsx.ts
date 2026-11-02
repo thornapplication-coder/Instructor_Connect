@@ -184,7 +184,8 @@ function summary(d: Datenstand): { blatt: Blatt; gesamtZeile: number } {
   const ampelCf = (['ok', 'wait', 'bad'] as const)
     .map((a, i) => `<cfRule type="cellIs" dxfId="${3 + i}" priority="${i + 1}" operator="equal"><formula>"${L.ampel[a]}"</formula></cfRule>`)
     .join('')
-  const overall = [L.overall.ready, L.overall.afterCorrection, L.overall.notReady]
+  // Auch „nicht bewertbar" steht zur Wahl: Der Vorschlag muss im Dropdown vorkommen (DC-03)
+  const overall = [L.overall.ready, L.overall.afterCorrection, L.overall.notReady, L.overall.notAssessable]
   return {
     gesamtZeile,
     blatt: {

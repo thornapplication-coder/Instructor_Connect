@@ -28,6 +28,10 @@ describe('Prüfstand-Datei .doccheck.json (Spez. v1.1 Kap. 12)', () => {
     expect([d2.zaehlung, d2.zuPruefen, d2.top5, d2.gesamt, d2.ampeln]).toEqual([d.zaehlung, d.zuPruefen, d.top5, d.gesamt, d.ampeln])
     expect(d2.dateiStamm).toBe('2026-11-02_Review_TM-CL30_Rev0.1')
     expect(csvBefunde(d2)).toBe(csvBefunde(d))
+    // „Nicht bewertbar" übersteht den Weg über die Datei (Audit 11/2026, DC-03)
+    const scan = pruefstandAus(datenstand(eingabe({ befunde: [], lesestand: { ocrSeiten: 2, ohneText: 1 } })), 'u', ['xlsx'], '2026-11-01T09:30:00Z')
+    expect(scan.assessment.overall).toBe('not_assessable')
+    expect(datenstandAus(pruefstandLesen(pruefstandText(scan)) as Pruefstand, '2026-11-02T08:00:00Z', 1).gesamt).toBe('notAssessable')
     // BOM wird toleriert; Top 5 nur mit vorhandenen IDs; unbekannte Ampel fällt auf nichts
     const mitBom = pruefstandLesen(`﻿${pruefstandText({ ...p, assessment: { ...p.assessment, top5: ['TM-001', 'GIBT-ES-NICHT'] } })}`) as Pruefstand
     expect(datenstandAus(mitBom, '2026-11-02', 1).top5).toEqual(['TM-001'])

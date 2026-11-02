@@ -65,7 +65,13 @@
       "stand_one": "1 Prüfdokument geprüft: {{befunde}} Befunde, davon {{hoch}} hoch.",
       "stand_other": "{{count}} Prüfdokumente geprüft: {{befunde}} Befunde, davon {{hoch}} hoch.",
       "leer": "Prüfdokumente in der linken Spalte laden – Formalprüfung, Word-Check, Sprache, Rechnen und Verweise laufen dann von selbst.",
-      "zuFindings": "Zu den Findings"
+      "zuFindings": "Zu den Findings",
+      "nichtBewertbar": {
+        "ocr_one": "1 Prüfdokument ist nicht bewertbar – Texterkennung ausstehend.",
+        "ocr_other": "{{count}} Prüfdokumente sind nicht bewertbar – Texterkennung ausstehend.",
+        "ohneText_one": "1 Prüfdokument ist nicht bewertbar – kein lesbarer Text.",
+        "ohneText_other": "{{count}} Prüfdokumente sind nicht bewertbar – kein lesbarer Text."
+      }
     },
     "ki": "KI-Prüfung",
     "arten": "Prüfarten",
@@ -274,6 +280,12 @@
     "entfernenFrage": "Wirklich entfernen?",
     "gelesen_one": "{{name}} gelesen und geprüft – 1 Befund.",
     "gelesen_other": "{{name}} gelesen und geprüft – {{count}} Befunde.",
+    "gelesenOcr_one": "{{name}} gelesen – 1 Seite ohne Textebene: Texterkennung ausstehend, noch nicht bewertbar.",
+    "gelesenOcr_other": "{{name}} gelesen – {{count}} Seiten ohne Textebene: Texterkennung ausstehend, noch nicht bewertbar.",
+    "gelesenOhneText": "{{name}} gelesen – kein lesbarer Text gefunden, nicht bewertbar.",
+    "gelesenUngeprueft": "{{name}} gelesen.",
+    "gelesenOcrUngeprueft_one": "{{name}} gelesen – 1 Seite ohne Textebene: Texterkennung ausstehend.",
+    "gelesenOcrUngeprueft_other": "{{name}} gelesen – {{count}} Seiten ohne Textebene: Texterkennung ausstehend.",
     "nichtGelesen": "{{name}} konnte nicht gelesen werden.",
     "entfernt": "{{name}} entfernt.",
     "angabenBearbeiten": "Angaben",
@@ -462,7 +474,31 @@
     "glossar": "Variante durch die Soll-Schreibweise ersetzen (Word: Strg+H, „Groß-/Kleinschreibung beachten“ und „Nur ganzes Wort“ aktivieren).",
     "abkuerzungsliste": "Abkürzung in die Referenzliste aufnehmen oder im Text ausschreiben.",
     "register": "Revision/Datum im Dokument oder im Dokumentregister korrigieren — eines von beiden ist veraltet.",
-    "kennungen": "Kennung gegen die Referenzliste prüfen (Tippfehler oder fehlender Eintrag)."
+    "registerFehlt": "Dokument ins Dokumentregister aufnehmen oder Dokumentnummer/Titel im Dokument und im Register prüfen.",
+    "kennungen": "Kennung gegen die Referenzliste prüfen (Tippfehler oder fehlender Eintrag).",
+    "summen": "Summe nachrechnen und die Summenzeile oder die fehlerhafte Zeile korrigieren. Summen als Formel setzen (Word: Feld =SUM(ABOVE), Excel: SUMME), damit sie späteren Änderungen folgen.",
+    "kumuliert": "Kumulierte Zeit ab der ersten abweichenden Zeile neu berechnen — die folgenden Zeilen bauen darauf auf und sind meist mitbetroffen.",
+    "session": "Zeitblöcke oder die angegebene Sessiondauer anpassen, bis beide übereinstimmen (Briefing und Debriefing mitzählen, wenn die Dauer sie einschließt).",
+    "einheiten": "Umgerechneten Wert mit dem genauen Faktor neu berechnen und korrigieren (1 ft = 0,3048 m, 1 lb = 0,4536 kg, 1 NM = 1,852 km, 1 kt = 1,852 km/h, °F = °C × 1,8 + 32).",
+    "metar": "Wettermeldung des Szenarios in sich stimmig machen: Sicht, Wettergruppe, Temperatur/Taupunkt und Vertikalsicht passend zueinander wählen. Der Befund nennt den Widerspruch.",
+    "doppelt": "Doppeltes Wort bzw. doppelten Wegpunkt streichen.",
+    "uebung": "Übungsnummer im Verweis korrigieren oder die fehlende Übung in die Übungsliste aufnehmen.",
+    "zirkel": "Inhalt in einem der Abschnitte ausschreiben und nur von den anderen darauf verweisen.",
+    "regelids": "Regelwerksverweis gegen das geladene Regelwerk prüfen und die Kennung korrigieren — nennt der Befund eine nächstliegende Regel, zuerst diese prüfen.",
+    "absaetze": "Absatzangabe gegen das Regelwerk prüfen und korrigieren — der Befund nennt die vorhandenen Absätze.",
+    "regelQuelle": "Regelwerk in die Bibliothek laden, damit sich die Verweise prüfen lassen, oder die Verweise von Hand gegen die geltende Fassung prüfen.",
+    "listeFehlt": "Anhang mit dem Paket einreichen oder den Eintrag in der Liste als „Reserved“ kennzeichnen.",
+    "listeTitel": "Titel im Dokument und in der Anhangsliste des Hauptdokuments angleichen.",
+    "listeNachtragen": "Dokument in die Anhangsliste des Hauptdokuments aufnehmen.",
+    "paketStand": "Revision bzw. Datum an das Hauptdokument angleichen — oder bestätigen, dass das Paket bewusst mit unterschiedlichen Ständen eingereicht wird.",
+    "hierarchie": "Meinen beide Dokumente denselben Umfang, den Wert im tieferen Dokument an das höhere angleichen; sonst den Umfang im Text klarstellen.",
+    "geschwisterSchreibweise": "Eine Schreibweise in allen Geschwisterdokumenten verwenden — die im übrigen Paket übliche, wenn der Befund sie nennt.",
+    "geschwisterAbsatz": "Absätze angleichen oder bestätigen, dass der Unterschied zwischen den Fassungen gewollt ist.",
+    "gegenfassung": "Begriff durch den der eigenen Fassung ersetzen oder den Satz streichen — er stammt aus der anderen Fassung.",
+    "propagation": "Die im Geschwisterdokument bestätigte Korrektur auch hier übernehmen.",
+    "paketVerweisArt": "Verweis so korrigieren, dass er das Dokument im Paket nennt (Annex oder Appendix).",
+    "paketVerweisZiel": "Kapitel- bzw. Übungsnummer im Verweis korrigieren oder das Ziel im verwiesenen Dokument ergänzen.",
+    "paketVerweisFehlt": "Verwiesenes Dokument ins Paket oder in die Bibliothek aufnehmen, damit sich der Verweis prüfen lässt, oder den Verweis von Hand prüfen."
   },
   "gate": {
     "titel": "Submission gate",
@@ -472,6 +508,16 @@
     "nichtOk_other": "{{count}} Hoch-Befunde offen",
     "warnung": "Nicht einreichungsfähig, solange Hoch-Befunde offen sind. Der Export bleibt möglich (Einstellung: warnen).",
     "gesperrt": "Export mit „einreichungsfähig“ ist gesperrt, solange Hoch-Befunde offen sind.",
+    "nichtBewertbar": {
+      "ocr": "nicht bewertbar – Texterkennung ausstehend",
+      "ohneText": "nicht bewertbar – kein lesbarer Text"
+    },
+    "hinweis": {
+      "ocr_one": "1 Seite eines Prüfdokuments hat keine Textebene (Scan). Dort konnte keine Textprüfung laufen – bewertbar erst nach der Texterkennung in der Dokumentkarte.",
+      "ocr_other": "{{count}} Seiten von Prüfdokumenten haben keine Textebene (Scan). Dort konnte keine Textprüfung laufen – bewertbar erst nach der Texterkennung in der Dokumentkarte.",
+      "ohneText_one": "1 Prüfdokument enthält keinen lesbaren Text. Die Textprüfungen konnten dort nicht laufen – das Ergebnis ist nicht bewertbar.",
+      "ohneText_other": "{{count}} Prüfdokumente enthalten keinen lesbaren Text. Die Textprüfungen konnten dort nicht laufen – das Ergebnis ist nicht bewertbar."
+    },
     "formal": "Formalprüfung",
     "word": "Word-Check",
     "sprache": "Sprache und Platzhalter",
@@ -522,6 +568,8 @@
   "pruefungKurz": {
     "titel": "Prüfung",
     "ohne": "ohne Befund",
+    "ocrAusstehend": "OCR ausstehend",
+    "ohneText": "kein lesbarer Text",
     "befunde_one": "1 Befund",
     "befunde_other": "{{count}} Befunde",
     "hoch_one": "davon 1 Hoch",

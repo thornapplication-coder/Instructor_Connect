@@ -1,4 +1,4 @@
-import type { Befund } from '../pruefung/befund'
+import { lesestand, type Befund } from '../pruefung/befund'
 import type { SitzungsDok } from '../sitzung'
 import type { ExportDokument, ExportEingabe } from './datenstand'
 
@@ -74,5 +74,7 @@ export function exportEingabe(a: {
     dokumente: exportDokumente(a.docs),
     befunde: [...pruef.flatMap((d) => d.z!.pruefung!.befunde.map((b) => ({ ...b, dokName: d.felder.titel || d.name }))), ...a.paketBefunde],
     ampeln: pruef.map((d) => ({ dokId: d.id, gruppen: Object.fromEntries(Object.entries(d.z!.pruefung!.ampel).filter(([, v]) => v && Object.keys(v).length)) as ExportEingabe['ampeln'][number]['gruppen'] })),
+    // Ein Scan ohne Texterkennung ist nicht „ready" (DC-03)
+    lesestand: lesestand(pruef.map((d) => d.z!)),
   }
 }

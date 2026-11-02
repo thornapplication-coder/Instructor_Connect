@@ -1,4 +1,4 @@
-import type { Befund } from '../pruefung/befund'
+import { VOLL_GELESEN, type Befund } from '../pruefung/befund'
 import type { ExportDokument, ExportEingabe } from './datenstand'
 
 /**
@@ -38,6 +38,7 @@ export function eingabe(x: Partial<ExportEingabe> = {}): ExportEingabe {
       befund('F-03', 'tm', { prioritaet: 'Medium', fundstellen: [{ seite: 'S. 3', auszug: 'LEP' }] }),
     ],
     ampeln: [{ dokId: 'tm', gruppen: { formal: { lep: 'wait', seiten: 'ok', inhalt: 'na' }, word: { unsichtbar: 'bad' } } }],
+    lesestand: VOLL_GELESEN,
     ...x,
   }
 }

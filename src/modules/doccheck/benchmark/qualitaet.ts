@@ -34,6 +34,9 @@ export const SBX_WORD_01_FEHLALARME: { punkt: string; muster: RegExp; fall: stri
   { punkt: 'unsichtbar', muster: /Textfeld|text box/i, fall: 'Textfeld auf dem Deckblatt' },
   { punkt: 'unsichtbar', muster: /CONTROLLED COPY|UNCONTROLLED WHEN PRINTED/, fall: 'Textfeld mit Rahmen in Schriftfarbe (Audit 11/2026, FRD-04)' },
   { punkt: 'unsichtbar', muster: /Solo flights/, fall: 'alter Stand einer Formatänderung (w:rPrChange) ist nicht wirksam (Audit 11/2026, FRD-15)' },
+  { punkt: 'kopfFuss', muster: /footer1\.xml/, fall: 'Revision nur im Fuß, Edition und Datum im Kopf — keine Variante (Audit 11/2026, FRD-09)' },
+  { punkt: 'fragmente', muster: /Table row/, fall: 'Werte der Lenkungstabelle auf dem Deckblatt (Audit 11/2026, FRD-10)' },
+  { punkt: 'fremdsprache', muster: /Sandbox-Flugschule/, fall: 'landessprachige Auflösung neben ihrem Kürzel — ein Eigenname (Audit 11/2026, FRD-17)' },
   { punkt: 'platzhalter', muster: /Signature/, fall: 'Unterschriftszeile' },
   { punkt: 'fremdsprache', muster: /Hauptstraße/, fall: 'Adresse mit landessprachigem Straßennamen' },
   { punkt: 'einschuebe', muster: /Hauptstraße/, fall: 'Adresse mit landessprachigem Straßennamen' },
@@ -47,6 +50,18 @@ export const SBX_WORD_02_FEHLALARME: { punkt: string; muster: RegExp; fall: stri
   { punkt: 'inhalt', muster: /Entry without matching heading: \d/, fall: 'Verzeichniseintrag mit Nummer, Überschrift per Liste nummeriert' },
   { punkt: 'inhalt', muster: /Heading missing in table of contents: Foreword/, fall: 'Überschrift ohne Nummer (numId 0) gegen Eintrag ohne Nummer' },
   { punkt: 'querverweise', muster: /Section (1\.1|2\.1)\b/, fall: 'gültiger Verweis auf ein automatisch nummeriertes Kapitel' },
+  { punkt: 'querverweise', muster: /see 2\.1\.1/, fall: 'gültiger Kurzverweis ohne Schlüsselwort (Audit 11/2026, FRD-14)' },
+  { punkt: 'nummerierung', muster: /Table/, fall: 'Revisionszelle „Table 2 amended" ist keine Beschriftung (Audit 11/2026, FRD-18)' },
+]
+
+/**
+ * Fehlalarmfälle von SBX-FORMAL-01 (beide Varianten). Die eingebauten
+ * Fehler stehen als Prüfpunkte in `SBX_FORMAL_01_FEHLER`; ein Fehlalarm
+ * unter einem Prüfpunkt, der ohnehin einen Befund hat, fiele dort nicht auf.
+ */
+export const SBX_FORMAL_01_FEHLALARME: { punkt: string; muster: RegExp; fall: string }[] = [
+  { punkt: 'abkuerzungen', muster: /\bNOTE\b/, fall: 'Hinweiswort „NOTE:" ist kein Kürzel (Audit 11/2026, FRD-16)' },
+  { punkt: 'querverweise', muster: /see 2\.1\b/, fall: 'gültiger Kurzverweis „see 2.1" (Audit 11/2026, FRD-14)' },
 ]
 
 /** SBX-PDF-02: Lesereihenfolge (Audit 11/2026, FRD-05) — eingebaut ist nur „QRH" ohne Listeneintrag. */

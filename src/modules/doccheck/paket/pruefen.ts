@@ -1,7 +1,7 @@
 import geschwisterRegeln from '../config/sibling-rules.json'
 import type { DocPage } from '../parse/model'
 import { vergleichsform } from '../parse/seitenzuordnung'
-import { ampelAus, idsVergeben, type Ampel, type Befund, type Fundstelle } from '../pruefung/befund'
+import { ampelAus, idsVergeben, type Ampel, type Anleitung, type Befund, type Fundstelle } from '../pruefung/befund'
 import { dokForm } from '../recheck/fremdliste'
 import { editierabstand } from '../pruefung/kontext'
 export { editierabstand }
@@ -58,7 +58,14 @@ export interface PaketErgebnis {
 
 type Roh = Omit<Befund, 'id'>
 
-const befund = (m: Mitglied, x: Pick<Roh, 'pruefpunkt' | 'kategorie' | 'prioritaet' | 'text' | 'fundstellen'> & Partial<Pick<Roh, 'weitere'>>): Roh => ({
+/**
+ * Paketbefund. Die Handlungsanweisung ist Pflicht — ohne sie blieb die
+ * „Proposed Correction" bei allen Paketbefunden leer (Audit 11/2026,
+ * EXP-06). Ein Prüfpunkt kann mehrere haben: „liste" meldet einen
+ * fehlenden Anhang, einen abweichenden Titel und einen fehlenden
+ * Listeneintrag, und jeder wird anders behoben.
+ */
+const befund = (m: Mitglied, x: Pick<Roh, 'pruefpunkt' | 'kategorie' | 'prioritaet' | 'text' | 'fundstellen'> & Partial<Pick<Roh, 'weitere'>> & { anleitung: Anleitung }): Roh => ({
   quelle: 'paket',
   dokId: m.id,
   dokName: m.dokName,
@@ -113,14 +120,14 @@ function listePruefen(m1: Mitglied, alle: Mitglied[]): Roh[] {
     const m = unten.find((x) => dokForm(x.kuerzel) === e.schluessel)
     if (!m) {
       if (/\breserved\b|\breserviert\b/i.test(e.titel)) continue
-      out.push(befund(m1, { pruefpunkt: 'liste', kategorie: 'Gap', prioritaet: 'Medium', text: `${e.bezeichnung} is listed in ${name(m1)} but is not part of the package. Submit it with the package or mark the entry as "Reserved".`, fundstellen: [{ seite: e.seite, auszug: e.zeile }] }))
+      out.push(befund(m1, { pruefpunkt: 'liste', anleitung: 'listeFehlt', kategorie: 'Gap', prioritaet: 'Medium', text: `${e.bezeichnung} is listed in ${name(m1)} but is not part of the package. Submit it with the package or mark the entry as "Reserved".`, fundstellen: [{ seite: e.seite, auszug: e.zeile }] }))
     } else if (e.titel && !vergleichsform(m.dokName).includes(vergleichsform(e.titel))) {
-      out.push(befund(m, { pruefpunkt: 'liste', kategorie: 'Inconsistency', prioritaet: 'Low', text: `Title of ${name(m)} does not match the list in ${name(m1)}: listed as "${e.titel}", document title "${m.dokName}".`, fundstellen: [{ auszug: m.dokName }], weitere: [{ dokId: m1.id, dokName: m1.dokName, fundstelle: { seite: e.seite, auszug: e.zeile } }] }))
+      out.push(befund(m, { pruefpunkt: 'liste', anleitung: 'listeTitel', kategorie: 'Inconsistency', prioritaet: 'Low', text: `Title of ${name(m)} does not match the list in ${name(m1)}: listed as "${e.titel}", document title "${m.dokName}".`, fundstellen: [{ auszug: m.dokName }], weitere: [{ dokId: m1.id, dokName: m1.dokName, fundstelle: { seite: e.seite, auszug: e.zeile } }] }))
     }
   }
   for (const m of unten) {
     if (!m.kuerzel || eintraege.some((e) => e.schluessel === dokForm(m.kuerzel))) continue
-    out.push(befund(m1, { pruefpunkt: 'liste', kategorie: 'Document Control', prioritaet: 'Medium', text: `${name(m)} is part of the package but is not listed in ${name(m1)}.`, fundstellen: [{ auszug: eintraege.map((e) => e.bezeichnung).join(', ') }], weitere: [{ dokId: m.id, dokName: m.dokName }] }))
+    out.push(befund(m1, { pruefpunkt: 'liste', anleitung: 'listeNachtragen', kategorie: 'Document Control', prioritaet: 'Medium', text: `${name(m)} is part of the package but is not listed in ${name(m1)}.`, fundstellen: [{ auszug: eintraege.map((e) => e.bezeichnung).join(', ') }], weitere: [{ dokId: m.id, dokName: m.dokName }] }))
   }
   return out
 }
@@ -148,7 +155,7 @@ function standPruefen(alle: Mitglied[], zeilen: UebersichtZeile[]): Roh[] {
   return zeilen.flatMap((z) => {
     const m = alle.find((x) => x.id === z.id)!
     return z.abweichung.map((k) =>
-      befund(m, { pruefpunkt: 'stand', kategorie: 'Document Control', prioritaet: 'Low', text: `${k === 'revision' ? 'Revision' : 'Date'} of ${name(m)} ("${m[k]}") differs from ${name(m1)} ("${m1[k]}"). Confirm that the package is meant to be submitted with different ${k === 'revision' ? 'revisions' : 'dates'}.`, fundstellen: [{ auszug: m[k] }], weitere: [{ dokId: m1.id, dokName: m1.dokName, fundstelle: { auszug: m1[k] } }] }),
+      befund(m, { pruefpunkt: 'stand', anleitung: 'paketStand', kategorie: 'Document Control', prioritaet: 'Low', text: `${k === 'revision' ? 'Revision' : 'Date'} of ${name(m)} ("${m[k]}") differs from ${name(m1)} ("${m1[k]}"). Confirm that the package is meant to be submitted with different ${k === 'revision' ? 'revisions' : 'dates'}.`, fundstellen: [{ auszug: m[k] }], weitere: [{ dokId: m1.id, dokName: m1.dokName, fundstelle: { auszug: m1[k] } }] }),
     )
   })
 }
@@ -203,6 +210,7 @@ function hierarchiePruefen(alle: Mitglied[]): Roh[] {
       out.push(
         befund(m, {
           pruefpunkt: 'hierarchie',
+          anleitung: 'hierarchie',
           kategorie: 'Inconsistency',
           // Medium: Die Zuordnung „gleiche Bezeichnung = gleiche Größe" ist eine
           // Annahme; eine Teilmenge (z. B. nur ein Modul) wäre kein Widerspruch
@@ -293,7 +301,7 @@ function geschwisterPruefen(alle: Mitglied[], regeln: Regeln): Roh[] {
           const treffer = absaetze(m).filter((a) => begriffRe(b).test(ohne(a.text, wendungen)))
           if (!treffer.length) continue
           const quelle = Object.entries(nurIn).find(([v, bs]) => v !== m.variante && bs.includes(b))![0]
-          out.push(befund(m, { pruefpunkt: 'gegenfassung', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `"${b}" belongs to the ${quelle} version but appears in the ${m.variante} version ${name(m)} (${treffer.length}×).`, fundstellen: treffer.slice(0, 5).map((a) => ({ seite: a.seite, auszug: a.text })) }))
+          out.push(befund(m, { pruefpunkt: 'gegenfassung', anleitung: 'gegenfassung', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `"${b}" belongs to the ${quelle} version but appears in the ${m.variante} version ${name(m)} (${treffer.length}×).`, fundstellen: treffer.slice(0, 5).map((a) => ({ seite: a.seite, auszug: a.text })) }))
         }
       }
     }
@@ -328,10 +336,10 @@ function geschwisterPruefen(alle: Mitglied[], regeln: Regeln): Roh[] {
             const [hier, dort, falsch, richtig] = falschInA ? [zwei.a, zwei.b, d.weg[0], d.neu[0]] : [zwei.b, zwei.a, d.neu[0], d.weg[0]]
             const [m, anderes] = falschInA ? [A, B] : [B, A]
             const sicher = falschInA || (y === 0 && x > 0)
-            out.push(befund(m, { pruefpunkt: 'geschwister', kategorie: sicher ? 'Editorial' : 'Inconsistency', prioritaet: 'Medium', text: sicher ? `Spelling differs from sibling document ${name(anderes)}: "${falsch}" here, "${richtig}" there and elsewhere in the package. Correction not carried over?` : `Sibling documents differ in spelling: "${d.neu[0]}" (${name(B)}) vs "${d.weg[0]}" (${name(A)}).`, fundstellen: [hier.fundstelle], weitere: [dort] }))
+            out.push(befund(m, { pruefpunkt: 'geschwister', anleitung: 'geschwisterSchreibweise', kategorie: sicher ? 'Editorial' : 'Inconsistency', prioritaet: 'Medium', text: sicher ? `Spelling differs from sibling document ${name(anderes)}: "${falsch}" here, "${richtig}" there and elsewhere in the package. Correction not carried over?` : `Sibling documents differ in spelling: "${d.neu[0]}" (${name(B)}) vs "${d.weg[0]}" (${name(A)}).`, fundstellen: [hier.fundstelle], weitere: [dort] }))
             continue
           }
-          out.push(befund(B, { pruefpunkt: 'geschwister', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Sibling documents differ in an otherwise identical paragraph: ${d.weg.length ? `"${d.weg.join(' ')}" (${name(A)})` : `nothing in ${name(A)}`} vs ${d.neu.length ? `"${d.neu.join(' ')}" (${name(B)})` : `nothing in ${name(B)}`}. Confirm the difference is intended.`, fundstellen: [zwei.b.fundstelle], weitere: [zwei.a] }))
+          out.push(befund(B, { pruefpunkt: 'geschwister', anleitung: 'geschwisterAbsatz', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Sibling documents differ in an otherwise identical paragraph: ${d.weg.length ? `"${d.weg.join(' ')}" (${name(A)})` : `nothing in ${name(A)}`} vs ${d.neu.length ? `"${d.neu.join(' ')}" (${name(B)})` : `nothing in ${name(B)}`}. Confirm the difference is intended.`, fundstellen: [zwei.b.fundstelle], weitere: [zwei.a] }))
         }
       }
     }
@@ -353,7 +361,7 @@ function propagationPruefen(alle: Mitglied[], korrekturen: Korrektur[]): Roh[] {
     for (const m of alle.filter((x) => x.gruppe === quelle.gruppe && x.id !== quelle.id)) {
       const treffer = absaetze(m).filter((a) => begriffRe(k.weg).test(a.text))
       if (!treffer.length) continue
-      out.push(befund(m, { pruefpunkt: 'propagation', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Correction not carried over to sibling document: finding ${k.ref} was corrected in ${name(quelle)}, but "${k.weg}" is still present in ${name(m)}.`, fundstellen: treffer.slice(0, 5).map((a) => ({ seite: a.seite, auszug: a.text })), weitere: [{ dokId: quelle.id, dokName: quelle.dokName }] }))
+      out.push(befund(m, { pruefpunkt: 'propagation', anleitung: 'propagation', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Correction not carried over to sibling document: finding ${k.ref} was corrected in ${name(quelle)}, but "${k.weg}" is still present in ${name(m)}.`, fundstellen: treffer.slice(0, 5).map((a) => ({ seite: a.seite, auszug: a.text })), weitere: [{ dokId: quelle.id, dokName: quelle.dokName }] }))
     }
   }
   return out
@@ -388,7 +396,7 @@ export function verweisePruefen(alle: Mitglied[]): { befunde: Roh[]; gefunden: b
           const tausch = getauscht(dokForm(v.dok))
           const anders = tausch ? alle.find((x) => dokForm(x.kuerzel) === tausch) : undefined
           if (anders) {
-            out.push(befund(m, { pruefpunkt: 'verweise', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Reference to ${v.dok}, but the package contains ${name(anders)} and no ${v.dok}. Annex and Appendix mixed up?`, fundstellen: [{ seite: a.seite, auszug: a.text }], weitere: [{ dokId: anders.id, dokName: anders.dokName }] }))
+            out.push(befund(m, { pruefpunkt: 'verweise', anleitung: 'paketVerweisArt', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Reference to ${v.dok}, but the package contains ${name(anders)} and no ${v.dok}. Annex and Appendix mixed up?`, fundstellen: [{ seite: a.seite, auszug: a.text }], weitere: [{ dokId: anders.id, dokName: anders.dokName }] }))
             continue
           }
           const key = `${m.id}|${dokForm(v.dok)}`
@@ -405,12 +413,12 @@ export function verweisePruefen(alle: Mitglied[]): { befunde: Roh[]; gefunden: b
         // Ohne erkennbare Gliederung im Ziel lässt sich nichts sagen
         if (!z.kap.size && !z.ueb.size) continue
         const was = v.uebung ? 'exercise' : 'chapter'
-        out.push(befund(m, { pruefpunkt: 'verweise', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Reference to ${name(t)} ${was} ${v.nummer} — no such ${was} in ${name(t)}.`, fundstellen: [{ seite: a.seite, auszug: a.text }], weitere: [{ dokId: t.id, dokName: t.dokName }] }))
+        out.push(befund(m, { pruefpunkt: 'verweise', anleitung: 'paketVerweisZiel', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Reference to ${name(t)} ${was} ${v.nummer} — no such ${was} in ${name(t)}.`, fundstellen: [{ seite: a.seite, auszug: a.text }], weitere: [{ dokId: t.id, dokName: t.dokName }] }))
       }
     }
   }
   for (const { m, dok, fs, n } of fehlend.values()) {
-    out.push({ ...befund(m, { pruefpunkt: 'verweise', kategorie: 'Document Control', prioritaet: 'Low', text: `Reference to ${dok} cannot be verified: ${dok} is not part of the package (${n}×). Add it to the package or the library.`, fundstellen: fs.slice(0, 5) }), verifizierung: 'Not verifiable – source missing' })
+    out.push({ ...befund(m, { pruefpunkt: 'verweise', anleitung: 'paketVerweisFehlt', kategorie: 'Document Control', prioritaet: 'Low', text: `Reference to ${dok} cannot be verified: ${dok} is not part of the package (${n}×). Add it to the package or the library.`, fundstellen: fs.slice(0, 5) }), verifizierung: 'Not verifiable – source missing' })
   }
 
   // Zirkel über Dokumentgrenzen (A → B → A ohne Inhalt); Zirkel in EINEM Dokument meldet dieses selbst
@@ -431,7 +439,7 @@ export function verweisePruefen(alle: Mitglied[]): { befunde: Roh[]; gefunden: b
     if (docs.length < 2) continue
     const zeigen = (k: string) => `${name(alle.find((x) => x.id === k.split('|')[0])!)} ${k.split('|')[1]}`
     const erstes = alle.find((x) => x.id === docs[0])!
-    out.push(befund(erstes, { pruefpunkt: 'verweise', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Circular reference without content: ${[...kreis, kreis[0]].map(zeigen).join(' → ')}.`, fundstellen: kreis.filter((k) => k.startsWith(`${erstes.id}|`)).map((k) => ({ ort: k.split('|')[1], auszug: text.get(k) ?? '' })), weitere: docs.slice(1).map((id) => ({ dokId: id, dokName: alle.find((x) => x.id === id)!.dokName })) }))
+    out.push(befund(erstes, { pruefpunkt: 'verweise', anleitung: 'zirkel', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Circular reference without content: ${[...kreis, kreis[0]].map(zeigen).join(' → ')}.`, fundstellen: kreis.filter((k) => k.startsWith(`${erstes.id}|`)).map((k) => ({ ort: k.split('|')[1], auszug: text.get(k) ?? '' })), weitere: docs.slice(1).map((id) => ({ dokId: id, dokName: alle.find((x) => x.id === id)!.dokName })) }))
   }
   return { befunde: out, gefunden }
 }

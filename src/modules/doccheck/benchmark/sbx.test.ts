@@ -5,13 +5,14 @@ import { xlsxTabellen } from '../parse/xlsx'
 import { befundeLesen, kopfzeileFinden, zielVorschlagen, zuordnungVorschlagen } from '../recheck/fremdliste'
 import { remark } from '../recheck/pruefen'
 import { dokumentPruefen } from '../pruefung/pruefen'
+import { tabellen } from '../pruefung/rechnen'
 import { gruppenVorschlagen, vorbelegen } from '../paket/struktur'
 import { Kern } from '../kern'
 import { docxLesen } from '../parse/docx'
 import { dateiLesen } from '../parse/lesen'
 import type { PdfJs } from '../parse/pdf'
 import { pdfBauen } from '../parse/pdfBauen'
-import { absatz, lauf, SBX_CALC_01_FEHLER, SBX_CALC_01_NAME, SBX_CALC_01_XLSX_FEHLER, SBX_CALC_01_XLSX_NAME, sbxCalc01Xlsx, SBX_EAR_01_NAME, SBX_EAR_01_VERWEISE, sbxEar01, sbxEar01Pruefdokument, SBX_FL_01, SBX_FL_01_KOPF, SBX_PKG_01_FEHLER, sbxCalc01, SBX_PDF_02_ABKUERZUNGEN, SBX_PDF_02_NAME, SBX_WORD_01_NAME, SBX_WORD_02_NAME, sbxFl01, sbxPage01, sbxPdf02, sbxPkg01, sbxWord01, sbxWord02, umbrechen } from './sbx'
+import { absatz, lauf, SBX_CALC_01_FEHLER, SBX_CALC_01_NAME, SBX_CALC_01_XLSX_FEHLER, SBX_CALC_01_XLSX_NAME, sbxCalc01Xlsx, SBX_EAR_01_NAME, SBX_EAR_01_VERWEISE, sbxEar01, sbxEar01Pruefdokument, SBX_FL_01, SBX_FL_01_KOPF, SBX_PKG_01_FEHLER, sbxCalc01, sbxCalc01Pdf, SBX_PDF_02_ABKUERZUNGEN, SBX_PDF_02_NAME, SBX_WORD_01_NAME, SBX_WORD_02_NAME, sbxFl01, sbxPage01, sbxPdf02, sbxPkg01, sbxWord01, sbxWord02, umbrechen } from './sbx'
 
 const standardFontDataUrl = fileURLToPath(new URL('../../../../node_modules/pdfjs-dist/standard_fonts/', import.meta.url))
 const kern = () => new Kern({ pdfjs: async () => pdfjs as unknown as PdfJs, standardFontDataUrl })
@@ -345,6 +346,27 @@ describe('Abnahme N6: SBX-CALC-01 (Rechen- und Plausibilitätsprüfung)', () => 
     expect(text('einheiten')).toEqual(['Unit conversion does not match: 11930 lbs = 5411.4 kg, stated 5834 kg (tolerance 1 %).'])
     expect(text('doppelt')).toEqual(['Repeated word or waypoint: "RUPET RUPET" (1×).'])
     expect(p.ampel.rechnen).toEqual({ summen: 'bad', kumuliert: 'wait', session: 'wait', einheiten: 'wait', metar: 'wait', doppelt: 'wait' })
+  })
+
+  it('Kapitel 7: lange Tabelle über die Seitengrenze (Inhaltsverzeichnis) und zweizeiliger verbundener Kopf — keine Meldung (Audit 11/2026, FRD-02/FRD-03)', async () => {
+    const g = await dateiLesen({ name: SBX_CALC_01_NAME, daten: await sbxCalc01() }, { pdfjs: async () => { throw new Error('kein PDF') } }, {})
+    // Der Fall muss wirklich auf der Grenze liegen — sonst prüft er nichts
+    expect(g.roh.seitenQuelle).toBe('toc_mapping')
+    const lang = tabellen(g.roh).find((t) => t.zeilen[0].join('|') === 'Lesson|Dual|Mutual')!
+    expect(new Set(lang.seiten).size).toBe(2)
+    const verbunden = tabellen(g.roh).find((t) => t.zeilen[0][0] === 'Phase' && t.zeilen[0].length === 5)!
+    expect(verbunden.zeilen).toHaveLength(7)
+    const p = dokumentPruefen({ dokId: 'c', dokName: 'SBX-CALC-01', dateiname: SBX_CALC_01_NAME, roh: g.roh, meta: g.meta }, { formal: false, word: false, rechnen: true })
+    expect(p.befunde.filter((b) => /^(Total|FI-|\d \| FI-)/.test(b.fundstellen[0].auszug))).toEqual([])
+  })
+
+  it('mit Word-PDF: Seiten aus dem PDF, die Tabelle bricht anders um — dieselben Befunde (Audit 11/2026, FRD-02)', async () => {
+    const k = kern()
+    await k.lesen({ id: 'c', name: SBX_CALC_01_NAME, daten: await sbxCalc01(), pruefen: { formal: false, word: false, rechnen: true } })
+    const z = (await k.paaren('c', sbxCalc01Pdf()))!
+    expect(z.seitenQuelle).toBe('pdf_pair')
+    const r = z.pruefung!.befunde.filter((b) => b.quelle === 'rechnen')
+    expect(r.map((b) => [b.pruefpunkt, b.fundstellen[0].auszug]).sort()).toEqual(SBX_CALC_01_FEHLER.map((f) => [f.punkt, f.auszug]).sort())
   })
 })
 

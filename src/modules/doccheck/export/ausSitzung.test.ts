@@ -9,7 +9,7 @@ const felder = { typ: 'TM', titel: 'Training Manual', nummer: 'TM-1', revision: 
 const doc = (id: string, rolle: 'review' | 'master', x: Partial<SitzungsDok> = {}, befunde: Befund[] = []): SitzungsDok =>
   ({
     id, rolle, name: `${id}.docx`, groesse: 1, status: 'fertig', felder, erkannt: [],
-    z: { seiten: 5, sha256: `h-${id}`, pruefung: rolle === 'review' ? { befunde, ampel: { formal: { lep: 'ok' }, word: {}, sprache: { platzhalter: 'wait' }, referenz: {} } } : undefined },
+    z: { seiten: 5, sha256: `h-${id}`, ocrKandidaten: [], pruefung: rolle === 'review' ? { befunde, ampel: { formal: { lep: 'ok' }, word: {}, sprache: { platzhalter: 'wait' }, referenz: {} } } : undefined },
     ...x,
   }) as unknown as SitzungsDok
 
@@ -34,6 +34,19 @@ describe('Sitzung → Export-Datenstand', () => {
     expect(e.befunde.map((b) => [b.id, b.dokName])).toEqual([['F-01', 'Training Manual'], ['P-01', 'paket']])
     expect(e.ampeln).toEqual([{ dokId: 'r', gruppen: { formal: { lep: 'ok' }, sprache: { platzhalter: 'wait' } } }])
     expect(datenstand(e).befunde.map((b) => b.id)).toEqual(['TM-001', 'PKG-001'])
+    expect(e.lesestand).toEqual({ ocrSeiten: 0, ohneText: 0 })
+  })
+
+  it('Scan ohne Texterkennung: Lesestand geht mit, der Export sagt „nicht bewertbar" (Audit 11/2026, DC-03)', () => {
+    // Vorher: 0 Befunde → „Ready for submission" im Excel des Prüfers
+    const scan = doc('s', 'review', {})
+    scan.z = { ...scan.z!, ocrKandidaten: [1], pruefung: { ...scan.z!.pruefung!, ohneText: true } }
+    // Ein Master-Scan zählt nicht — bewertet werden die Prüfdokumente
+    const master = doc('m', 'master')
+    master.z = { ...master.z!, ocrKandidaten: [1, 2] }
+    const e = exportEingabe({ docs: [scan, master], paketBefunde: [], datum: '2026-11-01T10:00:00Z', laufnummer: 1, appVersion: '1.22.0', organisation: '', pruefer: { name: 'A', funktion: 'B' }, bibliothek: 'Sandbox' })
+    expect(e.lesestand).toEqual({ ocrSeiten: 1, ohneText: 1 })
+    expect(datenstand(e).gesamt).toBe('notAssessable')
   })
 
   it('Laufnummer je Tag: zählt hoch, beginnt am nächsten Tag neu, übersteht kaputte oder fehlende Ablage', () => {

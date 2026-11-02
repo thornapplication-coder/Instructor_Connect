@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dokumentSprache, einschuebe, istAdresse, istZitat, spracheVon, woerter } from './sprache'
+import { dokumentSprache, einschuebe, istAdresse, istEigenname, istZitat, loestAuf, spracheVon, woerter } from './sprache'
 
 describe('Spracherkennung (N9)', () => {
   it('erkennt Englisch, Deutsch, Spanisch, Italienisch, Französisch ab drei Wörtern', () => {
@@ -33,5 +33,27 @@ describe('Spracherkennung (N9)', () => {
     expect(einschuebe('Select Normale mode, siehe chapter 2 und continue.', ['Normale', 'siehe', 'und', 'Seite'])).toEqual(['Normale', 'siehe', 'und'])
     expect(einschuebe('see page 2', ['Seite'])).toEqual([])
     expect(woerter('Ä-ö 12 x')).toEqual(['ä', 'ö', 'x'])
+  })
+
+  it('Eigennamen: Wortfolge in Großschreibung ohne Satz — nicht im Deutschen (Audit 11/2026, FRD-17)', () => {
+    expect(istEigenname('Standardised European Rules of the Air')).toBe(true)
+    expect(istEigenname('Agenzia Nazionale per la Sicurezza del Volo')).toBe(false) // 7 Wörter, „per" klein
+    expect(istEigenname('Ente Nazionale per')).toBe(false)
+    expect(istEigenname('Please check the values before release')).toBe(false)
+    expect(istEigenname('Rules of the Air.')).toBe(false)
+    expect(istEigenname('Air')).toBe(false)
+    // Deutsche Nomen sind immer groß — das ist kein Name
+    expect(istEigenname('Hinweise für den Flugbetrieb')).toBe(false)
+    expect(istEigenname('(Part 21) Design Organisation Approval')).toBe(true)
+  })
+
+  it('Auflösung eines Kürzels über die Anfangsbuchstaben', () => {
+    expect(loestAuf('SERA', 'Standardised European Rules of the Air')).toBe(true)
+    expect(loestAuf('EASA', 'European Union Aviation Safety Agency')).toBe(true)
+    expect(loestAuf('MCC', 'Multi-crew cooperation')).toBe(true)
+    expect(loestAuf('ACG', 'Austro Control Österreichische Gesellschaft für Zivilluftfahrt')).toBe(true)
+    expect(loestAuf('MMO', 'Bitte noch prüfen, der Wert ist nicht mehr aktuell.')).toBe(false)
+    expect(loestAuf('ATO', 'Organisation for training')).toBe(false)
+    expect(loestAuf('X', 'Xylophone')).toBe(false)
   })
 })

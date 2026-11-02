@@ -39,6 +39,26 @@ describe('teilLesen — wirksamer Hintergrund', () => {
     expect(r.einheiten.map((e) => e.text)).toEqual(['a0 | b0', 'a1 | b1', 'a2 | b2'])
   })
 
+  it('verbundene Zellen füllen ihr Raster: gridSpan, vMerge, gridBefore/gridAfter (Audit 11/2026, FRD-03)', () => {
+    // Zweizeiliger Word-Kopf: „Flight time" über Dual/Mutual, die übrigen Zellen senkrecht verbunden
+    const zelle = (t: string, tcPr = '') => `<w:tc>${tcPr ? `<w:tcPr>${tcPr}</w:tcPr>` : ''}${t ? p(t) : '<w:p/>'}</w:tc>`
+    const v = (t: string) => zelle(t, `<w:vMerge w:val="restart"/>`)
+    const weiter = zelle('', '<w:vMerge/>')
+    const xml = `<w:tbl>
+      <w:tr>${v('Phase')}${v('Lesson')}${v('Content')}${zelle('Flight time', '<w:gridSpan w:val="2"/>')}${v('Cumulative')}</w:tr>
+      <w:tr>${weiter}${weiter}${weiter}${zelle('Dual')}${zelle('Mutual')}${weiter}</w:tr>
+      <w:tr>${['1', 'FI-01', 'Effects of controls', '1:00', '', '1:00'].map((x) => zelle(x)).join('')}</w:tr>
+      <w:tr><w:trPr><w:gridBefore w:val="1"/><w:gridAfter w:val="2"/></w:trPr>${zelle('Note')}${zelle('x', '<w:gridSpan w:val="2"/>')}</w:tr></w:tbl>`
+    const zeilen = lies(xml).einheiten.map((e) => e.text.split(' | '))
+    expect(zeilen.map((z) => z.length)).toEqual([6, 6, 6, 6])
+    expect(zeilen[0]).toEqual(['Phase', 'Lesson', 'Content', 'Flight time', '', 'Cumulative'])
+    expect(zeilen[1]).toEqual(['', '', '', 'Dual', 'Mutual', ''])
+    expect(zeilen[3]).toEqual(['', 'Note', 'x', '', '', ''])
+    // Eine gefälschte Riesenzahl baut keine Riesenzeile
+    const gross = lies(`<w:tbl><w:tr>${zelle('a', '<w:gridSpan w:val="100000"/>')}${zelle('b')}</w:tr></w:tbl>`)
+    expect(gross.einheiten[0].text.split(' | ')).toHaveLength(64)
+  })
+
   it('Lauf- vor Absatzschattierung vor Vorlage; Absatzmarke zählt nicht; Seitenhintergrund', () => {
     const r = lies(
       `<w:background w:color="FFFFEE"/>` +

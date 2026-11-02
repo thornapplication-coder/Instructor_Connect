@@ -65,7 +65,13 @@
       "stand_one": "1 document under review checked: {{befunde}} findings, {{hoch}} high.",
       "stand_other": "{{count}} documents under review checked: {{befunde}} findings, {{hoch}} high.",
       "leer": "Load documents under review in the left column – formal check, Word check, language, calculations and references then run by themselves.",
-      "zuFindings": "Go to findings"
+      "zuFindings": "Go to findings",
+      "nichtBewertbar": {
+        "ocr_one": "1 document under review is not assessable – text recognition pending.",
+        "ocr_other": "{{count}} documents under review are not assessable – text recognition pending.",
+        "ohneText_one": "1 document under review is not assessable – no readable text.",
+        "ohneText_other": "{{count}} documents under review are not assessable – no readable text."
+      }
     },
     "ki": "AI review",
     "arten": "Checks",
@@ -274,6 +280,12 @@
     "entfernenFrage": "Really remove?",
     "gelesen_one": "{{name}} read and checked – 1 finding.",
     "gelesen_other": "{{name}} read and checked – {{count}} findings.",
+    "gelesenOcr_one": "{{name}} read – 1 page without a text layer: text recognition pending, not assessable yet.",
+    "gelesenOcr_other": "{{name}} read – {{count}} pages without a text layer: text recognition pending, not assessable yet.",
+    "gelesenOhneText": "{{name}} read – no readable text found, not assessable.",
+    "gelesenUngeprueft": "{{name}} read.",
+    "gelesenOcrUngeprueft_one": "{{name}} read – 1 page without a text layer: text recognition pending.",
+    "gelesenOcrUngeprueft_other": "{{name}} read – {{count}} pages without a text layer: text recognition pending.",
     "nichtGelesen": "{{name}} could not be read.",
     "entfernt": "{{name}} removed.",
     "angabenBearbeiten": "Details",
@@ -462,7 +474,31 @@
     "glossar": "Replace the variant with the preferred spelling (Word: Ctrl+H, enable “Match case” and “Find whole words only”).",
     "abkuerzungsliste": "Add the abbreviation to the reference list or spell it out in the text.",
     "register": "Correct revision/date in the document or in the document register — one of them is outdated.",
-    "kennungen": "Check the identifier against the reference list (typo or missing entry)."
+    "registerFehlt": "Add the document to the document register or check the document number/title in the document and in the register.",
+    "kennungen": "Check the identifier against the reference list (typo or missing entry).",
+    "summen": "Recalculate the total and correct either the total row or the incorrect row. Use a formula (Word: =SUM(ABOVE) field, Excel: SUM) so the total follows later changes.",
+    "kumuliert": "Recalculate the cumulative time from the first deviating row onwards — the following rows build on it and are usually affected too.",
+    "session": "Adjust the time blocks or the stated session duration until both match (count briefing and debriefing if the duration includes them).",
+    "einheiten": "Recalculate the converted value with the exact factor and correct it (1 ft = 0.3048 m, 1 lb = 0.4536 kg, 1 NM = 1.852 km, 1 kt = 1.852 km/h, °F = °C × 1.8 + 32).",
+    "metar": "Make the weather report of the scenario internally consistent: choose visibility, present weather, temperature/dew point and vertical visibility to match each other. The finding names the contradiction.",
+    "doppelt": "Delete the repeated word or waypoint.",
+    "uebung": "Correct the exercise number in the reference or add the missing exercise to the exercise list.",
+    "zirkel": "Write out the content in one of the sections and refer to it only from the others.",
+    "regelids": "Check the rule reference against the loaded regulation and correct the identifier — if the finding names a nearest existing rule, check that one first.",
+    "absaetze": "Check the paragraph against the regulation and correct it — the finding lists the existing paragraphs.",
+    "regelQuelle": "Load the regulation into the library so the references can be verified, or verify them manually against the version in force.",
+    "listeFehlt": "Submit the appendix/annex with the package or mark the list entry as “Reserved”.",
+    "listeTitel": "Align the title in the document and in the list of appendices and annexes of the main document.",
+    "listeNachtragen": "Add the document to the list of appendices and annexes of the main document.",
+    "paketStand": "Align revision or date with the main document, or confirm that the package is intentionally submitted with different revisions or dates.",
+    "hierarchie": "If both documents refer to the same scope, align the value in the lower-level document with the higher-level document; otherwise state the scope explicitly.",
+    "geschwisterSchreibweise": "Use one spelling in all sibling documents — the one used elsewhere in the package, where the finding names it.",
+    "geschwisterAbsatz": "Align the paragraphs or confirm that the difference between the versions is intended.",
+    "gegenfassung": "Replace the term with the one of this version or delete the sentence — it is left over from the other version.",
+    "propagation": "Apply the correction confirmed in the sibling document here as well.",
+    "paketVerweisArt": "Correct the reference so that it names the document contained in the package (Annex or Appendix).",
+    "paketVerweisZiel": "Correct the chapter or exercise number in the reference or add the target to the referenced document.",
+    "paketVerweisFehlt": "Add the referenced document to the package or the library so the reference can be verified, or verify it manually."
   },
   "gate": {
     "titel": "Submission gate",
@@ -472,6 +508,16 @@
     "nichtOk_other": "{{count}} high findings open",
     "warnung": "Not ready for submission while high findings are open. Export remains possible (setting: warn).",
     "gesperrt": "Export as “ready for submission” is blocked while high findings are open.",
+    "nichtBewertbar": {
+      "ocr": "not assessable – text recognition pending",
+      "ohneText": "not assessable – no readable text"
+    },
+    "hinweis": {
+      "ocr_one": "1 page of a document under review has no text layer (scan). No text check could run there – assessable only after text recognition in the document card.",
+      "ocr_other": "{{count}} pages of documents under review have no text layer (scan). No text check could run there – assessable only after text recognition in the document card.",
+      "ohneText_one": "1 document under review contains no readable text. The text checks could not run there – the result is not assessable.",
+      "ohneText_other": "{{count}} documents under review contain no readable text. The text checks could not run there – the result is not assessable."
+    },
     "formal": "Formal check",
     "word": "Word check",
     "sprache": "Language and placeholders",
@@ -522,6 +568,8 @@
   "pruefungKurz": {
     "titel": "Check",
     "ohne": "no findings",
+    "ocrAusstehend": "OCR pending",
+    "ohneText": "no readable text",
     "befunde_one": "1 finding",
     "befunde_other": "{{count}} findings",
     "hoch_one": "1 high",

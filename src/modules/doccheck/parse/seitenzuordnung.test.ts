@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest'
+import { REGELN } from '../pruefung/kontext'
+import { rechenPruefung } from '../pruefung/rechnen'
+import { LEERE_LENKUNG } from './model'
 import { hatNummer, ohneNummer, pdfDatum, pdfZuordnung, seitenAusEinheiten, teilen, tocEintrag, tocPlausibel, tocZuordnung, vergleichsform } from './seitenzuordnung'
 
 describe('Bausteine der Seitenzuordnung (Nachtrag N5)', () => {
@@ -156,5 +159,34 @@ describe('Seitenaufbau bei sehr vielen Einheiten', () => {
     const einheiten = Array.from({ length: 200000 }, (_, i) => ({ text: `Absatz ${i}`, seite: 1 + Math.floor(i / 100) }))
     const { pages } = seitenAusEinheiten(einheiten, einheiten.map((e) => e.seite), (n) => `ca. ${n}`)
     expect(pages).toHaveLength(2000)
+  })
+})
+
+describe('Word-PDF-Paar und Tabellen (Audit 11/2026, FRD-02)', () => {
+  // 80 Zeilen, im PDF nach Zeile 40 umgebrochen; Mutual nur in jeder dritten Zeile — leere Randzellen
+  const zeilen = Array.from({ length: 80 }, (_, i) => [`FI-${String(i + 1).padStart(2, '0')}`, i % 2 ? '1:30' : '1:00', i % 3 ? '' : '0:30'])
+  const dual = zeilen.reduce((a, z) => a + (z[1] === '1:30' ? 90 : 60), 0)
+  const mutual = zeilen.filter((z) => z[2]).length * 30
+  const hmm = (m: number) => `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`
+  const pruefe = (total: string) => {
+    const einheiten = [{ text: 'Table 3 Flight hours', seite: 1 }, { text: 'Lesson | Dual | Mutual', seite: 1 }, ...zeilen.map((z) => ({ text: z.join(' | '), seite: 1 })), { text: `Total | ${total}`, seite: 1 }]
+    const pdf = [einheiten.slice(0, 42).map((e) => e.text.replace(/ \| /g, ' ')).join('\n'), einheiten.slice(42).map((e) => e.text.replace(/ \| /g, ' ')).join('\n')]
+    const r = pdfZuordnung(einheiten, pdf)
+    expect(r.abweichung).toBe(0)
+    const t = teilen(einheiten, r.schnitte)
+    const { pages } = seitenAusEinheiten(t.einheiten, t.seiten, (n) => `S. ${n}`)
+    expect(pages.map((p) => p.label)).toEqual(['S. 1', 'S. 2'])
+    return rechenPruefung({ dokId: 'd', dokName: 'D', roh: { format: 'docx', pages, outline: [], lenkung: LEERE_LENKUNG, ocrKandidaten: [], tabellen: 1 }, meta: {}, regeln: REGELN })
+  }
+
+  it('pdf_pair teilt eine 80-Zeilen-Tabelle — richtige Summe: trotzdem kein Summenbefund', () => {
+    const p = pruefe(`${hmm(dual)} | ${hmm(mutual)}`)
+    expect(p.befunde).toEqual([])
+    expect(p.ampel.summen).toBe('ok')
+  })
+
+  it('falsche Summe: High mit den gerechneten Werten über beide Seiten', () => {
+    const b = pruefe(`${hmm(dual - 60)} | ${hmm(mutual)}`).befunde
+    expect(b.map((x) => [x.prioritaet, x.text, x.fundstellen[0].seite])).toEqual([['High', `Table total does not match: sum of rows ${hmm(dual)}, stated ${hmm(dual - 60)}.`, 'S. 1–2']])
   })
 })

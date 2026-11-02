@@ -27,9 +27,10 @@
   "overall": {
     "ready": "Ready for submission",
     "afterCorrection": "Ready for submission after correction",
-    "notReady": "Not ready for submission"
+    "notReady": "Not ready for submission",
+    "notAssessable": "Not assessable – text recognition pending"
   },
-  "overallBasis": "Proposed from the rule-based checks: open High findings make the document not ready; any open finding requires correction. To be confirmed by the reviewer.",
+  "overallBasis": "Proposed from the rule-based checks: open High findings make the document not ready; pages without a text layer make it not assessable until text recognition has run; any open finding requires correction. To be confirmed by the reviewer.",
   "checks": ["Formal check", "Word technical check", "Language & placeholders", "Calculations & plausibility", "References between documents", "Regulatory references (against loaded regulations)"],
   "noModel": "None – rule-based checks only (AI review not performed)",
   "categories": ["Non-Compliance", "Gap", "Inconsistency", "Document Control", "Editorial", "Recommendation"],

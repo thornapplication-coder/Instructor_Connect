@@ -149,10 +149,11 @@ describe('Verweise zwischen Dokumenten (N7)', () => {
       m('APX 9', 2, '1 Intro', { outline: [{ titel: '1 Intro' }] }),
     ])
     const v = r.befunde.filter((b) => b.pruefpunkt === 'verweise')
-    expect(v.map((b) => [b.text.split(/[,:—]/)[0].trim(), b.verifizierung])).toEqual([
-      ['Reference to Annex 9', 'Verified (rule-based)'],
-      ['Reference to TM chapter 7.1', 'Verified (rule-based)'],
-      ['Reference to OMM cannot be verified', 'Not verifiable – source missing'],
+    // Je Lage ihre Handlungsanweisung — die „Proposed Correction" im Export (Audit 11/2026, EXP-06)
+    expect(v.map((b) => [b.text.split(/[,:—]/)[0].trim(), b.verifizierung, b.anleitung])).toEqual([
+      ['Reference to Annex 9', 'Verified (rule-based)', 'paketVerweisArt'],
+      ['Reference to TM chapter 7.1', 'Verified (rule-based)', 'paketVerweisZiel'],
+      ['Reference to OMM cannot be verified', 'Not verifiable – source missing', 'paketVerweisFehlt'],
     ])
     expect(v[2].fundstellen).toHaveLength(1)
     expect(v[2].text).toContain('(2×)')

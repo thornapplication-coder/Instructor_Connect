@@ -1,4 +1,4 @@
-import type { Ampel, Befund, Kategorie, Prioritaet } from '../pruefung/befund'
+import { nichtBewertbar, type Ampel, type Befund, type Kategorie, type Lesestand, type Prioritaet } from '../pruefung/befund'
 import en from '../i18n/en.json' with { type: 'json' }
 import L from './labels.en.json' with { type: 'json' }
 
@@ -17,7 +17,7 @@ import L from './labels.en.json' with { type: 'json' }
 /** Layout-Version der Exporte (Kap. 10.1 Nr. 2) — erhöhen nur mit Changelog-Eintrag. */
 export const EXPORT_LAYOUT_VERSION = '1.0'
 
-export type Gesamt = 'ready' | 'afterCorrection' | 'notReady'
+export type Gesamt = 'ready' | 'afterCorrection' | 'notReady' | 'notAssessable'
 
 export interface ExportDokument {
   id: string
@@ -87,6 +87,8 @@ export interface ExportEingabe {
   befunde: Befund[]
   /** Ampel je Prüfdokument: Gruppe → Prüfpunkt → Ampel */
   ampeln: { dokId: string; gruppen: Record<string, Record<string, Ampel>> }[]
+  /** Was von den Prüfdokumenten gelesen ist — Pflicht, damit kein Weg einen Scan als „ready" exportiert (DC-03) */
+  lesestand: Lesestand
 }
 
 const RANG: Record<Prioritaet, number> = { High: 0, Medium: 1, Low: 2 }
@@ -112,11 +114,19 @@ export function dateiStamm(datum: string, dok: ExportDokument | null): string {
 
 /**
  * Gesamtbewertung als VORSCHLAG aus den regelbasierten Befunden: offene
- * Hoch-Befunde → nicht einreichungsfähig; sonst jeder offene Befund →
- * nach Korrektur. Bestätigt wird sie vom Prüfer (Dropdown im Excel).
+ * Hoch-Befunde → nicht einreichungsfähig; Seiten ohne gelesenen Text →
+ * nicht bewertbar; sonst jeder offene Befund → nach Korrektur. Bestätigt
+ * wird sie vom Prüfer (Dropdown im Excel).
+ *
+ * Ein Scan ohne Textebene hat keine Befunde und ging deshalb als „Ready
+ * for submission" in den Export (Audit 11/2026, DC-03). Ein offener
+ * Hoch-Befund bleibt vorrangig: Er sagt sicher „nicht bereit", gleich was
+ * auf den ungelesenen Seiten steht; „nach Korrektur" dagegen verspräche,
+ * dass sonst nichts fehlt.
  */
-export function gesamtVorschlag(befunde: Pick<Befund, 'prioritaet'>[]): Gesamt {
+export function gesamtVorschlag(befunde: Pick<Befund, 'prioritaet'>[], gelesen: Lesestand): Gesamt {
   if (befunde.some((b) => b.prioritaet === 'High')) return 'notReady'
+  if (nichtBewertbar(gelesen)) return 'notAssessable'
   return befunde.length ? 'afterCorrection' : 'ready'
 }
 
@@ -219,7 +229,7 @@ export function datenstand(e: ExportEingabe): Datenstand {
     zaehlung,
     zuPruefen: befunde.filter((b) => b.verifizierung.startsWith('To verify')).length,
     ampeln,
-    gesamt: gesamtVorschlag(befunde),
+    gesamt: gesamtVorschlag(befunde, e.lesestand),
     top5,
     dateiStamm: dateiStamm(e.datum, haupt),
   }

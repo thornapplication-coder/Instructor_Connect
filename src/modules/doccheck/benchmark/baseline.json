@@ -9,8 +9,10 @@
     { "name": "SBX-WORD-02", "erwartet": 1, "getroffen": 1, "befunde": 1, "fehlalarme": 0 },
     { "name": "SBX-PDF-02", "erwartet": 1, "getroffen": 1, "befunde": 1, "fehlalarme": 0 },
     { "name": "SBX-FORMAL-01", "erwartet": 9, "getroffen": 9, "befunde": 11, "fehlalarme": 0 },
+    { "name": "SBX-FORMAL-01-V", "erwartet": 9, "getroffen": 9, "befunde": 11, "fehlalarme": 0 },
     { "name": "SBX-CALC-01", "erwartet": 10, "getroffen": 10, "befunde": 10, "fehlalarme": 0 },
     { "name": "SBX-CALC-01-X", "erwartet": 2, "getroffen": 2, "befunde": 2, "fehlalarme": 0 },
+    { "name": "SBX-CALC-01-P", "erwartet": 10, "getroffen": 10, "befunde": 10, "fehlalarme": 0 },
     { "name": "SBX-EAR-01", "erwartet": 5, "getroffen": 5, "befunde": 5, "fehlalarme": 0 },
     { "name": "SBX-PKG-01", "erwartet": 12, "getroffen": 12, "befunde": 12, "fehlalarme": 0 }
   ]

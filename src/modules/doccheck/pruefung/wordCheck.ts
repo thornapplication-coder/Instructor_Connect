@@ -1,6 +1,6 @@
-import { datumFinden, revisionFinden } from '../parse/meta'
+import { datumFinden } from '../parse/meta'
 import { tocPlausibel, vergleichsform } from '../parse/seitenzuordnung'
-import { ampelAus, type Befund, type Fundstelle } from './befund'
+import { ampelAus, anzahl, type Befund, type Fundstelle } from './befund'
 import { unsichtbar } from './kontrast'
 import { befund, kurz, notenOrt, seiteFinder, type PruefKontext } from './kontext'
 import { dokumentSprache, spracheVon } from './sprache'
@@ -40,6 +40,36 @@ export function editionVon(text?: string): number | undefined {
   return m ? Number(m[1] ?? m[2]) : undefined
 }
 
+/** Revision ohne Edition: „Rev 2", „Revision 02" → „2"; „Edition 1" ist keine Revision. */
+export function revisionVon(text: string): string | undefined {
+  return text.match(/\b(?:Rev(?:ision)?\.?)\s*(?:No\.?|Nr\.?)?\s*:?\s*(\d+(?:\.\d+)*[A-Z]?)(?![\w.])/)?.[1].replace(/^0+(?=\d)/, '')
+}
+
+/**
+ * Kopf-/Fußzeilen-Varianten JE MERKMAL: Revision gegen Revision, Datum
+ * gegen Datum, Edition gegen Edition. Teile ohne das Merkmal zählen nicht.
+ * Vorher bildete jeder Teil EINE Kette aus allen drei — „Revision 2" oben
+ * und „15.03.2026" unten, ein übliches Layout, galten als zwei Varianten
+ * (Audit 11/2026, FRD-09). Liefert nur Merkmale mit mehr als einem Wert.
+ */
+export function kopfFussVarianten<T extends { text: string }>(teile: T[]): Map<string, Map<string, T[]>> {
+  const merkmale: [string, (t: string) => string | undefined][] = [
+    ['revision', revisionVon],
+    ['date', datumFinden],
+    ['edition', (t) => editionVon(t)?.toString()],
+  ]
+  const out = new Map<string, Map<string, T[]>>()
+  for (const [name, wert] of merkmale) {
+    const werte = new Map<string, T[]>()
+    for (const x of teile) {
+      const v = wert(x.text)
+      if (v) werte.set(v, [...(werte.get(v) ?? []), x])
+    }
+    if (werte.size > 1) out.set(name, werte)
+  }
+  return out
+}
+
 export function wordCheck(k: PruefKontext, dateiname: string): { befunde: Omit<Befund, 'id'>[]; ampel: Record<string, 'ok' | 'wait' | 'bad' | 'na'> } {
   const w = k.roh.word
   if (!w) return { befunde: [], ampel: Object.fromEntries(WORD_PUNKTE.map((p) => [p, 'na'])) }
@@ -64,7 +94,7 @@ export function wordCheck(k: PruefKontext, dateiname: string): { befunde: Omit<B
         pruefpunkt: 'unsichtbar',
         kategorie: 'Document Control',
         prioritaet: 'High',
-        text: `[Word check] Invisible text in ${versteckt.length} place(s): content is part of the submitted file but not visible on screen or in print.`,
+        text: `[Word check] Invisible text in ${anzahl(versteckt.length, 'place')}: content is part of the submitted file but not visible on screen or in print.`,
         fundstellen: versteckt.map((l) => ({ ...ortVon(l.absatz), auszug: `${kurz(l.text, 90)} — ${art(l)} (${l.eigenschaften.farbe ?? 'auto'} on ${l.hintergrund ?? 'unknown background'})` })),
         anleitung: 'unsichtbar',
       }),
@@ -81,7 +111,7 @@ export function wordCheck(k: PruefKontext, dateiname: string): { befunde: Omit<B
         pruefpunkt: 'markierung',
         kategorie: 'Editorial',
         prioritaet: platzhalter.length ? 'High' : 'Low',
-        text: `[Word check] ${markiert.length} highlighted passage(s)${platzhalter.length ? `, ${platzhalter.length} of them on placeholders` : ''}.`,
+        text: `[Word check] ${anzahl(markiert.length, 'highlighted passage')}${!platzhalter.length ? '' : markiert.length === 1 ? ', on a placeholder' : `, ${platzhalter.length} of them on ${platzhalter.length === 1 ? 'a placeholder' : 'placeholders'}`}.`,
         fundstellen: markiert.map((l) => ({ ...ortVon(l.absatz), auszug: `${kurz(l.text, 90)} (${l.eigenschaften.markierung})` })),
         anleitung: 'markierung',
       }),
@@ -125,7 +155,7 @@ export function wordCheck(k: PruefKontext, dateiname: string): { befunde: Omit<B
         pruefpunkt: 'noProof',
         kategorie: 'Editorial',
         prioritaet: 'Low',
-        text: `[Word check] "Do not check spelling or grammar" is set on ${ohnePruefung.length} run(s) (${ohnePruefung.reduce((s, l) => s + l.text.length, 0)} characters). Word reports no errors there.`,
+        text: `[Word check] "Do not check spelling or grammar" is set on ${anzahl(ohnePruefung.length, 'run')} (${anzahl(ohnePruefung.reduce((s, l) => s + l.text.length, 0), 'character')}). Word reports no errors there.`,
         fundstellen: [...new Set(ohnePruefung.map((l) => l.absatz))].map((nr) => ({ ...ortVon(nr), auszug: kurz(absatzVon.get(nr)!.text, 90) })),
         anleitung: 'noProof',
       }),
@@ -148,15 +178,18 @@ export function wordCheck(k: PruefKontext, dateiname: string): { befunde: Omit<B
 
   // 7 Kopf-/Fußzeilen je Abschnitt — Revision, Datum, Edition paketweit einheitlich
   const kopfFuss = w.abschnitte.flatMap((a) => [...a.kopf, ...a.fuss].map((x) => ({ ...x, abschnitt: a.nr })))
-  const merkmal = (t: string) => [revisionFinden(t), datumFinden(t), editionVon(t)].filter(Boolean).join(' | ')
-  const varianten = new Map<string, typeof kopfFuss>()
-  for (const x of kopfFuss) {
-    const m = merkmal(x.text)
-    if (!m) continue
-    varianten.set(m, [...(varianten.get(m) ?? []), x])
-  }
   const kfFund: Fundstelle[] = []
-  if (varianten.size > 1) for (const [m, liste] of varianten) for (const x of liste) kfFund.push({ ort: `Section ${x.abschnitt}, ${x.teil.replace('word/', '')} (${x.typ})`, auszug: `${kurz(x.text, 80)} → ${m}` })
+  const abweichend: string[] = []
+  for (const [name, werte] of kopfFussVarianten(kopfFuss)) {
+    // Mehrheit nennen, Abweichler zeigen; ohne klare Mehrheit alle
+    const nachZahl = [...werte].sort((a, b) => b[1].length - a[1].length)
+    const mehrheit = nachZahl[0][1].length > nachZahl[1][1].length ? nachZahl[0][0] : null
+    abweichend.push(`${name} ${nachZahl.map(([v]) => v).join(' / ')}`)
+    for (const [wert, liste] of nachZahl) {
+      if (wert === mehrheit) continue
+      for (const x of liste) kfFund.push({ ort: `Section ${x.abschnitt}, ${x.teil.replace('word/', '')} (${x.typ})`, auszug: `${kurz(x.text, 80)} → ${name} ${wert}${mehrheit ? ` (other sections: ${mehrheit})` : ''}` })
+    }
+  }
   for (const v of w.verwaisteKopfFuss) kfFund.push({ ort: v.replace('word/', ''), auszug: 'Header/footer part not used by any section (leftover)' })
   if (kfFund.length) {
     out.push(
@@ -164,8 +197,8 @@ export function wordCheck(k: PruefKontext, dateiname: string): { befunde: Omit<B
         quelle: 'word',
         pruefpunkt: 'kopfFuss',
         kategorie: 'Document Control',
-        prioritaet: varianten.size > 1 ? 'Medium' : 'Low',
-        text: varianten.size > 1 ? `[Word check] Headers/footers differ between sections (${varianten.size} variants of revision/date/edition), including sections that are not visible.` : '[Word check] Unused header/footer parts are contained in the file.',
+        prioritaet: abweichend.length ? 'Medium' : 'Low',
+        text: abweichend.length ? `[Word check] Headers/footers differ between sections (${abweichend.join('; ')}), including sections that are not visible.` : '[Word check] Unused header/footer parts are contained in the file.',
         fundstellen: kfFund,
         anleitung: 'kopfFuss',
       }),
@@ -187,10 +220,13 @@ export function wordCheck(k: PruefKontext, dateiname: string): { befunde: Omit<B
     out.push(befund(k, { quelle: 'word', pruefpunkt: 'felder', kategorie: 'Document Control', prioritaet: 'Low', text: '[Word check] Table of contents page numbers are not ascending — the field is probably outdated.', fundstellen: w.toc.map((t) => ({ ort: 'Table of contents', auszug: `${t.titel} … ${t.seite ?? '?'}` })), anleitung: 'felder' }))
   }
 
-  // 10 Verirrte Fragmente vor dem ersten Kapitel
+  // 10 Verirrte Fragmente vor dem ersten Kapitel. Tabellenzellen zählen nicht:
+  // „Revision | 2" oder „Effective date | 15.03.2026" in der Lenkungstabelle
+  // des Deckblatts ist ein beschrifteter Wert, kein verirrtes „3.8.3." — jedes
+  // Deckblatt mit Lenkungstabelle ergab sonst einen Befund (Audit 11/2026, FRD-10).
   const erstes = w.absaetze.findIndex((a) => a.ort === 'body' && a.ebene)
-  const vorher = (erstes < 0 ? [] : w.absaetze.slice(0, erstes)).filter((a) => (a.ort === 'body' || a.ort === 'textfeld') && !a.toc && /^[\d.\s]{1,12}$|^[^\p{L}\d]{1,3}$/u.test(a.text.trim()) && a.text.trim())
-  if (vorher.length) out.push(befund(k, { quelle: 'word', pruefpunkt: 'fragmente', kategorie: 'Editorial', prioritaet: 'Medium', text: `[Word check] ${vorher.length} stray fragment(s) before the first chapter (cover/title page).`, fundstellen: vorher.map((a) => ({ ...ortVon(a.nr), auszug: a.text.trim() })), anleitung: 'fragmente' }))
+  const vorher = (erstes < 0 ? [] : w.absaetze.slice(0, erstes)).filter((a) => (a.ort === 'body' || a.ort === 'textfeld') && !a.toc && !a.tabelle && /^[\d.\s]{1,12}$|^[^\p{L}\d]{1,3}$/u.test(a.text.trim()) && a.text.trim())
+  if (vorher.length) out.push(befund(k, { quelle: 'word', pruefpunkt: 'fragmente', kategorie: 'Editorial', prioritaet: 'Medium', text: `[Word check] ${anzahl(vorher.length, 'stray fragment')} before the first chapter (cover/title page).`, fundstellen: vorher.map((a) => ({ ...ortVon(a.nr), auszug: a.text.trim() })), anleitung: 'fragmente' }))
 
   // Was mangels Grundlage nicht geprüft werden konnte, ist „nicht anwendbar",
   // nicht grün (Fachprüfung 01.11.2026)

@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import { pdfBauen, type PdfSeitenInhalt } from '../parse/pdfBauen'
+import { pdfBauen, textSeite, type PdfSeitenInhalt } from '../parse/pdfBauen'
 
 /**
  * Synthetische Abnahmedateien des Nachtrags v1.2 (Kap. 20).
@@ -50,6 +50,11 @@ export async function docxPacken(teile: { dokument: string; stile?: string; weit
  * Bindestrich, Symbolzeichen, Fußnote, verschachtelte Tabelle. Dazu eine
  * nicht angenommene Verschiebung und eine Formatänderung (FRD-15) — offene
  * Änderungen, also ein zweiter eingebauter Rest.
+ *
+ * Zwei weitere Fehlalarmfälle (Audit 11/2026): eine Lenkungstabelle auf dem
+ * Deckblatt — ihre Werte sind keine verirrten Fragmente (FRD-10) — und eine
+ * landessprachige Auflösung neben ihrem Kürzel, ein Eigenname und kein
+ * fremdsprachiger Rest (FRD-17).
  */
 export const SBX_WORD_01_NAME = 'SBX-WORD-01_TM_E2R0.0.docx'
 
@@ -62,6 +67,9 @@ export async function sbxWord01(): Promise<Uint8Array> {
       <w:tblStylePr w:type="firstRow"><w:rPr><w:b/></w:rPr><w:tcPr><w:shd w:val="clear" w:fill="1F3864"/></w:tcPr></w:tblStylePr>
     </w:style>`
   const kopf = (text: string) => `<?xml version="1.0"?><w:hdr ${W}>${absatz(lauf(text))}</w:hdr>`
+  const fuss = (text: string) => `<?xml version="1.0"?><w:ftr ${W}>${absatz(lauf(text))}</w:ftr>`
+  // Revision steht nur im Fuß, Edition und Datum im Kopf — ein übliches Layout, KEINE Variante (Audit 11/2026, FRD-09)
+  const sektion = '<w:sectPr><w:headerReference w:type="default" r:id="rIdH1"/><w:footerReference w:type="default" r:id="rIdF1"/></w:sectPr>'
   const aenderung = 'w:id="1" w:author="Document Control" w:date="2026-03-10T09:00:00Z"'
   const textfeld =
     '<w:r><mc:AlternateContent><mc:Choice><w:drawing><wps:wsp><wps:spPr><a:solidFill><a:srgbClr val="002060"/></a:solidFill></wps:spPr><wps:txbx><w:txbxContent>' +
@@ -77,7 +85,9 @@ export async function sbxWord01(): Promise<Uint8Array> {
     absatz(lauf('Edition 1, Revision 0.0')),
     // Verirrtes Fragment auf dem Deckblatt — keine Überschrift.
     absatz(lauf('3.8.3.')),
-    absatz(lauf('Edition 1 | 01.03.2026') + kasten('F2F2F2', '1F3864', '1F3864', 'CONTROLLED COPY') + kasten('1F3864', 'FFFFFF', 'FFFFFF', 'UNCONTROLLED WHEN PRINTED'), '<w:sectPr><w:headerReference w:type="default" r:id="rIdH1"/></w:sectPr>'),
+    // Lenkungstabelle des Deckblatts: „Revision | 0.0" ist ein beschrifteter Wert, kein Fragment (FRD-10)
+    `<w:tbl><w:tblPr/>${[['Edition', '1'], ['Revision', '0.0'], ['Effective date', '01.03.2026']].map((z) => `<w:tr>${z.map((c) => `<w:tc>${absatz(lauf(c))}</w:tc>`).join('')}</w:tr>`).join('')}</w:tbl>`,
+    absatz(lauf('Edition 1 | 01.03.2026') + kasten('F2F2F2', '1F3864', '1F3864', 'CONTROLLED COPY') + kasten('1F3864', 'FFFFFF', 'FFFFFF', 'UNCONTROLLED WHEN PRINTED'), sektion),
     absatz(lauf('1 General'), '<w:pStyle w:val="Heading1"/>'),
     absatz(lauf('This paragraph is English but marked as Spanish.', '<w:lang w:val="es-ES"/>')),
     absatz(lauf('This paragraph is English but marked as Italian.', '<w:lang w:val="it-IT"/>')),
@@ -87,6 +97,8 @@ export async function sbxWord01(): Promise<Uint8Array> {
       `<w:tr><w:tc>${absatz(lauf('VMO'))}</w:tc><w:tc>${absatz(lauf('internal note do not submit', '<w:color w:val="FFFFFF"/>'))}</w:tc></w:tr>` +
       // N9: landessprachiger Arbeitskommentar in einer Tabellenzelle.
       `<w:tr><w:tc>${absatz(lauf('MMO'))}</w:tc><w:tc>${absatz(lauf('Bitte noch prüfen, der Wert ist nicht mehr aktuell und muss geändert werden.'))}</w:tc></w:tr>` +
+      // Landessprachige Auflösung des Kürzels — ein Eigenname, kein Rest (FRD-17)
+      `<w:tr><w:tc>${absatz(lauf('SFS'))}</w:tc><w:tc>${absatz(lauf('Sandbox-Flugschule für Sichtflug und Nachtflug'))}</w:tc></w:tr>` +
       '</w:tbl>',
     // FRD-13: geschützter Bindestrich, Symbol „°", Fußnote, Tabelle in der Tabelle
     absatz(lauf('Licences are issued under Part') + '<w:r><w:noBreakHyphen/></w:r>' + lauf('FCL; every approach ends in a landing or a go') + '<w:r><w:noBreakHyphen/></w:r>' + lauf('around.')),
@@ -105,7 +117,7 @@ export async function sbxWord01(): Promise<Uint8Array> {
     absatz(lauf('Signature: ____________  Date: ________')),
     absatz(lauf('Aviation Academy Austria, Hauptstraße 12, 2320 Schwechat')),
     absatz(lauf('Tiny text', '<w:sz w:val="3"/>')),
-    absatz('', '<w:sectPr><w:headerReference w:type="default" r:id="rIdH1"/></w:sectPr>'),
+    absatz('', sektion),
     // Letzter, leerer Abschnitt mit eigener Kopfzeile und altem Datum.
     '<w:sectPr><w:headerReference w:type="default" r:id="rIdH2"/></w:sectPr>',
   ].join('')
@@ -113,10 +125,11 @@ export async function sbxWord01(): Promise<Uint8Array> {
     dokument,
     stile,
     weitere: {
-      'word/_rels/document.xml.rels': '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdH1" Target="header1.xml"/><Relationship Id="rIdH2" Target="header2.xml"/></Relationships>',
+      'word/_rels/document.xml.rels': '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rIdH1" Target="header1.xml"/><Relationship Id="rIdH2" Target="header2.xml"/><Relationship Id="rIdF1" Target="footer1.xml"/></Relationships>',
       'word/header1.xml': kopf('Training Manual | Edition 1 | 01.03.2026'),
       'word/header2.xml': kopf('Training Manual | Edition 1 | 15.01.2025'),
       'word/header3.xml': kopf('Old draft header 2024'),
+      'word/footer1.xml': fuss('Revision 0.0'),
       'word/footnotes.xml': `<?xml version="1.0"?><w:footnotes ${W}><w:footnote w:type="separator" w:id="-1">${absatz('<w:r><w:separator/></w:r>')}</w:footnote><w:footnote w:id="1">${absatz('<w:r><w:footnoteRef/></w:r>' + lauf(' Measured at the aerodrome reference point.'))}</w:footnote></w:footnotes>`,
       'word/settings.xml': `<w:settings ${W}><w:compat><w:compatSetting w:name="compatibilityMode" w:uri="http://schemas.microsoft.com/office/word" w:val="14"/></w:compat></w:settings>`,
       'docProps/core.xml': '<cp:coreProperties xmlns:cp="c" xmlns:dc="d" xmlns:dcterms="t"><dc:title></dc:title><dc:creator>A. Example</dc:creator><cp:lastModifiedBy>B. Example</cp:lastModifiedBy><dcterms:modified>2026-03-01T10:00:00Z</dcterms:modified></cp:coreProperties>',
@@ -152,7 +165,8 @@ export async function sbxWord02(): Promise<Uint8Array> {
   const kapitel: [number, string, number, string[]][] = [
     [0, 'Foreword', 2, ['This manual describes the synthetic training course of the ATO.']],
     [1, 'General', 2, ['The general provisions apply to all phases.']],
-    [2, 'Purpose', 2, ['The purpose of the course is described in this section.']],
+    // Kurzverweis ohne Schlüsselwort auf ein automatisch nummeriertes Kapitel — gültig (Audit 11/2026, FRD-14)
+    [2, 'Purpose', 2, ['The purpose of the course is described in this section; for self-study see 2.1.1.']],
     [2, 'Scope', 2, ['The scope is defined in Section 1.1 and applies to all instructors.']],
     [1, 'Course Structure', 3, ['The course consists of two phases.']],
     [2, 'Theoretical Phase', 3, ['The theoretical phase precedes the flight phase.']],
@@ -183,6 +197,10 @@ export async function sbxWord02(): Promise<Uint8Array> {
       absatz(lauf(t), `<w:pStyle w:val="Heading${e || 1}"/>${e ? '' : numPr(0, 0)}`) + ps.map((p) => absatz(lauf(p))).join('') + absatz(lauf(lang(4)))),
     absatz(lauf('flights below 500 ft above ground are not permitted;'), numPr(0, 2)),
     absatz(lauf('the ground visibility shall be at least 5 km.'), numPr(0, 2)),
+    // Revisionszeile „Table 2 amended" ist keine Beschriftung — vorher Lücke UND Doppelung (Audit 11/2026, FRD-18)
+    tabelle([['Rev.', 'Date', 'Description'], ['0', '01.01.2026', 'Initial issue'], ['1', '01.03.2026', 'Table 2 amended']]).xml,
+    absatz(lauf('Table 1 Minima by day')),
+    absatz(lauf('Table 2 Minima by night')),
     // Eingebauter Fehler: Kapitel 9.9 gibt es nicht
     absatz(lauf('Deviations require the approval of the Head of Training, see Section 9.9.')),
   ].join('')
@@ -441,22 +459,32 @@ export const SBX_FORMAL_01_FEHLER = [
   'revisionen', // letzter Eintrag im Revisionsverzeichnis ist 1, Dokument ist Rev 2
   'inhalt', // „3 Fuel" steht im Inhaltsverzeichnis, die Überschrift heißt „3 Fuel System"
   'nummerierung', // auf 2.1 folgt 2.3
-  'querverweise', // „see Chapter 7" — es gibt kein Kapitel 7
+  'querverweise', // „see Chapter 7" und „see 9.4" (Kurzform, FRD-14) — es gibt kein Kapitel 7 und kein 9.4
   'abkuerzungen', // „QRH" ohne Eintrag, „EGPWS" in der Liste, aber nie verwendet
   'reste', // TBD und „Error! Reference source not found."
 ] as const
 
-export function sbxFormal01(): Uint8Array {
+/**
+ * `vonGesamt` (Audit 11/2026, FRD-07): dieselben Fehler, aber Fußzeilen
+ * „Page n of 7" und das LEP als Tabelle „Page | Revision | Date" — so steht
+ * die Fußzeile wörtlich in keinem LEP, und früher galt jede Seite als
+ * fehlend.
+ */
+export function sbxFormal01(variante: 'page' | 'vonGesamt' = 'page'): Uint8Array {
+  const lepSeiten = [1, 2, 3, 4, 5, 8, 9]
   const seiten: string[][] = [
     ['Training Manual CL30 (synthetic)', 'Doc No.: SBX-FORMAL-01', 'Revision 2', 'Effective 01 March 2026'],
-    ['List of Effective Pages', 'Page 1 Rev 2 01.03.2026', 'Page 2 Rev 2 01.03.2026', 'Page 3 Rev 2 01.03.2026', 'Page 4 Rev 2 01.03.2026', 'Page 5 Rev 2 01.03.2026', 'Page 8 Rev 2 01.03.2026', 'Page 9 Rev 2 01.03.2026'],
+    variante === 'page'
+      ? ['List of Effective Pages', ...lepSeiten.map((n) => `Page ${n} Rev 2 01.03.2026`)]
+      : ['List of Effective Pages', 'Page | Revision | Date', ...lepSeiten.map((n) => `${n} | 2 | 01.03.2026`)],
     ['Record of Revisions', '0 | 01.01.2025 | Initial issue', '1 | 01.06.2025 | Update chapter 2', 'Contents', '1 General ..... 4', '2 Systems ..... 4', '3 Fuel ..... 5'],
     ['List of Abbreviations', 'AFM Airplane Flight Manual', 'EGPWS Enhanced Ground Proximity Warning System', 'VMO Maximum operating speed'],
-    ['1 General', 'This manual follows the AFM. For abnormal procedures refer to the QRH.', '2 Systems', '2.1 Electrical', 'Battery limits: TBD.', '2.3 Hydraulic', 'See Chapter 7 for details.'],
+    // Fehlalarmfälle (Audit 11/2026): „NOTE:" ist kein Kürzel (FRD-16), „see 2.1" ein gültiger Kurzverweis (FRD-14)
+    ['1 General', 'This manual follows the AFM. For abnormal procedures refer to the QRH.', 'Electrical limits: see 2.1.', 'NOTE: The VMO applies in all phases.', '2 Systems', '2.1 Electrical', 'Battery limits: TBD.', '2.3 Hydraulic', 'See Chapter 7 for details.', 'For the hydraulic limits see 9.4.'],
     ['3 Fuel System', 'VMO is 320 KIAS. Error! Reference source not found.'],
     ['4 Performance', 'See Chapter 3 for fuel planning.'],
   ]
-  const fuss = ['Page 1', 'Page 2', 'Page 3', 'Page 4', 'Page 5', 'Page 6', 'Page 8']
+  const fuss = [1, 2, 3, 4, 5, 6, 8].map((n) => (variante === 'page' ? `Page ${n}` : `Page ${n} of 7`))
   return pdfBauen(
     seiten.map((zeilen, i) => ({
       texte: [
@@ -476,17 +504,40 @@ const STILE_H = `<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w
   <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/></w:style>
   <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/></w:style>`
 
-/** Word-Tabelle aus Zeilen — liest sich im Seitentext als „Zelle | Zelle". */
-export function tabelle(zeilen: string[][]): { xml: string } {
-  return { xml: `<w:tbl><w:tblPr/>${zeilen.map((z) => `<w:tr>${z.map((c) => `<w:tc>${absatz(lauf(c))}</w:tc>`).join('')}</w:tr>`).join('')}</w:tbl>` }
+/** Tabelle als Word-XML und so, wie sie im Word-PDF steht (Zeilen ohne Zelltrenner). */
+interface WordTabelle {
+  xml: string
+  zeilen: string[]
 }
 
-function kapitelDocx(titel: string, kapitel: [string, number, (string | { xml: string })[]][]): Promise<Uint8Array> {
+/** Word-Tabelle aus Zeilen — liest sich im Seitentext als „Zelle | Zelle". */
+export function tabelle(zeilen: string[][]): WordTabelle {
+  return { xml: `<w:tbl><w:tblPr/>${zeilen.map((z) => `<w:tr>${z.map((c) => `<w:tc>${absatz(lauf(c))}</w:tc>`).join('')}</w:tr>`).join('')}</w:tbl>`, zeilen: zeilen.map((z) => z.filter(Boolean).join(' ')) }
+}
+
+type Kapitel = [string, number, (string | WordTabelle)[]][]
+
+/**
+ * DOCX aus Kapiteln. Mit `toc` steht ein Inhaltsverzeichnis (Feldergebnis)
+ * davor: Seite je Kapitel und Gesamtseitenzahl — die Seiten werden dann
+ * über das Verzeichnis abgebildet („S. n (±1)", Nachtrag N5), und eine
+ * Seitengrenze kann mitten durch eine Tabelle laufen.
+ */
+function kapitelDocx(titel: string, kapitel: Kapitel, toc?: { seiten: number[]; gesamt: number }): Promise<Uint8Array> {
   const inhalt = kapitel.map(([t, ebene, ps]) => absatz(lauf(t), `<w:pStyle w:val="Heading${ebene}"/>`) + ps.map((p) => (typeof p === 'string' ? absatz(lauf(p)) : p.xml)).join('')).join('')
+  const feld = (art: 'begin' | 'separate' | 'end') => `<w:r><w:fldChar w:fldCharType="${art}"/></w:r>`
+  const verzeichnis = toc
+    ? absatz(feld('begin') + '<w:r><w:instrText xml:space="preserve"> TOC \\o "1-3" \\h </w:instrText></w:r>' + feld('separate')) +
+      kapitel.map(([t], i) => absatz(lauf(t) + '<w:r><w:tab/></w:r>' + lauf(String(toc.seiten[i])), '<w:pStyle w:val="TOC1"/>')).join('') +
+      absatz(feld('end'))
+    : ''
   return docxPacken({
-    dokument: absatz(lauf(titel)) + inhalt,
-    stile: STILE_H,
-    weitere: { 'docProps/core.xml': `<cp:coreProperties xmlns:cp="c" xmlns:dc="d"><dc:title>${esc(titel)}</dc:title></cp:coreProperties>` },
+    dokument: absatz(lauf(titel)) + verzeichnis + inhalt,
+    stile: STILE_H + (toc ? '<w:style w:type="paragraph" w:styleId="TOC1"><w:name w:val="toc 1"/></w:style>' : ''),
+    weitere: {
+      'docProps/core.xml': `<cp:coreProperties xmlns:cp="c" xmlns:dc="d"><dc:title>${esc(titel)}</dc:title></cp:coreProperties>`,
+      ...(toc ? { 'docProps/app.xml': `<Properties><Pages>${toc.gesamt}</Pages></Properties>` } : {}),
+    },
   })
 }
 
@@ -699,8 +750,50 @@ export const SBX_CALC_01_FEHLER: { punkt: 'summen' | 'kumuliert' | 'session' | '
   { punkt: 'doppelt', auszug: 'Route: LOWW RUPET RUPET LOWI' },
 ]
 
-export function sbxCalc01(): Promise<Uint8Array> {
-  return kapitelDocx('SBX-CALC-01 Calculation Test', [
+const CALC_01_TITEL = 'SBX-CALC-01 Calculation Test'
+
+/** Zeit in Minuten als „h:mm" — wie Word-Tabellen sie zeigen. */
+const hmm = (min: number) => `${Math.floor(min / 60)}:${String(min % 60).padStart(2, '0')}`
+
+/**
+ * Kapitel 7 (Audit 11/2026, FRD-02/FRD-03) — zwei KORREKTE Tabellen, die
+ * früher falsche High-Befunde erzeugten:
+ * - eine lange Summentabelle, durch die eine Seitengrenze läuft: über das
+ *   Inhaltsverzeichnis abgebildet ebenso wie im Word-PDF. Vorher rechnete
+ *   die Prüfung je Seite und verglich die Gesamtsumme mit dem Rest.
+ * - ein zweizeiliger Kopf wie in Word: „Flight time" über Dual | Mutual
+ *   (gridSpan), die übrigen Kopfzellen senkrecht verbunden (vMerge), dazu
+ *   eine Kumuliert-Spalte. Vorher fiel die erste Kopfzeile ab, und die
+ *   Kumuliert-Spalte wurde summiert.
+ */
+function calc01Kapitel7(): (string | WordTabelle)[] {
+  const stunden = Array.from({ length: 24 }, (_, i) => ({ lektion: `FI-${String(i + 1).padStart(2, '0')}`, dual: i % 2 ? 90 : 60, mutual: i % 3 ? 0 : 30 }))
+  const lang = tabelle([
+    ['Lesson', 'Dual', 'Mutual'],
+    ...stunden.map((x) => [x.lektion, hmm(x.dual), x.mutual ? hmm(x.mutual) : '']),
+    ['Total', hmm(stunden.reduce((a, x) => a + x.dual, 0)), hmm(stunden.reduce((a, x) => a + x.mutual, 0))],
+  ])
+  const zelle = (t: string, tcPr = '') => `<w:tc>${tcPr ? `<w:tcPr>${tcPr}</w:tcPr>` : ''}${t ? absatz(lauf(t)) : '<w:p/>'}</w:tc>`
+  const start = (t: string) => zelle(t, '<w:vMerge w:val="restart"/>')
+  const weiter = zelle('', '<w:vMerge/>')
+  const plan: [string, string, number, number][] = [['1', 'FI-01', 60, 0], ['1', 'FI-02', 60, 30], ['2', 'FI-03', 90, 30], ['2', 'FI-04', 60, 60]]
+  let kum = 0
+  const daten = plan.map(([phase, lektion, dual, mutual]) => [phase, lektion, hmm(dual), mutual ? hmm(mutual) : '', hmm((kum += dual + mutual))])
+  const summe = ['Total', '', hmm(plan.reduce((a, x) => a + x[2], 0)), hmm(plan.reduce((a, x) => a + x[3], 0)), hmm(kum)]
+  const verbunden: WordTabelle = {
+    xml:
+      '<w:tbl><w:tblPr/>' +
+      `<w:tr>${start('Phase')}${start('Lesson')}${zelle('Flight time', '<w:gridSpan w:val="2"/>')}${start('Cumulative')}</w:tr>` +
+      `<w:tr>${weiter}${weiter}${zelle('Dual')}${zelle('Mutual')}${weiter}</w:tr>` +
+      [...daten, summe].map((z) => `<w:tr>${z.map((c) => zelle(c)).join('')}</w:tr>`).join('') +
+      '</w:tbl>',
+    zeilen: ['Phase Lesson Flight time Cumulative', 'Dual Mutual', ...[...daten, summe].map((z) => z.filter(Boolean).join(' '))],
+  }
+  return ['Flight hours per lesson (the table continues on the next page):', lang, 'Lesson plan with flight time and cumulative time:', verbunden]
+}
+
+function calc01Kapitel(): Kapitel {
+  return [
     ['1 Course Hours', 1, [
       'Module overview:',
       tabelle([['Module', 'Hours'], ['Module A', '08:00'], ['Module B', '08:00'], ['Module C', '08:00'], ['TOTAL', '16:00']]),
@@ -721,7 +814,8 @@ export function sbxCalc01(): Promise<Uint8Array> {
       'FFS session 2:00 h',
       tabelle([['Block', 'Duration'], ['Briefing', '0:30'], ['FFS', '1:00'], ['Debriefing', '0:30']]),
     ]],
-    ['4 Aircraft Data', 1, ['MTOW: 11930 lbs / 5834 kg.', 'MLW: 10000 lbs (4536 kg).', 'Cruise altitude 10000 ft (3048 m).', 'ISA +15 °C (59 °F).']],
+    // Die VFR-Mindesthöhen mit den gerundeten Werten aus SERA.5005 sind KEIN Fehler (Audit 11/2026, FRD-08)
+    ['4 Aircraft Data', 1, ['MTOW: 11930 lbs / 5834 kg.', 'MLW: 10000 lbs (4536 kg).', 'Cruise altitude 10000 ft (3048 m).', 'ISA +15 °C (59 °F).', 'VFR minimum height: 300 m (1 000 ft) above the highest obstacle, elsewhere 150 m (500 ft).']],
     ['5 Weather Scenarios', 1, [
       'METAR LOWW 121250Z 27010KT 0300 FG 15/04 VV002',
       'METAR LOWW 121320Z 27010KT 0200 FG 03/02 VV200',
@@ -731,8 +825,38 @@ export function sbxCalc01(): Promise<Uint8Array> {
       'METAR LOWW 121520Z 27010KT 0400 FG 02/02 VV002',
       'METAR LOWW 121550Z 27010KT 9999 FEW030 15/08',
     ]],
-    ['6 Routes', 1, ['Route: LOWW RUPET RUPET LOWI', 'Alternate route: LOWW RUPET LOWI']],
-  ])
+    // „die die" ist im Deutschen richtig — kein Doppelwort (Audit 11/2026, FRD-17). Als Zitat,
+    // damit die deutsche Zeile im englischen Handbuch nicht als fremdsprachiger Rest zählt (N9).
+    ['6 Routes', 1, ['Route: LOWW RUPET RUPET LOWI', 'Alternate route: LOWW RUPET LOWI', '„Fluglehrer, die die Route geplant haben, prüfen die Wegpunkte.“']],
+    ['7 Flight Hours', 1, calc01Kapitel7()],
+  ]
+}
+
+/** Seite je Kapitel laut Inhaltsverzeichnis, Gesamtseiten: Kapitel 7 beginnt auf S. 3 und reicht bis S. 4 — die lange Tabelle liegt auf der Grenze. */
+const CALC_01_TOC = { seiten: [1, 1, 2, 2, 2, 3, 3], gesamt: 4 }
+
+export function sbxCalc01(): Promise<Uint8Array> {
+  return kapitelDocx(CALC_01_TITEL, calc01Kapitel(), CALC_01_TOC)
+}
+
+/**
+ * Das Word-PDF zu SBX-CALC-01 (Nachtrag N5): derselbe Text, die Seiten wie
+ * in Word — die lange Tabelle des Kapitels 7 bricht nach der zwölften
+ * Zeile auf die nächste Seite um (FRD-02, Fall „mit Word-PDF").
+ */
+export function sbxCalc01Pdf(): Uint8Array {
+  const kapitel = calc01Kapitel()
+  const zeilen = (k: Kapitel[number]) => [k[0], ...k[2].flatMap((p) => (typeof p === 'string' ? [p] : p.zeilen))]
+  const toc = kapitel.map(([t], i) => `${t} ${CALC_01_TOC.seiten[i]}`)
+  const sieben = zeilen(kapitel[6])
+  const umbruch = sieben.indexOf('FI-12 1:30') + 1
+  const seiten = [
+    [CALC_01_TITEL, ...toc, ...zeilen(kapitel[0]), ...zeilen(kapitel[1])],
+    [...zeilen(kapitel[2]), ...zeilen(kapitel[3]), ...zeilen(kapitel[4])],
+    [...zeilen(kapitel[5]), ...sieben.slice(0, umbruch)],
+    sieben.slice(umbruch),
+  ]
+  return pdfBauen(seiten.map((z) => ({ texte: textSeite(z) })), { titel: CALC_01_TITEL })
 }
 
 /**

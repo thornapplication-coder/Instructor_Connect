@@ -1,4 +1,4 @@
-import type { Ampel, Kategorie, Prioritaet } from '../pruefung/befund'
+import { VOLL_GELESEN, type Ampel, type Kategorie, type Prioritaet } from '../pruefung/befund'
 import { datenstand as neuerStand, EXPORT_LAYOUT_VERSION, exportId, dateiStamm, LABELS as L, type Datenstand, type ExportDokument, type Gesamt } from './datenstand'
 
 /**
@@ -19,7 +19,7 @@ export const SCHEMA = 'doccheck/1'
 /** Obergrenze für eine Prüfstand-Datei — 500 Befunde mit Auszügen liegen weit darunter. */
 export const MAX_BYTES = 20 * 1024 * 1024
 
-const GESAMT_JSON: Record<Gesamt, string> = { ready: 'ready', afterCorrection: 'ready_after_correction', notReady: 'not_ready' }
+const GESAMT_JSON: Record<Gesamt, string> = { ready: 'ready', afterCorrection: 'ready_after_correction', notReady: 'not_ready', notAssessable: 'not_assessable' }
 const AMPEL_JSON: Record<Ampel, string> = { ok: 'green', wait: 'yellow', bad: 'red', na: 'not_applicable' }
 
 export interface PruefstandBefund {
@@ -137,7 +137,7 @@ export function pruefstandLesen(text: string): Pruefstand | LadeFehler {
  */
 export function datenstandAus(p: Pruefstand, datum: string, laufnummer: number): Datenstand {
   const dokumente: ExportDokument[] = p.documents.map((x) => ({ id: x.id, rolle: x.role, name: x.fileName, typ: x.docType, titel: x.title, nummer: x.docNumber, revision: x.revision, datum: x.date, rang: x.rank, seiten: x.pages, sha256: x.sha256 }))
-  const leer = neuerStand({ datum, laufnummer, appVersion: p.app.version, organisation: p.organisation, art: p.reviewType, pruefer: { name: p.reviewer.name, funktion: p.reviewer.function }, bibliothek: p.library.label, dokumente, befunde: [], ampeln: [] })
+  const leer = neuerStand({ datum, laufnummer, appVersion: p.app.version, organisation: p.organisation, art: p.reviewType, pruefer: { name: p.reviewer.name, funktion: p.reviewer.function }, bibliothek: p.library.label, dokumente, befunde: [], ampeln: [], lesestand: VOLL_GELESEN }) // Gesamtbewertung kommt unten aus der Datei
   const befunde = p.findings.map((f) => ({
     id: f.id,
     dokId: f.docId,

@@ -23,6 +23,32 @@ export interface Pruefung {
   /** Regelwerksstand (N8): geladene Quellen und Zählung der Verweise */
   regelwerk?: RegelwerkStand
   dokumentSprache: string | null
+  /** Kein auswertbarer Text (Scan ohne Textebene, leere Seiten) — nur gesetzt, wenn wahr (DC-03) */
+  ohneText?: true
+}
+
+/**
+ * Hat das Dokument Text, den die Prüfungen auswerten können? Seiten, die
+ * auf die Texterkennung warten, zählen nicht — ihr Rest an Zeichen (eine
+ * Seitenzahl, ein Stempel) ist kein Inhalt (Audit 11/2026, DC-03).
+ */
+export function textAuswertbar(roh: Pick<Rohdokument, 'pages' | 'ocrKandidaten'>): boolean {
+  const scan = new Set(roh.ocrKandidaten)
+  return roh.pages.some((p) => !scan.has(p.index) && p.text.trim() !== '')
+}
+
+/**
+ * Ohne Text gibt es nichts Prüfbares: Ein Prüfpunkt ohne Befund heißt dann
+ * „nicht anwendbar", nicht „in Ordnung" (CLAUDE.md). Vorher standen bei
+ * einem Scan Reste, Platzhalter, Einheiten und doppelte Wörter auf grün
+ * (DC-03). Befunde bleiben, wo es welche gibt. Ausgenommen ist, was nicht
+ * am Seitentext hängt: der Word-Check (Word-Extrakt: Eigenschaften,
+ * Kompatibilität, Kopf-/Fußteile) und der Registerabgleich (Metadaten,
+ * Dateiname).
+ */
+function ohneTextNichtAnwendbar(gruppe: string, ampel: Record<string, Ampel>): Record<string, Ampel> {
+  if (gruppe === 'word') return ampel
+  return Object.fromEntries(Object.entries(ampel).map(([p, a]) => [p, a === 'ok' && !(gruppe === 'referenz' && p === 'register') ? 'na' : a]))
 }
 
 export function dokumentPruefen(
@@ -43,11 +69,13 @@ export function dokumentPruefen(
   const rechnen = schalter.rechnen ? rechenPruefung(k) : null
   const verweis = schalter.formal ? verweisPruefung(k) : null
   const regelwerk = regelIndex ? regelwerkPruefung(k, regelIndex) : null
-  const aus = (x: { ampel: Record<string, Ampel> } | null) => x?.ampel ?? {}
+  const ohneText = !textAuswertbar(d.roh)
+  const aus = (gruppe: string, x: { ampel: Record<string, Ampel> } | null) => (ohneText ? ohneTextNichtAnwendbar(gruppe, x?.ampel ?? {}) : (x?.ampel ?? {}))
   return {
     befunde: sortieren(idsVergeben([...(formal?.befunde ?? []), ...(word?.befunde ?? []), ...(sprache?.befunde ?? []), ...(referenz?.befunde ?? []), ...(rechnen?.befunde ?? []), ...(verweis?.befunde ?? []), ...(regelwerk?.befunde ?? [])])),
-    ampel: { formal: aus(formal), word: aus(word), sprache: aus(sprache), referenz: aus(referenz), rechnen: aus(rechnen), verweis: aus(verweis), regelwerk: aus(regelwerk) },
+    ampel: { formal: aus('formal', formal), word: aus('word', word), sprache: aus('sprache', sprache), referenz: aus('referenz', referenz), rechnen: aus('rechnen', rechnen), verweis: aus('verweis', verweis), regelwerk: aus('regelwerk', regelwerk) },
     ...(regelwerk ? { regelwerk: regelwerk.stand } : {}),
     dokumentSprache: sprache?.sprache ?? null,
+    ...(ohneText ? { ohneText: true as const } : {}),
   }
 }

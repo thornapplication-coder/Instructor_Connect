@@ -40,7 +40,8 @@ describe('Excel im Projektformat (Spez. v1.1 Kap. 10.4)', async () => {
     expect(zeile('Overall assessment')[1]).toBe('Not ready for submission')
     expect(zeile('Export ID')[1]).toBe('DC-2026-11-01-0007')
     const nr = z.findIndex((r) => r[0] === 'Overall assessment') + 1
-    expect(s).toContain(`sqref="B${nr}"><formula1>&quot;Ready for submission,Ready for submission after correction,Not ready for submission&quot;</formula1>`)
+    // „Not assessable" steht mit zur Wahl — der Vorschlag für einen Scan ohne OCR (Audit 11/2026, DC-03)
+    expect(s).toContain(`sqref="B${nr}"><formula1>&quot;Ready for submission,Ready for submission after correction,Not ready for submission,Not assessable – text recognition pending&quot;</formula1>`)
     const top = z.findIndex((r) => r[0] === 'Top 5 critical findings')
     expect(z.slice(top + 2, top + 7).map((r) => r[0])).toEqual(d.top5)
     expect(z.some((r) => r[2] === 'LEP' && r[3] === 'Yellow')).toBe(true)

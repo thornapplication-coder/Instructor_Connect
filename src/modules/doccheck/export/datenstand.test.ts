@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { dateiStamm, datenstand, exportId, fussText, gesamtVorschlag, kennung, LABELS, seitenZahl } from './datenstand'
 import { dok, eingabe } from './beispiel'
+import { VOLL_GELESEN } from '../pruefung/befund'
 
 describe('Export-Datenstand (Spez. v1.1 Kap. 10.1, 10.2)', () => {
   const d = datenstand(eingabe())
@@ -48,8 +49,22 @@ describe('Export-Datenstand (Spez. v1.1 Kap. 10.1, 10.2)', () => {
     expect(d.zuPruefen).toBe(1)
     expect(d.top5).toEqual(['TM-001', 'TM2-001', 'TM-002', 'PKG-001', 'TM-003'])
     expect(d.gesamt).toBe('notReady')
-    expect(gesamtVorschlag([{ prioritaet: 'Low' }])).toBe('afterCorrection')
-    expect(gesamtVorschlag([])).toBe('ready')
+    expect(gesamtVorschlag([{ prioritaet: 'Low' }], VOLL_GELESEN)).toBe('afterCorrection')
+    expect(gesamtVorschlag([], VOLL_GELESEN)).toBe('ready')
+  })
+
+  it('Seiten ohne Textebene: „Not assessable – text recognition pending", nie „Ready" (Audit 11/2026, DC-03)', () => {
+    // Ein Scan ohne OCR hat keine Befunde und ging als „Ready for submission" in den Export
+    const scan = { ocrSeiten: 1, ohneText: 1 }
+    expect(gesamtVorschlag([], scan)).toBe('notAssessable')
+    expect(gesamtVorschlag([{ prioritaet: 'Low' }], scan)).toBe('notAssessable')
+    expect(gesamtVorschlag([], { ocrSeiten: 0, ohneText: 1 })).toBe('notAssessable')
+    // Ein offener Hoch-Befund sagt sicher „nicht bereit", gleich was ungelesen ist
+    expect(gesamtVorschlag([{ prioritaet: 'High' }], scan)).toBe('notReady')
+    const s = datenstand(eingabe({ befunde: [], lesestand: scan }))
+    expect(s.gesamt).toBe('notAssessable')
+    expect(LABELS.overall.notAssessable).toBe('Not assessable – text recognition pending')
+    expect(Object.fromEntries(kennung(s))['Overall assessment']).toBe('Not assessable – text recognition pending')
   })
 
   it('Ampeln mit englischen Namen; Kennungsblock und Fußzeile', () => {

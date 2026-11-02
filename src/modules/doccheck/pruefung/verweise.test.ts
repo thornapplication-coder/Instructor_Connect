@@ -50,13 +50,15 @@ describe('Prüfung je Dokument', () => {
   it('Übungsverweise gegen die eigene Liste; Kapitelverweise bleiben der Formalprüfung', () => {
     const r = verweisPruefung(k(roh('3.8.3.5 | Steep turns\nPractise exercise 3.8.3.9 and exercise 3.8.3.5. See chapter 9. Refer to APX 5, exercise 1.1.1.')))
     expect(r.befunde.map((b) => b.text)).toEqual(['Reference to exercise 3.8.3.9 — no such exercise in the reference list of this document.'])
+    // Übungs- und Zirkelverweise kommen in keiner Abnahmedatei vor — die Anweisung prüft darum dieser Test (Audit 11/2026, EXP-06)
+    expect(r.befunde.map((b) => b.anleitung)).toEqual(['uebung'])
     expect(r.ampel).toEqual({ uebung: 'wait', zirkel: 'na' })
   })
 
   it('Zirkel im Dokument; ohne Liste und Gliederung nicht anwendbar', () => {
     const o = [{ titel: '1 A', ebene: 1, vonSeite: 1 }, { titel: '2 B', ebene: 1, vonSeite: 1 }]
     const r = verweisPruefung(k(roh('1 A\nSee chapter 2.\n2 B\nSee chapter 1.', o)))
-    expect(r.befunde).toEqual([expect.objectContaining({ pruefpunkt: 'zirkel', text: 'Circular reference without content: 1 → 2 → 1.' })])
+    expect(r.befunde).toEqual([expect.objectContaining({ pruefpunkt: 'zirkel', anleitung: 'zirkel', text: 'Circular reference without content: 1 → 2 → 1.' })])
     expect(verweisPruefung(k(roh('nichts'))).ampel).toEqual({ uebung: 'na', zirkel: 'na' })
   })
 })
