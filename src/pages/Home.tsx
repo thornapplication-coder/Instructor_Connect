@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
 import { Avatar, CountBadge, Modal, ThemeToggle } from '../components/ui'
 import { navigate } from '../router'
-import { isAdminUser, useStore } from '../store'
+import { isAdminUser } from '../adminAccess'
+import { useStore } from '../store'
 import { useIsDesktop } from '../useIsDesktop'
 import { APP_VERSION } from '../types'
 import { TrafficIcon, trafficLight, type TrafficColor } from './Grading'
@@ -216,7 +217,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
 
         {/* Admin Panel bewusst nur am Desktop: auf Tablet/Handy zu unübersichtlich.
             Admins bekommen ein kleines Panel (Gruppen + Feedback). */}
-        {isAdminUser(currentUser) && isDesktop && (
+        {isAdminUser(state.settings, currentUser) && isDesktop && (
           <button
             onClick={() => navigate('/admin')}
             className="min-h-11 mx-auto mt-8 flex items-center gap-2 rounded-full border border-line/10 px-4 py-2 text-small text-dim transition hover:border-accent/40 hover:text-ink"

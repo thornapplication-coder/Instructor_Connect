@@ -253,6 +253,7 @@
   "auditAction": {
     "zugang": "DocCheck access",
     "admin": "DocCheck admin",
+    "rolle": "Rolle (über Instructor Connect)",
     "feature": "Feature-Schalter",
     "einstellung": "Einstellung",
     "standBestaetigt": "Stand bestätigt",

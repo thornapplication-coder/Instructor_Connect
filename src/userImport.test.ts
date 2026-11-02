@@ -1,13 +1,25 @@
+import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
+  BEISPIEL_DOMAIN,
   buildImportTemplate,
   detectSeparator,
+  EMAIL,
   IMPORT_COLUMNS,
+  importOhneGruppe,
+  importPlanen,
+  importZielgruppen,
   isImportable,
+  istBeispielAdresse,
+  istBeispielZeile,
+  istTabellenDatei,
   parseBool,
   parseUserImport,
   splitCsvLine,
+  type ImportEingabe,
+  VORLAGE_XLSX,
 } from './userImport'
+import type { Group, Settings, User } from './types'
 
 /**
  * Der Import legt in einem Zug hundertfuenfzig Nutzer an. Getestet wird
@@ -59,23 +71,69 @@ describe('Ja/Nein', () => {
 
 describe('Vorlage', () => {
   it('traegt die Kopfzeile und zwei Beispiele', () => {
-    const v = buildImportTemplate(['CL30', 'C560 XLS+'], 'aviationacademy.at')
+    const v = buildImportTemplate(['CL30', 'C560 XLS+'])
     const zeilen = v.trim().split('\n')
     expect(zeilen).toHaveLength(3)
     expect(zeilen[0]).toContain('Name')
     expect(zeilen[0]).toContain('Role')
-    expect(v).toContain('@aviationacademy.at')
+    // Beispiele auf der reservierten Domain, nie auf der echten der ATO
+    // (Audit 11/2026, VERW-06).
+    expect(v).toContain(`@${BEISPIEL_DOMAIN}`)
+    expect(v).not.toContain('@aviationacademy.at')
   })
 
-  it('laesst sich unveraendert wieder einlesen', () => {
-    // Die Vorlage ist die Vorlage — was sie erzeugt, muss durch die Pruefung
-    // kommen, sonst schickt man die Leute mit einer kaputten Datei los.
-    const v = buildImportTemplate(CTX.aircraftTypes, 'aviationacademy.at')
+  it('wird unveraendert gelesen — und legt nichts an (VERW-06)', () => {
+    // Die Vorlage muss durch die Pruefung kommen, sonst schickt man die
+    // Leute mit einer kaputten Datei los. Seit VERW-06 heisst „durchkommen":
+    // jedes Feld richtig gelesen, die Zeilen aber als Beispiel erkannt. Die
+    // Anleitung sagt, sie duerften stehen bleiben — dann duerfen sie auch
+    // nichts anlegen. Vorher entstanden zwei fiktive Konten, eines davon
+    // Gruppen-Admin.
+    const v = buildImportTemplate(CTX.aircraftTypes)
     const r = parseUserImport(v, CTX)
     expect(r.headerError).toBe(false)
     expect(r.rows).toHaveLength(2)
-    expect(r.rows.every(isImportable)).toBe(true)
-    expect(r.rows[1].role).toBe('group_admin')
+    expect(r.rows.map((z) => z.problems)).toEqual([['example'], ['example']])
+    expect(r.rows.filter(isImportable)).toHaveLength(0)
+    expect(r.rows.every(istBeispielZeile)).toBe(true)
+    expect(r.rows[1]).toMatchObject({ name: 'Erika Beispiel', role: 'group_admin', aircraftTypes: ['CL30', 'C560 XLS+'], canEditDirectory: true })
+    // Mit einer echten Domain waeren dieselben Zeilen uebernehmbar — das
+    // Format selbst ist also gueltig, nur die Adresse macht sie zum Beispiel.
+    const echt = parseUserImport(v.split(`@${BEISPIEL_DOMAIN}`).join('@aviationacademy.at'), CTX)
+    expect(echt.rows.every(isImportable)).toBe(true)
+  })
+
+  it('Beispieltelefone ohne Formelschutz-Hochkomma, Rundlauf unveraendert (TPL-02)', () => {
+    // Vor „+43" setzte der Formelschutz ein Hochkomma, und Excel zeigte es an.
+    const v = buildImportTemplate(CTX.aircraftTypes)
+    expect(v).not.toContain("'+")
+    expect(v).not.toContain("'0")
+    expect(parseUserImport(v, CTX).rows.map((z) => z.phone)).toEqual(['0043 664 1234567', '0043 664 7654321'])
+  })
+
+  it('erkennt jede Adresse unter .invalid als Beispiel, sonst keine', () => {
+    expect(istBeispielAdresse(`max@${BEISPIEL_DOMAIN}`)).toBe(true)
+    expect(istBeispielAdresse('neu@Abteilung.INVALID ')).toBe(true)
+    expect(istBeispielAdresse('x@invalid')).toBe(true)
+    expect(istBeispielAdresse('max@aviationacademy.at')).toBe(false)
+    expect(istBeispielAdresse('max@invalid.at')).toBe(false)
+    expect(istBeispielAdresse('ohne-at.invalid')).toBe(false)
+  })
+
+  it('eine Beispielzeile steht allein und blockiert keine echte Zeile mit gleicher Adresse', () => {
+    const r = parseUserImport(
+      datei(`Max Beispiel;max@${BEISPIEL_DOMAIN};;unbekannt;;;;;`, `Max Beispiel;max@${BEISPIEL_DOMAIN};;member;CL30;;;;`),
+      CTX,
+    )
+    // Weder „Rolle unbekannt" noch „Domain nicht freigegeben" noch „doppelt".
+    expect(r.rows.map((z) => z.problems)).toEqual([['example'], ['example']])
+  })
+
+  it('der Import legt auch dann keine Beispieladresse an, wenn sie durchgereicht wird', () => {
+    const settings = { allowedDomains: [] } as unknown as Settings
+    const g: Group = { id: 'g', name: 'g', aircraftType: '', purpose: '', adminIds: [], memberIds: [], retention: null, muted: false }
+    const zeile: ImportEingabe = { name: 'X', email: `x@${BEISPIEL_DOMAIN}`, phone: '', role: 'member', aircraftTypes: ['CL30'], canGrade: true, isTrainee: false, canEditDirectory: false, active: true }
+    expect(importPlanen({ users: [], groups: [g], settings }, [zeile], ['g'], () => 'neu').neue).toEqual([])
   })
 })
 
@@ -279,5 +337,130 @@ describe('Musterpflicht beim Import', () => {
     // die Zeile nicht mit zwei Vorwuerfen dastehen, von denen einer geraten ist.
     const r = parseUserImport(datei('Anna;anna@aviationacademy.at;;Chefpilot;;;;;'), CTX)
     expect(r.rows[0].problems).toEqual(['role'])
+  })
+})
+
+describe('Ein Adressmuster fuer Dialog und Import (Audit 11/2026, VERW-12)', () => {
+  // Der Dialog hatte ein eigenes, lockereres Muster: „a@b.c" ging dort durch
+  // und wurde vom Import abgewiesen. Jetzt fragen beide EMAIL.
+  it('gilt fuer beide Wege gleich', () => {
+    expect(EMAIL.test('mika.beispiel@example.test')).toBe(true)
+    expect(EMAIL.test('a@b.c')).toBe(false)
+    expect(EMAIL.test('kein at.example.test')).toBe(false)
+    const zeile = parseUserImport(datei('X;a@b.c;;member;CL30;;;;'), { ...CTX, allowedDomains: [] }).rows[0]
+    expect(zeile.problems).toContain('emailFormat')
+  })
+
+  it('versteht einen gespeicherten Altbestand „@Example.Test" wie die Anmeldung', () => {
+    const zeile = parseUserImport(datei('X;x@example.test;;member;CL30;;;;'), { ...CTX, allowedDomains: ['@Example.Test'] }).rows[0]
+    expect(zeile.problems).not.toContain('emailDomain')
+  })
+})
+
+describe('Import nur mit Gruppe (Audit 11/2026, VERW-07)', () => {
+  // Der Import legte Konten ganz ohne Gruppe an, waehrend der Dialog
+  // „Benutzer anlegen" genau das verweigert. Gezaehlt werden — wie ueberall —
+  // nur Gruppen, die die Person betreten kann.
+  const settings = { allowedDomains: ['aviationacademy.at'] } as unknown as Settings
+  const gruppe = (id: string, aircraftType: string): Group => ({ id, name: id, aircraftType, purpose: '', adminIds: [], memberIds: ['alt'], retention: null, muted: false })
+  const cl30 = gruppe('g-cl30', 'CL30')
+  const allgemein = gruppe('g-alle', '')
+  const zeile = (p: Partial<ImportEingabe> = {}): ImportEingabe => ({
+    name: ' Max Beispiel ',
+    email: 'max@aviationacademy.at',
+    phone: '',
+    role: 'member',
+    aircraftTypes: ['CL30'],
+    canGrade: true,
+    isTrainee: false,
+    canEditDirectory: false,
+    active: true,
+    ...p,
+  })
+  const bestand = (users: User[] = []) => ({ users, groups: [cl30, allgemein], settings })
+  let n = 0
+  const id = () => `neu-${++n}`
+
+  it('ohne Gruppe wird nichts angelegt', () => {
+    const plan = importPlanen(bestand(), [zeile(), zeile({ email: 'erika@aviationacademy.at', role: 'group_admin' })], [], id)
+    expect(plan.neue).toEqual([])
+    expect(plan.groups).toEqual([cl30, allgemein])
+  })
+
+  it('mit Gruppe stehen alle neuen Konten in memberIds', () => {
+    n = 0
+    const plan = importPlanen(bestand(), [zeile(), zeile({ email: 'erika@aviationacademy.at', role: 'group_admin' })], ['g-cl30'], id)
+    expect(plan.neue.map((u) => u.id)).toEqual(['neu-1', 'neu-2'])
+    expect(plan.groups.find((g) => g.id === 'g-cl30')!.memberIds).toEqual(['alt', 'neu-1', 'neu-2'])
+    // Bereinigt wie vorher im Store: Rand weg, Adresse klein.
+    expect(plan.neue[0]).toMatchObject({ name: 'Max Beispiel', email: 'max@aviationacademy.at' })
+  })
+
+  it('setzt niemanden in eine Gruppe fremden Musters — wer keine erreichbare hat, entsteht nicht', () => {
+    const c560 = zeile({ email: 'c560@aviationacademy.at', aircraftTypes: ['C560 XLS+'] })
+    expect(importOhneGruppe(settings, { ...c560, role: 'member' }, [cl30, allgemein], ['g-cl30'])).toBe(true)
+    expect(importPlanen(bestand(), [c560], ['g-cl30'], id).neue).toEqual([])
+    // Mit der musteruebergreifenden Gruppe dazu: angelegt, aber nur dort Mitglied.
+    n = 0
+    const plan = importPlanen(bestand(), [c560], ['g-cl30', 'g-alle'], id)
+    expect(plan.neue).toHaveLength(1)
+    expect(plan.groups.find((g) => g.id === 'g-cl30')!.memberIds).toEqual(['alt'])
+    expect(plan.groups.find((g) => g.id === 'g-alle')!.memberIds).toEqual(['alt', 'neu-1'])
+    expect(importZielgruppen(settings, { ...c560, role: 'member' }, [cl30, allgemein], ['g-cl30', 'g-alle']).map((g) => g.id)).toEqual(['g-alle'])
+  })
+
+  it('der Training Admin hat keinen Chat und braucht keine Gruppe', () => {
+    const ta = zeile({ email: 'ta@aviationacademy.at', role: 'training_admin', aircraftTypes: [] })
+    expect(importOhneGruppe(settings, ta, [cl30], [])).toBe(false)
+    const plan = importPlanen(bestand(), [ta], ['g-alle'], id)
+    expect(plan.neue).toHaveLength(1)
+    // ... und landet auch nicht in einer Gruppe, die er nicht betreten kann.
+    expect(plan.groups.find((g) => g.id === 'g-alle')!.memberIds).toEqual(['alt'])
+  })
+
+  it('weist auch hier ab, was die Vorschau schon abweist — der Bestand kann sich inzwischen geaendert haben', () => {
+    const vorhanden = { id: 'x', email: 'max@aviationacademy.at' } as User
+    expect(importPlanen(bestand([vorhanden]), [zeile()], ['g-alle'], id).neue).toEqual([])
+    expect(importPlanen(bestand(), [zeile({ email: 'x@gmail.com' })], ['g-alle'], id).neue).toEqual([])
+    expect(importPlanen(bestand(), [zeile({ aircraftTypes: [] })], ['g-alle'], id).neue).toEqual([])
+    expect(importPlanen(bestand(), [zeile({ email: ' ' })], ['g-alle'], id).neue).toEqual([])
+    // Zweimal dieselbe Adresse in der Datei: nur einmal angelegt.
+    expect(importPlanen(bestand(), [zeile(), zeile({ email: 'MAX@aviationacademy.at' })], ['g-alle'], id).neue).toHaveLength(1)
+  })
+
+  it('eine Zeile ohne erkannte Rolle bekommt keine Zielgruppe', () => {
+    expect(importZielgruppen(settings, { role: null, aircraftTypes: ['CL30'], canGrade: false, canEditDirectory: false }, [cl30], ['g-cl30'])).toEqual([])
+    expect(importOhneGruppe(settings, { role: null, aircraftTypes: ['CL30'], canGrade: false, canEditDirectory: false }, [cl30], [])).toBe(false)
+  })
+})
+
+/**
+ * Excel statt CSV (Audit 11/2026, VERW-19): Die eigene Excel-Vorlage
+ * hochgeladen ergab „Kopfzeile passt nicht … bitte die Vorlage verwenden".
+ */
+describe('istTabellenDatei', () => {
+  const bytes = (...b: number[]) => new Uint8Array(b)
+  const csv = new TextEncoder().encode('Name;Email;Role\n')
+
+  it('erkennt die mitgelieferte Excel-Vorlage am Inhalt, auch ohne Endung', () => {
+    const vorlage = new Uint8Array(readFileSync(`public/${VORLAGE_XLSX}`)).slice(0, 4)
+    expect(istTabellenDatei(VORLAGE_XLSX, vorlage)).toBe(true)
+    expect(istTabellenDatei('benutzer', vorlage)).toBe(true)
+    expect(istTabellenDatei('benutzer.csv', vorlage)).toBe(true)
+  })
+
+  it('erkennt Excel-Endungen unabhaengig vom Inhalt', () => {
+    for (const name of ['liste.xlsx', 'LISTE.XLSX', 'liste.xls', 'liste.xlsm', 'liste.ods ']) expect(istTabellenDatei(name, csv), name).toBe(true)
+  })
+
+  it('erkennt das alte Office-Format (xls) an seiner Signatur', () => {
+    expect(istTabellenDatei('export', bytes(0xd0, 0xcf, 0x11, 0xe0))).toBe(true)
+  })
+
+  it('laesst CSV durch — auch eine, die zufaellig mit „P" beginnt', () => {
+    expect(istTabellenDatei('benutzer.csv', csv)).toBe(false)
+    expect(istTabellenDatei('benutzer.csv', new TextEncoder().encode('PK;Name\n'))).toBe(false)
+    expect(istTabellenDatei('benutzer.csv', bytes(0x50, 0x4b))).toBe(false)
+    expect(istTabellenDatei('leer.csv', bytes())).toBe(false)
   })
 })

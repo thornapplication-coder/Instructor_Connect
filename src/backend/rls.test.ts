@@ -280,12 +280,56 @@ describe('DocCheck', () => {
     expect(await fehler('select doccheck.log_recheck($1, $2)', ['fl.xlsx', e])).toContain('IC-RATE')
   })
 
+  it('Rollenwechsel mit DocCheck-Wirkung schreibt eine Audit-Zeile, mit dem Superadmin als Akteur (Audit 11/2026, VERW-15)', async () => {
+    // Vorher: Chris zum Superadmin gemacht, Alex herabgestuft — das
+    // DocCheck-Protokoll blieb leer. Die Schalter protokolliert set_rights;
+    // Rolle und Status aendern die DocCheck-Rolle aber ebenso.
+    await alsDienst()
+    const ab = (await db.query<{ n: number }>('select coalesce(max(id), 0)::int as n from doccheck.audit')).rows[0].n
+    await als(ID.super)
+    // group_admin ohne DocCheck → superadmin → zurueck
+    expect((await db.query("update public.profiles set role = 'superadmin' where id = $1", [ID.gruppe])).affectedRows).toBe(1)
+    expect((await db.query("update public.profiles set role = 'group_admin' where id = $1", [ID.gruppe])).affectedRows).toBe(1)
+    // Deaktivieren nimmt dem DocCheck-Admin die Rolle, Aktivieren gibt sie zurueck
+    expect((await db.query('update public.profiles set active = false where id = $1', [ID.admin])).affectedRows).toBe(1)
+    expect((await db.query('update public.profiles set active = true where id = $1', [ID.admin])).affectedRows).toBe(1)
+    // Ohne DocCheck-Wirkung: Sam (kein Zugang) wird Gruppenadmin und wieder Mitglied
+    expect((await db.query("update public.profiles set role = 'group_admin' where id = $1", [ID.ohne])).affectedRows).toBe(1)
+    expect((await db.query("update public.profiles set role = 'member' where id = $1", [ID.ohne])).affectedRows).toBe(1)
+    // Schalter ueber set_rights: weiter als 'zugang'/'admin', nicht doppelt als 'rolle'
+    await db.query('select doccheck.set_rights($1, true, false)', [ID.ohne])
+    await db.query('select doccheck.set_rights($1, false, false)', [ID.ohne])
+    // Wer die Rolle nicht aendern darf, erzeugt auch keine Zeile
+    await als(ID.admin)
+    expect(await fehler("update public.profiles set role = 'superadmin' where id = $1", [ID.admin])).toContain('IC-RIGHTS')
+    expect((await db.query("update public.profiles set role = 'superadmin' where id = $1", [ID.gruppe])).affectedRows).toBe(0)
+    await alsDienst()
+    const zeilen = (await db.query<{ actor: string; action: string; target: string; value: string }>('select actor, action, target, value from doccheck.audit where id > $1 order by id', [ab])).rows
+    expect(zeilen).toEqual([
+      { actor: ID.super, action: 'rolle', target: ID.gruppe, value: 'keine → superadmin' },
+      { actor: ID.super, action: 'rolle', target: ID.gruppe, value: 'superadmin → keine' },
+      { actor: ID.super, action: 'rolle', target: ID.admin, value: 'admin → keine' },
+      { actor: ID.super, action: 'rolle', target: ID.admin, value: 'keine → admin' },
+      { actor: ID.super, action: 'zugang', target: ID.ohne, value: 'false → true' },
+      { actor: ID.super, action: 'zugang', target: ID.ohne, value: 'true → false' },
+    ])
+    // Niemand ruft die Triggerfunktion direkt auf — sonst liessen sich Zeilen erfinden
+    await als(ID.super)
+    expect(await fehler('select doccheck.rolle_aus($1, true, false, false)', ['superadmin'])).toMatch(/permission denied/)
+  })
+
   it('Konto löschen geht (Löschrecht); Audit-Zeilen bleiben ohne Personenbezug', async () => {
     await alsDienst()
-    const vorher = (await db.query<{ n: number }>('select count(*)::int as n from doccheck.audit where actor = $1', [ID.nutzer])).rows[0].n
-    expect(vorher).toBeGreaterThan(0)
+    // Nach Zeilen-ID, nicht nach Anzahl: Seit Rollenwechsel protokolliert
+    // werden (VERW-15), gibt es auch Zeilen ohne Akteur aus Aenderungen des
+    // Dienstes selbst (Einladung). Gemeint ist: GENAU die Zeilen dieses
+    // Kontos bleiben, nur ohne Personenbezug.
+    const ids = (await db.query<{ id: number }>('select id from doccheck.audit where actor = $1', [ID.nutzer])).rows.map((r) => r.id)
+    expect(ids.length).toBeGreaterThan(0)
     await db.query('delete from auth.users where id = $1', [ID.nutzer])
-    expect((await db.query<{ n: number }>('select count(*)::int as n from doccheck.audit where actor is null')).rows[0].n).toBe(vorher)
+    const danach = (await db.query<{ actor: string | null }>('select actor from doccheck.audit where id = any($1)', [ids])).rows
+    expect(danach).toHaveLength(ids.length)
+    expect(danach.every((r) => r.actor === null)).toBe(true)
   })
 })
 

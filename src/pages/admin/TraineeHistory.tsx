@@ -21,7 +21,9 @@ import { formatDate } from '../../datum'
  * sondern ein internes Trainingswerkzeug — die Ansicht folgt daher der
  * Bediensprache. Sichtbar nur mit vollem Archivzugriff (grading_view_all):
  * ein Verlauf, der nur die eigenen Blätter kennt, zeigt Lücken statt
- * Entwicklung.
+ * Entwicklung. Durchgesetzt wird das dort, wo diese Ansicht als einziges
+ * erscheint — im Riegel von GradingAdmin und in adminTabsFuer. Vorher stand
+ * hier nur die Zusage (Audit 11/2026, VERW-03).
  */
 
 type T = ReturnType<typeof useTranslation>['t']

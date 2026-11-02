@@ -1,14 +1,25 @@
 import { describe, expect, it } from 'vitest'
 import {
+  erreichbareGruppen,
   giltMusterbereich,
+  gruppenPflicht,
+  gruppenTauglich,
   imMusterbereich,
+  musterBelegt,
   musterFehlt,
+  musterInVerwendung,
+  musterListeBehalten,
   musterPflicht,
   musterZurAuswahl,
   nachMuster,
+  ohneErreichbareGruppe,
   ohneMuster,
   sichtbarFuer,
+  verliertGruppeDurch,
+  verliertLetzteGruppe,
 } from './aircraftScope'
+import type { Group, Settings } from './types'
+import { createSeedState } from './sandbox/seed'
 
 /**
  * Diese Regel entscheidet, wer was sieht — sie ist damit die Stelle, an der
@@ -206,5 +217,124 @@ describe('musterZurAuswahl', () => {
 
   it('gibt ohne angemeldete Person nichts frei', () => {
     expect(musterZurAuswahl(null, alle)).toEqual([])
+  })
+})
+
+describe('Erreichbare Gruppen (Audit 11/2026, KERN-07/VERW-16)', () => {
+  // Der Seed fuehrte Mika (nur C560 XLS+) als Mitglied der CL30-Gruppe
+  // Autothrottle. Die Pflicht „mindestens eine Gruppe" war damit erfuellt —
+  // nahm man ihn aus „SIM Defects", meldete seine Chatliste „in keiner
+  // Gruppe". Gezaehlt wird jetzt nur, was er betreten kann.
+  const s = {} as Settings
+  const gruppe = (id: string, aircraftType: string, memberIds: string[]) => ({ id, aircraftType, memberIds }) as unknown as Group
+  const auto = gruppe('g-auto', 'CL30', ['mika', 'sam', 'chris'])
+  const defects = gruppe('g-defects', 'C560 XLS+', ['mika'])
+  const ground = gruppe('g-ground', '', ['chris', 'sam'])
+  const alle = [auto, defects, ground]
+  const mika = { id: 'mika', role: 'member' as const, canGrade: true, canEditDirectory: false, aircraftTypes: ['C560 XLS+'] }
+  const chris = { id: 'chris', role: 'group_admin' as const, canGrade: true, canEditDirectory: true, aircraftTypes: ['CL30'] }
+  const sam = { id: 'sam', role: 'training_admin' as const, canGrade: false, canEditDirectory: false, aircraftTypes: ['CL30'] }
+
+  it('zaehlt die Mitgliedschaft in einer Gruppe fremden Musters nicht', () => {
+    expect(erreichbareGruppen(s, mika, alle).map((g) => g.id)).toEqual(['g-defects'])
+    expect(gruppenTauglich(s, mika, auto)).toBe(false)
+  })
+
+  it('laesst eine Gruppe ohne Muster fuer alle erreichbar', () => {
+    expect(erreichbareGruppen(s, chris, alle).map((g) => g.id)).toEqual(['g-auto', 'g-ground'])
+    expect(gruppenTauglich(s, mika, ground)).toBe(true)
+  })
+
+  it('zaehlt beim Training Admin nichts — er hat kein Chat-Modul, also auch keine Pflicht', () => {
+    expect(erreichbareGruppen(s, sam, alle)).toEqual([])
+    expect(gruppenTauglich(s, sam, ground)).toBe(false)
+    expect(gruppenPflicht(s, sam)).toBe(false)
+    // Ohne Pflicht fehlt ihm auch nichts.
+    expect(ohneErreichbareGruppe(s, sam, [])).toBe(false)
+  })
+
+  it('meldet, wem die Pflicht fehlt', () => {
+    expect(gruppenPflicht(s, mika)).toBe(true)
+    expect(ohneErreichbareGruppe(s, mika, alle)).toBe(false)
+    // Nur noch die fremde Gruppe: Pflicht nicht erfuellt.
+    expect(ohneErreichbareGruppe(s, mika, [auto])).toBe(true)
+  })
+
+  it('sieht den Superadmin in jeder seiner Gruppen, unabhaengig vom Muster', () => {
+    const alex = { id: 'chris', role: 'superadmin' as const, canGrade: true, canEditDirectory: true, aircraftTypes: [] }
+    expect(erreichbareGruppen(s, alex, [defects, auto]).map((g) => g.id)).toEqual(['g-auto'])
+    expect(gruppenTauglich(s, alex, defects)).toBe(true)
+  })
+
+  it('verliertLetzteGruppe: nur die Verschlechterung zaehlt', () => {
+    const ohneDefects = [auto, ground]
+    // Mika verliert mit „SIM Defects" seine einzige erreichbare Gruppe.
+    expect(verliertLetzteGruppe(s, mika, alle, ohneDefects)).toBe(true)
+    // Aus der fremden CL30-Gruppe darf er heraus — sie war nie erreichbar.
+    expect(verliertLetzteGruppe(s, mika, [auto, defects], [defects])).toBe(false)
+    // Ein Altkonto ohne erreichbare Gruppe laesst sich aufraeumen.
+    expect(verliertLetzteGruppe(s, mika, [auto], [])).toBe(false)
+    // Ohne Pflicht verliert niemand etwas.
+    expect(verliertLetzteGruppe(s, sam, alle, [])).toBe(false)
+  })
+
+  it('verliertGruppeDurch: Musterwechsel nimmt die Gruppen des Musters mit', () => {
+    // Mika ohne C560: „SIM Defects" waere nicht mehr erreichbar.
+    expect(verliertGruppeDurch(s, mika, { ...mika, aircraftTypes: ['CL30'] }, [defects, ground])).toBe(true)
+    // ... es sei denn, er ist (wie im alten Seed) auch in der CL30-Gruppe —
+    // mit CL30 wird die erreichbar.
+    expect(verliertGruppeDurch(s, mika, { ...mika, aircraftTypes: ['CL30'] }, alle)).toBe(false)
+    // Chris behaelt die musteruebergreifende Gruppe.
+    expect(verliertGruppeDurch(s, chris, { ...chris, aircraftTypes: ['C560 XLS+'] }, alle)).toBe(false)
+    // Training Admin → Mitglied: vorher keine Pflicht, also kein Verlust.
+    expect(verliertGruppeDurch(s, sam, { ...sam, role: 'member' }, [])).toBe(false)
+    // Wer schon vorher ohne erreichbare Gruppe war, verliert nichts mehr.
+    expect(verliertGruppeDurch(s, mika, { ...mika, aircraftTypes: ['CL30'] }, [auto])).toBe(false)
+  })
+})
+
+/**
+ * Muster in Verwendung (Audit 11/2026, VERW-18). Nachgestellt: × an CL30
+ * und EMB505 — EMB505 war weg, CL30 stand ohne Meldung am Listenende.
+ */
+describe('musterInVerwendung', () => {
+  const seed = createSeedState()
+
+  it('zaehlt je Bereich, wo CL30 im Seed noch haengt', () => {
+    const v = musterInVerwendung(seed, 'CL30')
+    expect(musterBelegt(v)).toBe(true)
+    expect(v.gruppen).toBe(seed.groups.filter((g) => g.aircraftType === 'CL30').length)
+    expect(v.nutzer).toBe(seed.users.filter((u) => u.aircraftTypes.includes('CL30')).length)
+    expect(v.nutzer).toBeGreaterThan(0)
+  })
+
+  it('ein unbenutztes Muster zaehlt ueberall 0', () => {
+    const v = musterInVerwendung(seed, 'Muster ohne Verwendung')
+    expect(v).toEqual({ gruppen: 0, nutzer: 0, lessonPlans: 0, formulare: 0, info: 0 })
+    expect(musterBelegt(v)).toBe(false)
+  })
+
+  it('zaehlt Lesson Plans, Formulare und Info-Eintraege mit', () => {
+    const st = {
+      groups: [],
+      users: [],
+      lessonPlans: [{ aircraftType: 'X1' }],
+      gradingRecords: [{ header: { aircraftType: 'X1' } }, { header: { aircraftType: 'X1' } }, { header: {} }],
+      infoEntries: [{ aircraftType: 'X1' }, {}],
+    }
+    expect(musterInVerwendung(st, 'X1')).toEqual({ gruppen: 0, nutzer: 0, lessonPlans: 1, formulare: 2, info: 1 })
+  })
+})
+
+describe('musterListeBehalten', () => {
+  const belegt = (typ: string) => typ === 'CL30'
+
+  it('ein belegtes Muster bleibt an seiner Stelle, nicht am Ende', () => {
+    const alt = ['ATR 42/72', 'CL30', 'C525 M2', 'EMB505']
+    expect(musterListeBehalten(alt, ['ATR 42/72', 'C525 M2', 'EMB505'], belegt)).toEqual(alt)
+  })
+
+  it('ein unbelegtes Muster geht, neue folgen am Ende', () => {
+    expect(musterListeBehalten(['ATR 42/72', 'EMB505', 'CL30'], ['ATR 42/72', 'CL30', 'G650'], belegt)).toEqual(['ATR 42/72', 'CL30', 'G650'])
   })
 })

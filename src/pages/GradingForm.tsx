@@ -2,7 +2,7 @@ import { ArrowLeft, ArrowRight, ChevronDown, Info, Plus, Send, Trash2, X } from 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
-import { Ankreuzknopf, Button, Card, CardHeading, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
+import { Ankreuzknopf, Badge, Button, Card, CardHeading, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
 import { toast } from '../components/Toast'
 import { contentFingerprint, HASH_VERSION } from '../docHash'
 import { networkReachable } from '../net'
@@ -1665,10 +1665,13 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                   <span className="min-w-0 flex-1 text-body">
                     <span className="font-semibold">{ft.id}</span> — {ft.title}
                   </span>
-                  {/* Pflichtformular: vorausgewählt und nicht abwählbar */}
+                  {/* Pflichtformular: vorausgewählt und nicht abwählbar.
+                      Badge statt Handpille (VERW-17); Ton accent, weil
+                      Pflicht eine Einordnung ist, kein Fehler — bad heisst
+                      durchgefallen oder kaputt (CLAUDE.md, Statusmarken). */}
                   {required && (
-                    <span className="shrink-0 rounded-full bg-danger/15 px-2 py-0.5 text-micro font-semibold text-danger">
-                      {t('forms:mandatory')}
+                    <span className="shrink-0">
+                      <Badge tone="accent">{t('forms:mandatory')}</Badge>
                     </span>
                   )}
                 </button>

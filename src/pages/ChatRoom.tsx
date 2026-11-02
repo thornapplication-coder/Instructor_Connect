@@ -5,7 +5,8 @@ import { Badge, Button, Field, inputCls, Modal, NewDot, TopBar } from '../compon
 import i18n from '../i18n'
 import { useUnsavedWork } from '../editGuard'
 import { navigate } from '../router'
-import { isGroupAdmin, mayAccessGroup, useStore } from '../store'
+import { darfAbstimmen, darfSchreiben, darfUmfrageSchliessen } from '../storeRechte'
+import { mayAccessGroup, useStore } from '../store'
 import type { Attachment, Message, Poll, PollType } from '../types'
 import { formatDateTime } from '../datum'
 
@@ -102,7 +103,11 @@ function PollCard({ poll }: { poll: Poll }) {
   // Abgelaufene Umfragen sind automatisch geschlossen
   const expired = !!poll.validUntil && poll.validUntil <= Date.now() + state.timeOffsetMs
   const closed = poll.closed || expired
-  const mayClose = !closed && (poll.authorId === currentUser!.id || isGroupAdmin(currentUser, group))
+  // Dieselbe Regel wie im Store (storeRechte.ts): Autor oder Admin der Gruppe.
+  const mayClose = !closed && darfUmfrageSchliessen(currentUser, poll, group)
+  // Abstimmen nur als Mitglied — der Store verwirft die Stimme sonst still,
+  // und der Knopf saehe aus wie einer, der nichts tut (KERN-19).
+  const mayVote = !closed && darfAbstimmen(currentUser, group)
 
   return (
     <div className="mx-auto w-full max-w-md rounded-2xl border border-accent/20 bg-surface p-4 shadow-soft">
@@ -129,11 +134,11 @@ function PollCard({ poll }: { poll: Poll }) {
           return (
             <button
               key={i}
-              disabled={closed}
+              disabled={!mayVote}
               onClick={() => vote(poll.id, i)}
               className={`min-h-11 relative block w-full overflow-hidden rounded-xl border px-3 py-2 text-left transition ${
                 chosen ? 'border-accent bg-accent/10' : 'border-line/10 hover:border-line/25'
-              } ${closed ? 'cursor-default' : ''}`}
+              } ${mayVote ? '' : 'cursor-default'}`}
             >
               <span
                 className="absolute inset-y-0 left-0 bg-accent/15 transition-all"
@@ -409,6 +414,14 @@ export function ChatRoom({ groupId }: { groupId: string }) {
           <div className="mx-auto flex max-w-3xl items-center gap-2.5 rounded-xl border border-danger/25 bg-danger/10 px-3.5 py-3 text-small text-danger">
             <Ban size={16} className="shrink-0" />
             {t('chat.blockedNote')}
+          </div>
+        ) : !darfSchreiben(currentUser, group) ? (
+          // Kein Mitglied (der Superadmin sieht jede Gruppe): Der Store
+          // verwirft Nachricht und Umfrage — ein Eingabefeld, das nichts
+          // abschickt, waere ein stiller Fehlschlag (KERN-19).
+          <div className="mx-auto flex max-w-3xl items-center gap-2.5 rounded-xl border border-line/15 bg-surface px-3.5 py-3 text-small text-dim">
+            <Info size={16} className="shrink-0" />
+            {t('chat.notMemberNote')}
           </div>
         ) : (
         <div className="mx-auto max-w-3xl">

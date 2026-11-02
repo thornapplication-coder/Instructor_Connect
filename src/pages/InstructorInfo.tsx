@@ -6,14 +6,15 @@ import { Badge, Button, Card, Field, inputCls, Modal, Page, SectionHeading, sele
 import { csvRow, downloadCsv } from '../csv'
 import { toast } from '../components/Toast'
 import { ackStand, ackZiele } from '../infoAcks'
-import { infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
+import { userMayModule } from '../adminAccess'
+import { infoIsExpired, infoIsPublished, infoPublishedAt, useStore } from '../store'
 import type { InfoEntry } from '../types'
 import { formatDate, formatDateTime } from '../datum'
 import { useJetzt } from '../zeitTakt'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
 
-/** „NEW“-Kennzeichnung: zwei Wochen ab Veröffentlichung */
+/** „Neu“-Kennzeichnung: zwei Wochen ab Veröffentlichung */
 const NEW_MS = 14 * 24 * 3600_000
 
 function NewEntryModal({ onClose }: { onClose: () => void }) {
@@ -336,15 +337,27 @@ export function InstructorInfo() {
             {heading && (
               <SectionHeading className="mb-2 mt-4 px-1 first:mt-0">{heading}</SectionHeading>
             )}
-            <Card className={`p-3 ${expired ? 'opacity-60' : ''}`}>
+            {/* Abgelaufen zeigt ein Badge und ein gestrichelter Rand. Die
+                Karte stand vorher auf 60 % Deckkraft — Gueltigkeit 3,1:1,
+                Kategorie 3,0:1 (Audit 11/2026, KERN-12/A11Y-06). Der Rand
+                braucht eine eigene Farbe: Der Kartenrand liegt bei 6 %
+                Deckkraft und waere gestrichelt nicht zu sehen. */}
+            <Card className={`p-3 ${expired ? 'border-dashed !border-line/30' : ''}`}>
               <div className="flex items-start gap-2.5">
-                {/* NEW gut lesbar unter dem Icon — nicht neben dem Titel */}
+                {/* „Neu“ gut lesbar unter dem Icon — nicht neben dem Titel */}
                 <div className="flex shrink-0 flex-col items-center gap-1.5">
                   <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-raised text-accent">
                     {entry.type === 'pdf' ? <FileText size={19} /> : <ScrollText size={19} />}
                   </span>
+                  {/* Badge statt Handpille: Die Marke stand in fest
+                      codiertem Grün mit englischem „NEW“ außerhalb der
+                      Tokens (Nachtrag A11Y#5). `accent` voll wie die Zahl
+                      auf der Startkachel, die denselben Eintrag als neu
+                      meldet — `ok` heißt in der App „erledigt“. */}
                   {isNew && (
-                    <span className="rounded-md bg-emerald-700 px-1.5 py-0.5 text-micro font-bold tracking-wider text-white">NEW</span>
+                    <Badge tone="accent" strong>
+                      {t('common.new')}
+                    </Badge>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
@@ -364,9 +377,9 @@ export function InstructorInfo() {
                   <p className="mt-1 flex flex-wrap items-center gap-1.5 text-micro text-dim">
                     <span className="rounded bg-raised px-1.5 py-0.5 font-medium text-dim">{entry.category}</span>
                   </p>
-                  <p className={`mt-1 text-micro ${expired ? 'text-danger' : 'text-dim'}`}>
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-micro text-dim">
                     {t('info.validity')}: {validityLabel(entry)}
-                    {expired && ` · ${t('info.expired')}`}
+                    {expired && <Badge tone="dim">{t('info.expired')}</Badge>}
                   </p>
                   {/* Für Verwalter sichtbar: der Eintrag gilt erst später und
                       ist für die Zielgruppen noch nicht sichtbar */}

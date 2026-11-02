@@ -1,4 +1,5 @@
-import type { Role } from './types'
+import { userMayModule, type RechtePerson } from './adminAccess'
+import type { Group, Role, Settings } from './types'
 
 /**
  * Musterbezogene Sichtbarkeit — eine Regel für die ganze App.
@@ -153,4 +154,151 @@ export function musterZurAuswahl(
   if (!user) return []
   if (!giltMusterbereich(user)) return alle
   return alle.filter((m) => imMusterbereich(user.aircraftTypes, m))
+}
+
+/**
+ * Gruppen, die eine Person tatsaechlich betreten kann.
+ *
+ * Die Pflicht „mindestens eine Gruppe" zaehlte jede Mitgliedschaft — auch in
+ * Gruppen fremden Musters, die die Person nie zu sehen bekommt
+ * (mayAccessGroup prueft sichtbarFuer). Der Seed fuehrte Mika (nur C560 XLS+)
+ * als Mitglied der CL30-Gruppe; nahm man ihn aus „SIM Defects", liess der
+ * Store das zu, und seine Chatliste meldete „in keiner Gruppe"
+ * (Audit 11/2026, KERN-07/VERW-16). Die Pflicht war erfuellt, der Zweck
+ * nicht.
+ *
+ * Gezaehlt wird deshalb nur, was die Person erreicht: Mitglied, im
+ * Musterbereich (ohne Muster = fuer alle) und mit Chat-Modul. Die Regel
+ * steht hier, weil sie die Musterregel ist — eine zweite Auslegung in der
+ * Ansicht waere die vierte Stelle, an der sie auseinanderlaufen kann.
+ */
+export type GruppenPerson = RechtePerson & { id: string; aircraftTypes?: string[] }
+
+/**
+ * Muss diese Person mindestens einer Gruppe angehoeren?
+ *
+ * Nur wer den Chat hat. Der Training Admin hat kein Chat-Modul
+ * (userMayModule); eine Pflicht, die er nicht erfuellen KANN, stand im
+ * Widerspruch zu ihm selbst — der Seed fuehrte ihn ohne Gruppe, und kein
+ * Schreibweg haette ihn in eine erreichbare bringen koennen.
+ */
+export function gruppenPflicht(settings: Settings, person: RechtePerson): boolean {
+  return userMayModule(settings, person, 'chat')
+}
+
+/** Koennte diese Person die Gruppe betreten, wenn sie Mitglied waere? */
+export function gruppenTauglich(
+  settings: Settings,
+  person: RechtePerson & { aircraftTypes?: string[] },
+  gruppe: Pick<Group, 'aircraftType'>,
+): boolean {
+  return userMayModule(settings, person, 'chat') && sichtbarFuer(person, gruppe.aircraftType)
+}
+
+/** Die Gruppen, in denen die Person Mitglied ist UND die sie betreten kann. */
+export function erreichbareGruppen<G extends Pick<Group, 'aircraftType' | 'memberIds'>>(
+  settings: Settings,
+  person: GruppenPerson,
+  gruppen: G[],
+): G[] {
+  return gruppen.filter((g) => g.memberIds.includes(person.id) && gruppenTauglich(settings, person, g))
+}
+
+/**
+ * Fehlt dieser Person eine erreichbare Gruppe, obwohl sie eine braucht?
+ * Die eine Frage, die Anlegen, Import, Mitgliederpflege, Loeschen und
+ * Rollen-/Musterwechsel stellen.
+ */
+export function ohneErreichbareGruppe(settings: Settings, person: GruppenPerson, gruppen: Pick<Group, 'aircraftType' | 'memberIds'>[]): boolean {
+  return gruppenPflicht(settings, person) && erreichbareGruppen(settings, person, gruppen).length === 0
+}
+
+/**
+ * Verliert die Person mit dieser Aenderung ihre letzte erreichbare Gruppe?
+ *
+ * Abgelehnt wird nur die VERSCHLECHTERUNG: Wer schon vorher keine
+ * erreichbare Gruppe hatte (Altbestand), darf aus einer unerreichbaren
+ * entfernt werden — sonst liesse sich der falsche Zustand nie aufraeumen.
+ * Genau das scheiterte im Audit: „Entfernen" von Mika aus der CL30-Gruppe
+ * aenderte nichts und meldete nichts.
+ */
+export function verliertLetzteGruppe(
+  settings: Settings,
+  person: GruppenPerson,
+  vorher: Pick<Group, 'aircraftType' | 'memberIds'>[],
+  nachher: Pick<Group, 'aircraftType' | 'memberIds'>[],
+): boolean {
+  return !ohneErreichbareGruppe(settings, person, vorher) && ohneErreichbareGruppe(settings, person, nachher)
+}
+
+/**
+ * Nimmt eine Aenderung an der PERSON (Rolle, Muster) ihr die letzte
+ * erreichbare Gruppe? Wer sein Muster verliert, verliert dessen Gruppen.
+ * Einzelaenderung und Sammelbearbeitung fragen dieselbe Stelle — sonst
+ * meldete die Sammelaktion als geaendert, was der Store abweist.
+ *
+ * Wie bei `verliertLetzteGruppe` zaehlt nur die Verschlechterung: Wer die
+ * Pflicht vorher nicht hatte (Training Admin) oder sie schon nicht
+ * erfuellte, verliert nichts.
+ */
+export function verliertGruppeDurch(
+  settings: Settings,
+  vorher: GruppenPerson,
+  nachher: GruppenPerson,
+  gruppen: Pick<Group, 'aircraftType' | 'memberIds'>[],
+): boolean {
+  return gruppenPflicht(settings, vorher) && !ohneErreichbareGruppe(settings, vorher, gruppen) && ohneErreichbareGruppe(settings, nachher, gruppen)
+}
+
+/** Wo ein Muster noch haengt — je Bereich gezaehlt. */
+export interface MusterVerwendung {
+  gruppen: number
+  nutzer: number
+  lessonPlans: number
+  formulare: number
+  info: number
+}
+
+/**
+ * Wie oft ein Muster noch verwendet wird.
+ *
+ * Der Store behaelt ein Muster, an dem noch etwas haengt — sonst zeigten
+ * diese Verweise ins Leere. Er tat das aber still: Der Chip verschwand nicht,
+ * sondern sprang ans Listenende, ohne Meldung (Audit 11/2026, VERW-18). Die
+ * Zaehlung steht hier, damit Store (behalten) und Oberflaeche (Grund nennen)
+ * dieselbe Regel fragen.
+ */
+export function musterInVerwendung(
+  st: {
+    groups: Pick<Group, 'aircraftType'>[]
+    users: { aircraftTypes: string[] }[]
+    lessonPlans: { aircraftType: string }[]
+    gradingRecords: { header: { aircraftType?: string } }[]
+    infoEntries: { aircraftType?: string }[]
+  },
+  typ: string,
+): MusterVerwendung {
+  return {
+    gruppen: st.groups.filter((g) => g.aircraftType === typ).length,
+    nutzer: st.users.filter((u) => u.aircraftTypes.includes(typ)).length,
+    lessonPlans: st.lessonPlans.filter((l) => l.aircraftType === typ).length,
+    formulare: st.gradingRecords.filter((r) => r.header.aircraftType === typ).length,
+    info: st.infoEntries.filter((e) => e.aircraftType === typ).length,
+  }
+}
+
+/** Haengt an dem Muster noch irgendetwas? */
+export function musterBelegt(v: MusterVerwendung): boolean {
+  return v.gruppen + v.nutzer + v.lessonPlans + v.formulare + v.info > 0
+}
+
+/**
+ * Neue Musterliste mit der Reihenfolge des Bestands.
+ *
+ * Bleibt ein Muster, weil es noch belegt ist, steht es an SEINER Stelle —
+ * nicht angehaengt. Neu hinzugekommene folgen am Ende, wie getippt.
+ */
+export function musterListeBehalten(alt: string[], neu: string[], belegt: (typ: string) => boolean): string[] {
+  const bleibt = alt.filter((a) => neu.includes(a) || belegt(a))
+  return [...bleibt, ...neu.filter((n) => !alt.includes(n))]
 }

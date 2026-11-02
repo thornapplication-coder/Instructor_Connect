@@ -1,7 +1,7 @@
 import { Eye, EyeOff, AlertTriangle, ArrowLeft, BarChart3, ChevronRight, Clock, Download, FolderOpen, Gauge, ListChecks, Pencil, Plus, RefreshCw, Scale, SlidersHorizontal, CalendarRange, Trash2, TrendingDown, UserRound, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, CardHeading, Field, inputCls, selectCls } from '../../components/ui'
+import { Badge, Button, Card, CardHeading, ChipListe, Field, inputCls, selectCls } from '../../components/ui'
 import { downloadCsv } from '../../csv'
 import { toast } from '../../components/Toast'
 import { avgOf, buildGradingCsv, gradingCsvName } from '../../gradingExport'
@@ -20,42 +20,6 @@ import { authorityOf, PERIODS, periodLabel, scopeRecords, statsBySet as computeS
 
 type Section = 'dashboard' | 'records' | 'config' | 'stats' | 'standardisation' | 'trainees' | 'monthly'
 const SECTIONS: Section[] = ['dashboard', 'records', 'trainees', 'monthly', 'stats', 'standardisation', 'config']
-
-function StringList({ label, values, onChange }: { label: string; values: string[]; onChange: (v: string[]) => void }) {
-  const { t } = useTranslation()
-  const [draft, setDraft] = useState('')
-  return (
-    <Field label={label} group>
-      <div className="mb-2 flex flex-wrap gap-2">
-        {values.map((v) => (
-          <span key={v} className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5 text-small">
-            {v}
-            <button
-              onClick={() => onChange(values.filter((x) => x !== v))}
-              aria-label={`${t('common.delete')}: ${v}`}
-              className="text-dim hover:text-danger"
-            >
-              ×
-            </button>
-          </span>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <input className={inputCls} value={draft} aria-label={label} placeholder={t('admin.addValue')} onChange={(e) => setDraft(e.target.value)} />
-        <Button
-          variant="ghost"
-          onClick={() => {
-            const v = draft.trim()
-            if (v && !values.includes(v)) onChange([...values, v])
-            setDraft('')
-          }}
-        >
-          +
-        </Button>
-      </div>
-    </Field>
-  )
-}
 
 /** Kompetenzen samt Observable Behaviours anlegen, bearbeiten, löschen */
 function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: (competencies: Competency[]) => void }) {
@@ -345,9 +309,28 @@ function FormTypeEditor({ formTypes, onChange }: { formTypes: FormType[]; onChan
   )
 }
 
-/** @param section Zweites Adresssegment (#/admin/grading/<section>) —
+/**
+ * Der ganze Bereich zeigt den vollen Bestand samt CSV-Export und Verlauf je
+ * Pilot — er steht deshalb nur mit grading_view_all offen. Die Reiterliste
+ * (adminTabsFuer) laesst ihn ohne das Recht gar nicht erst erscheinen; der
+ * Riegel hier haelt auch dann, wenn ein geoeffneter Bereich stehen bleibt,
+ * waehrend der Superadmin das Recht entzieht (Audit 11/2026, VERW-03).
+ *
+ * Bewusst NICHT `visibleGradingRecords`: Diese Liste laesst weg, was die
+ * angemeldete Person in ihrer eigenen Ansicht ausgeblendet hat. Das Panel
+ * muss genau diese Blaetter zeigen — sonst koennte sie niemand wieder
+ * einblenden.
+ *
+ * @param section Zweites Adresssegment (#/admin/grading/<section>) —
  *  leer zeigt die Kachelübersicht der Ablage. */
-export function GradingAdmin({ section: sectionSeg = '' }: { section?: string }) {
+export function GradingAdmin({ section = '' }: { section?: string }) {
+  const { t } = useTranslation()
+  const { can } = useStore()
+  if (!can('grading_view_all')) return <p className="pt-10 text-center text-body text-dim">{t('admin.noAccess')}</p>
+  return <GradingAblage section={section} />
+}
+
+function GradingAblage({ section: sectionSeg }: { section: string }) {
   const { t } = useTranslation()
   const { state, currentUser, retryGradingMail, updateGrading, deleteGradingRecord, unhideGradingRecord } = useStore()
   const section = SECTIONS.includes(sectionSeg as Section) ? (sectionSeg as Section) : null
@@ -899,9 +882,9 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
       {section === 'config' && darfKonfigurieren && (
         <div className="space-y-section">
           <Card className="space-y-section p-4">
-            <StringList label={t('forms:admin.defaultRecipients')} values={g.defaultRecipients} onChange={(v) => updateGrading({ defaultRecipients: v })} />
-            <StringList label={t('forms:admin.escalationRecipients')} values={g.escalationRecipients} onChange={(v) => updateGrading({ escalationRecipients: v })} />
-            <StringList label={t('forms:admin.deferredRecipients')} values={g.deferredRecipients} onChange={(v) => updateGrading({ deferredRecipients: v })} />
+            <ChipListe label={t('forms:admin.defaultRecipients')} values={g.defaultRecipients} onChange={(v) => updateGrading({ defaultRecipients: v })} />
+            <ChipListe label={t('forms:admin.escalationRecipients')} values={g.escalationRecipients} onChange={(v) => updateGrading({ escalationRecipients: v })} />
+            <ChipListe label={t('forms:admin.deferredRecipients')} values={g.deferredRecipients} onChange={(v) => updateGrading({ deferredRecipients: v })} />
           </Card>
 
           <Card className="p-4">

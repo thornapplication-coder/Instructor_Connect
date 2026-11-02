@@ -358,7 +358,7 @@ export function Logbook() {
               Monat saehe aus wie ein Uebertragungsfehler. */}
           {eintraege.length === 0 && (
             <Card className="p-6 text-center text-small text-dim">
-              <BookOpen size={22} className="mx-auto mb-2 opacity-60" />
+              <BookOpen size={22} className="mx-auto mb-2" />
               {alle.length === 0 ? t('logbook.empty') : t('logbook.noMatch')}
             </Card>
           )}

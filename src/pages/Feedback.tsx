@@ -2,7 +2,7 @@ import { AlertTriangle, CheckCircle2, Info, Paperclip, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useUnsavedWork } from '../editGuard'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, Field, inputCls, Page, selectCls, TopBar } from '../components/ui'
+import { Badge, Button, Card, Field, inputCls, Page, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { useStore } from '../store'
 import type { Attachment } from '../types'
@@ -87,9 +87,12 @@ export function Feedback() {
             <p className="mb-3 truncate">{category}</p>
             <p className="mb-1 font-semibold text-dim">{t('feedback.recipients')}</p>
             <p className="truncate">{recipient}</p>
+            {/* Badge statt Handpille — eine Bedeutung, eine Gestalt (VERW-17). */}
             {urgent && (
-              <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-danger/15 px-2.5 py-1 text-micro font-semibold text-danger">
-                <AlertTriangle size={12} /> {t('feedback.urgent')}
+              <p className="mt-2">
+                <Badge tone="bad">
+                  <AlertTriangle size={12} className="mr-1" /> {t('feedback.urgent')}
+                </Badge>
               </p>
             )}
             {attachment && (
@@ -217,7 +220,9 @@ export function Feedback() {
         <button
           onClick={() => setUrgent(!urgent)}
           className={`flex w-full items-center gap-2.5 rounded-xl border px-3.5 py-3 text-left text-body font-semibold transition ${
-            urgent ? 'border-danger bg-danger/15 text-danger' : 'border-line/15 text-dim hover:border-danger/40'
+            // Farbe in Rand und Flaeche, Schrift ink: Rot auf eigener
+            // Rotflaeche blieb unter 4,5:1 (VERW-17, wie Badge).
+            urgent ? 'border-danger bg-danger/15 text-ink' : 'border-line/15 text-dim hover:border-danger/40'
           }`}
         >
           <AlertTriangle size={17} />

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { darf, docCheckRolle, kachelZahl, rechteAudit, rechteSetzen } from './access'
+import { darf, docCheckRolle, kachelZahl, rechteAudit, rechteSetzen, rollenAudit } from './access'
 import type { DocCheckAktion, DocCheckRolle } from './types'
 
 const nutzer = (role: 'superadmin' | 'group_admin' | 'training_admin' | 'member', flags: { a?: boolean; d?: boolean } = {}, active = true) => ({
@@ -103,6 +103,44 @@ describe('rechteAudit', () => {
       ['admin', 'false → true', 'u-super', 'u-x', 1000],
     ])
     expect(new Set(z.map((e) => e.id)).size).toBe(2)
+  })
+})
+
+/**
+ * Rollen- und Statuswechsel mit DocCheck-Wirkung (Audit 11/2026, VERW-15).
+ *
+ * Nachgestellt: Chris (Gruppenadmin, DocCheck admin) zum Superadmin
+ * gemacht, Alex zum Mitglied herabgestuft — das DocCheck-Protokoll blieb
+ * leer. Spez. 3.4: Jede Änderung einer Berechtigung wird protokolliert.
+ */
+describe('rollenAudit', () => {
+  let n = 0
+  const ctx = { von: 'u-patrick', ziel: 'u-christian', at: 2000, id: () => `r${n++}` }
+  const chris = { role: 'group_admin' as const, active: true, docCheckAccess: true, docCheckAdmin: true }
+
+  it('group_admin → superadmin erzeugt die Zeile admin → superadmin', () => {
+    const z = rollenAudit(chris, { ...chris, role: 'superadmin' }, ctx)
+    expect(z.map((e) => [e.aktion, e.wert, e.von, e.ziel, e.at])).toEqual([['rolle', 'admin → superadmin', 'u-patrick', 'u-christian', 2000]])
+  })
+
+  it('Herabstufen und Deaktivieren erzeugen ihre Zeile', () => {
+    const alex = { role: 'superadmin' as const, active: true }
+    expect(rollenAudit(alex, { ...alex, role: 'member' }, ctx).map((e) => e.wert)).toEqual(['superadmin → keine'])
+    expect(rollenAudit(chris, { ...chris, active: false }, ctx).map((e) => e.wert)).toEqual(['admin → keine'])
+    expect(rollenAudit({ ...chris, active: false }, chris, ctx).map((e) => e.wert)).toEqual(['keine → admin'])
+  })
+
+  it('ein Wechsel ohne DocCheck-Wirkung erzeugt keine Zeile', () => {
+    // Mitglied → Gruppenadmin: DocCheck haengt an den Schaltern, nicht an
+    // dieser Rolle. Ohne Zugang bleibt deaktivieren ebenfalls „keine".
+    expect(rollenAudit(chris, { ...chris, role: 'member' }, ctx)).toEqual([])
+    const sam = { role: 'training_admin' as const, active: true }
+    expect(rollenAudit(sam, { ...sam, active: false }, ctx)).toEqual([])
+  })
+
+  it('ein neues Konto zaehlt von „keine" aus', () => {
+    expect(rollenAudit(null, { role: 'superadmin', active: true }, ctx).map((e) => e.wert)).toEqual(['keine → superadmin'])
+    expect(rollenAudit(null, { role: 'member', active: true }, ctx)).toEqual([])
   })
 })
 

@@ -128,3 +128,113 @@ describe('Abstandsskala', () => {
     expect(treffer).toEqual([])
   })
 })
+
+/**
+ * Deckkraft ist kein Zustand.
+ *
+ * Deaktivierte Nutzer (opacity-55), erledigtes Feedback (opacity-80) und
+ * abgelaufene Infos (opacity-60) waren per Deckkraft gedaempft — und mit
+ * ihnen alles darin: E-Mail-Zeile 2,7:1, „Erledigt" 3,1:1, Gueltigkeit
+ * 3,1:1. Die Karten blieben bedienbar, die Ausnahme fuer inaktive
+ * Bedienelemente griff also nicht (Audit 11/2026, VERW-17/A11Y-06/KERN-12).
+ * Dieselbe Daempfung hatte DocCheck schon einmal verworfen.
+ *
+ * Erlaubt bleiben Varianten (`disabled:`, `hover:`, `group-hover:` …) und
+ * die Endwerte 0/100, die nichts daempfen. Ausnahmen stehen unten mit Grund.
+ */
+/** Kommentarzeilen nennen verbotene Klassen gerade, um sie zu verbieten. */
+const istKommentar = (zeile: string) => /^\s*(\/\/|\/\*|\*|\{\/\*)/.test(zeile)
+
+describe('Deckkraft', () => {
+  // Datei → Grund. Der Grund lautet nicht „sieht ruhiger aus".
+  const AUSNAHMEN: Record<string, string> = {
+    // Beschriftung eines gesperrten Kaestchens (disabled): WCAG 1.4.3 nimmt
+    // inaktive Bedienelemente vom Kontrast aus.
+    './modules/doccheck/components/AdminTab.tsx': 'inaktives Bedienelement',
+    './modules/doccheck/components/Tabs.tsx': 'inaktives Bedienelement',
+  }
+
+  it('daempft in Seiten und Modulen nichts per opacity-<n>', () => {
+    const treffer: string[] = []
+    for (const [pfad, inhalt] of dateien) {
+      if (!/^\.\/(pages|modules)\//.test(pfad) || AUSNAHMEN[pfad]) continue
+      ;(inhalt as string).split('\n').forEach((zeile, i) => {
+        if (istKommentar(zeile)) return
+        // Ohne Variante davor: `disabled:opacity-40` bleibt erlaubt.
+        for (const m of zeile.matchAll(/(?<![\w:/-])opacity-(\d+)\b/g)) {
+          if (m[1] !== '0' && m[1] !== '100') treffer.push(`${pfad}:${i + 1}  ${m[0]}`)
+        }
+      })
+    }
+    expect(treffer).toEqual([])
+  })
+
+  it('fuehrt keine Ausnahme fuer eine Datei, die gar nicht mehr daempft', () => {
+    // Sonst bliebe die Ausnahme stehen, wenn die Stelle laengst behoben ist,
+    // und deckte die naechste neue Daempfung in derselben Datei mit.
+    for (const pfad of Object.keys(AUSNAHMEN)) {
+      const inhalt = dateien.find(([p]) => p === pfad)?.[1] as string | undefined
+      expect(inhalt, pfad).toMatch(/(?<![\w:/-])opacity-(?!0\b|100\b)\d+/)
+    }
+  })
+})
+
+/**
+ * Statusmarken kommen aus `Badge` (CLAUDE.md) — keine Handpille.
+ *
+ * Farbige Schrift auf eigener 15-%-Flaeche lag nachgemessen bei 3,4–4,3:1.
+ * Badge traegt die Farbe deshalb in Flaeche und Rand, die Schrift bleibt
+ * ink. Im Feedback standen trotzdem „Dringend" und „Erledigt" als
+ * handgebaute Pillen daneben (VERW-17/A11Y-06). Erkannt wird das Muster
+ * selbst: Flaeche `bg-<ton>/15` und Schrift `text-<ton>` in einer Zeile,
+ * jeweils ohne Variante (hover: ist eine Rueckmeldung, kein Zustand).
+ */
+describe('Statusmarken', () => {
+  it('baut keine Pille aus Tonflaeche und Tonschrift von Hand', () => {
+    const flaeche = /(?<![\w:/-])bg-(ok|danger|wait|bad)\/15\b/
+    const schrift = /(?<![\w:/-])text-(ok|danger|wait|bad)\b/
+    const treffer: string[] = []
+    for (const [pfad, inhalt] of dateien) {
+      ;(inhalt as string).split('\n').forEach((zeile, i) => {
+        if (!istKommentar(zeile) && flaeche.test(zeile) && schrift.test(zeile)) treffer.push(`${pfad}:${i + 1}  ${zeile.trim().slice(0, 90)}`)
+      })
+    }
+    expect(treffer).toEqual([])
+  })
+})
+
+/**
+ * Farben kommen aus den Tokens (tailwind.config.js), nicht als Farbwert.
+ *
+ * Die Chat-Sperre trug `accent-[#e05252]`, obwohl es `danger` gibt — ein
+ * fester Wert folgt weder dem dunklen Thema noch einer spaeteren
+ * Farbkorrektur (Audit 11/2026, VERW-21). Ausnahmen stehen mit Grund.
+ */
+describe('Farbwerte', () => {
+  const AUSNAHMEN: Record<string, string> = {
+    // Warnstreifen der Sandbox: bewusst ausserhalb des Themas und in hell
+    // wie dunkel gleich, damit er nie wie App-Inhalt aussieht.
+    './components/SandboxBar.tsx': 'ausserhalb des Themas',
+    // Geraeterahmen der Vorschau: Farbe der Hardware, nicht der App.
+    './pages/DevicePreview.tsx': 'Hardwarefarbe',
+  }
+
+  it('benutzt in Klassen keinen Farbwert in eckigen Klammern', () => {
+    const treffer: string[] = []
+    for (const [pfad, inhalt] of dateien) {
+      if (AUSNAHMEN[pfad]) continue
+      ;(inhalt as string).split('\n').forEach((zeile, i) => {
+        if (istKommentar(zeile)) return
+        for (const m of zeile.matchAll(/\b[a-z-]+-\[#[0-9a-fA-F]{3,8}\]/g)) treffer.push(`${pfad}:${i + 1}  ${m[0]}`)
+      })
+    }
+    expect(treffer).toEqual([])
+  })
+
+  it('fuehrt keine Ausnahme fuer eine Datei ohne Farbwert', () => {
+    for (const pfad of Object.keys(AUSNAHMEN)) {
+      const inhalt = dateien.find(([p]) => p === pfad)?.[1] as string | undefined
+      expect(inhalt, pfad).toMatch(/\b[a-z-]+-\[#[0-9a-fA-F]{3,8}\]/)
+    }
+  })
+})

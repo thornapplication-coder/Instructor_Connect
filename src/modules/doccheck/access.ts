@@ -99,6 +99,33 @@ export function rechteAudit(
 }
 
 /**
+ * Protokollzeile für einen Rollen- oder Statuswechsel, der die DocCheck-Rolle
+ * ändert.
+ *
+ * Die DocCheck-Rolle hängt nicht nur an den beiden Schaltern: Der Superadmin
+ * ist automatisch DocCheck-Superadmin, und ein deaktiviertes Konto hat gar
+ * keine. Wer Chris zum Superadmin machte oder Mika deaktivierte, änderte
+ * also DocCheck-Rechte — protokolliert wurde nur `setDocCheckRights`, und der
+ * folgenreichste Wechsel stand nirgends (Audit 11/2026, VERW-15; Spez. 3.4:
+ * „Jede Änderung einer Berechtigung wird im Audit-Log protokolliert").
+ *
+ * `vorher = null` heißt: neues Konto (vorher „keine"). Eine Zeile nur, wenn
+ * sich die DocCheck-Rolle tatsächlich ändert — ein Wechsel Mitglied → Admin
+ * ohne DocCheck-Zugang ist für DocCheck kein Ereignis. Dieselbe Regel steht
+ * in der Datenbank als Trigger (supabase/migrations, `rollen_audit`).
+ */
+export function rollenAudit(
+  vorher: NutzerLike | null,
+  nachher: NutzerLike,
+  kontext: { von: string; ziel: string; at: number; id: () => string },
+): DocCheckAuditEintrag[] {
+  const alt = docCheckRolle(vorher)
+  const neu = docCheckRolle(nachher)
+  if (alt === neu) return []
+  return [{ id: kontext.id(), at: kontext.at, von: kontext.von, aktion: 'rolle', ziel: kontext.ziel, wert: `${alt} → ${neu}` }]
+}
+
+/**
  * Zahl auf der Kachel (Spez. 3.2): offene Nachprüf-Empfehlungen für alle,
  * fällige Revisionserinnerungen zusätzlich für die, die sie bestätigen
  * dürfen. Ein Nutzer, der nichts tun kann, bekommt keine Mahnung.

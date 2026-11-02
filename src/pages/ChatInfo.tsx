@@ -2,7 +2,10 @@ import { Bell, BellOff, Clock, HardDriveDownload, Shield, Trash2, Users } from '
 import { useTranslation } from 'react-i18next'
 import { Avatar, Badge, Button, Card, CardHeading, Field, Page, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
-import { isGroupAdmin, mayAccessGroup, useStore } from '../store'
+import { isGroupAdmin } from '../adminAccess'
+import { gruppenTauglich } from '../aircraftScope'
+import { gruppenAenderungFehler } from '../gruppen'
+import { mayAccessGroup, useStore } from '../store'
 import type { RetentionKey } from '../types'
 
 const RETENTION_KEYS: RetentionKey[] = ['24h', '7d', '30d', '90d', 'never']
@@ -22,8 +25,12 @@ export function ChatInfo({ groupId }: { groupId: string }) {
   const members = state.users
     .filter((u) => group.memberIds.includes(u.id))
     .sort((a, b) => a.name.localeCompare(b.name))
+  // Hinzufuegen nur, wer die Gruppe auch betreten kann (Muster, Chat-Modul).
+  // Angeboten wurde jeder Aktive — auch der Training Admin ohne Chat und das
+  // Mitglied fremden Musters, die danach als Mitglied zaehlten, ohne je
+  // hineinzukommen (Audit 11/2026, KERN-07).
   const nonMembers = state.users
-    .filter((u) => u.active && !group.memberIds.includes(u.id))
+    .filter((u) => u.active && !group.memberIds.includes(u.id) && gruppenTauglich(state.settings, u, group))
     .sort((a, b) => a.name.localeCompare(b.name))
   const mayManage = isGroupAdmin(currentUser, group)
   // Wer nur in dieser einen Gruppe ist, verlöre mit ihr den Chat-Zugang und
@@ -85,10 +92,19 @@ export function ChatInfo({ groupId }: { groupId: string }) {
               <li key={m.id} className="flex items-center gap-2.5">
                 <Avatar name={m.name} size={30} />
                 <span className="min-w-0 flex-1 truncate text-body">{m.name}</span>
+                {/* Mitglied auf dem Papier, aber ohne Zugang (fremdes Muster,
+                    kein Chat-Modul) — benannt statt mitgezaehlt. */}
+                {!gruppenTauglich(state.settings, m, group) && <Badge tone="dim">{t('chatInfo.noAccess')}</Badge>}
                 {group.adminIds.includes(m.id) && <Badge tone="accent">{t('chatInfo.admin')}</Badge>}
                 {mayManage && m.id !== currentUser!.id && (
                   <button
-                    onClick={() => setGroupMembers(group.id, group.memberIds.filter((id) => id !== m.id))}
+                    onClick={() => {
+                      // Dieselbe Rueckfrage wie im Admin-Panel, wenn der
+                      // letzte Admin geht (gruppen.ts, VERW-09).
+                      const ohne = group.memberIds.filter((id) => id !== m.id)
+                      if (gruppenAenderungFehler(currentUser, group, ohne, group.adminIds) === 'ohneAdmin' && !window.confirm(t('admin.groupNoAdminConfirm', { name: group.name }))) return
+                      setGroupMembers(group.id, ohne)
+                    }}
                     className="text-micro text-dim hover:text-danger"
                   >
                     {t('chatInfo.removeMember')}

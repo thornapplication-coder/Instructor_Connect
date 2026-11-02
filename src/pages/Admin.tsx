@@ -1,67 +1,30 @@
-import { AlertTriangle, ArrowLeft, BookMarked, CheckCircle2, ChevronDown, Clock, ClipboardList, Download, History, MessageSquareText, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Upload, Users, UsersRound, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { AlertTriangle, ArrowLeft, BookMarked, CheckCircle2, ChevronDown, Clock, ClipboardList, Download, History, MessageSquareText, MessagesSquare, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Upload, Users, X } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Badge, Button, Card, CardHeading, ChipMultiSelect, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { Avatar, Badge, Button, Card, CardHeading, ChipListe, ChipMultiSelect, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { navigate } from '../router'
 import { adminStatus } from '../adminStatus'
 import { planBulk, type BulkAktion } from '../bulkUsers'
-import { musterFehlt, musterPflicht, musterZurAuswahl, nachMuster } from '../aircraftScope'
-import { adminTabsFor, istSperre, PERSON_PERMS } from '../adminAccess'
+import { einzelAenderung } from '../benutzerRegeln'
+import { domainErlaubt, domainSperre, neuAusgesperrt, normalisiereDomain } from '../domains'
+import { gruppenPflicht, gruppenTauglich, musterBelegt, musterInVerwendung, musterPflicht, musterZurAuswahl, nachMuster, verliertLetzteGruppe } from '../aircraftScope'
+import { festeEintraege, MAX_UPLOAD_MB, uploadGrenze } from '../einstellungen'
+import { adminKandidaten, gruppenAenderungFehler, gruppenName, gruppenNameFehler, type GruppenNameFehler } from '../gruppen'
+import { rasterKlasse } from '../kachelRaster'
+import { adminTabsFuer, istSperre, PERSON_PERMS, personenRechtWirkt, personenRechtWirksam, rechteLink, suchAusQuery } from '../adminAccess'
 import { toast } from '../components/Toast'
 import { storageInfo, type StorageInfo } from '../persist'
 import { downloadCsv } from '../csv'
-import { buildImportTemplate, isImportable, parseUserImport, type ImportResult, type ImportRow } from '../userImport'
+import { buildImportTemplate, EMAIL, importOhneGruppe, isImportable, istBeispielZeile, istTabellenDatei, parseUserImport, VORLAGE_CSV, VORLAGE_XLSX, type ImportResult, type ImportRow } from '../userImport'
 import { useStore } from '../store'
+import { useAutoSave } from '../useAutoSave'
 import { GradingAdmin } from './admin/GradingAdmin'
 import { LogbookAdmin } from './admin/LogbookAdmin'
 import { formatDateTime } from '../datum'
-import { APP_VERSION, type FeedbackEntry, PERM_KEYS, type ConfigurableRole, type RetentionKey, type Role } from '../types'
+import { APP_VERSION, type FeedbackEntry, type Group, type User, PERM_KEYS, type ConfigurableRole, type RetentionKey, type Role } from '../types'
 
 const RETENTION_KEYS: RetentionKey[] = ['24h', '7d', '30d', '90d', 'never']
 type Tab = 'users' | 'permissions' | 'grading' | 'logbook' | 'groups' | 'feedback' | 'settings' | 'imprint' | 'changelog'
-
-function StringListEditor({ label, values, onChange }: { label: string; values: string[]; onChange: (v: string[]) => void }) {
-  const { t } = useTranslation()
-  const [draft, setDraft] = useState('')
-  const add = () => {
-    const v = draft.trim()
-    if (v && !values.includes(v)) onChange([...values, v])
-    setDraft('')
-  }
-  return (
-    // Gruppe statt <label>: die Beschriftung gehört zur Liste, nicht zum
-    // ersten Löschknopf darin.
-    <Field label={label} group>
-      <div className="mb-2 flex flex-wrap gap-2">
-        {values.map((v) => (
-          <span key={v} className="flex items-center gap-1.5 rounded-full bg-raised px-3 py-1.5 text-small">
-            {v}
-            <button
-              onClick={() => onChange(values.filter((x) => x !== v))}
-              aria-label={`${t('common.delete')}: ${v}`}
-              className="text-dim hover:text-danger"
-            >
-              <X size={13} />
-            </button>
-          </span>
-        ))}
-      </div>
-      <div className="flex gap-2">
-        <input
-          className={inputCls}
-          value={draft}
-          aria-label={label}
-          placeholder={t('admin.addValue')}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
-        />
-        <Button variant="ghost" onClick={add}>
-          <Plus size={16} />
-        </Button>
-      </div>
-    </Field>
-  )
-}
 
 /**
  * Nutzer aus einer Tabelle anlegen.
@@ -77,14 +40,27 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
   const [result, setResult] = useState<ImportResult | null>(null)
   const [fileName, setFileName] = useState('')
   const [done, setDone] = useState<number | null>(null)
+  // Excel statt CSV gewaehlt: eigene Meldung statt „Kopfzeile passt nicht —
+  // bitte die Vorlage verwenden" fuer genau diese Vorlage (VERW-19).
+  const [tabelle, setTabelle] = useState(false)
+  // Zielgruppen fuer alle Zeilen: Der Import legte Konten ganz ohne Gruppe
+  // an, waehrend der Dialog „Benutzer anlegen" genau das verweigert
+  // (Audit 11/2026, VERW-07). Jede Zeile kommt in die gewaehlten Gruppen,
+  // die sie betreten kann — die Vorschau sagt, wenn keine passt.
+  const [groupIds, setGroupIds] = useState<string[]>([])
+  const gruppen = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
 
-  const domain = state.settings.allowedDomains[0] ?? 'aviationacademy.at'
-  const uebernehmbar = (result?.rows ?? []).filter(isImportable)
+  const ohneGruppe = (r: ImportRow) => importOhneGruppe(state.settings, r, state.groups, groupIds)
+  const uebernehmbar = (result?.rows ?? []).filter((r) => isImportable(r) && !ohneGruppe(r))
+  // Beispielzeilen der Vorlage zaehlen nicht mit — weder als „kann angelegt
+  // werden" noch als Zeile, die durchfaellt (VERW-06).
+  const gezaehlt = (result?.rows ?? []).filter((r) => !istBeispielZeile(r))
 
   const problemText = (r: ImportRow) =>
-    r.problems
-      .map((p) => (p === 'aircraft' ? t('admin.import.pAircraft', { list: r.unknownAircraft.join(', ') }) : t(`admin.import.p_${p}`)))
-      .join(' · ')
+    [
+      ...r.problems.map((p) => (p === 'aircraft' ? t('admin.import.pAircraft', { list: r.unknownAircraft.join(', ') }) : t(`admin.import.p_${p}`))),
+      ...(ohneGruppe(r) ? [t('admin.import.p_group')] : []),
+    ].join(' · ')
 
   return (
     <Modal title={t('admin.import.title')} onClose={onClose}>
@@ -95,13 +71,13 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
             Auswahllisten mit, die CSV-Fassung entsteht aus den tatsaechlich
             eingerichteten Mustern und der ersten freigegebenen Domain. */}
         <div className="flex flex-wrap gap-2">
-          <Button variant="ghost" className="flex items-center gap-1.5" onClick={() => window.open(`${import.meta.env.BASE_URL}Instructor-Connect-Benutzer-Vorlage.xlsx`, '_blank')}>
+          <Button variant="ghost" className="flex items-center gap-1.5" onClick={() => window.open(`${import.meta.env.BASE_URL}${VORLAGE_XLSX}`, '_blank')}>
             <Download size={15} /> {t('admin.import.templateXlsx')}
           </Button>
           <Button
             variant="ghost"
             onClick={() => {
-              downloadCsv('instructor-connect-users-template.csv', buildImportTemplate(state.settings.aircraftTypes, domain))
+              downloadCsv(VORLAGE_CSV, buildImportTemplate(state.settings.aircraftTypes))
               toast(t('toast.downloaded'))
             }}
             className="flex items-center gap-1.5"
@@ -119,6 +95,12 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
               if (!datei) return
               setFileName(datei.name)
               setDone(null)
+              const ist = istTabellenDatei(datei.name, new Uint8Array(await datei.slice(0, 4).arrayBuffer()))
+              setTabelle(ist)
+              if (ist) {
+                setResult(null)
+                return
+              }
               setResult(
                 parseUserImport(await datei.text(), {
                   existing: state.users,
@@ -132,6 +114,17 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
           {fileName && <p className="mt-1.5 text-micro text-dim">{fileName}</p>}
         </Field>
 
+        <Field label={t('admin.import.groups')} group>
+          <ChipMultiSelect options={gruppen.map((g) => ({ id: g.id, label: g.name }))} selected={groupIds} onChange={setGroupIds} />
+          <p className="mt-1.5 text-micro leading-relaxed text-dim">{t('admin.import.groupsHint')}</p>
+        </Field>
+
+        {tabelle && (
+          <p role="alert" className="rounded-xl bg-danger/10 p-3 text-small leading-relaxed text-danger">
+            {t('admin.import.xlsxHint')}
+          </p>
+        )}
+
         {result?.headerError && (
           <p role="alert" className="rounded-xl bg-danger/10 p-3 text-small leading-relaxed text-danger">
             {t('admin.import.headerError')}
@@ -141,33 +134,41 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
         {result && !result.headerError && (
           <>
             <p className="text-small font-medium">
-              {t('admin.import.summary', { ok: uebernehmbar.length, total: result.rows.length })}
+              {t('admin.import.summary', { ok: uebernehmbar.length, total: gezaehlt.length })}
+              {gezaehlt.length < result.rows.length && ` ${t('admin.import.examplesSkipped', { count: result.rows.length - gezaehlt.length })}`}
             </p>
             {/* Vorschau als echte Tabelle: Jede Zeile zeigt, ob sie durchgeht
-                und woran es sonst liegt — mit der Zeilennummer aus Excel. */}
+                und woran es sonst liegt — mit der Zeilennummer aus Excel.
+                Kopf „Zeile" und Rolle bleiben ganze Woerter (`zusammen`):
+                Mit `overflow-wrap: anywhere` gab die Tabelle die schmale
+                Breite des Dialogs an sie weiter, und es stand „Zeil/e",
+                „Mitgli/ed" da. Brechen darf die E-Mail-Adresse. */}
             <div className="max-h-72 overflow-auto rounded-xl border border-line/15">
               <table className="w-full border-collapse text-micro">
                 <thead className="sticky top-0 bg-surface">
                   <tr className="border-b border-line/15 text-left text-dim">
-                    <th scope="col" className="px-2 py-1.5 font-semibold">{t('admin.import.line')}</th>
-                    <th scope="col" className="px-2 py-1.5 font-semibold">{t('admin.name')}</th>
-                    <th scope="col" className="px-2 py-1.5 font-semibold">{t('admin.role')}</th>
+                    <th scope="col" className="zusammen px-2 py-1.5 font-semibold">{t('admin.import.line')}</th>
+                    <th scope="col" className="px-2 py-1.5 font-semibold">{t('contacts.name')}</th>
+                    <th scope="col" className="zusammen px-2 py-1.5 font-semibold">{t('admin.role')}</th>
                     <th scope="col" className="px-2 py-1.5 font-semibold">{t('admin.import.status')}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {result.rows.map((r) => {
-                    const ok = isImportable(r)
+                    const ok = isImportable(r) && !ohneGruppe(r)
+                    // Beispielzeile: grau und benannt, weder gruen noch rot —
+                    // sie ist kein Fehler, sie wird nur nicht angelegt.
+                    const beispiel = istBeispielZeile(r)
                     return (
                       <tr key={r.line} className="border-b border-line/[0.06] last:border-0 align-top">
                         <td className="px-2 py-1.5 tabular-nums text-dim">{r.line}</td>
                         <td className="px-2 py-1.5">
-                          <span className="font-medium">{r.name || '—'}</span>
+                          <span className={beispiel ? 'text-dim' : 'font-medium'}>{r.name || '—'}</span>
                           <span className="block text-dim">{r.email || '—'}</span>
                         </td>
-                        <td className="px-2 py-1.5">{r.role ? t(`roles.${r.role}`) : '—'}</td>
-                        <td className={`px-2 py-1.5 ${ok ? 'text-ok' : 'text-danger'}`}>
-                          {r.problems.length === 0 ? t('admin.import.ok') : problemText(r)}
+                        <td className={`zusammen px-2 py-1.5 ${beispiel ? 'text-dim' : ''}`}>{r.role ? t(`roles.${r.role}`) : '—'}</td>
+                        <td className={`px-2 py-1.5 ${beispiel ? 'text-dim' : ok ? 'text-ok' : 'text-danger'}`}>
+                          {beispiel ? t('admin.import.p_example') : r.problems.length === 0 && ok ? t('admin.import.ok') : problemText(r)}
                         </td>
                       </tr>
                     )
@@ -192,17 +193,18 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
             disabled={uebernehmbar.length === 0 || done !== null}
             onClick={() => {
               const ergebnis = importUsers(
-                  uebernehmbar.map((r) => ({
-                    name: r.name,
-                    email: r.email,
-                    phone: r.phone,
-                    role: r.role!,
-                    aircraftTypes: r.aircraftTypes,
-                    canGrade: r.canGrade,
-                    isTrainee: r.isTrainee,
-                    canEditDirectory: r.canEditDirectory,
-                    active: r.active,
-                  })),
+                uebernehmbar.map((r) => ({
+                  name: r.name,
+                  email: r.email,
+                  phone: r.phone,
+                  role: r.role!,
+                  aircraftTypes: r.aircraftTypes,
+                  canGrade: r.canGrade,
+                  isTrainee: r.isTrainee,
+                  canEditDirectory: r.canEditDirectory,
+                  active: r.active,
+                })),
+                groupIds,
               )
               setDone(ergebnis)
               toast(t('toast.usersImported', { count: ergebnis }), ergebnis ? 'ok' : 'wait')
@@ -253,8 +255,22 @@ function UsersTab() {
   const [bulkMuster, setBulkMuster] = useState('')
   const emailTaken =
     !!form.email.trim() && state.users.some((u) => u.email.trim().toLowerCase() === form.email.trim().toLowerCase())
+  // Dasselbe Adressmuster wie der Import (EMAIL aus userImport.ts) und
+  // dieselbe Domainregel wie Anmeldung und Import (domains.ts). Der Dialog
+  // hatte ein eigenes Muster und kannte die Domainliste gar nicht — er legte
+  // Konten an, die sich nie anmelden konnten (Audit 11/2026, VERW-12).
+  const emailGueltig = EMAIL.test(form.email.trim())
+  const domainFalsch = emailGueltig && !domainErlaubt(form.email, state.settings.allowedDomains)
+  // Gruppen nur zur Auswahl, die die neue Person betreten kann; Pflicht nur
+  // mit Chat-Modul (KERN-07/VERW-16). Neue Konten haben keine Personenrechte.
+  const neuePerson = { role: form.role, aircraftTypes: form.aircraftTypes, canGrade: false, canEditDirectory: false }
+  const gruppenNoetig = gruppenPflicht(state.settings, neuePerson)
 
   const sortedGroups = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
+  const gruppenZurWahl = sortedGroups.filter((g) => gruppenTauglich(state.settings, neuePerson, g))
+  // Wechselt Rolle oder Muster, faellt eine nicht mehr passende Gruppe aus
+  // der Auswahl — gespeichert wird nur, was die Person betreten kann.
+  const gewaehlteGruppen = form.groupIds.filter((id) => gruppenZurWahl.some((g) => g.id === id))
   const ROLE_RANK: Record<Role, number> = { superadmin: 0, group_admin: 1, training_admin: 2, member: 3 }
   const allUsers = [...state.users].sort((a, b) =>
     sortMode === 'role' ? ROLE_RANK[a.role] - ROLE_RANK[b.role] || a.name.localeCompare(b.name) : a.name.localeCompare(b.name),
@@ -269,6 +285,35 @@ function UsersTab() {
   })
 
   /**
+   * Eine Aenderung an EINER Person — mit Grund, wenn sie nicht geht.
+   *
+   * Der Store liess Verbotenes still fallen, die Zeile rief ihn ohne
+   * Rueckgabe auf: Ein Klick, der nicht ankam, sah aus wie einer, der
+   * ankam (Audit 11/2026, VERW-10). Gefragt wird dieselbe Funktion, die der
+   * Store anwendet (benutzerRegeln.ts) — die Meldung kann ihm also nicht
+   * widersprechen.
+   */
+  const aendern = (u: User, aenderung: Partial<User>, quittung: string): boolean => {
+    const erg = einzelAenderung(state.users, u, aenderung, currentUser!.id, { groups: state.groups, settings: state.settings })
+    if (erg.abgelehnt.length > 0) {
+      toast(erg.abgelehnt.map((grund) => t(`admin.einzel.${grund}`, { name: u.name })).join(' '), 'wait')
+      return false
+    }
+    updateUser(u.id, aenderung)
+    if (erg.gruppeFehlt) toast(`${quittung} ${t('admin.einzel.gruppeFehlt', { name: u.name })}`, 'wait')
+    else toast(quittung)
+    return true
+  }
+
+  /** Rollenwechsel: Rechteaenderung, deshalb mit Rueckfrage (VERW-01). */
+  const rolleAendern = (u: User, rolle: Role) => {
+    const probe = einzelAenderung(state.users, u, { role: rolle }, currentUser!.id, { groups: state.groups, settings: state.settings })
+    // Was ohnehin abgelehnt wird, braucht keine Rueckfrage — nur den Grund.
+    if (probe.abgelehnt.length === 0 && !window.confirm(t('admin.roleConfirm', { name: u.name, from: t(`roles.${u.role}`), to: t(`roles.${rolle}`) }))) return
+    aendern(u, { role: rolle }, t('toast.roleChanged', { name: u.name, role: t(`roles.${rolle}`) }))
+  }
+
+  /**
    * Eine Sammelaktion ausfuehren.
    *
    * Geplant wird in src/bulkUsers.ts, damit zwei Zusagen pruefbar sind: Der
@@ -278,7 +323,7 @@ function UsersTab() {
    * Verweigern waere so schlecht wie stilles Ausfuehren.
    */
   const bulkAusfuehren = (bezeichnung: string, aktion: BulkAktion) => {
-    const plan = planBulk(state.users, users, gewaehlt, aktion, currentUser!.id)
+    const plan = planBulk(state.users, users, gewaehlt, aktion, currentUser!.id, { groups: state.groups, settings: state.settings })
     if (plan.patches.length === 0 && plan.uebersprungen.length === 0) {
       toast(t('admin.bulk.noChange'), 'wait')
       return
@@ -293,6 +338,12 @@ function UsersTab() {
     // „CL30 faellt aus der Flotte" traf sonst auch die, die nur CL30 hatten.
     const letztes = plan.uebersprungen.filter((x) => x.grund === 'letztesMuster').length
     if (letztes) window.alert(t('admin.bulk.skippedLastAircraft', { count: letztes }))
+    // Bewerten/Verzeichnis bei Admin, Training Admin, Superadmin: Dort
+    // entscheidet die Rolle, das Flag haette nichts bewirkt (VERW-02).
+    const ueberRolle = plan.uebersprungen.filter((x) => x.grund === 'ueberRolle').length
+    if (ueberRolle) window.alert(t('admin.bulk.skippedViaRole', { count: ueberRolle }))
+    const letzteGruppe = plan.uebersprungen.filter((x) => x.grund === 'letzteGruppe').length
+    if (letzteGruppe) window.alert(t('admin.bulk.skippedLastGroup', { count: letzteGruppe }))
     if (plan.patches.length > 0) toast(t('toast.bulkApplied', { count: plan.patches.length }))
     setGewaehlt([])
   }
@@ -444,7 +495,12 @@ function UsersTab() {
         {sortMode === 'role' && (i === 0 || users[i - 1].role !== u.role) && (
           <SectionHeading className="mb-2 mt-4 px-1 first:mt-0">{t(`roles.${u.role}`)}</SectionHeading>
         )}
-        <Card className={`p-3 ${u.active ? '' : 'opacity-55'}`}>
+        {/* Deaktiviert zeigt das Badge und ein gestrichelter Rand — nicht
+            gedaempfte Deckkraft: Die drueckte die E-Mail-Zeile auf 2,7:1,
+            und die Karte bleibt bedienbar (Audit 11/2026, VERW-17). Der
+            Rand braucht eine eigene Farbe: Der Kartenrand liegt bei 6 %
+            Deckkraft, gestrichelt war er im Build nicht zu sehen. */}
+        <Card className={`p-3 ${u.active ? '' : 'border-dashed !border-line/30'}`}>
           {/* Kopfzeile: immer sichtbar, ganze Zeile klappt auf.
               Das Auswahlkaestchen steht NEBEN dem aufklappenden Knopf, nicht
               darin — ein Kaestchen in einem Knopf laesst sich weder
@@ -461,7 +517,14 @@ function UsersTab() {
             className="h-6 w-6 shrink-0 accent-accent"
           />
           </label>
-          <button onClick={() => setOpenId(openId === u.id ? null : u.id)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+          {/* aria-expanded/-controls: Die Zeile klappte ohne Zustandsangabe
+              auf — eine Sprachausgabe sagte nur „Schaltflaeche" (VERW-21). */}
+          <button
+            onClick={() => setOpenId(openId === u.id ? null : u.id)}
+            aria-expanded={openId === u.id}
+            aria-controls={`nutzer-details-${u.id}`}
+            className="flex min-h-11 min-w-0 flex-1 items-center gap-3 text-left"
+          >
             <Avatar name={u.name} size={34} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-body font-semibold">{u.name}</p>
@@ -472,12 +535,21 @@ function UsersTab() {
             <ChevronDown size={16} className={`shrink-0 text-dim transition ${openId === u.id ? 'rotate-180' : ''}`} />
           </button>
           </div>
-          <div className={openId === u.id ? '' : 'hidden'}>
+          <div id={`nutzer-details-${u.id}`} className={openId === u.id ? '' : 'hidden'}>
           <div className="mt-3 flex flex-wrap items-center gap-2 text-small">
+            {/* Die eigene Rolle ist gesperrt — wie in der Datenbank
+                (profiles_guard, IC-SELF). Ein Klick machte den Superadmin
+                sonst zum Mitglied, und er stand vor „kein Zugriff" (VERW-01).
+                Jeder andere Wechsel fragt nach und quittiert. */}
+            {/* Name der Auswahl mit der Person: In der Liste stehen bis zu
+                130 davon, „Rolle" allein sagt nicht, wessen (VERW-21). */}
             <select
               value={u.role}
-              onChange={(e) => updateUser(u.id, { role: e.target.value as Role })}
-              className="rounded-lg border border-field bg-bg/60 px-2 py-1.5"
+              aria-label={`${t('admin.role')}: ${u.name}`}
+              disabled={u.id === currentUser!.id}
+              aria-describedby={u.id === currentUser!.id ? `eigene-rolle-${u.id}` : undefined}
+              onChange={(e) => rolleAendern(u, e.target.value as Role)}
+              className="min-h-11 rounded-lg border border-field bg-bg/60 px-2 py-1.5 disabled:cursor-not-allowed"
             >
               {(['member', 'training_admin', 'group_admin', 'superadmin'] as Role[]).map((r) => (
                 <option key={r} value={r}>
@@ -485,7 +557,12 @@ function UsersTab() {
                 </option>
               ))}
             </select>
-            {/* Die vier Rechte an der Person (bewerten, Pilot, Verzeichnis
+            {u.id === currentUser!.id && (
+              <span id={`eigene-rolle-${u.id}`} className="text-micro text-dim">
+                {t('admin.ownRoleLocked')}
+              </span>
+            )}
+            {/* Die vier Rechte an der Person (bewerten, Trainee, Verzeichnis
                 pflegen, Chat gesperrt) standen hier als Kaestchen — und
                 dieselben vier noch einmal als Schalter der Sammelbearbeitung,
                 und die Rollen-Matrix daneben in einem eigenen Bereich. Wer
@@ -494,7 +571,7 @@ function UsersTab() {
                 bleibt nur der Weg dorthin. Was hier bleibt, gehoert zur
                 Identitaet des Nutzers: Rolle, Muster, Gruppen, aktiv. */}
             <button
-              onClick={() => navigate('/admin/permissions')}
+              onClick={() => navigate(rechteLink(u.email))}
               className="min-h-11 flex items-center gap-1.5 rounded-lg px-2 py-1 text-accent transition hover:bg-accent/10"
             >
               <ShieldCheck size={14} /> {t('admin.toPermissions')}
@@ -503,25 +580,45 @@ function UsersTab() {
                 unterschriebenen Formularen und in Chats ein Verweis ins
                 Leere, und die Historie verlöre ihren Urheber. */}
             <span className="ml-auto flex gap-2">
-              <button
-                onClick={() => updateUser(u.id, { active: !u.active })}
-                className="min-h-11 rounded-lg px-2 py-1 text-dim hover:bg-line/5 hover:text-ink"
-              >
-                {u.active ? t('admin.deactivate') : t('admin.activate')}
-              </button>
+              {/* Das eigene Konto: kein Knopf, der still verpufft, sondern
+                  der Grund an seiner Stelle (VERW-10). */}
+              {u.id === currentUser!.id ? (
+                <span className="flex min-h-11 items-center px-2 text-micro text-dim">{t('admin.ownAccountLocked')}</span>
+              ) : (
+                <button
+                  onClick={() =>
+                    aendern(u, { active: !u.active }, t(u.active ? 'toast.userDeactivated' : 'toast.userActivated', { name: u.name }))
+                  }
+                  className="min-h-11 rounded-lg px-2 py-1 text-dim hover:bg-line/5 hover:text-ink"
+                >
+                  {u.active ? t('admin.deactivate') : t('admin.activate')}
+                </button>
+              )}
             </span>
           </div>
           {/* Gruppenzugehörigkeit direkt am Nutzer pflegbar — steuert
               Chat-Zugang und Instructor-Info-Sichtbarkeit */}
           <div className="mt-2.5">
             <p className="mb-1.5 text-micro text-dim">{t('admin.userGroups')}</p>
+            {/* Angeboten wird, was die Person betreten kann; eine
+                bestehende Mitgliedschaft ohne Zugang bleibt sichtbar (und
+                entfernbar) und sagt es dazu (KERN-07/VERW-16). */}
             <ChipMultiSelect
-              options={sortedGroups.map((g) => ({ id: g.id, label: g.name }))}
+              options={sortedGroups
+                .filter((g) => g.memberIds.includes(u.id) || gruppenTauglich(state.settings, u, g))
+                .map((g) => ({
+                  id: g.id,
+                  label: gruppenTauglich(state.settings, u, g) ? g.name : `${g.name} (${t('chatInfo.noAccess')})`,
+                }))}
               selected={sortedGroups.filter((g) => g.memberIds.includes(u.id)).map((g) => g.id)}
               onChange={(ids) => {
-                // Dieselbe Invariante wie beim Anlegen: ohne Gruppe verliert
-                // der Nutzer Chat-Zugang und Instructor-Info-Sichtbarkeit.
-                if (ids.length === 0) {
+                // Dieselbe Invariante wie beim Anlegen: Wer den Chat hat,
+                // behaelt mindestens eine Gruppe, die er betreten kann.
+                const nachher = state.groups.map((g) => ({
+                  ...g,
+                  memberIds: ids.includes(g.id) ? [...new Set([...g.memberIds, u.id])] : g.memberIds.filter((x) => x !== u.id),
+                }))
+                if (verliertLetzteGruppe(state.settings, u, state.groups, nachher)) {
                   window.alert(t('admin.lastGroupBlocked'))
                   return
                 }
@@ -547,11 +644,10 @@ function UsersTab() {
                   // Store weist das ab; ohne Meldung sahe es hier aus wie ein
                   // Klick, der nicht ankommt. Direkt darueber, bei den Gruppen,
                   // gibt es diesen Riegel seit jeher.
-                  if (musterFehlt({ role: u.role, aircraftTypes })) {
-                    window.alert(t('admin.lastAircraftBlocked'))
-                    return
-                  }
-                  updateUser(u.id, { aircraftTypes })
+                  // Seit die Gruppenpflicht nur erreichbare Gruppen zaehlt,
+                  // kann auch der Verlust eines Musters jemanden aus seiner
+                  // letzten Gruppe nehmen — dieselbe Pruefung wie im Store.
+                  aendern(u, { aircraftTypes }, t('toast.userChanged', { name: u.name }))
                 }}
               />
             </Field>
@@ -579,14 +675,19 @@ function UsersTab() {
             <Field label={t('contacts.email') + ' *'}>
               <input
                 type="email"
-                className={`${inputCls} ${emailTaken ? 'border-danger/60' : ''}`}
+                className={`${inputCls} ${emailTaken || domainFalsch ? 'border-danger/60' : ''}`}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
               />
               {/* Die Adresse muss eindeutig bleiben — sonst hätten zwei Konten
-                  denselben Login. Direkt am Feld, nicht erst beim Speichern. */}
+                  denselben Login. Direkt am Feld, nicht erst beim Speichern.
+                  Ebenso die Domain: Ohne Freigabe kaeme die Person nie hinein. */}
               {emailTaken ? (
                 <p className="mt-1.5 text-micro leading-relaxed text-danger">{t('admin.emailTaken')}</p>
+              ) : domainFalsch ? (
+                <p className="mt-1.5 text-micro leading-relaxed text-danger">
+                  {t('admin.emailDomainNotAllowed', { list: state.settings.allowedDomains.join(', ') })}
+                </p>
               ) : (
                 <p className="mt-1.5 text-micro leading-relaxed text-dim">{t('admin.emailLoginHint')}</p>
               )}
@@ -607,16 +708,6 @@ function UsersTab() {
                 ))}
               </select>
             </Field>
-            {/* Pflicht: jede Person gehört mindestens einer Gruppe an —
-                Gruppen steuern Chat-Zugang und Instructor-Info-Sichtbarkeit */}
-            <Field label={t('admin.userGroups') + ' *'} group>
-              <ChipMultiSelect
-                options={sortedGroups.map((g) => ({ id: g.id, label: g.name }))}
-                selected={form.groupIds}
-                onChange={(groupIds) => setForm({ ...form, groupIds })}
-              />
-              <p className="mt-1.5 text-micro leading-relaxed text-dim">{t('admin.userGroupsHint')}</p>
-            </Field>
             {/* Pflicht dort, wo die Zuordnung etwas bewirkt: bei Mitglied und
                 Admin. Superadmin und Training Admin sehen ohnehin alles — ein
                 Pflichtfeld ohne Wirkung waere schlimmer als keines, weil der
@@ -633,6 +724,24 @@ function UsersTab() {
                 {musterPflicht(form.role) ? t('admin.aircraftTypesHint') : t('admin.aircraftTypesFree')}
               </p>
             </Field>
+            {/* Pflicht: Wer den Chat hat, gehört mindestens einer Gruppe an,
+                die er auch betreten kann — deshalb NACH den Mustern: Sie
+                entscheiden, welche Gruppen in Frage kommen. Der Training
+                Admin hat keinen Chat; für ihn entfällt das Feld. */}
+            {gruppenNoetig ? (
+              <Field label={t('admin.userGroups') + ' *'} group>
+                <ChipMultiSelect
+                  options={gruppenZurWahl.map((g) => ({ id: g.id, label: g.name }))}
+                  selected={gewaehlteGruppen}
+                  onChange={(groupIds) => setForm({ ...form, groupIds })}
+                />
+                <p className="mt-1.5 text-micro leading-relaxed text-dim">
+                  {gruppenZurWahl.length === 0 ? t('admin.userGroupsNoneReachable') : t('admin.userGroupsHint')}
+                </p>
+              </Field>
+            ) : (
+              <p className="text-micro leading-relaxed text-dim">{t('admin.userGroupsNotNeeded')}</p>
+            )}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setShowNew(false)}>
                 {t('common.cancel')}
@@ -640,8 +749,9 @@ function UsersTab() {
               <Button
                 disabled={
                   !form.name.trim() ||
-                  !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim()) ||
-                  form.groupIds.length === 0 ||
+                  !emailGueltig ||
+                  domainFalsch ||
+                  (gruppenNoetig && gewaehlteGruppen.length === 0) ||
                   (musterPflicht(form.role) && form.aircraftTypes.length === 0) ||
                   emailTaken
                 }
@@ -651,7 +761,7 @@ function UsersTab() {
                   // dieselbe Adresse vergeben haben. Vorher schloss der Dialog
                   // auch dann und leerte das Formular — der Anwender hatte
                   // einen Nutzer angelegt, den es nicht gab.
-                  const ok = addUser(form)
+                  const ok = addUser({ ...form, groupIds: gewaehlteGruppen })
                   if (!ok) {
                     toast(t('toast.userSaveFailed'), 'bad')
                     return
@@ -694,7 +804,8 @@ function PermissionsTab() {
   const { t } = useTranslation()
   const { state, setPermission, updateUser, setDocCheckRights } = useStore()
   const roles: ConfigurableRole[] = ['group_admin', 'training_admin']
-  const [suche, setSuche] = useState('')
+  // Vorbelegt aus „Rechte dieser Person" (?q=E-Mail), sonst leer (VERW-22).
+  const [suche, setSuche] = useState(() => suchAusQuery(window.location.hash))
 
   // Dieselbe Sortierung wie die Benutzerliste: alphabetisch. Eine
   // Rechtetabelle, in der man jemanden suchen muss, wird nicht gelesen.
@@ -772,21 +883,48 @@ function PermissionsTab() {
                     <span className={u.active ? '' : 'text-dim line-through'}>{u.name}</span>
                     <span className="block text-micro text-dim">{t(`roles.${u.role}`)}</span>
                   </td>
-                  {PERSON_PERMS.map((perm) => (
-                    <td key={perm} className="py-2.5 pr-3 text-center">
-                      <input
-                        type="checkbox"
-                        checked={!!u[perm]}
-                        onChange={(e) => updateUser(u.id, { [perm]: e.target.checked })}
-                        /* Die Sperre ist das einzige umgekehrt gemeinte Recht:
-                           Ein Haken nimmt etwas weg. Sie bekommt deshalb die
-                           Warnfarbe statt der Akzentfarbe — sonst liest sich
-                           die Zeile falsch herum. */
-                        className={`h-6 w-6 ${istSperre(perm) ? 'accent-[#e05252]' : 'accent-accent'}`}
-                        aria-label={`${u.name}: ${t(`admin.${perm}`)}`}
-                      />
-                    </td>
-                  ))}
+                  {PERSON_PERMS.map((perm) =>
+                    personenRechtWirkt(u.role, perm) ? (
+                      <td key={perm} className="py-2.5 pr-3 text-center">
+                        {/* 44 px Trefferflaeche ueber das Label, wie in der
+                            Matrix darueber (VERW-21). */}
+                        <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
+                        <input
+                          type="checkbox"
+                          checked={!!u[perm]}
+                          onChange={(e) => updateUser(u.id, { [perm]: e.target.checked })}
+                          /* Die Sperre ist das einzige umgekehrt gemeinte Recht:
+                             Ein Haken nimmt etwas weg. Sie bekommt deshalb die
+                             Warnfarbe statt der Akzentfarbe — sonst liest sich
+                             die Zeile falsch herum. Als Token, nicht als
+                             Farbwert: der folgt dem Theme (VERW-21). */
+                          className={`h-6 w-6 ${istSperre(perm) ? 'accent-danger' : 'accent-accent'}`}
+                          aria-label={`${u.name}: ${t(`admin.${perm}`)}`}
+                        />
+                        </label>
+                      </td>
+                    ) : (
+                      /* Bei dieser Rolle entscheidet die Matrix oben (bzw. beim
+                         Superadmin gar nichts) — ein bedienbares Kaestchen
+                         speicherte ein Flag ohne Folgen, und wer einem Admin
+                         das Bewerten „entzog", liess ihn weiter bewerten
+                         (Audit 11/2026, VERW-02). Gezeigt wird deshalb der
+                         WIRKSAME Wert, gesperrt und mit Herkunft. */
+                      <td key={perm} className="py-2.5 pr-3 text-center">
+                        <span className="inline-flex flex-col items-center gap-0.5">
+                          <input
+                            type="checkbox"
+                            checked={personenRechtWirksam(state.settings, u, perm)}
+                            disabled
+                            readOnly
+                            className="h-6 w-6 accent-accent"
+                            aria-label={`${u.name}: ${t(`admin.${perm}`)} — ${t('admin.viaRoleHint')}`}
+                          />
+                          <span className="text-micro text-dim">{t('admin.viaRole')}</span>
+                        </span>
+                      </td>
+                    ),
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -828,6 +966,7 @@ function PermissionsTab() {
                   ) : (
                     (['docCheckAccess', 'docCheckAdmin'] as const).map((f) => (
                       <td key={f} className="py-2.5 pr-3 text-center">
+                        <label className="inline-flex min-h-11 min-w-11 cursor-pointer items-center justify-center">
                         <input
                           type="checkbox"
                           checked={!!u[f]}
@@ -835,6 +974,7 @@ function PermissionsTab() {
                           className="h-6 w-6 accent-accent"
                           aria-label={`${u.name}: ${t(`admin.${f}`)}`}
                         />
+                        </label>
                       </td>
                     ))
                   )}
@@ -869,9 +1009,79 @@ function PermissionsTab() {
   )
 }
 
+/**
+ * Name einer Gruppe — mit Entwurf, gespeichert erst am Ende der Eingabe.
+ *
+ * Das Feld schrieb bei jedem Tastendruck in den Store, und der Store
+ * beschnitt den Namen und verwarf leere: Ein Leerzeichen am Wortende
+ * verschwand, bevor das naechste Wort kam („Ground TrainingViennaBase"),
+ * und das Feld liess sich nicht leeren, um neu zu tippen. Ein doppelter
+ * Name als Zwischenstand schluckte Tastendruecke (Audit 11/2026, VERW-04).
+ *
+ * Jetzt wird beim Verlassen oder mit Enter geprueft (gruppen.ts, dieselbe
+ * Regel wie im Store). Geht der Name nicht, nennt das Feld den Grund und
+ * steht wieder auf dem alten Namen; Escape verwirft den Entwurf.
+ */
+export function GroupNameField({ group }: { group: Group }) {
+  const { t } = useTranslation()
+  const { state, renameGroup } = useStore()
+  const [entwurf, setEntwurf] = useState(group.name)
+  const [fehler, setFehler] = useState<GruppenNameFehler | null>(null)
+  const [tippt, setTippt] = useState(false)
+  const meldungId = useId()
+  // Aendert sich der Name anderswo (zweiter Tab), folgt das Feld — aber nie
+  // mitten in der Eingabe.
+  useEffect(() => {
+    if (!tippt) setEntwurf(group.name)
+  }, [group.name, tippt])
+  const uebernehmen = () => {
+    setTippt(false)
+    const grund = gruppenNameFehler(state.groups, group.id, entwurf)
+    setFehler(grund)
+    if (grund) {
+      setEntwurf(group.name)
+      return
+    }
+    renameGroup(group.id, entwurf)
+    setEntwurf(gruppenName(entwurf))
+  }
+  // Die Meldung steht AUSSERHALB des Labels: darin wuerde sie Teil des
+  // Feldnamens, und eine Sprachausgabe laese bei jedem Fokus den Fehler mit.
+  return (
+    <div>
+      <Field label={t('admin.groupName')}>
+        <input
+          value={entwurf}
+          onFocus={() => setTippt(true)}
+          onChange={(e) => {
+            setEntwurf(e.target.value)
+            setFehler(null)
+          }}
+          onBlur={uebernehmen}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+            if (e.key === 'Escape') {
+              setEntwurf(group.name)
+              setFehler(null)
+            }
+          }}
+          aria-invalid={fehler !== null}
+          aria-describedby={fehler ? meldungId : undefined}
+          className={`${inputCls} ${fehler ? 'border-danger/60' : ''}`}
+        />
+      </Field>
+      {fehler && (
+        <p id={meldungId} role="alert" className="mt-1.5 text-micro leading-relaxed text-danger">
+          {t(fehler === 'leer' ? 'admin.groupNameEmpty' : 'admin.groupNameTaken')} {t('admin.groupNameKept')}
+        </p>
+      )}
+    </div>
+  )
+}
+
 function GroupsTab() {
   const { t } = useTranslation()
-  const { state, currentUser, addGroup, renameGroup, deleteGroup, groupDeleteBlockers, setGroupAdmins, setGroupMembers, setGroupRetention, setGroupAircraft } =
+  const { state, currentUser, addGroup, deleteGroup, groupDeleteBlockers, setGroupAdmins, setGroupMembers, setGroupRetention, setGroupAircraft } =
     useStore()
   const [showNew, setShowNew] = useState(false)
   // aufgeklappte Gruppe (kompakte Liste bei vielen Gruppen)
@@ -879,8 +1089,11 @@ function GroupsTab() {
   const [name, setName] = useState('')
   const [purpose, setPurpose] = useState('')
   const [newAircraft, setNewAircraft] = useState('')
-  // Doppelte Gruppennamen wären im Chat nicht auseinanderzuhalten
-  const nameTaken = !!name.trim() && state.groups.some((g) => g.name.trim().toLowerCase() === name.trim().toLowerCase())
+  // Doppelte Gruppennamen wären im Chat nicht auseinanderzuhalten — dieselbe
+  // Regel wie im Store (gruppen.ts). Ein leeres Feld ist hier noch kein
+  // Fehler, nur ein nicht aktiver Speichern-Knopf.
+  const nameFehler = gruppenNameFehler(state.groups, null, name)
+  const nameTaken = nameFehler === 'vergeben'
 
   // Gruppen nach Muster sortiert: erst je Aircraft Type, dann die
   // musterübergreifenden — die Chat-Themen unterscheiden sich je Typ.
@@ -890,6 +1103,26 @@ function GroupsTab() {
     .filter((g) => currentUser!.role === 'superadmin' || g.adminIds.includes(currentUser!.id))
     .sort((a, b) => (a.aircraftType || 'zzz').localeCompare(b.aircraftType || 'zzz') || a.name.localeCompare(b.name))
   const activeUsers = state.users.filter((u) => u.active).sort((a, b) => a.name.localeCompare(b.name))
+  const istSuper = currentUser!.role === 'superadmin'
+  // Die eigene Person ist fuer den Gruppenadmin fest — wie in ChatInfo, wo
+  // die eigene Zeile keinen Entfernen-Knopf hat. Im Panel genuegte ein
+  // Fehlklick, und er verlor die Gruppe aus seiner Verwaltung (VERW-09).
+  const chip = (u: User, ohneZugang = false) => {
+    const selbst = u.id === currentUser!.id
+    const zusatz = [selbst ? t('admin.youMarker') : '', ohneZugang ? t('chatInfo.noAccess') : ''].filter(Boolean).join(', ')
+    return { id: u.id, label: zusatz ? `${u.name} (${zusatz})` : u.name, fest: selbst && !istSuper }
+  }
+  // Dieselbe Regel wie im Store (gruppen.ts): sich selbst herausnehmen geht
+  // nicht, den letzten Admin entfernen nur nach Rueckfrage.
+  const pruefe = (g: Group, memberIds: string[], adminIds: string[]) => {
+    const fehler = gruppenAenderungFehler(currentUser, g, memberIds, adminIds)
+    if (fehler === 'selbstEntfernt') {
+      window.alert(t('admin.groupSelfLocked'))
+      return false
+    }
+    if (fehler === 'ohneAdmin') return window.confirm(t('admin.groupNoAdminConfirm', { name: g.name }))
+    return true
+  }
   // Nur die eigenen Muster: Eine Gruppe fremden Musters koennte der
   // Anleger anschliessend selbst nicht betreten (maySeeGroup).
   const aircraftTypes = musterZurAuswahl(currentUser, [...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)))
@@ -914,7 +1147,12 @@ function GroupsTab() {
           {/* Kompakte Kopfzeile: Name und Mitgliederzahl, Details auf Klick */}
           <div className="flex items-center gap-3">
             <Avatar name={g.name} size={34} />
-            <button onClick={() => setOpenId(openId === g.id ? null : g.id)} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+            <button
+              onClick={() => setOpenId(openId === g.id ? null : g.id)}
+              aria-expanded={openId === g.id}
+              aria-controls={`gruppe-details-${g.id}`}
+              className="flex min-h-11 min-w-0 flex-1 items-center gap-2 text-left"
+            >
               <span className="min-w-0 flex-1 truncate text-body font-semibold">{g.name}</span>
               {g.aircraftType && (
                 <span className="shrink-0"><Badge tone="accent">{g.aircraftType}</Badge></span>
@@ -940,11 +1178,9 @@ function GroupsTab() {
               <Trash2 size={16} />
             </button>
           </div>
-          <div className={openId === g.id ? 'space-y-stack' : 'hidden'}>
+          <div id={`gruppe-details-${g.id}`} className={openId === g.id ? 'space-y-stack' : 'hidden'}>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={t('admin.groupName')}>
-              <input value={g.name} onChange={(e) => renameGroup(g.id, e.target.value)} className={inputCls} />
-            </Field>
+            <GroupNameField group={g} />
             {/* Muster der Gruppe — leer = musterübergreifend */}
             <Field label={t('admin.groupAircraft')}>
               <select
@@ -979,47 +1215,47 @@ function GroupsTab() {
               </select>
             </Field>
             <Field label={t('admin.groupAdmins')} group>
-              <div className="flex flex-wrap gap-1.5">
-                {activeUsers.map((u) => {
-                  const isAdmin = g.adminIds.includes(u.id)
-                  return (
-                    <button
-                      key={u.id}
-                      aria-pressed={isAdmin}
-                      onClick={() =>
-                        setGroupAdmins(g.id, isAdmin ? g.adminIds.filter((id) => id !== u.id) : [...g.adminIds, u.id])
-                      }
-                      className={`min-h-11 rounded-full border px-2.5 py-1 text-micro transition ${
-                        isAdmin ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/10 text-dim'
-                      }`}
-                    >
-                      {u.name}
-                    </button>
-                  )
-                })}
-              </div>
+              {/* Angeboten werden nur aktive Mitglieder: Bei allen anderen
+                  nahm der Store den Klick nicht an, und der Chip blieb ohne
+                  Meldung, wie er war (VERW-11). */}
+              <ChipMultiSelect
+                options={adminKandidaten(g, activeUsers).map((u) => chip(u))}
+                selected={g.adminIds}
+                onChange={(ids) => {
+                  if (pruefe(g, g.memberIds, ids)) setGroupAdmins(g.id, ids)
+                }}
+              />
             </Field>
           </div>
           <Field label={`${t('admin.membersManage')} (${g.memberIds.length})`} group>
-            <div className="flex flex-wrap gap-1.5">
-              {activeUsers.map((u) => {
-                const isMember = g.memberIds.includes(u.id)
-                return (
-                  <button
-                    key={u.id}
-                    aria-pressed={isMember}
-                    onClick={() =>
-                      setGroupMembers(g.id, isMember ? g.memberIds.filter((id) => id !== u.id) : [...g.memberIds, u.id])
-                    }
-                    className={`min-h-11 rounded-full border px-2.5 py-1 text-micro transition ${
-                      isMember ? 'border-warm/60 bg-warm/10 font-medium text-warm' : 'border-line/10 text-dim'
-                    }`}
-                  >
-                    {u.name}
-                  </button>
-                )
-              })}
-            </div>
+            {/* Angeboten wird nur, wer die Gruppe betreten kann — ein
+                Mitglied fremden Musters zaehlte sonst als Mitglied und sah
+                doch keinen Chat (KERN-07/VERW-16). Bestehende
+                Mitgliedschaften ohne Zugang bleiben sichtbar und benannt.
+                Dieselbe Mehrfachauswahl wie bei den Admins — vorher zwei
+                handgebaute Reihen in verschiedenen Farben. */}
+            <ChipMultiSelect
+              options={activeUsers
+                .filter((u) => g.memberIds.includes(u.id) || gruppenTauglich(state.settings, u, g))
+                .map((u) => chip(u, g.memberIds.includes(u.id) && !gruppenTauglich(state.settings, u, g)))}
+              selected={g.memberIds}
+              onChange={(ids) => {
+                if (!pruefe(g, ids, g.adminIds)) return
+                // Wer hier seine letzte erreichbare Gruppe verlöre, bleibt
+                // drin — der Store weist das ab; ohne Meldung sähe es aus wie
+                // ein Klick, der nicht ankommt.
+                const nachher = state.groups.map((x) => (x.id === g.id ? { ...x, memberIds: ids } : x))
+                const verliert = g.memberIds
+                  .filter((m) => !ids.includes(m))
+                  .map((m) => state.users.find((u) => u.id === m))
+                  .filter((u): u is User => !!u && verliertLetzteGruppe(state.settings, u, state.groups, nachher))
+                if (verliert.length > 0) {
+                  window.alert(t('chatInfo.deleteBlocked', { names: verliert.map((u) => u.name).join(', ') }))
+                  return
+                }
+                setGroupMembers(g.id, ids)
+              }}
+            />
           </Field>
           </div>
         </Card>
@@ -1063,9 +1299,9 @@ function GroupsTab() {
                 {t('common.cancel')}
               </Button>
               <Button
-                disabled={!name.trim() || nameTaken}
+                disabled={nameFehler !== null}
                 onClick={() => {
-                  addGroup(name.trim(), purpose.trim(), newAircraft || undefined)
+                  addGroup(name, purpose.trim(), newAircraft || undefined)
                   setShowNew(false)
                   setName('')
                   setPurpose('')
@@ -1091,12 +1327,15 @@ function FeedbackCard({
   onDelete,
   onResolve,
   onReopen,
+  onUmgeschaltet,
 }: {
   f: FeedbackEntry
   userName: (id: string) => string
   onDelete: (id: string) => void
   onResolve: (id: string, note: string) => void
   onReopen: (id: string) => void
+  /** Meldet das Umschalten von „Erledigt" — die Liste holt danach den Fokus zurueck. */
+  onUmgeschaltet?: (id: string) => void
 }) {
   const { t } = useTranslation()
   const done = !!f.resolvedBy
@@ -1104,22 +1343,27 @@ function FeedbackCard({
   const [editNote, setEditNote] = useState(false)
 
   return (
-    <Card className={`p-4 ${done ? 'opacity-80' : ''}`}>
+    // Erledigt steht im eigenen Abschnitt und traegt das Badge — die Karte
+    // wird nicht per Deckkraft gedaempft (3,1:1 fuer „Erledigt", VERW-17).
+    <Card className="p-4">
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-body font-semibold">{userName(f.authorId)}</p>
             <Badge tone="dim">{f.category}</Badge>
             <Badge tone={f.aircraftType ? 'accent' : 'dim'}>{f.aircraftType || t('feedback.scopeGeneral')}</Badge>
+            {/* Statusmarken aus Badge, nicht von Hand (CLAUDE.md): Die
+                Handpille „Erledigt" lag in Gruen auf eigener Flaeche bei
+                4,3:1, gedaempft bei 3,1:1 (VERW-17/A11Y-06). */}
             {f.urgent && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-danger/15 px-2.5 py-0.5 text-micro font-semibold text-danger">
-                <AlertTriangle size={11} /> {t('feedback.urgent')}
-              </span>
+              <Badge tone="bad">
+                <AlertTriangle size={11} className="mr-1" /> {t('feedback.urgent')}
+              </Badge>
             )}
             {done && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-ok/15 px-2.5 py-0.5 text-micro font-semibold text-ok">
-                <CheckCircle2 size={11} /> {t('admin.feedbackDone')}
-              </span>
+              <Badge tone="ok">
+                <CheckCircle2 size={11} className="mr-1" /> {t('admin.feedbackDone')}
+              </Badge>
             )}
           </div>
           <p className="mt-0.5 text-micro text-dim">
@@ -1172,11 +1416,12 @@ function FeedbackCard({
 
         <div className="flex shrink-0 flex-col items-end gap-2">
           {/* Tickbox „Erledigt" — schaltet Bearbeitet-Status um */}
-          <label className="flex cursor-pointer items-center gap-1.5 text-micro font-medium text-dim">
+          <label className="flex min-h-11 cursor-pointer items-center gap-1.5 text-micro font-medium text-dim">
             <input
               type="checkbox"
               checked={done}
               onChange={(e) => {
+                onUmgeschaltet?.(f.id)
                 if (e.target.checked) {
                   onResolve(f.id, note)
                   toast(t('toast.feedbackResolved'))
@@ -1207,9 +1452,30 @@ function FeedbackCard({
 }
 
 /** Eingegangenes Feedback: bleibt gespeichert, kann hier bei Bedarf gelöscht werden */
-function FeedbackTab() {
+export function FeedbackTab() {
   const { t } = useTranslation()
   const { state, currentUser, visibleFeedback, deleteFeedback, resolveFeedback, reopenFeedback } = useStore()
+  /*
+   * Fokus nach „Erledigt": Offene und erledigte Eintraege stehen in zwei
+   * Listen, die Karte wird beim Umschalten ab- und neu eingehaengt — der
+   * Fokus fiel auf <body>, und wer per Tastatur arbeitete, stand wieder oben
+   * auf der Seite (Audit 11/2026, A11Y-04). Die Liste merkt sich die Karte
+   * und setzt den Fokus nach dem Neuzeichnen auf deren Kaestchen.
+   */
+  const listeRef = useRef<HTMLDivElement>(null)
+  const umgeschaltet = useRef<string | null>(null)
+  useEffect(() => {
+    const id = umgeschaltet.current
+    if (!id) return
+    umgeschaltet.current = null
+    // Nur zurueckholen, was verloren ging.
+    if (document.activeElement && document.activeElement !== document.body) return
+    const karte = [...(listeRef.current?.querySelectorAll<HTMLElement>('[data-feedback-id]') ?? [])].find((k) => k.dataset.feedbackId === id)
+    karte?.querySelector<HTMLInputElement>('input[type="checkbox"]')?.focus()
+  }, [visibleFeedback])
+  const merken = (id: string) => {
+    umgeschaltet.current = id
+  }
   // Filter: Kategorie, Empfänger, nur Dringendes
   const [fCat, setFCat] = useState('')
   const [fRec, setFRec] = useState('')
@@ -1241,7 +1507,7 @@ function FeedbackTab() {
   const scopeTypes = [...new Set(all.map((f) => f.aircraftType).filter(Boolean) as string[])].sort()
 
   return (
-    <div className="space-y-stack">
+    <div ref={listeRef} className="space-y-stack">
       <div className="flex flex-wrap items-center gap-2">
         <select value={fCat} onChange={(e) => setFCat(e.target.value)} aria-label={t('admin.allCategories')} className="rounded-xl border border-field bg-bg/60 px-3 py-2 text-small">
           <option value="">{t('admin.allCategories')}</option>
@@ -1271,7 +1537,10 @@ function FeedbackTab() {
         <button
           onClick={() => setOnlyUrgent(!onlyUrgent)}
           className={`min-h-11 rounded-full border px-3 py-1.5 text-micro font-semibold transition ${
-            onlyUrgent ? 'border-danger bg-danger/15 text-danger' : 'border-line/15 text-dim'
+            // Aktiver Umschalter wie ChipMultiSelect: Farbe in Rand und
+            // Flaeche, Schrift ink — Rot auf eigener Rotflaeche blieb unter
+            // 4,5:1 (VERW-17).
+            onlyUrgent ? 'border-danger bg-danger/15 text-ink' : 'border-line/15 text-dim'
           }`}
         >
           {t('admin.onlyUrgent')}
@@ -1283,7 +1552,9 @@ function FeedbackTab() {
       {entries.length === 0 && <p className="pt-6 text-center text-body text-dim">{t('admin.feedbackEmpty')}</p>}
       {/* Offene zuerst, dann — abgesetzt — die bereits bearbeiteten. */}
       {open.map((f) => (
-        <FeedbackCard key={f.id} f={f} userName={userName} onDelete={deleteFeedback} onResolve={resolveFeedback} onReopen={reopenFeedback} />
+        <div key={f.id} data-feedback-id={f.id}>
+          <FeedbackCard f={f} userName={userName} onDelete={deleteFeedback} onResolve={resolveFeedback} onReopen={reopenFeedback} onUmgeschaltet={merken} />
+        </div>
       ))}
       {resolved.length > 0 && (
         <SectionHeading className="mt-4" icon={<CheckCircle2 size={14} className="shrink-0 text-ok" />}>
@@ -1291,7 +1562,9 @@ function FeedbackTab() {
         </SectionHeading>
       )}
       {resolved.map((f) => (
-        <FeedbackCard key={f.id} f={f} userName={userName} onDelete={deleteFeedback} onResolve={resolveFeedback} onReopen={reopenFeedback} />
+        <div key={f.id} data-feedback-id={f.id}>
+          <FeedbackCard f={f} userName={userName} onDelete={deleteFeedback} onResolve={resolveFeedback} onReopen={reopenFeedback} onUmgeschaltet={merken} />
+        </div>
       ))}
     </div>
   )
@@ -1354,10 +1627,73 @@ function StorageCard() {
   )
 }
 
-function SettingsTab() {
+/**
+ * „Maximale Upload-Groesse" mit Entwurf: Das Feld rechnete bei jedem
+ * Tastendruck auf mindestens 1 — Leeren ergab „1", danach „25" getippt
+ * ergab 125, gespeichert ohne Obergrenze (Audit 11/2026, VERW-20). Jetzt
+ * darf das Feld zwischendurch leer sein; geprueft und gespeichert wird beim
+ * Verlassen oder mit Enter (uploadGrenze, einstellungen.ts).
+ */
+export function UploadGrenzeFeld() {
   const { t } = useTranslation()
   const { state, updateSettings } = useStore()
+  const gespeichert = state.settings.maxUploadMB
+  const [entwurf, setEntwurf] = useState(String(gespeichert))
+  const [tippt, setTippt] = useState(false)
+  const hinweisId = useId()
+  // Aendert sich der Wert anderswo (zweiter Tab), folgt das Feld — nie
+  // mitten in der Eingabe.
+  useEffect(() => {
+    if (!tippt) setEntwurf(String(gespeichert))
+  }, [gespeichert, tippt])
+  const uebernehmen = () => {
+    setTippt(false)
+    const wert = uploadGrenze(entwurf, gespeichert)
+    setEntwurf(String(wert))
+    if (wert !== gespeichert) {
+      updateSettings({ maxUploadMB: wert })
+      toast(t('toast.maxUploadSaved', { max: wert }))
+    }
+  }
+  return (
+    <div>
+      <Field label={t('admin.maxUpload')}>
+        <input
+          type="number"
+          inputMode="numeric"
+          min={1}
+          max={MAX_UPLOAD_MB}
+          value={entwurf}
+          aria-describedby={hinweisId}
+          onFocus={() => setTippt(true)}
+          onChange={(e) => setEntwurf(e.target.value)}
+          onBlur={uebernehmen}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') e.currentTarget.blur()
+            if (e.key === 'Escape') setEntwurf(String(gespeichert))
+          }}
+          className={inputCls}
+        />
+      </Field>
+      <p id={hinweisId} className="mt-1.5 text-micro leading-relaxed text-dim">
+        {t('admin.maxUploadHint', { max: MAX_UPLOAD_MB })}
+      </p>
+    </div>
+  )
+}
+
+function SettingsTab() {
+  const { t } = useTranslation()
+  const { state, currentUser, updateSettings } = useStore()
   const s = state.settings
+  // Warum ein Muster nicht geloescht werden kann — mit Zahlen, wie das
+  // Gruppenloeschen seine Blocker nennt (VERW-18).
+  const musterGrund = (typ: string): string | null => {
+    const v = musterInVerwendung(state, typ)
+    if (!musterBelegt(v)) return null
+    const teile = (Object.keys(v) as (keyof typeof v)[]).filter((k) => v[k] > 0).map((k) => t(`admin.inUse.${k}`, { count: v[k] }))
+    return t('admin.aircraftInUse', { typ, teile: teile.join(', ') })
+  }
 
   return (
     <div className="space-y-section">
@@ -1375,33 +1711,37 @@ function SettingsTab() {
             ))}
           </select>
         </Field>
-        <Field label={t('admin.maxUpload')}>
-          <input
-            type="number"
-            min={1}
-            value={s.maxUploadMB}
-            onChange={(e) => updateSettings({ maxUploadMB: Math.max(1, Number(e.target.value) || 1) })}
-            className={inputCls}
-          />
-        </Field>
+        <UploadGrenzeFeld />
         {/* Diese Musterliste erscheint in ALLEN Grading-Formularen und in den
             Lesson Plans — eine Pflegestelle für die ganze App. */}
-        <StringListEditor
+        <ChipListe
           label={t('admin.aircraftTypesGlobal')}
           values={s.aircraftTypes}
+          pruefeEntfernen={musterGrund}
           onChange={(aircraftTypes) => updateSettings({ aircraftTypes })}
         />
       </Card>
+      {/* Pflichteintraege ohne Loeschknopf: migrateState stellt „General"
+          und eine leere Schulungsarten-Liste beim naechsten Start wieder her
+          — ein Loeschen dort machte sich still selbst rueckgaengig (TEC-09). */}
       <Card className="p-4">
         {/* Kategorien der Instructor-Info-Einträge: löschen/hinzufügen — Filter passt sich an */}
-        <StringListEditor label={t('admin.infoCategories')} values={s.infoCategories} onChange={(v) => updateSettings({ infoCategories: v })} />
+        <ChipListe
+          label={t('admin.infoCategories')}
+          values={s.infoCategories}
+          fest={festeEintraege('infoCategories', s.infoCategories)}
+          festHinweis={t('admin.fixedGeneral')}
+          onChange={(v) => updateSettings({ infoCategories: v })}
+        />
       </Card>
       <Card className="p-4">
         {/* Schulungsarten der Lesson Plans — sie gliedern die Liste innerhalb
             eines Musters und füllen das Auswahlfeld beim Hochladen. */}
-        <StringListEditor
+        <ChipListe
           label={t('admin.lessonCategories')}
           values={s.lessonCategories ?? []}
+          fest={festeEintraege('lessonCategories', s.lessonCategories ?? [])}
+          festHinweis={t('admin.fixedLastLesson')}
           onChange={(v) => updateSettings({ lessonCategories: v })}
         />
       </Card>
@@ -1415,35 +1755,67 @@ function SettingsTab() {
           <Button
             variant="ghost"
             className="flex items-center gap-1.5"
-            onClick={() => window.open(`${import.meta.env.BASE_URL}Instructor-Connect-Benutzer-Vorlage.xlsx`, '_blank')}
+            onClick={() => window.open(`${import.meta.env.BASE_URL}${VORLAGE_XLSX}`, '_blank')}
           >
             <Download size={15} /> {t('admin.import.templateXlsx')}
           </Button>
           <Button
             variant="ghost"
             className="flex items-center gap-1.5"
-            onClick={() =>
-              downloadCsv(
-                'instructor-connect-users-template.csv',
-                buildImportTemplate(s.aircraftTypes, s.allowedDomains[0] ?? 'aviationacademy.at'),
-              )
-            }
+            onClick={() => {
+              downloadCsv(VORLAGE_CSV, buildImportTemplate(s.aircraftTypes))
+              toast(t('toast.downloaded'))
+            }}
           >
             <Download size={15} /> {t('admin.import.template')}
           </Button>
         </div>
       </Card>
       <Card className="p-4">
-        <StringListEditor label={t('admin.categories')} values={s.feedbackCategories} onChange={(v) => updateSettings({ feedbackCategories: v })} />
+        <ChipListe
+          label={t('admin.categories')}
+          values={s.feedbackCategories}
+          fest={festeEintraege('feedbackCategories', s.feedbackCategories)}
+          festHinweis={t('admin.fixedGeneral')}
+          onChange={(v) => updateSettings({ feedbackCategories: v })}
+        />
       </Card>
       <Card className="p-4">
-        <StringListEditor label={t('admin.feedbackRecipients')} values={s.feedbackRecipients} onChange={(v) => updateSettings({ feedbackRecipients: v })} />
+        <ChipListe label={t('admin.feedbackRecipients')} values={s.feedbackRecipients} onChange={(v) => updateSettings({ feedbackRecipients: v })} />
       </Card>
       <Card className="p-4">
-        <StringListEditor label={t('admin.ccList')} values={s.feedbackCC} onChange={(v) => updateSettings({ feedbackCC: v })} />
+        <ChipListe label={t('admin.ccList')} values={s.feedbackCC} onChange={(v) => updateSettings({ feedbackCC: v })} />
       </Card>
       <Card className="p-4">
-        <StringListEditor label={t('admin.domains')} values={s.allowedDomains} onChange={(v) => updateSettings({ allowedDomains: v })} />
+        {/* Die Login-Domains entscheiden, wer sich ueberhaupt anmelden kann.
+            Ein Tippfehler oder ein Tipp aufs × sperrte vorher die ganze ATO
+            aus, ohne Rueckfrage (VERW-05, MOB-05). Jetzt: normalisiert,
+            Ungueltiges abgewiesen, Entfernen mit Rueckfrage samt Zahl der
+            betroffenen Konten, und nie eine Liste, mit der man selbst oder
+            kein Superadmin mehr hineinkaeme (dieselbe Regel im Store). */}
+        <ChipListe
+          label={t('admin.domains')}
+          values={s.allowedDomains}
+          normalisiere={normalisiereDomain}
+          ungueltig={t('admin.domainInvalid')}
+          vorAenderung={(neu, entfernt) => {
+            const sperre = domainSperre(state.users, neu, currentUser?.email)
+            if (sperre) {
+              window.alert(t(sperre === 'selbst' ? 'admin.domainLocksOutSelf' : 'admin.domainLocksOutSuper'))
+              return false
+            }
+            const count = neuAusgesperrt(state.users, s.allowedDomains, neu).length
+            if (entfernt !== undefined) {
+              const frage = neu.length === 0 ? t('admin.domainRemoveLast', { domain: entfernt }) : t('admin.domainRemoveConfirm', { domain: entfernt, count })
+              return window.confirm(frage)
+            }
+            return count === 0 || window.confirm(t('admin.domainAddConfirm', { count }))
+          }}
+          onChange={(v) => {
+            updateSettings({ allowedDomains: v })
+            toast(t('toast.domainsSaved'))
+          }}
+        />
       </Card>
       <StorageCard />
       {/* Herkunftsangaben des Ausdrucks — ohne sie ist ein ausgedrucktes
@@ -1482,15 +1854,17 @@ function ImprintTab() {
   const [de, setDe] = useState(state.settings.imprint.de)
   const [en, setEn] = useState(state.settings.imprint.en)
 
-  const dirty = de !== state.settings.imprint.de || en !== state.settings.imprint.en
-
   // Automatisch speichern wie überall im Admin Panel — kurz nach der
-  // letzten Eingabe, damit nicht bei jedem Tastendruck geschrieben wird.
-  useEffect(() => {
-    if (!dirty) return
-    const tm = setTimeout(() => updateSettings({ imprint: { de, en } }), 600)
-    return () => clearTimeout(tm)
-  }, [de, en, dirty, updateSettings])
+  // letzten Eingabe, damit nicht bei jedem Tastendruck geschrieben wird;
+  // beim Verlassen des Feldes und der Ansicht sofort. Vorher verwarf das
+  // Verlassen innerhalb von 600 ms die letzte Eingabe (VERW-14).
+  const { offen: dirty, jetzt } = useAutoSave(
+    { de, en },
+    // Feld für Feld, nicht das gespeicherte Objekt selbst: verglichen wird
+    // über JSON, und eine andere Schlüsselreihenfolge zählte sonst als Änderung.
+    { de: state.settings.imprint.de, en: state.settings.imprint.en },
+    (imprint) => updateSettings({ imprint }),
+  )
 
   return (
     <div className="space-y-section">
@@ -1500,6 +1874,7 @@ function ImprintTab() {
           <textarea
             value={de}
             onChange={(e) => setDe(e.target.value)}
+            onBlur={jetzt}
             spellCheck={false}
             className={`${inputCls} min-h-72 font-mono text-micro leading-relaxed`}
           />
@@ -1508,6 +1883,7 @@ function ImprintTab() {
           <textarea
             value={en}
             onChange={(e) => setEn(e.target.value)}
+            onBlur={jetzt}
             spellCheck={false}
             className={`${inputCls} min-h-72 font-mono text-micro leading-relaxed`}
           />
@@ -1548,7 +1924,9 @@ const TAB_ICONS: Record<Tab, typeof Users> = {
   permissions: ShieldCheck,
   grading: ClipboardList,
   logbook: BookMarked,
-  groups: UsersRound,
+  // Dasselbe Symbol wie die Chat-Kachel der Startseite. UsersRound stand
+  // neben Users fuer „Benutzer“ und war davon kaum zu unterscheiden (UID-18).
+  groups: MessagesSquare,
   feedback: MessageSquareText,
   settings: Settings,
   imprint: ScrollText,
@@ -1578,7 +1956,7 @@ function StatusZeile() {
   const { state, currentUser, visibleFeedback } = useStore()
   // Aus derselben Freigabeliste wie die Reiter: Ein Punkt, der in einen
   // gesperrten Bereich fuehrt, ist schlimmer als kein Punkt.
-  const offen = adminTabsFor(currentUser!.role)
+  const offen = adminTabsFuer(state.settings, currentUser)
   const punkte = adminStatus({
     gradingRecords: state.gradingRecords,
     feedbackEntries: visibleFeedback,
@@ -1614,7 +1992,7 @@ function StatusZeile() {
 
 export function Admin({ sub = '' }: { sub?: string }) {
   const { t } = useTranslation()
-  const { currentUser } = useStore()
+  const { state, currentUser } = useStore()
   const [tabSeg, sectionSeg] = sub.split('/')
   const tab = (TAB_ICONS as Record<string, unknown>)[tabSeg] ? (tabSeg as Tab) : null
 
@@ -1632,11 +2010,11 @@ export function Admin({ sub = '' }: { sub?: string }) {
 
   const isSuper = currentUser!.role === 'superadmin'
   // Maßgeblich ist die Freigabeliste: ein Bereich, den die aktuelle Rolle
-  // nicht öffnen darf, wird gar nicht erst gerendert. Sie steht im Store
-  // (adminTabsFor) und nicht hier, damit die Startseite dieselbe Antwort
-  // bekommt wie das Panel — sonst zeigt die eine Seite eine Kachel, hinter
-  // der die andere nichts hat.
-  const tabs = adminTabsFor(currentUser!.role) as Tab[]
+  // nicht öffnen darf, wird gar nicht erst gerendert. Sie steht in
+  // adminAccess.ts (adminTabsFuer, mit den Rechten aus der Matrix) und nicht
+  // hier, damit die Startseite dieselbe Antwort bekommt wie das Panel —
+  // sonst zeigt die eine Seite eine Kachel, hinter der die andere nichts hat.
+  const tabs = adminTabsFuer(state.settings, currentUser) as Tab[]
   const openTab = tab && tabs.includes(tab) ? tab : null
 
   // Eine Adresse, die dieser Rolle nicht offensteht (oder es gar nicht gibt),
@@ -1691,15 +2069,22 @@ export function Admin({ sub = '' }: { sub?: string }) {
                 erledigen ist. */}
             <StatusZeile />
 
-            {/* Kachel-Übersicht wie am Dashboard — leichter zu finden und zu ändern */}
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            {/* Kachel-Übersicht wie am Dashboard — leichter zu finden und zu ändern.
+                Spaltenzahl aus der Kachelzahl (kachelRaster.ts): Vier feste
+                Spalten liessen bei neun Bereichen „Changelog" allein in der
+                dritten Reihe stehen. Feste Hoehe statt quadratisch — bei drei
+                Spalten waeren die Kacheln ueber 350 px hoch, und die letzte
+                Reihe laege unter der Falz (UID-09). Am Handy steht statt des
+                Panels ein Hinweis; mit Maus traegt auch ein schmales Fenster
+                drei Spalten. */}
+            <div className={`grid gap-4 ${rasterKlasse(tabs.length)}`}>
               {tabs.map((tb) => {
                 const Icon = TAB_ICONS[tb]
                 return (
                   <button
                     key={tb}
                     onClick={() => navigate(`/admin/${tb}`)}
-                    className="group flex aspect-square flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
+                    className="group flex h-40 flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
                   >
                     <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg">
                       <Icon size={28} />

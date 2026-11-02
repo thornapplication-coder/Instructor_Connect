@@ -60,7 +60,10 @@ function seedState(now: number): AppState {
         aircraftType: 'CL30',
         purpose: 'Austausch zum Autothrottle-Verhalten der CL30 im Simulator: Trainingsszenarien, Besonderheiten, Standardisierung.',
         adminIds: ['u-christian'],
-        memberIds: ['u-patrick', 'u-christian', 'u-michael'],
+        // Mika (nur C560 XLS+) stand hier als Mitglied, obwohl er die
+        // CL30-Gruppe nie betreten kann — die Pflicht „mindestens eine
+        // Gruppe" war damit auf dem Papier erfuellt (Audit 11/2026, KERN-07).
+        memberIds: ['u-patrick', 'u-christian'],
         retention: '30d',
         muted: false,
       },
@@ -70,7 +73,8 @@ function seedState(now: number): AppState {
         aircraftType: 'C560 XLS+',
         purpose: 'Kurzfristige Meldungen zu Defekten und Einschränkungen der Simulatoren — Workarounds und Reparaturstatus.',
         adminIds: ['u-patrick'],
-        memberIds: ['u-patrick', 'u-christian', 'u-michael'],
+        // Ebenso Chris (nur CL30) in der C560-Gruppe.
+        memberIds: ['u-patrick', 'u-michael'],
         retention: '7d',
         muted: false,
       },
@@ -87,8 +91,10 @@ function seedState(now: number): AppState {
     ],
     messages: [
       { id: 'm1', groupId: 'g-auto', authorId: 'u-christian', text: 'Beim Go-Around-Szenario in Session 3 bitte auf das Autothrottle-Verhalten nach TOGA achten — im Debriefing gestern gab es dazu mehrere Fragen.', createdAt: now - 2 * d },
-      { id: 'm2', groupId: 'g-auto', authorId: 'u-michael', text: 'Gibt es dazu eine Kurzreferenz? Auf der C560 XLS+ ist das Verfahren ja anders.', createdAt: now - 2 * d + 25 * 60_000 },
-      { id: 'm3', groupId: 'g-auto', authorId: 'u-patrick', text: 'Ja — in der Instructor Info liegt das Standard Briefing, dort ist der Unterschied beschrieben.', createdAt: now - 2 * d + 40 * 60_000 },
+      // m2 stammte von Mika — in einer Gruppe, die er selbst nicht sehen kann.
+      // Gefragt hat jetzt Alex, der beide Muster fliegt; geantwortet Chris.
+      { id: 'm2', groupId: 'g-auto', authorId: 'u-patrick', text: 'Gibt es dazu eine Kurzreferenz? Auf der C560 XLS+ ist das Verfahren ja anders.', createdAt: now - 2 * d + 25 * 60_000 },
+      { id: 'm3', groupId: 'g-auto', authorId: 'u-christian', text: 'Ja — in der Instructor Info liegt das Standard Briefing, dort ist der Unterschied beschrieben.', createdAt: now - 2 * d + 40 * 60_000 },
       { id: 'm4', groupId: 'g-defects', authorId: 'u-patrick', text: 'Challenger-350-Sim: Ruderpedale links melden sporadisch Force-Feedback-Aussetzer. Technik ist informiert, Workaround siehe Instructor Info.', createdAt: now - 26 * h },
       { id: 'm5', groupId: 'g-defects', authorId: 'u-michael', text: 'Im Citation-Sim ist der IOS-Touchscreen rechts träge — Neustart hilft kurzfristig.', createdAt: now - 5 * h, attachment: { name: 'ios-touchscreen.jpg', kind: 'image', sizeMB: 1.4 } },
       { id: 'm6', groupId: 'g-ground', authorId: 'u-christian', text: 'Ground Training „Performance & Limitations CL30“ am Donnerstag 09:00, Schulungsraum 1. Unterlagen liegen in der Instructor Info.', createdAt: now - 24 * h },
@@ -102,7 +108,7 @@ function seedState(now: number): AppState {
         question: 'Passt Mittwoch 17:00 für das Standardisierungsbriefing Autothrottle?',
         type: 'yesno',
         options: [],
-        votes: { 'u-patrick': 0, 'u-michael': 0 },
+        votes: { 'u-patrick': 0 },
         closed: false,
         // Gültigkeit ist Pflicht, seit Umfragen ein Ablaufdatum tragen —
         // die Seed-Umfragen führen sie deshalb ebenfalls.
@@ -116,7 +122,7 @@ function seedState(now: number): AppState {
         question: 'Welcher Slot passt für den Technik-Check des Challenger-Sims?',
         type: 'multi',
         options: ['Montag früh', 'Mittwoch Abend', 'Samstag'],
-        votes: { 'u-christian': 1, 'u-michael': 1 },
+        votes: { 'u-patrick': 1, 'u-michael': 1 },
         closed: false,
         validUntil: now + 5 * d,
         createdAt: now - 4 * h,
@@ -458,7 +464,10 @@ function seedState(now: number): AppState {
         id: 'gr4',
         formTypeId: '308G',
         instructorId: 'u-patrick',
-        header: { aircraftType: 'CL30', trainingDevice: 'FFS', event: 'TRI Standardisierung', date: iso(now - 2 * d), operation: 'MPO', program: 'PRG 1*', candidateQual: 'TRI Candidate', candidateSeat: 'RH Seat', coiSeat: 'IOS' },
+        // Ohne trainingDevice und event: 308G kennt beide Felder nicht, und die
+        // Forms-CSV zeigte „Device FFS" samt deutschem Event bei einem
+        // Instruktorenblatt (Audit 11/2026, L-FORMTYP#3).
+        header: { aircraftType: 'CL30', date: iso(now - 2 * d), operation: 'MPO', program: 'PRG 1*', candidateQual: 'TRI Candidate', candidateSeat: 'RH Seat', coiSeat: 'IOS' },
         trainees: [
           {
             traineeId: '', traineeName: 'Chris Beispiel', position: '', seat: '',

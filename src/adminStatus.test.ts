@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { adminTabsFor } from './adminAccess'
 import { adminStatus } from './adminStatus'
 import type { FeedbackEntry, GradingRecord } from './types'
 
@@ -115,5 +116,19 @@ describe('Ein Punkt fuehrt nur dorthin, wo die Rolle hindarf', () => {
     expect(
       adminStatus(quelle({ darfGrading: false, darfFeedback: false, gradingRecords: [blatt({ mailStatus: 'failed' })], feedbackEntries: [feedback()] })),
     ).toEqual([])
+  })
+
+  it('Training Admin ohne grading_view_all: keine Grading-Punkte — so, wie die Statuszeile ihn fragt (Audit 11/2026, VERW-03)', () => {
+    // Das Panel zeigte „Es wartet: 1 Versand fehlgeschlagen …", obwohl die
+    // Matrix ihm das Archiv entzogen hatte; der Punkt fuehrte in Formulare,
+    // die er nicht sehen soll. Die Statuszeile leitet darfGrading aus
+    // adminTabsFor ab — hier dieselbe Kette.
+    const ohne = adminTabsFor('training_admin', { gradingAlle: false })
+    const mit = adminTabsFor('training_admin', { gradingAlle: true })
+    const blaetter = [blatt({ mailStatus: 'failed', status: 'draft' })]
+    const fuer = (tabs: string[]) =>
+      adminStatus(quelle({ gradingRecords: blaetter, darfGrading: tabs.includes('grading'), darfFeedback: tabs.includes('feedback') }))
+    expect(fuer(ohne)).toEqual([])
+    expect(fuer(mit).map((p) => p.key)).toEqual(['failedMails', 'openSignatures'])
   })
 })

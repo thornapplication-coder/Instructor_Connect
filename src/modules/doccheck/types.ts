@@ -83,7 +83,10 @@ export interface DocCheckSettings {
   organisation: string
 }
 
-export type DocCheckAuditAktion = 'zugang' | 'admin' | 'feature' | 'einstellung' | 'standBestaetigt' | 'recheckBestaetigt'
+/** `rolle`: Die DocCheck-Rolle änderte sich durch Rolle oder Status in
+ *  Instructor Connect (Superadmin = DocCheck-Superadmin, deaktiviert =
+ *  keine), nicht durch die beiden Schalter (VERW-15). */
+export type DocCheckAuditAktion = 'zugang' | 'admin' | 'rolle' | 'feature' | 'einstellung' | 'standBestaetigt' | 'recheckBestaetigt'
 
 export interface DocCheckAuditEintrag {
   id: string

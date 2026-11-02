@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { Avatar, Button, Card, Field, inputCls, Modal, NewDot, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { kurzeZeit } from '../drafts'
 import { navigate } from '../router'
-import { isAdminUser, useStore } from '../store'
+import { darfGruppeAnlegen } from '../storeRechte'
+import { useStore } from '../store'
 
 export function ChatList() {
   const { t, i18n } = useTranslation()
@@ -25,7 +26,9 @@ export function ChatList() {
         title={t('chat.title')}
         back="/"
         right={
-          isAdminUser(currentUser) ? (
+          // Dieselbe Regel, die der Store beim Anlegen prueft (storeRechte.ts) —
+          // „Ohne Muster" liegt in jedem Bereich, die Musterwahl folgt im Dialog.
+          darfGruppeAnlegen(state.settings, currentUser, undefined) ? (
             <button
               onClick={() => setShowNew(true)}
               className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"

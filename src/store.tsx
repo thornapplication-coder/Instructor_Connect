@@ -4,10 +4,15 @@ import { networkReachable } from './net'
 import { createSeedState } from './sandbox/seed'
 import { migrateState } from './migrateState'
 import { SANDBOX } from './sandbox/flag'
-import { musterFehlt, musterPflicht, nachMuster, sichtbarFuer } from './aircraftScope'
-import { adminTabsFor, hatAdminPanel } from './adminAccess'
+import { gruppenPflicht, gruppenTauglich, musterBelegt, musterFehlt, musterInVerwendung, musterListeBehalten, musterPflicht, nachMuster, sichtbarFuer, verliertLetzteGruppe } from './aircraftScope'
+import { userHasPerm, userMayModule } from './adminAccess'
+import { darfAbstimmen, darfFeedbackBearbeiten, darfGruppeAnlegen, darfInfoVerwalten, darfKontakteVerwalten, darfLessonPlansVerwalten, darfSchreiben, darfStummschalten, darfUmfrageSchliessen, darfVerwaltung, feedbackFuer } from './storeRechte'
 import { infoEntryAppliesTo } from './infoAcks'
-import { darf, docCheckRolle, kachelZahl, rechteAudit, rechteSetzen } from './modules/doccheck/access'
+import { adminKandidaten, gruppenAenderungFehler, gruppenName, gruppenNameFehler } from './gruppen'
+import { einzelAenderung } from './benutzerRegeln'
+import { domainErlaubt, domainListe, domainSperre } from './domains'
+import { importPlanen, type ImportEingabe } from './userImport'
+import { darf, docCheckRolle, kachelZahl, rechteAudit, rechteSetzen, rollenAudit } from './modules/doccheck/access'
 import { einstellungen as docCheckEinstellungen } from './modules/doccheck/settings'
 import { faelligeErinnerungen, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EMPFEHLUNGEN } from './modules/doccheck/library'
 import type { DocCheckAuditEintrag, DocCheckFlags, DocCheckRolle, DocCheckSettings, DocCheckState } from './modules/doccheck/types'
@@ -113,8 +118,9 @@ export interface Store {
   updateGrading: (patch: Partial<GradingSettings>) => void
   /** Lesson Plans, die der aktuelle Nutzer sehen darf */
   visibleLessonPlans: LessonPlan[]
-  /** Nutzer aus einer Tabelle anlegen. Liefert die Anzahl der angelegten. */
-  importUsers: (rows: { name: string; email: string; phone: string; role: Role; aircraftTypes: string[]; canGrade: boolean; isTrainee: boolean; canEditDirectory: boolean; active: boolean }[]) => number
+  /** Nutzer aus einer Tabelle anlegen, jeweils in die gewaehlten Gruppen,
+   *  die sie betreten koennen. Liefert die Anzahl der angelegten. */
+  importUsers: (rows: ImportEingabe[], groupIds: string[]) => number
   /** Eigene Notizen — fremde sind in dieser Liste gar nicht erst enthalten. */
   visibleNotes: Note[]
   /** Anlegen ODER aendern: ohne `id` entsteht eine neue Notiz. */
@@ -567,15 +573,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    * Gruppenadmin mehr, als hinter dem Sprung steht — derselbe Fehler, den
    * die Statuszeile beim Training Admin schon einmal hatte.
    */
-  const visibleFeedback = useMemo(() => {
-    if (!currentUser) return []
-    const meineLeute = new Set(
-      state.groups.filter((g) => g.adminIds.includes(currentUser.id)).flatMap((g) => g.memberIds),
-    )
-    return nachMuster(currentUser, state.feedbackEntries, (f) => f.aircraftType).filter(
-      (f) => currentUser.role === 'superadmin' || meineLeute.has(f.authorId),
-    )
-  }, [state.feedbackEntries, state.groups, currentUser])
+  // Die Rechnung steht in storeRechte.ts (feedbackFuer): Dieselbe Antwort
+  // gilt fuer das Erledigen und Loeschen — sonst erledigt jemand per
+  // Kennung, was er gar nicht sieht (KERN-19).
+  const visibleFeedback = useMemo(
+    () => feedbackFuer(currentUser, state.feedbackEntries, state.groups),
+    [state.feedbackEntries, state.groups, currentUser],
+  )
 
   const latestForeignInfo = visibleInfoEntries.reduce(
     (max, e) => (e.authorId !== state.currentUserId ? Math.max(max, infoPublishedAt(e)) : max),
@@ -703,8 +707,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     /** E-Mail ist die einzige Anmeldekennung und muss eindeutig bleiben. */
     const emailTaken = (s: AppState, email: string, exceptId?: string) =>
       s.users.some((u) => u.id !== exceptId && u.email.trim().toLowerCase() === email.trim().toLowerCase())
-    /** Gruppen eines Nutzers — für die Pflicht „mindestens eine Gruppe" */
-    const groupsOf = (s: AppState, userId: string) => s.groups.filter((g) => g.memberIds.includes(userId))
+    /** Verliert jemand mit dieser Gruppenliste seine letzte ERREICHBARE
+     *  Gruppe? Gezaehlt wurde vorher jede Mitgliedschaft, auch in Gruppen
+     *  fremden Musters, die der Nutzer nie betreten kann (KERN-07/VERW-16). */
+    const verliertGruppe = (s: AppState, userId: string, nachher: Group[]) => {
+      const u = s.users.find((x) => x.id === userId)
+      return !!u && verliertLetzteGruppe(s.settings, u, s.groups, nachher)
+    }
+    /** Darf der Handelnde diese Rueckmeldung erledigen, oeffnen, loeschen?
+     *  Nur, wenn er sie im Panel auch sieht (feedbackFuer). */
+    const feedbackBearbeitbar = (s: AppState, id: string) => {
+      const f = s.feedbackEntries.find((x) => x.id === id)
+      return !!f && darfFeedbackBearbeiten(s.settings, actorOf(s), f, s.groups)
+    }
 
     return {
       state,
@@ -755,8 +770,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // Anmeldung ausschließlich per E-Mail — die Adressen legt der
         // Admin/Superadmin im Admin Panel an
         const needle = identifier.trim().toLowerCase()
-        const domains = state.settings.allowedDomains
-        if (domains.length > 0 && !domains.some((d) => needle.endsWith(`@${d.toLowerCase()}`))) return false
+        // Eine Domainregel fuer alle Wege (domains.ts) — der Vergleich von
+        // Hand scheiterte an einem gespeicherten „@Example.Test" (VERW-05).
+        if (!domainErlaubt(needle, state.settings.allowedDomains)) return false
         const user = state.users.find((u) => u.active && u.email.toLowerCase() === needle)
         if (!user) return false
         persistUser(user.id)
@@ -770,8 +786,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const user = state.users.find((u) => u.active && u.email.toLowerCase() === needle)
         // Die erlaubten Domains aus den Einstellungen gelten hier tatsächlich —
         // vorher war die Liste im Admin-Panel ohne jede Wirkung.
-        const domains = state.settings.allowedDomains
-        if (domains.length > 0 && !domains.some((d) => needle.endsWith(`@${d.toLowerCase()}`))) return false
+        if (!domainErlaubt(needle, state.settings.allowedDomains)) return false
         if (!user) return false
         const code = String(Math.floor(100000 + Math.random() * 900000))
         patch(() => ({ pendingLogin: { email: user.email, code, expiresAt: endOfDay(), attempts: 0 } }))
@@ -908,10 +923,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       sendMessage: (groupId, text, attachment) =>
         patch((s) => {
-          // Chat-Sperre greift auch hier, nicht nur in der Oberfläche
-          if (s.users.find((u) => u.id === s.currentUserId)?.chatBlocked) return null
-          // Nur Mitglieder der Gruppe dürfen darin schreiben.
-          if (!s.groups.find((g) => g.id === groupId)?.memberIds.includes(s.currentUserId ?? '')) return null
+          // Chat-Sperre und Mitgliedschaft greifen auch hier, nicht nur in der
+          // Oberfläche — dieselbe Regel wie fuer Umfragen (storeRechte.ts).
+          const gruppe = s.groups.find((g) => g.id === groupId)
+          if (!gruppe || !darfSchreiben(actorOf(s), gruppe)) return null
           // Das Upload-Limit aus den Einstellungen gilt auch für Anhänge.
           if (attachment && attachment.sizeMB > s.settings.maxUploadMB) return null
           return {
@@ -936,7 +951,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
       createPoll: (groupId, question, type, options, validUntil) =>
         patch((s) => {
-          if (s.users.find((u) => u.id === s.currentUserId)?.chatBlocked) return null
+          // Wie eine Nachricht: nur Mitglieder ohne Chat-Sperre. Vorher pruefte
+          // die Aktion allein die Sperre — angelegt werden konnte in jeder
+          // Gruppe (KERN-19).
+          const gruppe = s.groups.find((g) => g.id === groupId)
+          if (!gruppe || !darfSchreiben(actorOf(s), gruppe)) return null
           // Eine Umfrage, deren Gültigkeit schon abgelaufen ist, käme
           // geschlossen zur Welt — niemand könnte je abstimmen.
           if (validUntil !== undefined && validUntil <= Date.now() + s.timeOffsetMs) return null
@@ -948,19 +967,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }),
       vote: (pollId, optionIndex) =>
-        patch((s) => ({
-          polls: s.polls.map((p) =>
-            // Abstimmen nur solange offen und nicht abgelaufen (Gültigkeit in UTC)
-            p.id === pollId && !p.closed && !(p.validUntil && p.validUntil <= Date.now() + s.timeOffsetMs)
-              ? { ...p, votes: { ...p.votes, [s.currentUserId!]: optionIndex } }
-              : p,
-          ),
-        })),
+        patch((s) => {
+          const poll = s.polls.find((p) => p.id === pollId)
+          const gruppe = poll && s.groups.find((g) => g.id === poll.groupId)
+          // Abstimmen nur als Mitglied — ein Superadmin ohne Mitgliedschaft
+          // stimmte vorher mit ab (KERN-19) — und nur solange offen und nicht
+          // abgelaufen (Gültigkeit in UTC).
+          if (!poll || !gruppe || !darfAbstimmen(actorOf(s), gruppe)) return null
+          if (poll.closed || (poll.validUntil && poll.validUntil <= Date.now() + s.timeOffsetMs)) return null
+          return { polls: s.polls.map((p) => (p.id === pollId ? { ...p, votes: { ...p.votes, [s.currentUserId!]: optionIndex } } : p)) }
+        }),
       closePoll: (pollId) =>
-        patch((s) => ({ polls: s.polls.map((p) => (p.id === pollId ? { ...p, closed: true } : p)) })),
+        patch((s) => {
+          // Autor oder Admin der Gruppe — die Regel, nach der die Karte den
+          // Knopf zeigt, galt bisher nur dort.
+          const poll = s.polls.find((p) => p.id === pollId)
+          const gruppe = poll && s.groups.find((g) => g.id === poll.groupId)
+          if (!poll || !gruppe || !darfUmfrageSchliessen(actorOf(s), poll, gruppe)) return null
+          return { polls: s.polls.map((p) => (p.id === pollId ? { ...p, closed: true } : p)) }
+        }),
 
       toggleMute: (groupId) =>
-        patch((s) => ({ groups: s.groups.map((g) => (g.id === groupId ? { ...g, muted: !g.muted } : g)) })),
+        patch((s) => {
+          const gruppe = s.groups.find((g) => g.id === groupId)
+          if (!gruppe || !darfStummschalten(actorOf(s), gruppe)) return null
+          return { groups: s.groups.map((g) => (g.id === groupId ? { ...g, muted: !g.muted } : g)) }
+        }),
       setGroupRetention: (groupId, retention) =>
         patch((s) =>
           maySeeGroup(s, groupId) ? { groups: s.groups.map((g) => (g.id === groupId ? { ...g, retention } : g)) } : null,
@@ -970,29 +1002,51 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (!maySeeGroup(s, groupId)) return null
           const group = s.groups.find((g) => g.id === groupId)
           if (!group) return null
-          // „Mindestens eine Gruppe" gilt auch hier: wer sonst nirgends
-          // Mitglied ist, kann nicht aus seiner letzten Gruppe fallen.
+          // Neu hinein nur, wer die Gruppe auch betreten kann — sonst zaehlte
+          // eine Mitgliedschaft, die nie zu einem Chat fuehrt, und die
+          // Mitgliederliste zeigte Leute ohne Zugang (KERN-07).
+          const added = memberIds.filter((m) => !group.memberIds.includes(m))
+          if (added.some((m) => {
+            const u = s.users.find((x) => x.id === m)
+            return !u || !gruppenTauglich(s.settings, u, group)
+          })) return null
+          // Sich selbst herausnehmen kann ein Gruppenadmin nicht — dieselbe
+          // Regel wie in der Oberflaeche (gruppen.ts). Im Admin-Panel genuegte
+          // ein Fehlklick, und die Gruppe stand ohne Admin da (VERW-09).
+          if (gruppenAenderungFehler(actorOf(s), group, memberIds, group.adminIds) === 'selbstEntfernt') return null
+          const groups = s.groups.map((g) =>
+            g.id === groupId
+              ? // Wer die Gruppe verlässt, verliert auch seine Adminrechte
+                // darin — sonst verwaltet ein Außenstehender weiter mit.
+                { ...g, memberIds, adminIds: g.adminIds.filter((a) => memberIds.includes(a)) }
+              : g,
+          )
+          // „Mindestens eine Gruppe" gilt auch hier — gezaehlt werden die
+          // Gruppen, die der Nutzer betreten kann.
           const dropped = group.memberIds.filter((m) => !memberIds.includes(m))
-          if (dropped.some((m) => groupsOf(s, m).length <= 1)) return null
-          return {
-            groups: s.groups.map((g) =>
-              g.id === groupId
-                ? // Wer die Gruppe verlässt, verliert auch seine Adminrechte
-                  // darin — sonst verwaltet ein Außenstehender weiter mit.
-                  { ...g, memberIds, adminIds: g.adminIds.filter((a) => memberIds.includes(a)) }
-                : g,
-            ),
-          }
+          if (dropped.some((m) => verliertGruppe(s, m, groups))) return null
+          return { groups }
         }),
 
+      // Info, Kontakte, Lesson Plans, Feedback, Gruppen, Nutzer, Einstellungen:
+      // jede schreibende Aktion fragt den Handelnden (storeRechte.ts). Vorher
+      // verliess sich die Haelfte allein auf die Oberflaeche (KERN-19/VERW-23).
       addInfoEntry: (entry) =>
-        patch((s) => ({
-          infoEntries: [
-            ...s.infoEntries,
-            { ...entry, id: uid('i'), authorId: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs },
-          ],
-        })),
-      deleteInfoEntry: (id) => patch((s) => ({ infoEntries: s.infoEntries.filter((e) => e.id !== id) })),
+        patch((s) => {
+          if (!darfInfoVerwalten(s.settings, actorOf(s), entry.aircraftType)) return null
+          return {
+            infoEntries: [
+              ...s.infoEntries,
+              { ...entry, id: uid('i'), authorId: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs },
+            ],
+          }
+        }),
+      deleteInfoEntry: (id) =>
+        patch((s) => {
+          const eintrag = s.infoEntries.find((e) => e.id === id)
+          if (!eintrag || !darfInfoVerwalten(s.settings, actorOf(s), eintrag.aircraftType)) return null
+          return { infoEntries: s.infoEntries.filter((e) => e.id !== id) }
+        }),
       toggleStarInfo: (id) =>
         patch((s) => {
           if (!s.currentUserId) return null
@@ -1023,47 +1077,71 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             { ...entry, id: uid('fb'), authorId: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs },
           ],
         })),
-      deleteFeedback: (id) => patch((s) => ({ feedbackEntries: s.feedbackEntries.filter((f) => f.id !== id) })),
+      deleteFeedback: (id) =>
+        patch((s) => {
+          if (!feedbackBearbeitbar(s, id)) return null
+          return { feedbackEntries: s.feedbackEntries.filter((f) => f.id !== id) }
+        }),
       // Bearbeitet: wer und wann werden festgehalten; die Rückmeldung bleibt
       // erhalten und wandert in der Ansicht unter die offenen.
       resolveFeedback: (id, note) =>
-        patch((s) => ({
-          feedbackEntries: s.feedbackEntries.map((f) =>
-            f.id === id
-              ? { ...f, resolvedBy: s.currentUserId!, resolvedAt: Date.now() + s.timeOffsetMs, resolutionNote: note.trim() || undefined }
-              : f,
-          ),
-        })),
+        patch((s) => {
+          if (!feedbackBearbeitbar(s, id)) return null
+          return {
+            feedbackEntries: s.feedbackEntries.map((f) =>
+              f.id === id
+                ? { ...f, resolvedBy: s.currentUserId!, resolvedAt: Date.now() + s.timeOffsetMs, resolutionNote: note.trim() || undefined }
+                : f,
+            ),
+          }
+        }),
       reopenFeedback: (id) =>
-        patch((s) => ({
-          feedbackEntries: s.feedbackEntries.map((f) =>
-            f.id === id ? { ...f, resolvedBy: undefined, resolvedAt: undefined, resolutionNote: undefined } : f,
-          ),
-        })),
+        patch((s) => {
+          if (!feedbackBearbeitbar(s, id)) return null
+          return {
+            feedbackEntries: s.feedbackEntries.map((f) =>
+              f.id === id ? { ...f, resolvedBy: undefined, resolvedAt: undefined, resolutionNote: undefined } : f,
+            ),
+          }
+        }),
 
       saveContact: (contact) =>
-        patch((s) => ({
-          contacts: contact.id
-            ? s.contacts.map((c) => (c.id === contact.id ? { ...c, ...contact, id: contact.id } : c))
-            : [...s.contacts, { ...contact, id: uid('c') }],
-          contactsChangedAt: Date.now() + s.timeOffsetMs,
-        })),
+        patch((s) => {
+          if (!darfKontakteVerwalten(s.settings, actorOf(s))) return null
+          return {
+            contacts: contact.id
+              ? s.contacts.map((c) => (c.id === contact.id ? { ...c, ...contact, id: contact.id } : c))
+              : [...s.contacts, { ...contact, id: uid('c') }],
+            contactsChangedAt: Date.now() + s.timeOffsetMs,
+          }
+        }),
       deleteContact: (id) =>
-        patch((s) => ({
-          contacts: s.contacts.filter((c) => c.id !== id),
-          contactsChangedAt: Date.now() + s.timeOffsetMs,
-        })),
+        patch((s) => {
+          if (!darfKontakteVerwalten(s.settings, actorOf(s))) return null
+          return {
+            contacts: s.contacts.filter((c) => c.id !== id),
+            contactsChangedAt: Date.now() + s.timeOffsetMs,
+          }
+        }),
 
       addUser: ({ groupIds, ...user }) => {
-        let angelegt = false
-        patch((s) => {
+        const id = uid('u')
+        const anlegen = (s: AppState): Partial<AppState> | null => {
+          // Konten legt nur an, wer die Benutzerverwaltung hat. Die Rolle des
+          // neuen Kontos reicht bis zum Superadmin — dieselbe Ausweitung, die
+          // updateUser und importUsers schon sperrten (VERW-23).
+          if (!darfVerwaltung(s.settings, actorOf(s), 'nutzerAnlegen')) return null
           /* Invarianten auch im Store, nicht nur im Dialog: ohne Gruppe, ohne
              Muster und ohne E-Mail kein neuer Nutzer. Die E-Mail ist die
              einzige Anmeldekennung; die Gruppe steuert Chat und Instructor
              Info; das Muster steuert, welche Lesson Plans jemand ueberhaupt
              sieht. Ein Konto ohne Muster ist fuer nichts zustaendig — und das
              gilt fuer den Admin genauso wie fuer den Instruktor. */
-          if (groupIds.length === 0 || !user.email.trim()) return null
+          if (!user.email.trim()) return null
+          // Nur mit freigegebener Domain: Ein Konto, das sich nie anmelden
+          // kann, entstand ueber diesen Weg, waehrend der Import es abwies
+          // (Audit 11/2026, VERW-12).
+          if (!domainErlaubt(user.email, s.settings.allowedDomains)) return null
           // Musterpflicht nur fuer die Rollen, deren Sicht daran haengt —
           // und ueber `musterFehlt`, nicht von Hand: Die Bedingung stand hier
           // ausgeschrieben, waehrend vier andere Schreibwege sie nicht kannten.
@@ -1071,20 +1149,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // Doppelte Adresse hieße: zwei Konten, ein Login — der zweite
           // Nutzer könnte die Identität des ersten übernehmen.
           if (emailTaken(s, user.email)) return null
-          const id = uid('u')
-          angelegt = true
+          const neu = { ...user, canEditDirectory: false, canGrade: false, isTrainee: false, active: true }
+          // Pflicht-Gruppenzuweisung: nur Gruppen, die die Person betreten
+          // kann, und mindestens eine davon — sofern sie den Chat hat. Der
+          // Training Admin hat keinen; fuer ihn war die Pflicht unerfuellbar
+          // (KERN-07/VERW-07, Widerspruch 11 in den Audit-Notizen).
+          const ziele = s.groups.filter((g) => groupIds.includes(g.id))
+          if (ziele.some((g) => !gruppenTauglich(s.settings, neu, g))) return null
+          if (gruppenPflicht(s.settings, neu) && ziele.length === 0) return null
+          // Ein neues Superadmin-Konto ist zugleich DocCheck-Superadmin — eine
+          // Rechtevergabe wie der Rollenwechsel (VERW-15).
+          const zeilen = rollenAudit(null, neu, { von: s.currentUserId ?? '', ziel: id, at: Date.now() + s.timeOffsetMs, id: () => uid('dca') })
+          const dc = s.docCheck ?? DC_LEER
           return {
-            users: [...s.users, { ...user, id, canEditDirectory: false, canGrade: false, isTrainee: false, active: true }],
-            // Pflicht-Gruppenzuweisung: neue Nutzer landen sofort in ihren Gruppen
+            users: [...s.users, { ...neu, id }],
             groups: s.groups.map((g) => (groupIds.includes(g.id) ? { ...g, memberIds: [...g.memberIds, id] } : g)),
+            ...(zeilen.length ? { docCheck: { ...dc, audit: [...zeilen, ...dc.audit] } } : {}),
           }
-        })
+        }
+        // Die Antwort kommt aus derselben Pruefung, angewandt auf den zuletzt
+        // gezeichneten Stand — nicht aus einer Variablen, die der Updater
+        // setzt: React ruft ihn nicht zwingend sofort auf. Nachgemessen: Ein
+        // zweites Anlegen kurz nach dem ersten meldete „nicht angelegt",
+        // und das Konto stand trotzdem da (Audit 11/2026, Ebene-2-Test).
+        const angelegt = anlegen(stateRef.current) !== null
+        patch(anlegen)
         return angelegt
       },
       updateUser: (id, p) =>
         patch((s) => {
           const target = s.users.find((u) => u.id === id)
           if (!target) return null
+          // Aendern darf nur, wer die Benutzerverwaltung oder die
+          // Rechteseite hat. Eigene „harmlose" Felder gibt es heute keine —
+          // kein Weg ausserhalb des Panels ruft updateUser; kommt einer
+          // dazu, bekommt er seine eigene Aktion (VERW-23).
+          if (!darfVerwaltung(s.settings, actorOf(s), 'nutzerAendern')) return null
           // Die Rolle vergibt ausschließlich der Superadmin. Sonst könnte sich
           // ein group_admin über eine offen gebliebene Ansicht selbst befördern.
           const safe: Partial<User> = isSuper(s) ? { ...p } : { ...p, role: undefined }
@@ -1094,48 +1194,47 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           delete safe.docCheckAdmin
           // E-Mail bleibt eindeutig — sie ist die einzige Anmeldekennung.
           if (safe.email !== undefined && (!safe.email.trim() || emailTaken(s, safe.email, id))) delete safe.email
-          // Die Organisation braucht immer mindestens einen Superadmin.
-          const lastSuper =
-            target.role === 'superadmin' && s.users.filter((u) => u.role === 'superadmin' && u.active).length <= 1
-          if (lastSuper && (safe.role !== undefined && safe.role !== 'superadmin')) delete safe.role
-          if (lastSuper && safe.active === false) delete safe.active
-          // Sich selbst stillzulegen sperrt einen aus der laufenden Sitzung aus.
-          if (id === s.currentUserId && safe.active === false) delete safe.active
-          // Niemand wird blind geschaltet. Zwei Wege fuehrten hier hinein:
-          // die Muster einzeln abwaehlen, oder einen Superadmin (der ohne
-          // Muster entstehen darf) zum Mitglied herabstufen. Beide erzeugten
-          // ein Konto, das der Anlege-Dialog ausdruecklich verweigert.
-          //
-          // Geprueft wird das ERGEBNIS, nicht der Patch: Ob die Rolle oder
-          // die Musterliste den Ausschlag gibt, ist gleichgueltig — blind ist
-          // blind. Ein bereits so entstandenes Altkonto bleibt aenderbar,
-          // solange die Aenderung es nicht schlechter macht.
-          const ziel = { ...target, ...safe }
-          if (musterFehlt(ziel) && !musterFehlt(target)) {
-            delete safe.role
-            delete safe.aircraftTypes
-          }
-          const users = s.users.map((u) => (u.id === id ? { ...u, ...safe } : u))
+          // Eigene Rolle, eigenes Konto, letzter Superadmin, letztes Muster,
+          // letzte erreichbare Gruppe: dieselbe Funktion, die der
+          // Nutzerzeile den Grund nennt (benutzerRegeln.ts). Vorher standen
+          // die Regeln nur hier und verwarfen still — und die eigene Rolle
+          // fehlte ganz, anders als in profiles_guard (VERW-01/VERW-10).
+          const { patch: erlaubt } = einzelAenderung(s.users, target, safe, s.currentUserId, { groups: s.groups, settings: s.settings })
+          if (Object.keys(erlaubt).length === 0) return null
+          const users = s.users.map((u) => (u.id === id ? { ...u, ...erlaubt } : u))
+          // Rolle oder Status koennen die DocCheck-Rolle aendern (Superadmin =
+          // DocCheck-Superadmin, deaktiviert = keine). Das ist eine
+          // Rechteaenderung und gehoert ins DocCheck-Protokoll — vorher stand
+          // sie nirgends (Audit 11/2026, VERW-15).
+          const zeilen = rollenAudit(target, { ...target, ...erlaubt }, { von: s.currentUserId ?? '', ziel: id, at: Date.now() + s.timeOffsetMs, id: () => uid('dca') })
+          const dc = s.docCheck ?? DC_LEER
+          const protokoll = zeilen.length ? { docCheck: { ...dc, audit: [...zeilen, ...dc.audit] } } : {}
           // Wer deaktiviert wird, verliert seine Sitzung — in der Sandbox ist
-          // das die aktuell angemeldete Identität.
-          if (safe.active === false && s.currentUserId === id) {
+          // das die aktuell angemeldete Identität. (Das eigene Konto weist
+          // einzelAenderung inzwischen ab; der Riegel bleibt fuer den Fall,
+          // dass sich diese Regel einmal aendert.)
+          if (erlaubt.active === false && s.currentUserId === id) {
             persistUser(null)
-            return { users, currentUserId: null }
+            return { users, currentUserId: null, ...protokoll }
           }
-          return { users }
+          return { users, ...protokoll }
         }),
 
       addGroup: (name, purpose, aircraftType) =>
         patch((s) => {
-          // Leere oder doppelte Namen wären im Chat nicht unterscheidbar.
-          if (!name.trim() || s.groups.some((g) => g.name.trim().toLowerCase() === name.trim().toLowerCase())) return null
+          // Superadmin und Gruppenadmin, und nur mit einem Muster, das der
+          // Anleger selbst sieht — er wird Mitglied (KERN-19).
+          if (!darfGruppeAnlegen(s.settings, actorOf(s), aircraftType)) return null
+          // Leere oder doppelte Namen wären im Chat nicht unterscheidbar —
+          // dieselbe Regel wie im Dialog und beim Umbenennen (gruppen.ts).
+          if (gruppenNameFehler(s.groups, null, name)) return null
           // Wer die Gruppe anlegt (Admin/Superadmin), verwaltet sie auch
           // und ist sofort Mitglied.
           const creator = s.currentUserId ? [s.currentUserId] : []
           return {
             groups: [
               ...s.groups,
-              { id: uid('g'), name, purpose, aircraftType, adminIds: creator, memberIds: creator, retention: null, muted: false },
+              { id: uid('g'), name: gruppenName(name), purpose, aircraftType, adminIds: creator, memberIds: creator, retention: null, muted: false },
             ],
           }
         }),
@@ -1143,18 +1242,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         patch((s) => (maySeeGroup(s, id) ? { groups: s.groups.map((g) => (g.id === id ? { ...g, aircraftType } : g)) } : null)),
       renameGroup: (id, name) =>
         patch((s) => {
-          if (!maySeeGroup(s, id) || !name.trim()) return null
-          // Doppelte Gruppennamen sind im Chat nicht auseinanderzuhalten.
-          if (s.groups.some((g) => g.id !== id && g.name.trim().toLowerCase() === name.trim().toLowerCase())) return null
-          return { groups: s.groups.map((g) => (g.id === id ? { ...g, name: name.trim() } : g)) }
+          // Leer oder doppelt geht nicht. Aufgerufen wird erst am Ende der
+          // Eingabe (GroupNameField) — vorher lief das bei jedem Tastendruck,
+          // und ein Leerzeichen am Wortende verschwand, bevor das naechste
+          // Wort kam (Audit 11/2026, VERW-04).
+          if (!maySeeGroup(s, id) || gruppenNameFehler(s.groups, id, name)) return null
+          const neu = gruppenName(name)
+          if (s.groups.find((g) => g.id === id)?.name === neu) return null
+          return { groups: s.groups.map((g) => (g.id === id ? { ...g, name: neu } : g)) }
         }),
       // Gleiche Regel wie in deleteGroup — die Oberfläche muss den Grund
       // NENNEN können, statt den Klick wirkungslos verpuffen zu lassen.
       groupDeleteBlockers: (id) => {
         const group = state.groups.find((g) => g.id === id)
         if (!group) return []
+        const ohne = state.groups.filter((g) => g.id !== id)
         return group.memberIds
-          .filter((m) => groupsOf(state, m).length <= 1)
+          .filter((m) => verliertGruppe(state, m, ohne))
           .map((m) => state.users.find((u) => u.id === m))
           .filter((u): u is User => !!u)
       },
@@ -1163,7 +1267,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (!maySeeGroup(s, id)) return null
           // Niemand darf ohne Gruppe zurückbleiben — sonst verliert er
           // Chat-Zugang und Instructor-Info-Sichtbarkeit.
-          const orphan = s.groups.find((g) => g.id === id)?.memberIds.some((m) => groupsOf(s, m).length <= 1)
+          const ohne = s.groups.filter((g) => g.id !== id)
+          const orphan = s.groups.find((g) => g.id === id)?.memberIds.some((m) => verliertGruppe(s, m, ohne))
           if (orphan) return null
           return {
           groups: s.groups.filter((g) => g.id !== id),
@@ -1177,32 +1282,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }),
       setGroupAdmins: (id, adminIds) =>
-        patch((s) =>
-          maySeeGroup(s, id)
-            ? // Adminrechte nur für Mitglieder der Gruppe — wer nicht drin ist,
-              // kann sie auch nicht verwalten.
-              { groups: s.groups.map((g) => (g.id === id ? { ...g, adminIds: adminIds.filter((a) => g.memberIds.includes(a)) } : g)) }
-            : null,
-        ),
+        patch((s) => {
+          const group = s.groups.find((g) => g.id === id)
+          if (!group || !maySeeGroup(s, id)) return null
+          // Adminrechte nur für Mitglieder der Gruppe — wer nicht drin ist,
+          // kann sie auch nicht verwalten. Neu ernannt wird nur, wen auch die
+          // Oberflaeche anbietet: aktive Mitglieder (VERW-11).
+          const kandidaten = new Set(adminKandidaten(group, s.users).map((u) => u.id))
+          const neu = adminIds.filter((a) => group.memberIds.includes(a) && (group.adminIds.includes(a) || kandidaten.has(a)))
+          if (gruppenAenderungFehler(actorOf(s), group, group.memberIds, neu) === 'selbstEntfernt') return null
+          return { groups: s.groups.map((g) => (g.id === id ? { ...g, adminIds: neu } : g)) }
+        }),
 
       updateSettings: (p) =>
         patch((s) => {
+          // Einstellungen und Impressum nur mit dem Bereich dazu (VERW-23).
+          if (!darfVerwaltung(s.settings, actorOf(s), 'einstellungen')) return null
           const next = { ...p }
+          // Login-Domains: gespeichert wird nur die normalisierte Form, und
+          // nie eine Liste, mit der der Handelnde selbst oder kein aktiver
+          // Superadmin mehr hineinkaeme — wer sollte sie dann zuruecknehmen?
+          // Ein Tippfehler oder ein Klick aufs × sperrte vorher die ganze ATO
+          // aus (Audit 11/2026, VERW-05).
+          if (next.allowedDomains) {
+            const liste = domainListe(next.allowedDomains)
+            const unbrauchbar = next.allowedDomains.length > 0 && liste.length === 0
+            if (unbrauchbar || domainSperre(s.users, liste, actorOf(s)?.email)) delete next.allowedDomains
+            else next.allowedDomains = liste
+          }
           // Ein Muster, das noch an Gruppen, Nutzern, Lesson Plans oder
           // Formularen hängt, darf nicht verschwinden — sonst zeigen diese
-          // Verweise ins Leere.
+          // Verweise ins Leere. Es bleibt an SEINER Stelle: Angehaengt
+          // sprang der Chip ans Listenende, als sei etwas geschehen
+          // (VERW-18). Den Grund nennt die Oberflaeche vorher, mit derselben
+          // Zaehlung (musterInVerwendung).
           if (next.aircraftTypes) {
-            const removed = s.settings.aircraftTypes.filter((a) => !next.aircraftTypes!.includes(a))
-            const stillUsed = removed.filter(
-              (a) =>
-                s.groups.some((g) => g.aircraftType === a) ||
-                s.users.some((u) => u.aircraftTypes.includes(a)) ||
-                s.lessonPlans.some((l) => l.aircraftType === a) ||
-                s.gradingRecords.some((r) => r.header.aircraftType === a) ||
-                s.infoEntries.some((e) => e.aircraftType === a),
+            next.aircraftTypes = musterListeBehalten(s.settings.aircraftTypes, next.aircraftTypes, (a) =>
+              musterBelegt(musterInVerwendung(s, a)),
             )
-            if (stillUsed.length > 0) next.aircraftTypes = [...next.aircraftTypes!, ...stillUsed]
           }
+          if (Object.keys(next).length === 0) return null
           return { settings: { ...s.settings, ...next } }
         }),
 
@@ -1378,62 +1497,64 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             const stillUsed = removed.filter(
               (f) => f.id === '306' || f.id === '310' || s.gradingRecords.some((r) => r.formTypeId === f.id),
             )
-            if (stillUsed.length > 0) next.formTypes = [...next.formTypes!, ...stillUsed]
+            // Behaltene Typen an ihrer Stelle, nicht angehaengt (VERW-18).
+            if (stillUsed.length > 0) {
+              const neu = next.formTypes
+              next.formTypes = [
+                ...s.settings.grading.formTypes.flatMap((f) => neu.find((n) => n.id === f.id) ?? (stillUsed.includes(f) ? f : [])),
+                ...neu.filter((n) => !s.settings.grading.formTypes.some((f) => f.id === n.id)),
+              ]
+            }
           }
           return { settings: { ...s.settings, grading: { ...s.settings.grading, ...next } } }
         }),
 
       visibleLessonPlans,
       addLessonPlan: (plan) =>
-        patch((s) => ({
-          lessonPlans: [...s.lessonPlans, { ...plan, id: uid('lp'), uploadedBy: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs }],
-        })),
-      deleteLessonPlan: (id) => patch((s) => ({ lessonPlans: s.lessonPlans.filter((p) => p.id !== id) })),
-      importUsers: (rows) => {
-        // Doppelte Adressen werden hier NOCH einmal abgewiesen: Die Vorschau
-        // prueft gegen den Bestand, aber zwischen Vorschau und Klick kann in
-        // einem zweiten Tab jemand denselben Nutzer angelegt haben.
-        let angelegt = 0
         patch((s) => {
+          if (!darfLessonPlansVerwalten(s.settings, actorOf(s), plan.aircraftType)) return null
+          return {
+            lessonPlans: [...s.lessonPlans, { ...plan, id: uid('lp'), uploadedBy: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs }],
+          }
+        }),
+      deleteLessonPlan: (id) =>
+        patch((s) => {
+          const plan = s.lessonPlans.find((p) => p.id === id)
+          if (!plan || !darfLessonPlansVerwalten(s.settings, actorOf(s), plan.aircraftType)) return null
+          return { lessonPlans: s.lessonPlans.filter((p) => p.id !== id) }
+        }),
+      importUsers: (rows, groupIds) => {
+        // Doppelte Adressen, Domain, Muster und Gruppe werden hier NOCH
+        // einmal geprueft (importPlanen): Die Vorschau prueft gegen den
+        // Bestand, aber zwischen Vorschau und Klick kann in einem zweiten Tab
+        // jemand denselben Nutzer angelegt haben.
+        const planen = (s: AppState) => {
           // Der Import vergibt Rollen — bis hin zum Superadmin. `updateUser`
           // schuetzt die Rolle ausdruecklich („sonst koennte sich ein
           // group_admin selbst befoerdern"); derselbe Riegel gehoert hierher,
           // sonst fuehrt die Tabelle am Schutz vorbei.
           if (!isSuper(s)) return null
-          const vergeben = new Set(s.users.map((u) => u.email.trim().toLowerCase()))
-          const erlaubt = s.settings.allowedDomains.map((d) => d.toLowerCase())
-          const neue = rows
-            .filter((r) => {
-              const mail = r.email.trim().toLowerCase()
-              if (!mail || vergeben.has(mail)) return false
-              // Auch im Store gegen die Domainliste pruefen, nicht nur in der
-              // Vorschau: Wer sich nie anmelden kann, soll gar nicht erst
-              // entstehen — die Liste kann sich zwischen Vorschau und Klick
-              // geaendert haben.
-              if (erlaubt.length > 0 && !erlaubt.some((d) => mail.endsWith(`@${d}`))) return false
-              // Und gegen die Musterpflicht — der Dialog verweigert genau
-              // dieses Konto, der Import legte es reihenweise an. Die
-              // Vorschau meldet die Zeile schon vorher (`aircraftMissing`);
-              // hier steht der Riegel fuer den Fall, dass sich die
-              // Musterliste zwischen Vorschau und Klick geaendert hat.
-              if (musterFehlt(r)) return false
-              vergeben.add(mail)
-              return true
-            })
-            .map((r) => ({
-              id: uid('u'),
-              name: r.name.trim(),
-              email: r.email.trim().toLowerCase(),
-              phone: r.phone.trim(),
-              role: r.role,
-              canEditDirectory: r.canEditDirectory,
-              canGrade: r.canGrade,
-              isTrainee: r.isTrainee,
-              aircraftTypes: r.aircraftTypes,
-              active: r.active,
-            }))
-          angelegt = neue.length
-          return neue.length > 0 ? { users: [...s.users, ...neue] } : null
+          // Gruppen wie beim Anlegen im Dialog: Der Import legte Konten ganz
+          // ohne Gruppe an, in einem Zustand, den jeder andere Schreibweg
+          // verbietet (Audit 11/2026, VERW-07).
+          return importPlanen(s, rows, groupIds, () => uid('u'))
+        }
+        // Gemeldet wird, was dieselbe Rechnung am zuletzt gezeichneten Stand
+        // ergibt — der Updater laeuft nicht zwingend sofort (siehe addUser).
+        const angelegt = planen(stateRef.current)?.neue.length ?? 0
+        patch((s) => {
+          const plan = planen(s)
+          if (!plan || plan.neue.length === 0) return null
+          // Wie beim Anlegen im Dialog: Ein importierter Superadmin ist
+          // zugleich DocCheck-Superadmin und steht im Protokoll (VERW-15).
+          const at = Date.now() + s.timeOffsetMs
+          const zeilen = plan.neue.flatMap((u) => rollenAudit(null, u, { von: s.currentUserId ?? '', ziel: u.id, at, id: () => uid('dca') }))
+          const dc = s.docCheck ?? DC_LEER
+          return {
+            users: [...s.users, ...plan.neue],
+            groups: plan.groups,
+            ...(zeilen.length ? { docCheck: { ...dc, audit: [...zeilen, ...dc.audit] } } : {}),
+          }
         })
         return angelegt
       },
@@ -1531,59 +1652,10 @@ export function useStore(): Store {
   return ctx
 }
 
-/** Darf der Nutzer in dieser Gruppe administrieren? */
-/** Admin-Rechte: Superadmin und Admin — NICHT der nur-lesende Training Admin */
-/**
- * Hat dieser Nutzer ein Admin-Panel? Die Antwort kommt aus adminAccess.ts —
- * dort steht auch, WELCHE Bereiche. Zwei Aufzaehlungen derselben Freigabe
- * hatten sich schon einmal widersprochen.
- */
-export { adminTabsFor }
-
-export function isAdminUser(user: { role: Role } | null | undefined): boolean {
-  return hatAdminPanel(user?.role)
-}
-
-
-/**
- * Rechte-Matrix: Superadmin darf immer alles; Mitglieder werden über die
- * Flags am Nutzer gesteuert (canGrade, canEditDirectory); Admin und
- * Training Admin folgen der im Superadmin-Panel gepflegten Matrix.
- */
-/**
- * Darf dieser Nutzer das Modul überhaupt betreten? Der Training Admin ist auf
- * die Formularablage begrenzt; weitere Module öffnen sich nur, wenn die
- * Rechte-Matrix sie ihm freischaltet. Alle anderen Rollen sehen alles —
- * die Feinsteuerung passiert innerhalb der Module.
- */
-export function userMayModule(settings: Settings, user: User | null | undefined, module: ModuleKey): boolean {
-  if (!user) return false
-  if (module === 'grading') return userHasPerm(settings, user, 'grading_create') || userHasPerm(settings, user, 'grading_view_all')
-  if (user.role !== 'training_admin') return true
-  if (module === 'info') return userHasPerm(settings, user, 'info_manage')
-  if (module === 'lessons') return userHasPerm(settings, user, 'lessons_manage')
-  if (module === 'contacts') return userHasPerm(settings, user, 'contacts_manage')
-  // Notizen bekommt der Training Admin bewusst nicht: Seine Rolle ist die
-  // lesende Sicht auf die Formularablage, keine Instruktorentaetigkeit — er
-  // hat nichts, wofuer er sich etwas fuer die naechste Session merken muesste.
-  return false
-}
-
-export function userHasPerm(settings: Settings, user: User | null | undefined, key: PermKey): boolean {
-  if (!user) return false
-  if (user.role === 'superadmin') return true
-  if (user.role === 'member') {
-    if (key === 'grading_create') return user.canGrade
-    if (key === 'contacts_manage') return user.canEditDirectory
-    return false
-  }
-  return settings.permissions[user.role]?.[key] ?? false
-}
-
-export function isGroupAdmin(user: User | null, group: Group): boolean {
-  if (!user) return false
-  return user.role === 'superadmin' || group.adminIds.includes(user.id)
-}
+/* Rechtefragen (userHasPerm, userMayModule, isAdminUser, isGroupAdmin) liegen
+   in src/adminAccess.ts — dort erreichen sie beide Testwachen. Sie standen
+   hier, in einer .tsx-Datei, und jede Rechtefrage der App war ungetestet
+   (Audit 11/2026, VERW-02). */
 
 /** Ist der Eintrag schon veröffentlicht? „Gültig ab“ in der Zukunft heißt:
  *  noch nicht sichtbar und nicht bestätigbar (nur Verwalter sehen ihn). */
@@ -1617,13 +1689,7 @@ export function infoPublishedAt(entry: { validFrom?: string; createdAt: number }
    bleiben und es nicht zwei Fassungen gibt. */
 export { infoEntryAppliesTo } from './infoAcks'
 
-/** Darf der Nutzer diesen Chat betreten? Mitglieder, Gruppen-Admins, Superadmin. */
-export function mayAccessGroup(user: User | null, group: Group): boolean {
-  if (!user) return false
-  /* Der Musterbereich gilt auch hier, nicht nur in der Liste. Sonst waere die
-     Filterung reine Kosmetik: Die Chatliste zeigte die Gruppe nicht, wer die
-     Adresse kannte, war trotzdem drin. Dieselbe Luecke gab es schon einmal
-     bei den Formularen (#29). */
-  if (!sichtbarFuer(user, group.aircraftType)) return false
-  return group.memberIds.includes(user.id) || isGroupAdmin(user, group)
-}
+/* `mayAccessGroup` liegt in src/gruppen.ts — dort erreichen sie beide
+   Testwachen, und die Rechteregeln des Stores (storeRechte.ts) bauen darauf
+   auf (Audit 11/2026, KERN-19). Hier nur durchgereicht. */
+export { mayAccessGroup } from './gruppen'

@@ -475,7 +475,7 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
   beiden Gruppen sie gehört.
 - **Rechte werden an EINER Stelle vergeben** — `#/admin/permissions`. Dort
   stehen die Rollen-Matrix und, darunter, dieselben vier personenbezogenen
-  Rechte (bewerten, Pilot, Verzeichnis, Chat-Sperre) für alle Nutzer
+  Rechte (bewerten, Trainee, Verzeichnis, Chat-Sperre) für alle Nutzer
   nebeneinander. Vorher waren es drei Stellen: die Matrix, vier Kästchen in
   der aufgeklappten Nutzerzeile und dieselben vier als Schalter der
   Sammelbearbeitung. Wer wissen wollte, was jemand darf, sah an drei Stellen
@@ -483,14 +483,20 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
   Matrix und Sammelbearbeitung dieselben Rechte in derselben Reihenfolge
   zeigen. Bewusst NICHT dorthin geholt: Rolle und Muster (gehören zur
   Identität des Nutzers) und die Chat-Administration (gehört an den Chat) —
-  ein Verweis nennt beides.
-- **Wer welchen Verwaltungsbereich öffnet**, sagt `adminTabsFor`
-  (`src/adminAccess.ts`) — Kachel auf der Startseite, Reiterleiste und
-  Zugangsriegel fragen dieselbe Stelle. Sie stand zweimal in derselben
+  ein Verweis nennt beides. Bewerten und Verzeichnis wirken nur beim
+  Mitglied; bei den anderen Rollen entscheidet die Matrix, und die Zeile
+  zeigt gesperrt den wirksamen Wert „über Rolle" (`personenRechtWirkt`) —
+  ein Kästchen ohne Folgen ließ einen Admin weiter bewerten (VERW-02).
+- **Wer welchen Verwaltungsbereich öffnet**, sagt `adminTabsFuer`
+  (`src/adminAccess.ts`, liest die Matrix mit) — Kachel auf der Startseite,
+  Reiterleiste, Zugangsriegel und die Schreibrechte des Stores
+  (`storeRechte.ts`) fragen dieselbe Stelle. Sie stand zweimal in derselben
   Datei, verschieden formuliert, und die beiden waren sich nicht einig: Der
   Training Admin bekam eine Kachel, hinter der „kein Zugriff" stand. Auch
   die Statuszeile fragt sie — ein Punkt, der in einen gesperrten Bereich
-  führt, ist schlimmer als kein Punkt.
+  führt, ist schlimmer als kein Punkt. Den Grading-Bereich bekommt der
+  Training Admin nur mit `grading_view_all`: Fest vergeben, zeigte er nach
+  dem Entzug weiter alle Formulare samt Export (VERW-03).
 - **Statusmarken** kommen aus `Badge` (`src/components/ui.tsx`) — fünf Töne
   mit je *einer* Bedeutung: `ok` erledigt, `wait` wartet oder mahnt, `bad`
   durchgefallen oder kaputt, `accent` neutrale Einordnung, `dim` ruhiger

@@ -193,7 +193,7 @@ export function AdminTab({ onFehlerProbe }: { onFehlerProbe: () => void }) {
                     <td className="py-1.5 pr-3 text-dim">{formatDateTime(a.at)}</td>
                     <td className="py-1.5 pr-3">{name(a.von)}</td>
                     <td className="py-1.5 pr-3">{t(`auditAction.${a.aktion}`)}</td>
-                    <td className="py-1.5 pr-3">{a.aktion === 'zugang' || a.aktion === 'admin' ? name(a.ziel) : a.ziel}</td>
+                    <td className="py-1.5 pr-3">{a.aktion === 'zugang' || a.aktion === 'admin' || a.aktion === 'rolle' ? name(a.ziel) : a.ziel}</td>
                     <td className="py-1.5 font-mono text-micro">{a.wert}</td>
                   </tr>
                 ))}

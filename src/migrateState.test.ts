@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest'
 import { createSeedState } from './sandbox/seed'
 import { fehlendePflichtfelder, migrateState } from './migrateState'
-import { imprintHash, IMPRINT_LEGACY_HASHES } from './sandbox/imprintDefaults'
+import { imprintHash, IMPRINT_DE, IMPRINT_EN, IMPRINT_LEGACY_HASHES } from './sandbox/imprintDefaults'
+import vorgaenger from './sandbox/impressumVorgaenger.fixture.json'
+import startseite from './pages/Home.tsx?raw'
+import { erreichbareGruppen, gruppenPflicht, gruppenTauglich } from './aircraftScope'
+import { domainErlaubt } from './domains'
+import { kopfFuerTyp } from './gradingPrefill'
 
 /**
  * Die Migration holt Bestandsgeraete auf den aktuellen Stand, ohne dass
@@ -302,6 +307,58 @@ describe('migrateState — Impressum', () => {
     expect(st.settings.imprint.de).toContain('# 6. Datenschutz')
     expect(st.settings.imprint.en).toContain('# 6. Data protection')
   })
+  /*
+   * Audit 11/2026, KERN-13/TXT-05/TXT-04: §8 versprach „vollständig
+   * gelöscht", waehrend §6 und die Verwaltung Konten ausdruecklich nur
+   * deaktivieren; Logbuch und DocCheck fehlten in Modulliste und
+   * Datenschutz. Die neue Fassung muss Bestandsgeraete auch erreichen.
+   */
+  it('hebt die vorige Vorgabe auf die neue — sonst saehen Bestandsgeraete den Widerspruch weiter', () => {
+    const alt = createSeedState()
+    alt.settings.imprint = { de: vorgaenger.de, en: vorgaenger.en }
+    expect(migrateState(alt).settings.imprint).toEqual({ de: IMPRINT_DE, en: IMPRINT_EN })
+  })
+
+  it('eine nur halb angepasste Fassung bleibt — ersetzt wird nur die unveraenderte Vorgabe', () => {
+    const alt = createSeedState()
+    alt.settings.imprint = { de: vorgaenger.de, en: `${vorgaenger.en}\n\nOwn addition.` }
+    expect(migrateState(alt).settings.imprint.en).toContain('Own addition.')
+  })
+
+  it('verspricht keine Kontoloeschung, die die App nicht kennt', () => {
+    expect(IMPRINT_DE).not.toMatch(/vollständig gelöscht/)
+    expect(IMPRINT_EN).not.toMatch(/completely deleted/)
+    // Die Vorgabe vorher trug den Widerspruch — sonst prueften die beiden
+    // Zeilen oben ins Leere.
+    expect(vorgaenger.de).toMatch(/vollständig gelöscht/)
+    expect(vorgaenger.en).toMatch(/completely deleted/)
+  })
+
+  it('verspricht keine Zielgruppen-Auswahl, die es nicht mehr gibt', () => {
+    expect(IMPRINT_DE).not.toMatch(/Zielgruppe/)
+    expect(IMPRINT_EN).not.toMatch(/target group/i)
+  })
+
+  it('nennt jedes Modul der Startseite — in beiden Sprachen', () => {
+    // Die Liste kommt aus der Startseite selbst: Eine neue Kachel ohne
+    // Absatz im Datenschutzhinweis faellt hier auf (Logbuch und DocCheck
+    // fehlten).
+    const module = [...startseite.matchAll(/label: '([^']+)'/g)].map((m) => m[1])
+    expect(module).toEqual(expect.arrayContaining(['my AAA Logbook', 'DocCheck']))
+    for (const m of module) {
+      expect(IMPRINT_DE, m).toContain(`- ${m}:`)
+      expect(IMPRINT_EN, m).toContain(`- ${m}:`)
+    }
+  })
+
+  it('setzt Anfuehrungszeichen typografisch und nennt das Feedback-Merkmal wie die Oberflaeche', () => {
+    // „Urgent" mit geradem Schlusszeichen — im deutschen Text, waehrend die
+    // Oberflaeche „Dringend" sagt.
+    expect(IMPRINT_DE).not.toMatch(/"/)
+    expect(IMPRINT_EN).not.toMatch(/"/)
+    expect(IMPRINT_DE).toContain('„Dringend“')
+    expect(IMPRINT_DE).toContain('Genehmigungsnummer')
+  })
 })
 
 describe('Musterzuordnung nachtragen', () => {
@@ -390,5 +447,54 @@ describe('Musterzuordnung nachtragen', () => {
       const entzogen = { ...einmal, users: [{ ...einmal.users[0], aircraftTypes: [] }] }
       expect(migrateState(entzogen).users[0].aircraftTypes).toEqual([])
     })
+  })
+})
+
+describe('Seed ist widerspruchsfrei (Audit 11/2026, KERN-07/VERW-16/VERW-07)', () => {
+  // Der Seed fuehrte Mika (nur C560 XLS+) in der CL30-Gruppe und Chris (nur
+  // CL30) in der C560-Gruppe; Mikas Nachricht lag in einer Gruppe, die er
+  // nicht sehen kann. Genau diese Faelle verbietet der Store jetzt — der
+  // Seed darf nicht mit einem Zustand starten, den kein Schreibweg erzeugt.
+  const seed = createSeedState()
+  const person = (id: string) => seed.users.find((u) => u.id === id)!
+
+  it('jedes Gruppenmitglied kann seine Gruppe betreten', () => {
+    for (const g of seed.groups) {
+      for (const m of g.memberIds) expect(gruppenTauglich(seed.settings, person(m), g), `${m} in ${g.id}`).toBe(true)
+    }
+  })
+
+  it('jeder Seed-Nutzer mit Chat ist in mindestens einer erreichbaren Gruppe — der Training Admin braucht keine', () => {
+    for (const u of seed.users) {
+      if (gruppenPflicht(seed.settings, u)) expect(erreichbareGruppen(seed.settings, u, seed.groups).length, u.id).toBeGreaterThan(0)
+    }
+    expect(gruppenPflicht(seed.settings, person('u-max'))).toBe(false)
+  })
+
+  it('Nachrichten und Stimmen stammen von Mitgliedern der jeweiligen Gruppe', () => {
+    const gruppe = (id: string) => seed.groups.find((g) => g.id === id)!
+    for (const m of seed.messages) expect(gruppe(m.groupId).memberIds, m.id).toContain(m.authorId)
+    for (const p of seed.polls) {
+      expect(gruppe(p.groupId).memberIds, p.id).toContain(p.authorId)
+      for (const wer of Object.keys(p.votes)) expect(gruppe(p.groupId).memberIds, `${p.id}/${wer}`).toContain(wer)
+    }
+  })
+
+  it('jeder Seed-Nutzer kann sich mit den Seed-Domains anmelden', () => {
+    for (const u of seed.users) expect(domainErlaubt(u.email, seed.settings.allowedDomains), u.email).toBe(true)
+  })
+
+  it('Seed-Formulare fuehren nur Kopfwerte, die ihr Formulartyp kennt (L-FORMTYP#3)', () => {
+    // gr4 (308G) trug „Device FFS" und ein deutsches Event — 308G kennt
+    // beide Felder nicht, und die Forms-CSV zeigte sie trotzdem an.
+    // Was ein Typ fuehrt, sagt kopfFuerTyp — dieselbe Regel, die beim
+    // Wechsel des Formulartyps fremde Kopfwerte verwirft.
+    for (const r of seed.gradingRecords) {
+      const ft = seed.settings.grading.formTypes.find((f) => f.id === r.formTypeId)!
+      const kompetenzen = seed.settings.grading.competencySets.find((c) => c.key === ft.competencySet)?.competencies.length ?? 0
+      const erlaubt = Object.keys(kopfFuerTyp(r.header as Record<string, string>, ft, kompetenzen))
+      const fremd = Object.keys(r.header).filter((k) => !erlaubt.includes(k))
+      expect(fremd, `${r.id} (${r.formTypeId})`).toEqual([])
+    }
   })
 })

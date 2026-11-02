@@ -1,6 +1,7 @@
-import { ArrowLeft, Home as HomeIcon, Moon, Sun, X } from 'lucide-react'
+import { ArrowLeft, Home as HomeIcon, Lock, Moon, Plus, Sun, X } from 'lucide-react'
 import { Children, useCallback, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
+import { vorhandenerEintrag } from '../einstellungen'
 import { navigate } from '../router'
 
 const THEME_KEY = 'aaa-theme'
@@ -497,7 +498,11 @@ export function NewDot({ className = '', size = 12 }: { className?: string; size
 
 /** Mehrfachauswahl als Chip-Reihe — überall gleiches Verhalten und Styling */
 export function ChipMultiSelect({ options, selected, onChange }: {
-  options: { id: string; label: string }[]
+  /** `fest`: Der Chip zeigt seinen Zustand, laesst sich aber nicht
+   *  umschalten — etwa die eigene Person in der Mitgliederliste einer
+   *  Gruppe, die man verwaltet (VERW-09). Bleibt per Tab erreichbar
+   *  (aria-disabled statt disabled), damit die Sprachausgabe ihn mitliest. */
+  options: { id: string; label: string; fest?: boolean }[]
   selected: string[]
   onChange: (ids: string[]) => void
 }) {
@@ -514,16 +519,192 @@ export function ChipMultiSelect({ options, selected, onChange }: {
             // Schaltflaeche" — man konnte nicht feststellen, ob die
             // Pflichtangabe schon erfuellt ist.
             aria-pressed={on}
-            onClick={() => onChange(on ? selected.filter((x) => x !== o.id) : [...selected, o.id])}
+            aria-disabled={o.fest || undefined}
+            onClick={() => {
+              if (o.fest) return
+              onChange(on ? selected.filter((x) => x !== o.id) : [...selected, o.id])
+            }}
+            // Fest heisst gestrichelter Rand, nicht gedaempfte Deckkraft —
+            // die drueckte den Kontrast unter 3:1 (VERW-17).
             className={`min-h-11 rounded-full border px-3 py-1.5 text-micro transition ${
               on ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
-            }`}
+            } ${o.fest ? 'cursor-default border-dashed' : ''}`}
           >
             {o.label}
           </button>
         )
       })}
     </div>
+  )
+}
+
+/**
+ * Bearbeitbare Liste als Chip-Reihe — Muster, Kategorien, Empfaenger,
+ * Login-Domains, Grading-Verteiler.
+ *
+ * Stand vorher zweimal da (StringListEditor im Admin-Panel, StringList im
+ * Grading-Bereich), verschieden gebaut: Der Loeschknopf war 13 px gross, im
+ * Grading ein nacktes „×", das „+" hatte keinen Namen. Ein Fehltipper auf dem
+ * Tablet loeschte Stammdaten, und nach dem Loeschen stand der Fokus auf
+ * <body> — wer per Tastatur weiterwollte, begann oben auf der Seite
+ * (Audit 11/2026, MOB-05, A11Y-04, A11Y-07).
+ *
+ * Jetzt: Loeschflaeche 44 px mit Namen „Loeschen: <Wert>", nach dem Loeschen
+ * Fokus auf den Nachbarn (sonst ins Eingabefeld). `fest` nennt Eintraege,
+ * die bleiben muessen — ohne Loeschknopf statt eines Loeschens, das der
+ * naechste Start still rueckgaengig macht (TEC-09). `pruefeEntfernen` nennt
+ * den Grund, warum etwas nicht geht, statt still nichts zu tun (VERW-18).
+ */
+export function ChipListe({
+  label,
+  values,
+  onChange,
+  normalisiere,
+  ungueltig,
+  vorAenderung,
+  pruefeEntfernen,
+  fest = [],
+  festHinweis,
+}: {
+  label: string
+  values: string[]
+  onChange: (v: string[]) => void
+  /** Eingabe in die gespeicherte Form bringen; `null` = ungueltig. */
+  normalisiere?: (roh: string) => string | null
+  /** Meldung, wenn `normalisiere` ablehnt. */
+  ungueltig?: string
+  /** Letzte Pruefung vor dem Speichern (Rueckfrage); `false` bricht ab. */
+  vorAenderung?: (neu: string[], entfernt?: string) => boolean
+  /** Grund, warum ein Eintrag nicht entfernt werden kann — oder `null`. */
+  pruefeEntfernen?: (wert: string) => string | null
+  /** Eintraege ohne Loeschknopf (Pflichteintraege). */
+  fest?: string[]
+  /** Warum die festen Eintraege bleiben — steht unter der Liste. */
+  festHinweis?: string
+}) {
+  const { t } = useTranslation()
+  const [draft, setDraft] = useState('')
+  // Meldung unter der Liste; `feld` heisst: Sie gilt der Eingabe (ungueltig),
+  // nicht einem abgelehnten Loeschen — nur dann ist das Feld beanstandet.
+  const [meldung, setMeldung] = useState<{ text: string; feld: boolean } | null>(null)
+  const meldungId = useId()
+  const eingabe = useRef<HTMLInputElement>(null)
+  const knoepfe = useRef(new Map<string, HTMLButtonElement>())
+  // Stelle des zuletzt geloeschten Eintrags: Nach dem Neuzeichnen bekommt
+  // der Nachbar den Fokus.
+  const geloeschtAn = useRef<number | null>(null)
+
+  useEffect(() => {
+    const i = geloeschtAn.current
+    if (i === null) return
+    geloeschtAn.current = null
+    // Nur retten, was verloren ging. Steht der Fokus noch irgendwo (etwa im
+    // Eingabefeld), bleibt er dort.
+    if (document.activeElement && document.activeElement !== document.body) return
+    const loeschbar = (v: string | undefined) => v !== undefined && !fest.includes(v)
+    let ziel: string | undefined
+    for (let j = i; j < values.length && !ziel; j++) if (loeschbar(values[j])) ziel = values[j]
+    for (let j = Math.min(i, values.length) - 1; j >= 0 && !ziel; j--) if (loeschbar(values[j])) ziel = values[j]
+    ;(ziel ? knoepfe.current.get(ziel) : eingabe.current)?.focus()
+    // Ausloeser ist allein die neue Liste; `fest` kommt im selben Zeichnen.
+  }, [values])
+
+  const aendern = (neu: string[], entfernt?: string) => {
+    if (vorAenderung && !vorAenderung(neu, entfernt)) return false
+    onChange(neu)
+    return true
+  }
+  const entfernen = (v: string, i: number) => {
+    const grund = pruefeEntfernen?.(v) ?? null
+    setMeldung(grund ? { text: grund, feld: false } : null)
+    if (grund) return
+    if (aendern(values.filter((x) => x !== v), v)) geloeschtAn.current = i
+  }
+  const add = () => {
+    const roh = draft.trim()
+    if (!roh) return
+    // Ungueltiges bleibt im Feld stehen, damit man es korrigieren kann —
+    // eine Login-Domain „@Example.Test" wurde vorher gespeichert, wie sie
+    // getippt war, und sperrte die ATO aus (VERW-05).
+    const v = normalisiere ? normalisiere(roh) : roh
+    if (v === null) {
+      setMeldung({ text: ungueltig ?? '', feld: true })
+      return
+    }
+    // Schon da, wenn auch anders geschrieben („cl30" bei „CL30")? Dann nicht
+    // anfuegen, sondern den vorhandenen Eintrag nennen. Vorher ging die
+    // zweite Schreibweise durch, und eine exakte Dublette verschwand still
+    // aus dem Feld (Nachtrag VERW#3).
+    const vorhanden = vorhandenerEintrag(values, v)
+    if (vorhanden !== undefined) {
+      setMeldung({ text: t('admin.valueTaken', { value: vorhanden }), feld: true })
+      return
+    }
+    setMeldung(null)
+    if (!aendern([...values, v])) return
+    setDraft('')
+  }
+  const festeDa = values.some((v) => fest.includes(v))
+  return (
+    // Gruppe statt <label>: die Beschriftung gehoert zur Liste, nicht zum
+    // ersten Loeschknopf darin.
+    <Field label={label} group>
+      <div className="mb-2 flex flex-wrap gap-2">
+        {values.map((v, i) =>
+          fest.includes(v) ? (
+            // Fest: gestrichelter Rand und Schloss statt Loeschknopf — nicht
+            // gedaempft, der Wert bleibt voll lesbar (VERW-17).
+            <span key={v} className="flex items-center gap-1.5 rounded-full border border-dashed border-line/25 px-3 py-1.5 text-small">
+              <Lock size={12} aria-hidden className="shrink-0 text-dim" />
+              {v}
+            </span>
+          ) : (
+            <span key={v} className="flex items-center gap-0.5 rounded-full bg-raised px-3 py-1.5 text-small">
+              {v}
+              {/* 44 px Trefferflaeche, die per negativem Rand in die Pille
+                  hineinragt — die Pille selbst bleibt so hoch wie Text. */}
+              <button
+                type="button"
+                ref={(el) => {
+                  if (el) knoepfe.current.set(v, el)
+                  else knoepfe.current.delete(v)
+                }}
+                onClick={() => entfernen(v, i)}
+                aria-label={`${t('common.delete')}: ${v}`}
+                className="-my-2 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dim transition hover:text-danger"
+              >
+                <X size={15} aria-hidden />
+              </button>
+            </span>
+          ),
+        )}
+      </div>
+      {festeDa && festHinweis && <p className="mb-2 text-micro leading-relaxed text-dim">{festHinweis}</p>}
+      <div className="flex gap-2">
+        <input
+          ref={eingabe}
+          className={`${inputCls} ${meldung?.feld ? 'border-danger/60' : ''}`}
+          value={draft}
+          aria-label={label}
+          aria-invalid={meldung?.feld || undefined}
+          aria-describedby={meldung ? meldungId : undefined}
+          placeholder={t('admin.addValue')}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            setMeldung(null)
+          }}
+          onKeyDown={(e) => e.key === 'Enter' && add()}
+        />
+        <Button variant="ghost" onClick={add} label={`${t('common.add')}: ${label}`}>
+          <Plus size={16} aria-hidden />
+        </Button>
+      </div>
+      {meldung?.text && (
+        <p id={meldungId} role="alert" className="mt-1.5 text-micro leading-relaxed text-danger">
+          {meldung.text}
+        </p>
+      )}
+    </Field>
   )
 }
 
