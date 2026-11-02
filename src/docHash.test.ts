@@ -140,9 +140,14 @@ describe('contentFingerprint — Fassungen', () => {
     expect(await contentFingerprint(rec(), 3)).toBe('7a90d1f365c8d1e04ec0ff14ad414e4a79335e835ae78dba39d006ed90a8ba09')
   })
 
+  it('Fassung 4 ergibt ihren bekannten Abdruck', async () => {
+    expect(await contentFingerprint(rec(), 4)).toBe('b5bf676f89edfa17d0b2f4f943bc69202cf9e89e9b2cd2301262a00db4374689')
+  })
+
   it('rechnet ohne Angabe mit der aktuellen Fassung', async () => {
     expect(await contentFingerprint(rec())).toBe(await contentFingerprint(rec(), HASH_VERSION))
-    expect(HASH_VERSION).toBe(3)
+    // Fassung 4 seit Audit 11/2026 (GTY-06): die eingefrorene Empfaengerliste.
+    expect(HASH_VERSION).toBe(4)
   })
 
   /**
@@ -178,5 +183,49 @@ describe('contentFingerprint — Fassungen', () => {
 
   it('Fassung 2 bemerkt zusaetzliche Empfaenger', async () => {
     expect(await contentFingerprint(rec({ extraRecipients: ['ops@example.com'] }))).not.toBe(await contentFingerprint(rec()))
+  })
+})
+
+/**
+ * Audit 11/2026, GRD-03 und GTY-06: Folgeformulare und Anwesenheitslisten
+ * froren den Dokumentenstand nicht ein, und die Empfaengerliste stand gar
+ * nicht im Datensatz. Beides liess sich nach der Unterschrift ueber die
+ * Einstellungen umschreiben, ohne dass der Abdruck etwas merkte.
+ */
+describe('contentFingerprint — Dokumentenstand und Empfaenger', () => {
+  const stand = { atoName: 'Aviation Academy Austria', approval: 'GBR.ATO.0541', formRevision: 'Rev. 0.2', formTitle: 'Attendance List' }
+  const anwesenheit = (over: Partial<GradingRecord> = {}) =>
+    rec({
+      formTypeId: '307A',
+      trainees: [],
+      sessionStatus: null,
+      signatureTrainee: null,
+      attendance: [{ name: 'Sophie Berger', signature: 'data:image/png;base64,CCC' }],
+      docSnapshot: stand,
+      ...over,
+    })
+
+  it('ein 307A mit Momentaufnahme bricht bei geaenderter Zulassungsnummer', async () => {
+    expect(await contentFingerprint(anwesenheit({ docSnapshot: { ...stand, approval: 'AT.ATO.106' } }))).not.toBe(
+      await contentFingerprint(anwesenheit()),
+    )
+  })
+
+  it('Fassung 4 bricht bei geaenderter Empfaengerliste', async () => {
+    const vorher = anwesenheit({ recipients: ['records@example.test'] })
+    const nachher = anwesenheit({ recipients: ['records-new@example.test'] })
+    expect(await contentFingerprint(nachher)).not.toBe(await contentFingerprint(vorher))
+  })
+
+  it('Altbestand der Fassung 3 rechnet unveraendert — die Empfaenger fliessen dort nicht ein', async () => {
+    // Ein unter Fassung 3 unterschriebenes Dokument wird mit Fassung 3
+    // nachgerechnet; die neue Angabe darf seinen Abdruck nicht verschieben.
+    expect(await contentFingerprint(rec({ recipients: ['x@example.test'] }), 3)).toBe(await contentFingerprint(rec(), 3))
+    expect(await contentFingerprint(rec(), 3)).toBe('7a90d1f365c8d1e04ec0ff14ad414e4a79335e835ae78dba39d006ed90a8ba09')
+  })
+
+  it('Fassung 4 liest fehlende Empfaenger als null, nicht als leere Liste', async () => {
+    // „nicht erfasst" (Altbestand) und „an niemanden" sind verschiedene Aussagen.
+    expect(await contentFingerprint(rec({ recipients: [] }))).not.toBe(await contentFingerprint(rec()))
   })
 })

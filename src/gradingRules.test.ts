@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import {
   autoNotCompetent,
+  behoerdeFuer,
+  bezeichnungen,
+  dokumentStand,
+  einfrieren,
+  empfaengerVon,
   followUpStarted,
+  ganzzahligNichtNegativ,
+  gleichePaare,
   gradingDayKey,
   gradingListComparator,
   gradingListDate,
@@ -9,10 +16,15 @@ import {
   isComplete,
   isFollowUpType,
   isNotCompetent,
+  istInstruktorBlatt,
+  istUnterschrift,
+  kopfHinweise,
   missingFollowUps,
+  overallNachNote,
   trafficLight,
   traineesOf,
 } from './gradingRules'
+import { GRADING_DEFAULTS } from './sandbox/gradingDefaults'
 import type { GradingRecord, TraineeGrading } from './types'
 
 /**
@@ -324,5 +336,371 @@ describe('gradingListDate / gradingDayKey — der Schulungstag zaehlt', () => {
     const a = rec({ id: 'a', header: { date: '2026-08-05' }, createdAt: Date.UTC(2026, 7, 5) })
     const b = rec({ id: 'b', header: { date: '2026-08-05' }, createdAt: Date.UTC(2026, 7, 9) })
     expect(gradingDayKey(a)).toBe(gradingDayKey(b))
+  })
+})
+
+/**
+ * Audit 11/2026, MOB-01: Im Querformat verschwand der Strich, gespeichert
+ * wurde ein transparentes PNG — und weil nur die Truthiness zaehlte, ging der
+ * Nachweis mit LEERER Instruktorunterschrift als „signed" durch. Dass ein
+ * Bild Tinte traegt, prueft die Zeichenflaeche (signaturBild.test.ts); hier
+ * faellt durch, was gar kein Bild ist.
+ */
+describe('istUnterschrift — eine leere data-URL ist keine Unterschrift', () => {
+  it('nimmt ein Bild mit Inhalt', () => {
+    expect(istUnterschrift('data:image/png;base64,iVBORw0KGgo')).toBe(true)
+    expect(istUnterschrift('data:image/svg+xml;base64,PHN2Zz4=')).toBe(true)
+  })
+
+  it('verwirft leer, null und das, was ein Canvas ohne Flaeche liefert', () => {
+    expect(istUnterschrift(null)).toBe(false)
+    expect(istUnterschrift(undefined)).toBe(false)
+    expect(istUnterschrift('')).toBe(false)
+    expect(istUnterschrift('data:,')).toBe(false)
+    expect(istUnterschrift('data:image/png;base64,')).toBe(false)
+  })
+
+  it('verwirft, was gar kein Bild ist', () => {
+    expect(istUnterschrift('Sophie Berger')).toBe(false)
+    expect(istUnterschrift('data:text/plain,signed')).toBe(false)
+  })
+
+  it('die Ampel zaehlt eine leere data-URL nicht als Beleg', () => {
+    expect(hasEvidence(rec({ signatureInstructor: 'data:,' }))).toBe(false)
+    expect(hasEvidence(rec({ signatureTrainee: 'data:image/png;base64,' }))).toBe(false)
+    expect(trafficLight(rec({ signatureInstructor: 'data:,' }))).toBe('yellow')
+  })
+})
+
+/**
+ * Audit 11/2026, GRD-03: 306/310/307A/307B froren den Dokumentenstand nicht
+ * ein; die Anzeige las ihn spaeter aus den Einstellungen. Eine geaenderte
+ * Zulassungsnummer stand damit auf einem laengst unterschriebenen Nachweis.
+ */
+describe('dokumentStand', () => {
+  const kopf = { atoName: 'Aviation Academy Austria', approvalNumber: 'AT.ATO.106', approvalNumberUK: 'GBR.ATO.0541', formRevision: 'Rev. 0.2' }
+
+  it('nimmt bei UK die UK-Zulassung', () => {
+    expect(dokumentStand(kopf, 'UK', 'Additional Training')).toEqual({
+      atoName: 'Aviation Academy Austria',
+      approval: 'GBR.ATO.0541',
+      formRevision: 'Rev. 0.2',
+      formTitle: 'Additional Training',
+    })
+  })
+
+  it('nimmt bei AT die oesterreichische', () => {
+    expect(dokumentStand(kopf, 'AT', 'X').approval).toBe('AT.ATO.106')
+  })
+
+  it('faellt ohne UK-Nummer auf die oesterreichische zurueck — wie die Anzeige', () => {
+    expect(dokumentStand({ ...kopf, approvalNumberUK: '' }, 'UK', 'X').approval).toBe('AT.ATO.106')
+    expect(dokumentStand({ ...kopf, approvalNumberUK: undefined }, 'UK', 'X').approval).toBe('AT.ATO.106')
+  })
+
+  it('kommt ohne Dokumentkopf in den Einstellungen aus (Altbestand)', () => {
+    expect(dokumentStand(undefined, 'AT', 'Attendance')).toEqual({ atoName: '', approval: '', formRevision: '', formTitle: 'Attendance' })
+  })
+})
+
+/**
+ * Audit 11/2026, GTY-06: Die Empfaengerzeile wurde zur ANZEIGEZEIT aus den
+ * Einstellungen berechnet — und stand zweimal, verschieden: Das Formular
+ * kannte die Eskalation bei 306 nicht. Jetzt EINE Regel, deren Ergebnis beim
+ * Absenden gespeichert wird.
+ */
+describe('empfaengerVon — je Formulartyp', () => {
+  const grading = {
+    defaultRecipients: ['records@example.test'],
+    deferredRecipients: ['ta@example.test'],
+    escalationRecipients: ['hot@example.test', 'records@example.test'],
+  }
+
+  it('bestanden: nur die Standardempfaenger und die zusaetzlichen', () => {
+    expect(empfaengerVon(rec({ extraRecipients: ['ops@example.test'] }), grading)).toEqual(['records@example.test', 'ops@example.test'])
+  })
+
+  it('310 geht immer zusaetzlich an den Training Admin', () => {
+    expect(empfaengerVon(rec({ formTypeId: '310', trainees: [], sessionStatus: null }), grading)).toEqual(['records@example.test', 'ta@example.test'])
+  })
+
+  it('306 eskaliert immer — das Formular kannte das nicht', () => {
+    expect(empfaengerVon(rec({ formTypeId: '306', trainees: [], sessionStatus: null }), grading)).toEqual(['records@example.test', 'hot@example.test'])
+  })
+
+  it('Not Competent — erklaert oder rechnerisch — und Session not completed eskalieren', () => {
+    expect(empfaengerVon(rec({ trainees: [trainee('not_competent')] }), grading)).toContain('hot@example.test')
+    const rechnerisch = { ...trainee('competent'), grades: [{ code: 'KNO', grade: 1 as const, comment: 'x' }] }
+    expect(empfaengerVon(rec({ trainees: [rechnerisch] }), grading)).toContain('hot@example.test')
+    expect(empfaengerVon(rec({ sessionStatus: 'not_completed' }), grading)).toContain('hot@example.test')
+  })
+
+  it('nennt niemanden doppelt', () => {
+    const r = rec({ formTypeId: '306', trainees: [], sessionStatus: null, extraRecipients: ['records@example.test', 'hot@example.test'] })
+    expect(empfaengerVon(r, grading)).toEqual(['records@example.test', 'hot@example.test'])
+  })
+
+  it('307A/307B: Standardempfaenger', () => {
+    expect(empfaengerVon(rec({ formTypeId: '307A', trainees: [], sessionStatus: null }), grading)).toEqual(['records@example.test'])
+  })
+})
+
+/**
+ * Audit 11/2026, GRD-04: Das 306/310 einer UK-Session startete mit AT und
+ * druckte AT.ATO.106. Ein Folgeformular gehoert zur Zulassung seines
+ * Elternblatts.
+ */
+describe('behoerdeFuer', () => {
+  it('ein Folgeformular uebernimmt die Behoerde des Elternblatts', () => {
+    expect(behoerdeFuer(undefined, { authority: 'UK' })).toBe('UK')
+  })
+
+  it('das Elternblatt geht auch einem gesicherten Entwurf vor', () => {
+    expect(behoerdeFuer(undefined, { authority: 'UK' }, 'AT')).toBe('UK')
+  })
+
+  it('ein Elternblatt ohne Angabe (Altbestand) gilt als AT', () => {
+    expect(behoerdeFuer(undefined, {})).toBe('AT')
+  })
+
+  it('ein bestehender Datensatz behaelt seine eigene Angabe', () => {
+    expect(behoerdeFuer({ authority: 'AT' }, { authority: 'UK' })).toBe('AT')
+    expect(behoerdeFuer({}, { authority: 'UK' })).toBe('AT')
+  })
+
+  it('ohne Elternblatt: der Entwurf, sonst AT', () => {
+    expect(behoerdeFuer(undefined, undefined, 'UK')).toBe('UK')
+    expect(behoerdeFuer(undefined, undefined, 'kaputt')).toBe('AT')
+    expect(behoerdeFuer(undefined, undefined)).toBe('AT')
+  })
+})
+
+describe('gradingDayKey — Ortszeit, nicht UTC (GRD-16)', () => {
+  it('ein Blatt ohne Kopfdatum, angelegt um 00:30 in Wien, gehoert zum neuen Tag', () => {
+    const vorher = process.env.TZ
+    process.env.TZ = 'Europe/Vienna'
+    try {
+      expect(gradingDayKey(rec({ header: {}, createdAt: Date.UTC(2026, 10, 1, 23, 30) }))).toBe('2026-11-02')
+    } finally {
+      if (vorher === undefined) delete process.env.TZ
+      else process.env.TZ = vorher
+    }
+  })
+})
+
+describe('einfrieren — jeder Formulartyp, nicht nur die Grading Sheets (GRD-03, GTY-06)', () => {
+  const kopf = { atoName: 'Aviation Academy Austria', approvalNumber: 'AT.ATO.106', approvalNumberUK: 'GBR.ATO.0541', formRevision: 'Rev. 0.2' }
+  const grading = { defaultRecipients: ['records@example.test'], deferredRecipients: ['ta@example.test'], escalationRecipients: ['hot@example.test'] }
+
+  it('ein 306 einer UK-Session traegt GBR.ATO.0541 und die Eskalation', () => {
+    const r = einfrieren(rec({ formTypeId: '306', trainees: [], sessionStatus: null, authority: 'UK' }), kopf, 'Additional Training', grading)
+    expect(r.docSnapshot).toEqual({ atoName: 'Aviation Academy Austria', approval: 'GBR.ATO.0541', formRevision: 'Rev. 0.2', formTitle: 'Additional Training' })
+    expect(r.recipients).toEqual(['records@example.test', 'hot@example.test'])
+  })
+
+  it('ein 307A ohne Angabe der Behoerde gilt als AT', () => {
+    const r = einfrieren(rec({ formTypeId: '307A', trainees: [], sessionStatus: null, authority: undefined }), kopf, 'Attendance', grading)
+    expect(r.docSnapshot?.approval).toBe('AT.ATO.106')
+    expect(r.recipients).toEqual(['records@example.test'])
+  })
+
+  it('aendert sonst nichts am Datensatz', () => {
+    const vorher = rec({ formTypeId: '310', trainees: [], sessionStatus: null })
+    const { docSnapshot: _d, recipients: _r, ...rest } = einfrieren(vorher, kopf, 'Deferred Item', grading)
+    expect(rest).toEqual(vorher)
+  })
+})
+
+/**
+ * Audit 11/2026, GRD-08: Die Automatik setzte „Not Competent", nahm es aber
+ * nie zurueck. Nach einem Tippfehler (1 statt 4) blieb der Pilot nicht
+ * bestanden — mit Pflicht-306, Eskalation und NC-Statistik, aber ohne eine
+ * Note, die das traegt.
+ */
+describe('overallNachNote — die Automatik nimmt sich selbst zurueck', () => {
+  const mit = (noten: (1 | 2 | 3 | 4 | 5 | 'NO' | null)[], overall: TraineeGrading['overall']): TraineeGrading => ({
+    ...trainee(overall),
+    grades: noten.map((grade, i) => ({ code: ['KNO', 'PRO', 'COM'][i], grade, comment: '' })),
+  })
+
+  it('setzt Not Competent, sobald die Bedingung greift', () => {
+    expect(overallNachNote(mit([3, 3, 3], null), mit([1, 3, 3], null)).overall).toBe('not_competent')
+    expect(overallNachNote(mit([2, 3, 3], 'competent'), mit([2, 2, 3], 'competent')).overall).toBe('not_competent')
+  })
+
+  it('KNO 1 → 4: das automatische Not Competent faellt weg und muss bewusst gewaehlt werden', () => {
+    const vorher = overallNachNote(mit([null, 3, 3], null), mit([1, 3, 3], null))
+    expect(vorher.overall).toBe('not_competent')
+    expect(overallNachNote(vorher, mit([4, 3, 3], 'not_competent')).overall).toBeNull()
+  })
+
+  it('1 → 2 bei einer zweiten 2: die Bedingung haelt weiter, Not Competent bleibt', () => {
+    expect(overallNachNote(mit([1, 2, 3], 'not_competent'), mit([2, 2, 3], 'not_competent')).overall).toBe('not_competent')
+  })
+
+  it('ein von Hand gewaehltes Not Competent ohne vorherige Automatik bleibt stehen', () => {
+    expect(overallNachNote(mit([3, 3, 3], 'not_competent'), mit([4, 3, 3], 'not_competent')).overall).toBe('not_competent')
+  })
+
+  it('ein bewusst gewaehltes Competent bleibt nach einer harmlosen Korrektur', () => {
+    expect(overallNachNote(mit([3, 3, 3], 'competent'), mit([4, 3, 3], 'competent')).overall).toBe('competent')
+  })
+
+  it('aendert nichts ausser overall', () => {
+    const nachher = mit([4, 3, 3], 'not_competent')
+    expect(overallNachNote(mit([1, 3, 3], 'not_competent'), nachher)).toEqual({ ...nachher, overall: null })
+  })
+})
+
+/** Felder eines Formulartyps aus dem echten Katalog — die Regeln haengen an
+ *  den Schluesseln, die dort stehen. */
+const felder = (id: string) => GRADING_DEFAULTS.formTypes.find((f) => f.id === id)!.fields
+
+/**
+ * Audit 11/2026, GTY-05: Die Zukunftswarnung pruefte jedes Datumsfeld. Ein
+ * korrektes Due Date des 310 loeste „The date is in the future" aus, ein
+ * Due Date VOR dem Formulardatum ging ohne Rueckfrage durch.
+ */
+describe('kopfHinweise — Zukunft nur beim Schulungsdatum, Due Date nicht davor', () => {
+  const heute = '2026-11-02'
+
+  it('ein Due Date in der Zukunft ist keine Warnung', () => {
+    expect(kopfHinweise(felder('310'), { date: '2026-11-01', dueDate: '2026-12-15' }, heute)).toEqual({ zukunft: false, fehler: [] })
+  })
+
+  it('ein Due Date vor dem Datum ist ein Fehler am Feld dueDate', () => {
+    const { zukunft, fehler } = kopfHinweise(felder('310'), { date: '2026-10-30', dueDate: '2026-10-01' }, heute)
+    expect(zukunft).toBe(false)
+    expect(fehler).toEqual([{ feld: 'dueDate', schluessel: 'forms:errDueBeforeDate', werte: { due: 'Due Date', date: 'Date' } }])
+  })
+
+  it('am selben Tag faellig ist erlaubt', () => {
+    expect(kopfHinweise(felder('310'), { date: '2026-10-30', dueDate: '2026-10-30' }, heute).fehler).toEqual([])
+  })
+
+  it('ohne Due Date oder ohne Datum gibt es nichts zu vergleichen', () => {
+    expect(kopfHinweise(felder('310'), { date: '2026-10-30' }, heute).fehler).toEqual([])
+    expect(kopfHinweise(felder('310'), { dueDate: '2026-10-01' }, heute).fehler).toEqual([])
+  })
+
+  it('ein Schulungsdatum in der Zukunft warnt weiter', () => {
+    expect(kopfHinweise(felder('310'), { date: '2026-11-03', dueDate: '2026-12-15' }, heute).zukunft).toBe(true)
+    expect(kopfHinweise(felder('308A'), { date: '2026-11-03' }, heute).zukunft).toBe(true)
+  })
+
+  it('heute ist nicht die Zukunft', () => {
+    expect(kopfHinweise(felder('308A'), { date: heute }, heute).zukunft).toBe(false)
+  })
+
+  it('ein Formulartyp ohne Due Date kennt den Fehler nicht', () => {
+    expect(kopfHinweise(felder('308A'), { date: '2026-10-30', dueDate: '2026-10-01' }, heute).fehler).toEqual([])
+  })
+})
+
+/**
+ * Audit 11/2026, GTY-07: Takeoffs/Landings (308E, 308H) nahmen „-3", „2.5"
+ * und „1e5" an; ein getipptes „e" verschwand still (type=number meldet dann
+ * den Wert ""). Das Feld ist jetzt Text mit Ziffernfeld, die Regel hier.
+ */
+describe('ganzzahligNichtNegativ', () => {
+  it('verwirft negative, gebrochene und Exponentenwerte', () => {
+    for (const v of ['-3', '2.5', '1e5', 'e', '3,0', '+3', '0x1']) expect(ganzzahligNichtNegativ(v), v).toBe(false)
+  })
+
+  it('nimmt ganze Zahlen ab 0', () => {
+    for (const v of ['0', '3', '12', ' 4 ']) expect(ganzzahligNichtNegativ(v), v).toBe(true)
+  })
+
+  it('leer ist bei einem optionalen Feld erlaubt, bei einem Pflichtfeld nicht', () => {
+    expect(ganzzahligNichtNegativ('')).toBe(true)
+    expect(ganzzahligNichtNegativ(undefined)).toBe(true)
+    expect(ganzzahligNichtNegativ('  ', true)).toBe(false)
+    expect(ganzzahligNichtNegativ('2', true)).toBe(true)
+  })
+
+  it('kopfHinweise meldet jedes Zahlenfeld mit seinem Namen', () => {
+    const { fehler } = kopfHinweise(felder('308E'), { takeoffs: '-3', landings: '2.5' }, '2026-11-02')
+    expect(fehler).toEqual([
+      { feld: 'takeoffs', schluessel: 'forms:errWholeNumber', werte: { field: 'Takeoffs' } },
+      { feld: 'landings', schluessel: 'forms:errWholeNumber', werte: { field: 'Landings' } },
+    ])
+    expect(kopfHinweise(felder('308E'), { takeoffs: '3', landings: '' }, '2026-11-02').fehler).toEqual([])
+  })
+})
+
+/**
+ * Audit 11/2026, GTY-11: 308C „From ATR PEC → To ATR PEC" und 308D
+ * „Single → Single Pilot Ops" gingen ohne Rueckfrage durch.
+ */
+describe('gleichePaare — Von und Nach muessen verschieden sein', () => {
+  it('gleiche Werte sind ein Fehler am Nach-Feld', () => {
+    expect(gleichePaare(felder('308C'), { variantFrom: 'ATR PEC', variantTo: 'ATR PEC' })).toEqual([{ von: 'variantFrom', nach: 'variantTo' }])
+    expect(kopfHinweise(felder('308D'), { convFrom: 'Single Pilot Ops', convTo: 'Single Pilot Ops' }, '2026-11-02').fehler).toEqual([
+      { feld: 'convTo', schluessel: 'forms:errSameFromTo', werte: { from: 'Conv. From', to: 'Conv. To' } },
+    ])
+  })
+
+  it('verschiedene Werte sind in Ordnung', () => {
+    expect(gleichePaare(felder('308C'), { variantFrom: 'ATR PEC', variantTo: 'ATR NON PEC' })).toEqual([])
+  })
+
+  it('leere Felder meldet diese Regel nicht — das ist Sache der Pflichtpruefung', () => {
+    expect(gleichePaare(felder('308C'), { variantFrom: '', variantTo: '' })).toEqual([])
+    expect(gleichePaare(felder('308C'), {})).toEqual([])
+  })
+
+  it('nur Paare, deren beide Felder der Formulartyp fuehrt', () => {
+    expect(gleichePaare(felder('308A'), { variantFrom: 'X', variantTo: 'X' })).toEqual([])
+  })
+})
+
+/**
+ * Audit 11/2026, GTY-10: Das 308G-Formular nannte Personen und
+ * Unterschriften anders als das Dokument („Instructor signature" /
+ * „Trainee signature" gegen „Signature Course Instructor (COI)" /
+ * „Signature Candidate Instructor (CAI)"), bot „Add another pilot" an und
+ * nannte in den offenen Punkten Kürzel, die das Formular nie zeigt.
+ */
+describe('bezeichnungen — Formular und Dokument benennen gleich', () => {
+  const typ = (id: string) => GRADING_DEFAULTS.formTypes.find((f) => f.id === id)!
+
+  it('308G: Candidate und Course Instructor, ohne Kürzel', () => {
+    const b = bezeichnungen(typ('308G'))
+    expect(b.sigAusbilder).toBe('forms:sigCOI')
+    expect(b.sigPerson).toBe('forms:sigCAI')
+    expect(b.hinzufuegen).toBe('forms:addCandidate')
+    expect(b.person).toBe('forms:candidateInstructor')
+    expect(b.ausbilder).toBe('forms:courseInstructor')
+    expect(b.personN).toBe('forms:candidateN')
+    expect(b.personZeile).toBe('forms:personCai')
+    expect(b.kuerzel).toBe(false)
+  })
+
+  it('Pilotenblätter und Formulare ohne Bewertung bleiben bei Pilot/Trainee', () => {
+    for (const id of ['308A', '308F', '306', '310', '307A']) {
+      const b = bezeichnungen(typ(id))
+      expect(b.sigAusbilder).toBe('forms:sigInstructor')
+      expect(b.sigPerson).toBe('forms:sigTrainee')
+      expect(b.hinzufuegen).toBe('forms:addTrainee')
+      expect(b.personZeile).toBe('forms:personPilot')
+      expect(b.kuerzel).toBe(true)
+    }
+  })
+
+  it('der Kompetenzsatz entscheidet — die Kennung nur, wenn der Typ fehlt', () => {
+    // Ein im Admin Panel angelegtes Instruktorenblatt beurteilt ebenfalls einen CAI.
+    expect(istInstruktorBlatt({ id: 'X1', competencySet: 'instructor' })).toBe(true)
+    expect(istInstruktorBlatt({ id: 'X1', competencySet: 'pilot' })).toBe(false)
+    // Ansicht eines 308G, dessen Typ nicht im Katalog steht.
+    expect(istInstruktorBlatt({ id: '308G' })).toBe(true)
+    expect(bezeichnungen({ id: '308G', competencySet: undefined }).sigAusbilder).toBe('forms:sigCOI')
+    expect(istInstruktorBlatt({ id: '308A', competencySet: null })).toBe(false)
+  })
+
+  it('jede Bezeichnung hat beide Fassungen — keine bleibt auf dem 308G pilotenhaft', () => {
+    const pilot = bezeichnungen(typ('308A'))
+    const cai = bezeichnungen(typ('308G'))
+    expect(Object.keys(cai).sort()).toEqual(Object.keys(pilot).sort())
+    for (const k of Object.keys(pilot) as (keyof typeof pilot)[]) expect(cai[k]).not.toBe(pilot[k])
   })
 })

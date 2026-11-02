@@ -423,6 +423,12 @@ export interface GradingRecord {
   mailError?: string
   /** vom Instruktor zusätzlich angegebene Empfänger */
   extraRecipients?: string[]
+  /** Tatsächliche Empfängerliste, eingefroren beim Absenden (`empfaengerVon`).
+   *  Audit 11/2026, GTY-06: Die Ansicht rechnete sie zur Anzeigezeit aus den
+   *  Einstellungen — ein alter Nachweis nannte nach jeder Änderung Empfänger,
+   *  an die er nie ging. Ab Fassung 4 Teil des Fingerabdrucks. Fehlt sie
+   *  (Altbestand), fällt die Anzeige auf die Regel zurück. */
+  recipients?: string[]
   /** Teilnehmerliste der Formulare 307A/307B */
   attendance?: AttendanceEntry[]
   /** Nutzer, die das Formular aus ihrer Listenansicht entfernt haben —

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, inputCls, Page, SectionHeading, TopBar } from '../components/ui'
 import { downloadCsv } from '../csv'
-import { readDrafts } from '../drafts'
+import { fortsetzenAdresse, readDrafts } from '../drafts'
 import { toast } from '../components/Toast'
 import { buildGradingCsv, gradingCsvName, type ExportScope } from '../gradingExport'
 import { navigate } from '../router'
@@ -547,7 +547,9 @@ export function Grading() {
               )}
             </div>
             <button
-              onClick={() => navigate(`/grading/new?type=${d.formTypeId}`)}
+              // Mit Elternblatt und Kette — sonst oeffnete ein 306/310 leer
+              // und hing danach an keinem Blatt (GRD-01).
+              onClick={() => navigate(fortsetzenAdresse(d))}
               className="min-h-11 shrink-0 rounded-xl border border-accent/40 px-3 text-small font-semibold text-accent transition hover:bg-accent/10"
             >
               {t('forms:draftContinue')}

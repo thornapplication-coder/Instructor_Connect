@@ -93,6 +93,28 @@ body,
   height: 100%;
 }
 
+/*
+ * Fokus nie hinter einer Leiste (WCAG 2.4.11, Audit 11/2026 A11Y-01/MOB-03).
+ *
+ * Der Browser scrollte ein per Tab erreichtes Element nur bis an den
+ * Fensterrand — und dort stehen Kopfleiste (oben, 3.5rem), Sandbox-Leiste
+ * (unten, 2.75rem) und im Grading-Formular die Abschlussleiste. Gemessen
+ * waren auf dem iPad 34 von 196 Fokuszielen ganz oder teilweise verdeckt,
+ * darunter Noten-Knöpfe, die sich per Leertaste setzen ließen, ohne dass man
+ * sie sah. `scroll-padding` hält die Ränder frei; die Höhe der
+ * Abschlussleiste misst das Formular selbst (`--formularleiste-h`, sie
+ * wächst mit der aufgeklappten Liste), ohne Leiste zählt sie 0.
+ */
+html {
+  scroll-padding-top: calc(3.5rem + env(safe-area-inset-top, 0px) + 8px);
+  scroll-padding-bottom: calc(2.75rem + var(--formularleiste-h, 0px) + env(safe-area-inset-bottom, 0px) + 8px);
+}
+/* Klebt unter der Kopfleiste noch etwas (Tagesüberschrift der Grading-Liste,
+   Gruppenleiste des Chats, höchstens 3.75rem), braucht der Rand oben mehr. */
+html:has(.below-topbar.sticky) {
+  scroll-padding-top: calc(3.5rem + 3.75rem + env(safe-area-inset-top, 0px) + 8px);
+}
+
 body {
   @apply bg-bg text-ink font-sans antialiased;
   background-image:
@@ -165,8 +187,28 @@ input[type='date'] {
    * Senden-Knopf, und zwar unbemerkt (der Knopf war da, nur nicht klickbar).
    * Solange die Formularleiste steht, ruecken die uebrigen Streifen darueber.
    */
+  /* Mit der gemessenen Höhe (siehe scroll-padding oben): Bei aufgeklappter
+     Liste der offenen Punkte lag eine Bestätigung sonst über der Liste. */
   body.hat-formularleiste .above-sandbox:not(.formularleiste) {
-    bottom: calc(2.75rem + 5.25rem + env(safe-area-inset-bottom, 0px));
+    bottom: calc(2.75rem + var(--formularleiste-h, 5.25rem) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /*
+   * Schatten am Rand einer Scrollliste, solange dort noch etwas steht.
+   *
+   * Audit 11/2026, MOB-11: Die offenen Punkte der Formularleiste zeigten auf
+   * dem Telefon 3 von 6 Einträgen; nichts wies auf die übrigen hin, nur der
+   * Zähler. Ohne Skript: Die beiden Deckflächen wandern mit dem Inhalt
+   * (`local`) und verdecken den Schatten erst, wenn der Rand erreicht ist;
+   * die Schatten selbst stehen fest am Kasten (`scroll`).
+   */
+  .scroll-schatten {
+    background:
+      linear-gradient(rgb(var(--c-surface)) 30%, rgb(var(--c-surface) / 0)) top / 100% 2.5rem no-repeat local,
+      linear-gradient(rgb(var(--c-surface) / 0), rgb(var(--c-surface)) 70%) bottom / 100% 2.5rem no-repeat local,
+      radial-gradient(farthest-side at 50% 0, rgb(var(--c-line) / 0.22), transparent) top / 100% 0.875rem no-repeat scroll,
+      radial-gradient(farthest-side at 50% 100%, rgb(var(--c-line) / 0.22), transparent) bottom / 100% 0.875rem no-repeat scroll,
+      rgb(var(--c-surface));
   }
 
   .above-sandbox-sticky {

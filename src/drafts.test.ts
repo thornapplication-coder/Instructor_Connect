@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { kurzeZeit, readDrafts } from './drafts'
+import { entwurfMitEingaben, fortsetzenAdresse, hatEigeneEingaben, kurzeZeit, readDrafts } from './drafts'
 
 /**
  * Beide Funktionen lagen als Hilfsfunktionen in Seitendateien und waren
@@ -36,14 +36,14 @@ describe('readDrafts', () => {
   it('findet ein neues Blatt und zaehlt die gesetzten Noten', () => {
     // „NO" ist gesetzt (not observed), null ist offen — 2 von 3.
     const d = readDrafts('u1', speicherMit({ 'aaa-draft-u1-new-308A': blatt }))
-    expect(d).toEqual([{ key: 'aaa-draft-u1-new-308A', formTypeId: '308A', wer: 'Sophie Berger', noten: 2, gesamt: 3 }])
+    expect(d).toEqual([{ key: 'aaa-draft-u1-new-308A', formTypeId: '308A', bezug: 'new', kette: [], wer: 'Sophie Berger', noten: 2, gesamt: 3 }])
   })
 
   it('findet auch ein angefangenes Folgeformular', () => {
     // Der eigentliche Befund: Der Schluessel traegt hier die Kennung des
     // Ausgangsblatts statt „new". Mit der alten Suche fiel er heraus.
     const d = readDrafts('u1', speicherMit({ 'aaa-draft-u1-gr7-306': JSON.stringify({ header: { traineeName: 'Lukas Steiner' } }) }))
-    expect(d).toEqual([{ key: 'aaa-draft-u1-gr7-306', formTypeId: '306', wer: 'Lukas Steiner', noten: 0, gesamt: 0 }])
+    expect(d).toEqual([{ key: 'aaa-draft-u1-gr7-306', formTypeId: '306', bezug: 'gr7', kette: [], wer: 'Lukas Steiner', noten: 0, gesamt: 0 }])
   })
 
   it('geht keinen fremden Entwurf an', () => {
@@ -54,8 +54,12 @@ describe('readDrafts', () => {
   })
 
   it('laesst andere Eintraege des Speichers unangetastet', () => {
-    const s = speicherMit({ 'aaa-theme': 'dark', 'aaa-state': '{}', 'aaa-draft-u1-new-310': '{}' })
+    // Der Entwurf traegt eine eigene Eingabe — ein leerer waere seit GRD-10
+    // ein Phantom (siehe unten) und gehoerte nicht in diese Liste.
+    const s = speicherMit({ 'aaa-theme': 'dark', 'aaa-state': '{}', 'aaa-draft-u1-new-310': JSON.stringify({ freeText: { 'Deferred items': 'V1 cut' } }) })
     expect(readDrafts('u1', s).map((d) => d.formTypeId)).toEqual(['310'])
+    expect(s.getItem('aaa-theme')).toBe('dark')
+    expect(s.getItem('aaa-state')).toBe('{}')
   })
 
   it('nennt den Piloten aus den Kopfdaten, wenn kein Trainee eingetragen ist', () => {
@@ -64,7 +68,8 @@ describe('readDrafts', () => {
   })
 
   it('bleibt ohne Namen leer statt „undefined" zu zeigen', () => {
-    const s = speicherMit({ 'aaa-draft-u1-new-308A': JSON.stringify({ trainees: [{ grades: [] }] }) })
+    // Eine Note ohne Namen — ohne jede Eingabe waere es ein Phantom (GRD-10).
+    const s = speicherMit({ 'aaa-draft-u1-new-308A': JSON.stringify({ trainees: [{ grades: [{ grade: 3 }] }] }) })
     expect(readDrafts('u1', s)[0].wer).toBe('')
   })
 
@@ -121,7 +126,9 @@ describe('readDrafts — weitere Formen', () => {
   it('kommt mit einem Entwurf ohne Piloten-Feld zurecht', () => {
     // Kopfdaten vorhanden, aber ohne `traineeName` — Altbestand und der
     // Normalfall bei 307A/B, wo die Namen in der Anwesenheitsliste stehen.
-    const s = speicherMit({ 'aaa-draft-u1-new-307A': JSON.stringify({ header: { aircraftType: 'CL30' } }) })
+    // Mit einem Feld, das keine Vorbelegung ist — nur das Muster allein
+    // waere ein Phantom aus blossem Oeffnen (GRD-10).
+    const s = speicherMit({ 'aaa-draft-u1-new-307A': JSON.stringify({ header: { aircraftType: 'CL30', event: 'CRM' } }) })
     expect(readDrafts('u1', s)[0]).toMatchObject({ wer: '', noten: 0, gesamt: 0 })
   })
 
@@ -142,7 +149,7 @@ describe('readDrafts — weitere Formen', () => {
       'aaa-draft-u1-new-306': '',
     } as unknown as Storage
     expect(readDrafts('u1', leer)).toEqual([
-      { key: 'aaa-draft-u1-new-306', formTypeId: '306', wer: '', noten: 0, gesamt: 0 },
+      { key: 'aaa-draft-u1-new-306', formTypeId: '306', bezug: 'new', kette: [], wer: '', noten: 0, gesamt: 0 },
     ])
   })
 
@@ -154,5 +161,205 @@ describe('readDrafts — weitere Formen', () => {
       ],
     })
     expect(readDrafts('u1', speicherMit({ 'aaa-draft-u1-new-308A': zwei }))[0]).toMatchObject({ wer: 'A, B', noten: 3, gesamt: 4 })
+  })
+})
+
+/**
+ * Audit 11/2026, GRD-01: „Fortsetzen" eines 306/310 verlor den Bezug zum
+ * Elternblatt. Die Liste oeffnete `/grading/new?type=310`, das Formular
+ * suchte den Schluessel `…-new-310` und fand nichts — und das neu
+ * ausgefuellte 310 trug kein parentId, erfuellte also die Pflicht des
+ * Elternblatts nie.
+ */
+describe('Entwurf fortsetzen — mit Elternblatt und Kette', () => {
+  it('liest den Bezug zwischen Nutzer und LETZTEM Strich — Kennungen tragen selbst Striche', () => {
+    // So beobachtet: Nutzer mit Strich, Record-ID mit zwei Strichen.
+    const s = speicherMit({ 'aaa-draft-u-michael-gr-1793571773598-1-306': JSON.stringify({ header: { traineeName: 'Mika' } }) })
+    expect(readDrafts('u-michael', s)[0]).toMatchObject({ bezug: 'gr-1793571773598-1', formTypeId: '306' })
+  })
+
+  it('ein neues Blatt hat den Bezug „new"', () => {
+    const s = speicherMit({ 'aaa-draft-u-x-new-308A': blatt })
+    expect(readDrafts('u-x', s)[0]).toMatchObject({ bezug: 'new', formTypeId: '308A' })
+  })
+
+  // Jeder Entwurf hier traegt eine eigene Eingabe (einen Freitext) — ohne
+  // sie waere er seit GRD-10 ein Phantom und stuende gar nicht in der Liste.
+  const eingabe = { freeText: { 'Deferred items': 'V1 cut' } }
+
+  it('liest die mitgesicherte Kette zurueck', () => {
+    const roh = JSON.stringify({ header: {}, ...eingabe, next: '306:gr-2,310:gr-1' })
+    const s = speicherMit({ 'aaa-draft-u1-gr-1-310': roh })
+    expect(readDrafts('u1', s)[0].kette).toEqual([
+      { type: '306', parentId: 'gr-2' },
+      { type: '310', parentId: 'gr-1' },
+    ])
+  })
+
+  it('nimmt eine unlesbare Kette als leer, statt den Entwurf zu verlieren', () => {
+    const s = speicherMit({ 'aaa-draft-u1-gr-1-310': JSON.stringify({ ...eingabe, next: 42 }) })
+    expect(readDrafts('u1', s)[0]).toMatchObject({ bezug: 'gr-1', kette: [] })
+  })
+
+  it('ein Schluessel ohne Bezugsteil gilt als neues Blatt', () => {
+    expect(readDrafts('u1', speicherMit({ 'aaa-draft-u1-308A': blatt }))[0]).toMatchObject({ bezug: 'new', formTypeId: '308A' })
+  })
+
+  it('fortsetzenAdresse haengt Elternblatt und Rest der Kette an', () => {
+    expect(fortsetzenAdresse({ formTypeId: '310', bezug: 'gr-1793571773598-1', kette: [] })).toBe(
+      '/grading/new?type=310&parent=gr-1793571773598-1',
+    )
+    expect(
+      fortsetzenAdresse({ formTypeId: '306', bezug: 'gr-1', kette: [{ type: '306', parentId: 'gr-2' }, { type: '310', parentId: 'gr-1' }] }),
+    ).toBe('/grading/new?type=306&parent=gr-1&next=306:gr-2,310:gr-1')
+  })
+
+  it('ein neues Blatt geht ohne Bezug weiter', () => {
+    expect(fortsetzenAdresse({ formTypeId: '308A', bezug: 'new', kette: [] })).toBe('/grading/new?type=308A')
+  })
+
+  it('haengt an ein Nicht-Folgeformular keinen Bezug — das Formular wuerde ihn verwerfen', () => {
+    expect(fortsetzenAdresse({ formTypeId: '308A', bezug: 'gr-1', kette: [{ type: '306', parentId: 'gr-1' }] })).toBe('/grading/new?type=308A')
+  })
+
+  it('Rundlauf: Liste → Adresse → derselbe Schluessel, unter dem das Formular sichert', () => {
+    // Das Formular bildet `aaa-draft-<user>-<parentId ?? 'new'>-<typ>`. Die
+    // Adresse muss genau dieses parentId wieder hineinreichen.
+    const key = 'aaa-draft-u-michael-gr-1793571773598-1-310'
+    const [d] = readDrafts('u-michael', speicherMit({ [key]: JSON.stringify({ ...eingabe, next: '306:gr-1793571773598-2' }) }))
+    const p = new URLSearchParams(fortsetzenAdresse(d).split('?')[1])
+    expect(`aaa-draft-u-michael-${p.get('parent') ?? 'new'}-${p.get('type')}`).toBe(key)
+    expect(p.get('next')).toBe('306:gr-1793571773598-2')
+  })
+})
+
+/**
+ * Audit 11/2026, GRD-10/TEC-05: Bloßes Oeffnen eines Formulars hinterliess
+ * einen Entwurf — die Vorbelegung setzt immer das Datum, und als
+ * „ungesichert" galt jeder Kopfwert. Beobachtet: nach Auswahl von 308A lag
+ * `aaa-draft-u-michael-new-308A` mit Datum, Muster, Device, Qualifikation
+ * und Sitz im Speicher, die Liste zeigte „Draft · 308A", das naechste
+ * Oeffnen „A draft of this form was restored.".
+ */
+describe('hatEigeneEingaben — die Vorbelegung ist keine Eingabe', () => {
+  const vorbelegt = {
+    header: { date: '2026-11-02', aircraftType: 'C560 XLS+', trainingDevice: 'FFS', instructorQual: 'TKI', instructorSeat: 'Right' },
+    freeText: {},
+    authority: 'AT',
+  }
+  const leererPilot = { traineeName: '', grades: [{ grade: null, comment: '' }], positiveComment: '', developmentComment: '', summaryComment: '', overall: null }
+  const unberuehrt = {
+    header: { ...vorbelegt.header },
+    trainees: [leererPilot],
+    freeText: {},
+    attendance: [{ name: '' }],
+    sessionStatus: null,
+    authority: 'AT',
+  }
+
+  it('nur Vorbelegung: keine eigene Eingabe', () => {
+    expect(hatEigeneEingaben(unberuehrt, vorbelegt)).toBe(false)
+  })
+
+  it('ein Pilotenname ist eine Eingabe', () => {
+    expect(hatEigeneEingaben({ ...unberuehrt, trainees: [{ ...leererPilot, traineeName: 'Sophie' }] }, vorbelegt)).toBe(true)
+  })
+
+  it('eine Note ist eine Eingabe — auch „NO"', () => {
+    expect(hatEigeneEingaben({ ...unberuehrt, trainees: [{ ...leererPilot, grades: [{ grade: 4 }] }] }, vorbelegt)).toBe(true)
+    expect(hatEigeneEingaben({ ...unberuehrt, trainees: [{ ...leererPilot, grades: [{ grade: 'NO' }] }] }, vorbelegt)).toBe(true)
+  })
+
+  it('Kommentare und ein gewaehltes Ergebnis sind Eingaben', () => {
+    expect(hatEigeneEingaben({ ...unberuehrt, trainees: [{ ...leererPilot, summaryComment: 'gut' }] }, vorbelegt)).toBe(true)
+    expect(hatEigeneEingaben({ ...unberuehrt, trainees: [{ ...leererPilot, grades: [{ grade: null, comment: 'x' }] }] }, vorbelegt)).toBe(true)
+    expect(hatEigeneEingaben({ ...unberuehrt, trainees: [{ ...leererPilot, overall: 'competent' }] }, vorbelegt)).toBe(true)
+  })
+
+  it('ein geaendertes oder geloeschtes vorbelegtes Datum ist eine Eingabe', () => {
+    expect(hatEigeneEingaben({ ...unberuehrt, header: { ...vorbelegt.header, date: '2026-11-01' } }, vorbelegt)).toBe(true)
+    expect(hatEigeneEingaben({ ...unberuehrt, header: { ...vorbelegt.header, date: '' } }, vorbelegt)).toBe(true)
+  })
+
+  it('ein zusaetzliches Kopffeld ist eine Eingabe, ein leeres nicht', () => {
+    expect(hatEigeneEingaben({ ...unberuehrt, header: { ...vorbelegt.header, event: 'LOFT 3' } }, vorbelegt)).toBe(true)
+    expect(hatEigeneEingaben({ ...unberuehrt, header: { ...vorbelegt.header, event: '  ' } }, vorbelegt)).toBe(false)
+  })
+
+  it('ein aus dem Elternblatt vorbefuellter Freitext (306) ist keine Eingabe — eine Aenderung daran schon', () => {
+    const basis = { ...vorbelegt, freeText: { Deficiencies: 'KNO (1)' } }
+    expect(hatEigeneEingaben({ ...unberuehrt, freeText: { Deficiencies: 'KNO (1)' } }, basis)).toBe(false)
+    expect(hatEigeneEingaben({ ...unberuehrt, freeText: { Deficiencies: 'KNO (1), more briefing' } }, basis)).toBe(true)
+  })
+
+  it('Session, Anwesende und eine umgestellte Behoerde sind Eingaben', () => {
+    expect(hatEigeneEingaben({ ...unberuehrt, sessionStatus: 'completed' }, vorbelegt)).toBe(true)
+    expect(hatEigeneEingaben({ ...unberuehrt, attendance: [{ name: 'Lukas' }] }, vorbelegt)).toBe(true)
+    expect(hatEigeneEingaben({ ...unberuehrt, authority: 'UK' }, vorbelegt)).toBe(true)
+  })
+
+  it('ein zweiter, leerer Pilot ist noch keine Eingabe', () => {
+    expect(hatEigeneEingaben({ ...unberuehrt, trainees: [leererPilot, leererPilot] }, vorbelegt)).toBe(false)
+  })
+})
+
+describe('Phantom-Entwuerfe — weder in der Liste noch im Speicher', () => {
+  it('ein Entwurf mit seiner Vorbelegung und ohne Abweichung ist ein Phantom', () => {
+    const basis = { header: { date: '2026-11-02', aircraftType: 'C560 XLS+' }, freeText: {}, authority: 'AT' }
+    expect(entwurfMitEingaben({ header: { ...basis.header }, trainees: [], authority: 'AT', basis })).toBe(false)
+    expect(entwurfMitEingaben({ header: { ...basis.header, event: 'LOFT' }, authority: 'AT', basis })).toBe(true)
+  })
+
+  it('misst an der MITGESICHERTEN Vorbelegung — ein frueher geaendertes Datum bleibt eine Eingabe', () => {
+    // Der Nutzer hat das vorbelegte Datum bewusst auf gestern gesetzt.
+    const basis = { header: { date: '2026-11-02' } }
+    expect(entwurfMitEingaben({ header: { date: '2026-11-01' }, basis })).toBe(true)
+  })
+
+  it('Altbestand ohne Basis: nur die damals vorbelegten Felder gelten als Vorbelegung', () => {
+    // So beobachtet (TEC-05): `#/grading/new?type=306` nur geoeffnet.
+    const phantom = { header: { date: '2026-11-01', aircraftType: 'C560 XLS+', instructorQual: 'TKI', instructorSeat: 'Right' }, trainees: [], freeText: {}, attendance: [{ name: '', signature: null }], sessionStatus: null, step: 1, authority: 'AT' }
+    expect(entwurfMitEingaben(phantom)).toBe(false)
+    expect(entwurfMitEingaben({ ...phantom, header: { ...phantom.header, traineeName: 'Mika' } })).toBe(true)
+    expect(entwurfMitEingaben({ ...phantom, authority: 'UK' })).toBe(true)
+  })
+
+  it('readDrafts zeigt Phantome nicht und raeumt sie weg — echte Entwuerfe bleiben', () => {
+    const s = speicherMit({
+      'aaa-draft-u-michael-new-308A': JSON.stringify({
+        header: { date: '2026-11-01', aircraftType: 'C560 XLS+', trainingDevice: 'FFS', instructorQual: 'TKI', instructorSeat: 'Right' },
+        trainees: [{ traineeName: '', grades: [{ grade: null, comment: '' }] }],
+        freeText: {},
+        attendance: [{ name: '', signature: null }],
+        sessionStatus: null,
+        step: 1,
+        authority: 'AT',
+      }),
+      'aaa-draft-u-michael-new-306': '{}',
+      'aaa-draft-u-michael-new-308F': blatt,
+    })
+    expect(readDrafts('u-michael', s).map((d) => d.formTypeId)).toEqual(['308F'])
+    expect(s.getItem('aaa-draft-u-michael-new-308A')).toBeNull()
+    expect(s.getItem('aaa-draft-u-michael-new-306')).toBeNull()
+    expect(s.getItem('aaa-draft-u-michael-new-308F')).toBe(blatt)
+  })
+
+  it('loescht nichts, was sich nicht lesen laesst — ob darin etwas steckte, weiss niemand', () => {
+    const s = speicherMit({ 'aaa-draft-u1-new-308A': '{kaputt' })
+    expect(readDrafts('u1', s)).toHaveLength(1)
+    expect(s.getItem('aaa-draft-u1-new-308A')).toBe('{kaputt')
+  })
+
+  it('ein Speicher, der nicht loeschen laesst, kostet die Liste nicht', () => {
+    const s = speicherMit({ 'aaa-draft-u1-new-306': '{}', 'aaa-draft-u1-new-308A': blatt })
+    s.removeItem = () => {
+      throw new Error('gesperrt')
+    }
+    expect(readDrafts('u1', s).map((d) => d.formTypeId)).toEqual(['308A'])
+  })
+
+  it('ein Wert, der kein Objekt ist, zaehlt als leer', () => {
+    const s = speicherMit({ 'aaa-draft-u1-new-306': 'null', 'aaa-draft-u1-new-310': '42' })
+    expect(readDrafts('u1', s)).toEqual([])
   })
 })

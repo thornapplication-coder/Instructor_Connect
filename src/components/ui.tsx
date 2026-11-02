@@ -288,6 +288,7 @@ export function Button({
   type = 'button',
   disabled,
   className = '',
+  label,
 }: {
   children: ReactNode
   onClick?: () => void
@@ -295,6 +296,9 @@ export function Button({
   type?: 'button' | 'submit'
   disabled?: boolean
   className?: string
+  /** Name eines Knopfs, der nur ein Symbol zeigt — sonst sagt die
+   *  Sprachausgabe bloß „Schaltfläche" (Audit 11/2026, A11Y-07). */
+  label?: string
 }) {
   const styles = {
     primary: 'bg-accent text-bg font-semibold hover:brightness-110',
@@ -306,6 +310,8 @@ export function Button({
       type={type}
       disabled={disabled}
       onClick={onClick}
+      aria-label={label}
+      title={label}
       className={`min-h-11 rounded-xl px-4 py-2.5 text-body transition disabled:opacity-40 ${styles} ${className}`}
     >
       {children}
@@ -315,12 +321,19 @@ export function Button({
 
 /** Auswahlfelder tragen dieselbe Optik wie Eingabefelder — vorher stand die
  *  Klassenliste an vierzehn Stellen wortgleich im Code und wich an zwei
- *  Stellen davon ab. */
+ *  Stellen davon ab.
+ *
+ *  `aria-[invalid=true]:border-danger`: Ein beanstandetes Feld trug zwar
+ *  aria-invalid, sah aber aus wie jedes andere — wer die Meldung nicht
+ *  vorgelesen bekommt, suchte das Feld (Audit 11/2026, A11Y-16). Der rote
+ *  Rand bleibt auch im Fokus stehen (die aria-Variante steht im CSS hinter
+ *  `focus:`) — der Akzent-Ring daneben sagt „hier bist du", der Rand weiter
+ *  „hier fehlt etwas". */
 export const selectCls =
-  'w-full rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-body text-ink outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+  'w-full rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-body text-ink outline-none transition aria-[invalid=true]:border-danger focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
 export const inputCls =
-  'w-full rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-lead text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+  'w-full rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-lead text-ink placeholder:text-dim outline-none transition aria-[invalid=true]:border-danger focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
 /**
  * Beschriftetes Feld.
@@ -334,24 +347,47 @@ export const inputCls =
  *
  * Für Gruppen daher `group` setzen: dann beschriftet die Überschrift die
  * Gruppe als Ganzes, und jeder Knopf behält seinen eigenen Namen.
+ *
+ * Audit 11/2026, GTY-12: Eine beanstandete Gruppe (Entweder-oder auf 308F,
+ * Training Device, Event) war nicht zu finden — ohne `id` lief der Sprung
+ * ins Leere, und ohne `aria-invalid` sagte auch die Gruppe nichts. Bei
+ * Gruppen hängen Beanstandung und Meldung deshalb HIER, an der Gruppe;
+ * `tabIndex -1` macht sie zum Sprungziel, auch wenn kein Knopf darin ist.
+ * Ein einzelnes Feld trägt beides selbst (das <label> ist kein Bedienelement).
  */
 export function Field({
   label,
   children,
   group = false,
   id: anchorId,
+  invalid = false,
+  describedBy,
 }: {
   label: string
   children: ReactNode
   group?: boolean
   /** Sprungziel — die Abschlussleiste des Formulars scrollt hierher. */
   id?: string
+  /** nur bei `group`: die Gruppe ist beanstandet */
+  invalid?: boolean
+  /** nur bei `group`: id der Meldung bzw. des Hinweises zur Gruppe */
+  describedBy?: string
 }) {
   const id = useId()
   if (group) {
     return (
-      <div id={anchorId} className="block scroll-mt-24" role="group" aria-labelledby={id}>
-        <span id={id} className="mb-1.5 block text-small font-medium text-dim">
+      <div
+        id={anchorId}
+        tabIndex={anchorId ? -1 : undefined}
+        className="block scroll-mt-24"
+        role="group"
+        aria-labelledby={id}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
+      >
+        {/* Eine Knopfgruppe hat keinen Rand, der rot werden könnte — sichtbar
+            wird die Beanstandung an ihrer Beschriftung. */}
+        <span id={id} className={`mb-1.5 block text-small font-medium ${invalid ? 'text-danger' : 'text-dim'}`}>
           {label}
         </span>
         {children}
@@ -363,6 +399,43 @@ export function Field({
       <span className="mb-1.5 block text-small font-medium text-dim">{label}</span>
       {children}
     </label>
+  )
+}
+
+/**
+ * Ankreuzfeld des Originalformulars als Umschaltknopf (☐/☒ wie auf Papier).
+ *
+ * Audit 11/2026, A11Y-08: Sechs Stellen im Grading-Formular schrieben diesen
+ * Knopf von Hand, vier davon (CDR/FO, Left/Right, TKI/SFI/TRI, Left/Right/
+ * Rear) ohne `aria-pressed`. Der Zustand steckte dort allein in Farbe und
+ * Glyphe, und die Glyphe stand im Namen: Vorgelesen wurde „☐ Left" zweimal
+ * hintereinander, ohne zu sagen, wessen Sitz und was gewählt ist. Jetzt
+ * trägt der Knopf seinen Zustand als `aria-pressed`, die Glyphe ist
+ * Schmuck. Den Namen der Gruppe gibt der Aufrufer (`role="group"`).
+ */
+export function Ankreuzknopf({
+  an,
+  onClick,
+  children,
+  klein = false,
+}: {
+  an: boolean
+  onClick: () => void
+  children: ReactNode
+  /** kleinere Schrift für lange Ankreuzreihen (ATA-Kapitel, Events) */
+  klein?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={an}
+      onClick={onClick}
+      className={`min-h-11 rounded-lg border py-1.5 transition ${klein ? 'px-2.5 text-micro' : 'px-3 text-small'} ${
+        an ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
+      }`}
+    >
+      <span aria-hidden>{an ? '☒' : '☐'}</span> {children}
+    </button>
   )
 }
 

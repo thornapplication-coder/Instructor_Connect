@@ -9,7 +9,8 @@ import { Badge, Button, Card, CardHeading, Page, TopBar } from '../components/ui
 import { navigate } from '../router'
 import { useStore, userHasPerm } from '../store'
 import type { GradingRecord } from '../types'
-import { isNotCompetent, traineesOf } from '../gradingRules'
+import { bezeichnungen, dokumentStand, empfaengerVon, isNotCompetent, istUnterschrift, traineesOf } from '../gradingRules'
+import { fuehrtInstruktorAngaben } from '../gradingPrefill'
 import { gradeColor, missingFollowUps, TrafficIcon, trafficLight } from './Grading'
 import { formatDate, formatDateTime } from '../datum'
 
@@ -154,7 +155,9 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
   // wie bei seiner Unterschrift — das Originalformular fuehrt daneben eine
   // Zeile „Candidate Instructor" mit der Qualifikation (TRI/SFI/MCCI
   // Candidate); das Kuerzel unterscheidet die Person von ihrer Qualifikation.
-  const personLabel = formType?.competencySet === 'instructor' ? t('forms:personCai') : t('forms:personPilot')
+  // Dieselben Wörter wie im Formular (GTY-10) — eine Quelle in gradingRules.ts.
+  const b = bezeichnungen({ id: record.formTypeId, competencySet: formType?.competencySet })
+  const personLabel = t(b.personZeile)
   const showPersonRow = !hasNameField && personNames.length > 0
   // Fuer Fuss und Dateiname: 306/310 tragen ihre Person im Kopffeld, die
   // Grading Sheets in `trainees` — beide Wege muessen zum selben Namen fuehren.
@@ -388,11 +391,15 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             ))}
             {/* Qualifikation und Sitzposition werden im Formular erfasst, sind
                 aber keine Katalogfelder — ohne diese Zeilen fehlen sie auf dem
-                Dokument und im Ausdruck. */}
+                Dokument und im Ausdruck. Nur auf den Blättern, die sie
+                führen: Vorbelegt landeten sie auch auf 306/307/310/308G, wo
+                das Formular sie nie zeigte (GRD-06) — und auf dem 308G
+                widersprachen sie dem Sitz des Course Instructors. */}
             {([
               [t('forms:instructorQual'), record.header.instructorQual],
               [t('forms:instructorSeat'), record.header.instructorSeat],
             ] as const)
+              .filter(() => fuehrtInstruktorAngaben({ id: record.formTypeId, competencySet: formType?.competencySet ?? null }, record.trainees.length))
               .filter(([, v]) => !!v)
               .map(([label, value]) => (
                 <div key={label} className="flex justify-between gap-3 border-b border-line/[0.06] pb-1.5">
@@ -589,8 +596,8 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           )}
           <div className="grid gap-4 sm:grid-cols-2">
             {[
-              [record.formTypeId === '308G' ? 'Signature Course Instructor (COI)' : t('forms:sigInstructor'), record.signatureInstructor],
-              [record.formTypeId === '308G' ? 'Signature Candidate Instructor (CAI)' : t('forms:sigTrainee'), record.signatureTrainee],
+              [t(b.sigAusbilder), record.signatureInstructor],
+              [t(b.sigPerson), record.signatureTrainee],
             ]
               .filter(([, sig]) => sig !== null || !record.attendance)
               .map(([label, sig]) => (
@@ -639,10 +646,10 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               <SignaturePad
                 value={lateSignature}
                 onChange={setLateSignature}
-                label={record.formTypeId === '308G' ? 'Signature Candidate Instructor (CAI)' : t('forms:sigTrainee')}
+                label={t(b.sigPerson)}
               />
               <Button
-                disabled={!lateSignature}
+                disabled={!istUnterschrift(lateSignature)}
                 className="w-full"
                 onClick={async () => {
                   const now = Date.now() + state.timeOffsetMs
@@ -661,6 +668,12 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                     // bei 306-Vorgängen ist genau diese Abfolge prüfrelevant.
                     signedAt: now,
                     countersignedAt: now,
+                    // Erst jetzt geht der Nachweis hinaus: Fehlen Empfänger
+                    // oder Dokumentenstand (vor GRD-03/GTY-06 angelegt), werden
+                    // sie in diesem Moment eingefroren — nicht später aus den
+                    // Einstellungen gelesen.
+                    recipients: record.recipients ?? empfaengerVon(record, grading),
+                    docSnapshot: record.docSnapshot ?? dokumentStand(liveDoc, record.authority ?? 'AT', formType?.title ?? ''),
                   }
                   saveGradingRecord({ ...next, contentHash: await contentFingerprint(next), hashVersion: HASH_VERSION })
                   setLateSignature(null)
@@ -678,22 +691,11 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         {isAdmin && (
           <p className="text-center text-micro text-dim print:mt-1 print:text-left print:text-fine">
             {t('forms:recipients')}:{' '}
-            {[
-              ...new Set([
-                ...grading.defaultRecipients,
-                // Form 310 (Deferred Item) geht IMMER an den Training Admin
-                ...(record.formTypeId === '310' ? grading.deferredRecipients : []),
-                // 306 (Additional Training) geht zusätzlich an die Eskalationsempfänger
-                // Dieselbe Regel wie oben: auch der rechnerisch nicht
-                // bestandene Pilot loest die Eskalation aus.
-                ...(record.formTypeId === '306' ||
-                record.trainees.some(isNotCompetent) ||
-                record.sessionStatus === 'not_completed'
-                  ? grading.escalationRecipients
-                  : []),
-                ...(record.extraRecipients ?? []),
-              ]),
-            ].join(', ')}
+            {/* Die beim Absenden eingefrorene Liste (GTY-06). Zur Anzeigezeit
+                gerechnet nannte ein alter Nachweis nach jeder Änderung der
+                Einstellungen Empfänger, an die er nie ging. Nur Altbestand
+                fällt auf die Regel zurück. */}
+            {(record.recipients ?? empfaengerVon(record, grading)).join(', ')}
           </p>
         )}
 
