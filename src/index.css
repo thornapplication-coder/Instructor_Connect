@@ -368,12 +368,31 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
      Ohne Rand gibt es keinen Platz dafür, in keinem Browser.
 
      Der Preis: keine Rand-Seitenzahlen mehr (Firefox/Safari setzten sie
-     dort) und auf Folgeseiten kein oberer Papierrand — der Inhalt bringt
-     seinen Abstand deshalb selbst mit (padding am main). Ohne die
-     Größenangabe druckt Chrome im US-Letter-Format. */
+     dort) und kein oberer/unterer Papierrand — der Inhalt bringt seinen
+     Abstand deshalb selbst mit, und zwar auf JEDEM Blatt (siehe
+     `--druck-rand` unten). Ohne die Größenangabe druckt Chrome im
+     US-Letter-Format. */
   @page {
     size: A4 portrait;
     margin: 0 6mm;
+  }
+
+  /*
+   * Abstand oben und unten auf dem Papier, rundum gleich dem seitlichen
+   * Seitenrand. Gaengige Drucker bedrucken die aeusseren 3–5 mm nicht.
+   *
+   * Audit 11/2026, GRD-15/PRT-01: Der Abstand sass nur als padding am main —
+   * und das wirkt genau zweimal: oben auf Blatt 1 und unten auf dem letzten.
+   * Der wiederholte Kopf eines zweiseitigen 307A stand auf Blatt 2 0,3 mm
+   * unter der Papierkante, der Fuss auf Blatt 1 0,9 mm darueber; ein Drucker
+   * schnitt genau die Zeilen ab, die das Blatt der ATO und dem Nachweis
+   * zuordnen. Ausserdem schrumpfte der Zoom des main die 6 mm auf 4,5 mm.
+   * Deshalb hier als Variablen: Der Rand wird durch den Zoom geteilt und
+   * steht damit unverkleinert auf dem Papier.
+   */
+  :root {
+    --druck-rand: 6mm;
+    --druck-zoom: 0.75;
   }
 
   /*
@@ -402,6 +421,21 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
   }
   .print-foot {
     display: table-footer-group;
+  }
+  /* Der Blattrand gehoert IN Kopf- und Fussgruppe, weil nur die sich je
+     Blatt wiederholen. An der Zeilengruppe selbst wirkt padding nicht
+     (Tabellenlayout) — deshalb am ersten bzw. letzten Kind. Das main
+     verzichtet hier auf seinen eigenen Abstand, sonst stuende er auf
+     Blatt 1 doppelt. */
+  .print-head > :first-child {
+    padding-top: calc(var(--druck-rand) / var(--druck-zoom));
+  }
+  .print-foot > :last-child {
+    padding-bottom: calc(var(--druck-rand) / var(--druck-zoom));
+  }
+  main.print-doc {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
   }
 
   /* Breite Tabellen (Flottenmatrix, Formularlisten) im Querformat, damit
@@ -436,12 +470,18 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
   }
   main {
     max-width: 100% !important;
-    /* Ersatz für den entfallenen oberen/unteren Seitenrand (siehe @page) */
-    padding: 6mm 0 !important;
+    /* Ersatz für den entfallenen oberen/unteren Seitenrand (siehe @page) —
+       fuer Seiten ohne Druck-Kopf und -Fuss (Auswertungen, Listen). */
+    padding: calc(var(--druck-rand) / var(--druck-zoom)) 0 !important;
+    /* Auch auf Folgeblaettern: `clone` wiederholt den Abstand an jedem
+       Seitenumbruch. Chrome kann das; wer es nicht kann, druckt wie vorher
+       (oben auf Blatt 1, unten auf dem letzten). */
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
     /* Am schlechtesten Fall kalibriert: ein Grading Sheet mit neun
        kommentierten Kompetenzen und langen Zusammenfassungen passt damit
        noch auf eine A4-Seite, ein übliches füllt sie zu rund 90 %. */
-    zoom: 0.75;
+    zoom: var(--druck-zoom);
   }
   main > * {
     break-inside: avoid;

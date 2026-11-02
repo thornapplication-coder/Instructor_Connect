@@ -9,7 +9,7 @@ import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormField, FormType, GradingRecord } from '../../types'
-import { gradingListDate } from '../../gradingRules'
+import { gradingListDate, personenKurz, personenSuche } from '../../gradingRules'
 import { missingFollowUps, TrafficIcon, traineesOf, trafficLight, type TrafficColor } from '../Grading'
 import { formatDate, formatDateTime } from '../../datum'
 import { StandardisationReport } from './StandardisationReport'
@@ -499,9 +499,10 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
   }, [statsRecords, records, setOfRecord, g.competencySets, sessionCount, calibrationSets])
 
   // Auswahllisten aus den vorhandenen Formularen ableiten
-  // Folgeformulare (306/310) führen ihren Piloten in den Kopfdaten —
-  // ohne traineesOf fielen sie aus Filter und Suche heraus.
-  const traineeOptions = [...new Set(records.flatMap((r) => traineesOf(r, records).map(traineeLabel)))].filter((n) => n !== '—').sort()
+  // Folgeformulare (306/310) führen ihren Piloten in den Kopfdaten,
+  // Anwesenheitslisten (307A/307B) ihre Teilnehmer — ohne personenSuche
+  // fielen sie aus Filter und Suche heraus.
+  const traineeOptions = [...new Set(records.flatMap((r) => personenSuche(r, records, traineeLabel)))].filter((n) => n !== '—').sort()
   // Wie bei den Mustern: alle, die Formulare führen dürfen, plus die aus
   // Altdaten — nicht nur die, von denen bereits etwas vorliegt.
   const instructorOptions = [
@@ -529,7 +530,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
     if (filterAuthority && authorityOf(r) !== filterAuthority) return false
     if (filterType && r.formTypeId !== filterType) return false
     if (trafficFilter && trafficLight(r, records) !== trafficFilter) return false
-    if (filterTrainee && !traineesOf(r, records).some((tr) => traineeLabel(tr) === filterTrainee)) return false
+    if (filterTrainee && !personenSuche(r, records, traineeLabel).includes(filterTrainee)) return false
     if (filterInstructor && r.instructorId !== filterInstructor) return false
     if (filterAircraft && r.header.aircraftType !== filterAircraft) return false
     if (!query) return true
@@ -538,7 +539,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
     const hay = [
       r.formTypeId,
       userName(r.instructorId),
-      ...traineesOf(r, records).map(traineeLabel),
+      ...personenSuche(r, records, traineeLabel),
       ...Object.values(r.header),
       r.header.date ? formatDate(r.header.date) : '',
       // Gesucht wird nach dem Tag, der auch in der Zeile steht.
@@ -593,6 +594,8 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
       traineesOf,
       parentLabel,
       formatDateTime,
+      formTypes: g.formTypes,
+      beschriftung: (schluessel) => t(schluessel),
       kalibrierung: statsBySet.flatMap((st) =>
         st.calibration.rows.map((r) => ({
           satz: st.name,
@@ -685,7 +688,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
                 <AlertTriangle size={16} className="mt-0.5 shrink-0 text-danger" />
                 <div className="min-w-0 flex-1">
                   <p className="text-body font-semibold">
-                    {r.formTypeId} · {traineesOf(r, records).map(traineeLabel).join(', ')}
+                    {r.formTypeId} · {personenKurz(r, records, traineeLabel)}
                   </p>
                   <p className="text-micro text-dim">{r.mailError}</p>
                 </div>
@@ -700,13 +703,13 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
             <Card
               key={r.id}
               onClick={() => navigate(`/grading/${r.id}`)}
-              label={`${r.formTypeId} · ${traineesOf(r, records).map(traineeLabel).join(', ') || t('forms:openForm')} · ${dateLabel(gradingListDate(r))}`}
+              label={`${r.formTypeId} · ${personenKurz(r, records, traineeLabel) || t('forms:openForm')} · ${dateLabel(gradingListDate(r))}`}
               className="flex items-center gap-3 p-4"
             >
               <Clock size={16} className="shrink-0 text-warm" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-body font-semibold">
-                  {r.formTypeId} · {traineesOf(r, records).map(traineeLabel).join(', ') || '—'}
+                  {r.formTypeId} · {personenKurz(r, records, traineeLabel) || '—'}
                 </p>
                 <p className="text-micro text-dim">{t('forms:admin.awaitingSince', { date: dateLabel(r.createdAt) })}</p>
               </div>
@@ -720,7 +723,7 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
               <AlertTriangle size={16} className="shrink-0 text-amber-500" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-body font-semibold">
-                  {r.formTypeId} · {traineesOf(r, records).map(traineeLabel).join(', ') || '—'}
+                  {r.formTypeId} · {personenKurz(r, records, traineeLabel) || '—'}
                 </p>
                 <p className="text-micro text-dim">
                   {t('forms:admin.followUpMissing', { forms: missingFollowUps(r, records).join(', ') })}
@@ -836,13 +839,13 @@ export function GradingAdmin({ section: sectionSeg = '' }: { section?: string })
             <Card
               key={r.id}
               onClick={() => navigate(`/grading/${r.id}`)}
-              label={`${r.formTypeId} · ${traineesOf(r, records).map(traineeLabel).join(', ') || t('forms:openForm')} · ${dateLabel(gradingListDate(r))}`}
+              label={`${r.formTypeId} · ${personenKurz(r, records, traineeLabel) || t('forms:openForm')} · ${dateLabel(gradingListDate(r))}`}
               className="flex items-center gap-3 p-4"
             >
               <TrafficIcon color={trafficLight(r, records)} />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-body font-semibold">
-                  {r.formTypeId} · {traineesOf(r, records).map(traineeLabel).join(', ') || '—'}
+                  {r.formTypeId} · {personenKurz(r, records, traineeLabel) || '—'}
                 </p>
                 <p className="flex flex-wrap items-baseline gap-x-1.5 text-micro text-dim">
                   <span className="min-w-0 max-w-full truncate">{userName(r.instructorId)}</span>

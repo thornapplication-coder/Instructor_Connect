@@ -1,4 +1,4 @@
-import { lokalerTag } from './datum'
+import { formatDate, lokalerTag } from './datum'
 import type { FormField, GradingRecord, GradingSettings, Settings, TraineeGrading } from './types'
 
 /**
@@ -177,6 +177,134 @@ export function traineesOf(r: GradingRecord, all: GradingRecord[]) {
     ]
   const parent = r.parentId ? all.find((x) => x.id === r.parentId) : undefined
   return parent?.trainees ?? []
+}
+
+/**
+ * Teilnehmer einer Anwesenheitsliste (307A/307B) — ohne leere Zeilen.
+ *
+ * Audit 11/2026, GRD-02/EXP-01: Anwesenheitslisten fuehren weder `trainees`
+ * noch ein Kopffeld mit Namen; ihre Personen stehen in `attendance`.
+ * `traineesOf` lieferte dafuer [] und der Behoerdenexport schrieb fuer
+ * KEINEN Anwesenheitsnachweis eine Zeile, obwohl der Dateikopf ihn zaehlte.
+ * `traineesOf` bleibt bewusst bei den Piloten eines Blattes — Folgeformulare
+ * erben genau sie, nicht die Kursteilnehmer. Die Ablage-Listen fragen
+ * `personenSuche` und `personenKurz`, die beides kennen.
+ * Eine leere Zeile ist kein Teilnehmer — dieselbe Regel wie in `hasEvidence`.
+ */
+export function teilnehmerOf(r: Pick<GradingRecord, 'attendance'>): string[] {
+  return (r.attendance ?? []).map((a) => a.name.trim()).filter(Boolean)
+}
+
+/** Beschriftung der Personenzeile; `forms:attendees` erwartet `count`. */
+export type PersonenSchluessel = Bezeichnungen['personZeile'] | 'forms:attendees'
+
+export interface PersonenZeile {
+  schluessel: PersonenSchluessel
+  /** Anzahl der Personen (fuer „Participants (26)"). */
+  anzahl: number
+  /** Namen fuer Kopf und Fuss des Dokuments — bei Anwesenheitslisten
+   *  verkuerzt auf „Erster +N": Der Kopf wiederholt sich auf JEDEM Blatt,
+   *  die vollstaendige Liste steht im Dokument selbst. */
+  namen: string[]
+  /** Stehen die Namen im Blatt selbst (`trainees`)? Nur dann gehoert eine
+   *  eigene Zeile in die Kopfdaten — 306/310 fuehren den Namen als Kopffeld,
+   *  307A/307B in der Teilnehmerliste. */
+  ausBlatt: boolean
+}
+
+/**
+ * Wen ein Dokument nennt — und unter welcher Beschriftung.
+ *
+ * Audit 11/2026, PRT-02: Die Ansicht waehlte die Beschriftung nur zwischen
+ * Pilot und CAI. Ein 307A druckte deshalb auf jedem Blatt „Pilot / Student
+ * Name: Jürgen Müller 1 +25" — der erste Kursteilnehmer stand als geschulter
+ * Pilot auf dem Nachweis. Reihenfolge der Quellen wie bisher: eigene
+ * Bewertungen, Kopffeld (306/310), geerbter Pilot des Ausgangsblatts,
+ * Teilnehmerliste.
+ */
+export function personenZeile(
+  r: GradingRecord,
+  ft: { id: string; competencySet?: string | null },
+  alle: GradingRecord[],
+  name: (tr: { traineeName?: string; traineeId: string }) => string,
+): PersonenZeile {
+  const schluessel = bezeichnungen(ft).personZeile
+  const zeile = (namen: string[], ausBlatt = false): PersonenZeile => ({ schluessel, anzahl: namen.length, namen, ausBlatt })
+  const eigene = r.trainees.map(name).filter(Boolean)
+  if (eigene.length > 0) return zeile(eigene, true)
+  const kopf = r.header.traineeName?.trim()
+  if (kopf) return zeile([kopf])
+  const geerbt = traineesOf(r, alle).map(name).filter(Boolean)
+  if (geerbt.length > 0) return zeile(geerbt)
+  const teilnehmer = teilnehmerOf(r)
+  if (teilnehmer.length > 0) {
+    const kurz = teilnehmer[0] + (teilnehmer.length > 1 ? ` +${teilnehmer.length - 1}` : '')
+    return { schluessel: 'forms:attendees', anzahl: teilnehmer.length, namen: [kurz], ausBlatt: false }
+  }
+  return zeile([])
+}
+
+/**
+ * Personen einer Ablage-Zeile — Anzeige (`personenKurz`) und Suche/Filter
+ * (`personenSuche`).
+ *
+ * Nachtrag zum Audit 11/2026 (gleiche Ursache wie GRD-02/EXP-01, hier in der
+ * Oberflaeche): Die Listen der Ablage fragten nur `traineesOf`. Jedes 307A
+ * und 307B stand dort als „no trainee", und seine Teilnehmer liessen sich
+ * weder suchen noch filtern — wer die Nachweise einer Person zusammensucht,
+ * fand ihre Anwesenheiten nicht.
+ *
+ * Angezeigt wird dasselbe wie in Kopf und Fuss des Dokuments
+ * (`personenZeile`), also „Erster +N" bei Anwesenheitslisten: 26 Namen
+ * passen in keine Listenzeile und in keine Ansage. Die Beschriftung braucht
+ * die Zeile nicht, der Formulartyp steht davor.
+ */
+export function personenKurz(
+  r: GradingRecord,
+  alle: GradingRecord[],
+  name: (tr: { traineeName?: string; traineeId: string }) => string,
+): string {
+  return personenZeile(r, { id: r.formTypeId }, alle, name).namen.join(', ')
+}
+
+/** Gesucht und gefiltert wird dagegen nach JEDEM Namen — auch nach dem
+ *  sechsundzwanzigsten Teilnehmer, der in der Kurzform nicht steht. */
+export function personenSuche(
+  r: GradingRecord,
+  alle: GradingRecord[],
+  name: (tr: { traineeName?: string; traineeId: string }) => string,
+): string[] {
+  return [...traineesOf(r, alle).map(name), ...teilnehmerOf(r)]
+}
+
+/**
+ * Teile des Drucktitels eines Nachweises (`druckTitel`, dateiName.ts):
+ * Form_Titel_Person_Instruktor_Datum_Event — z. B.
+ * „308A_Grading Sheet TR_Sophie Berger_Mika Beispiel_05.08.2026_OPC Recurrent".
+ *
+ * Der Browser schlaegt ihn beim „Als PDF sichern" als Dateinamen vor. Die
+ * Person gehoert hinein, weil nach Pilot abgelegt wird, nicht nach
+ * Instruktor — ohne sie lagen zwoelf gleichnamige PDFs im selben Ordner.
+ * `personen` sind dieselben Namen wie in Kopf und Fuss (`personenZeile`).
+ * Das Datum im App-Format (datum.ts), wie es auf dem Dokument steht.
+ *
+ * Audit 11/2026, EXM-10: Das Event verlor seinen Leerraum ganz und stand als
+ * „OPCRecurrent" im Namen. Es behaelt ihn jetzt wie Titel und Namen auch —
+ * mit „-" statt Leerzeichen wurde eine Mehrfachauswahl des 308H zu
+ * „Adverse-Weather,-LVO---CAT-II…".
+ */
+export function druckTitelTeile(
+  r: Pick<GradingRecord, 'formTypeId' | 'header'>,
+  a: { formTitel: string; personen: readonly string[]; instruktor: string },
+): string[] {
+  return [
+    r.formTypeId,
+    a.formTitel,
+    a.personen.join(', '),
+    a.instruktor,
+    r.header.date ? formatDate(r.header.date) : '',
+    r.header.event ?? '',
+  ]
 }
 
 /**

@@ -251,7 +251,9 @@ export function Card({
         />
         {/* Der Inhalt selbst nimmt keine Klicks an — sie fallen auf den Knopf
             darunter. Einzelne Bedienelemente holen sich das mit
-            `pointer-events-auto relative z-10` zurück. */}
+            `pointer-events-auto relative z-10` zurück; kartenBedienung.test.ts
+            prüft das für jede Karte (TA-01: ohne die Klasse öffnete das
+            PDF-Symbol nur die Zeile). */}
         <div className={`pointer-events-none ${className}`}>{children}</div>
       </div>
     )

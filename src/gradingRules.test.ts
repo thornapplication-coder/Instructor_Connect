@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
+import { druckTitel } from './dateiName'
 import {
   autoNotCompetent,
   behoerdeFuer,
   bezeichnungen,
   dokumentStand,
+  druckTitelTeile,
   einfrieren,
   empfaengerVon,
   followUpStarted,
@@ -21,6 +23,10 @@ import {
   kopfHinweise,
   missingFollowUps,
   overallNachNote,
+  personenKurz,
+  personenSuche,
+  personenZeile,
+  teilnehmerOf,
   trafficLight,
   traineesOf,
 } from './gradingRules'
@@ -702,5 +708,160 @@ describe('bezeichnungen — Formular und Dokument benennen gleich', () => {
     const cai = bezeichnungen(typ('308G'))
     expect(Object.keys(cai).sort()).toEqual(Object.keys(pilot).sort())
     for (const k of Object.keys(pilot) as (keyof typeof pilot)[]) expect(cai[k]).not.toBe(pilot[k])
+  })
+})
+
+describe('teilnehmerOf — Anwesenheitslisten (GRD-02/EXP-01)', () => {
+  it('liefert die Namen der Teilnehmer ohne leere Zeilen', () => {
+    const r = rec({ formTypeId: '307A', trainees: [], attendance: [
+      { name: ' Jürgen Müller ', signature: null },
+      { name: '   ', signature: null },
+      { name: 'Zoë Ångström', signature: 'data:image/png;base64,AAA' },
+    ] })
+    expect(teilnehmerOf(r)).toEqual(['Jürgen Müller', 'Zoë Ångström'])
+  })
+
+  it('ist ohne Teilnehmerliste leer — und laesst traineesOf unberuehrt', () => {
+    expect(teilnehmerOf(rec())).toEqual([])
+    // traineesOf meint die Piloten eines Blattes; Folgeformulare erben genau
+    // sie. Die Listen fragen personenSuche (siehe unten).
+    const r = rec({ formTypeId: '307A', trainees: [], header: {}, attendance: [{ name: 'Jürgen Müller', signature: null }] })
+    expect(traineesOf(r, [r])).toEqual([])
+  })
+})
+
+describe('personenZeile — wen das Dokument unter welcher Beschriftung nennt (PRT-02)', () => {
+  const name = (tr: { traineeName?: string; traineeId: string }) => tr.traineeName || (tr.traineeId === 'u-berger' ? 'Sophie Berger' : '')
+
+  it('307A: „Participants" mit Anzahl, Kopf und Fuss verkuerzt', () => {
+    // Vorher: „Pilot / Student Name: Jürgen Müller 1 +25" auf jedem Blatt.
+    const r = rec({
+      formTypeId: '307A',
+      trainees: [],
+      header: { traineeName: '' },
+      attendance: Array.from({ length: 26 }, (_, i) => ({ name: `Jürgen Müller ${i + 1}`, signature: null })),
+    })
+    expect(personenZeile(r, { id: '307A', competencySet: null }, [r], name)).toEqual({
+      schluessel: 'forms:attendees',
+      anzahl: 26,
+      namen: ['Jürgen Müller 1 +25'],
+      ausBlatt: false,
+    })
+    const einer = rec({ formTypeId: '307B', trainees: [], header: {}, attendance: [{ name: 'Lukas Steiner', signature: null }] })
+    expect(personenZeile(einer, { id: '307B', competencySet: null }, [einer], name).namen).toEqual(['Lukas Steiner'])
+  })
+
+  it('308A: Pilot aus dem Blatt, mit eigener Zeile in den Kopfdaten', () => {
+    const r = rec({ trainees: [trainee('competent'), trainee(null, ''), { ...trainee(null, ''), traineeId: 'u-berger', traineeName: undefined }] })
+    expect(personenZeile(r, { id: '308A', competencySet: 'pilot' }, [r], name)).toEqual({
+      schluessel: 'forms:personPilot',
+      anzahl: 2,
+      namen: ['Sophie Berger', 'Sophie Berger'],
+      ausBlatt: true,
+    })
+  })
+
+  it('308G: Candidate Instructor statt Pilot (GTY-10)', () => {
+    const r = rec({ formTypeId: '308G', trainees: [trainee('competent', 'Anna Kandidatin')] })
+    const z = personenZeile(r, { id: '308G', competencySet: 'instructor' }, [r], name)
+    expect(z.schluessel).toBe('forms:personCai')
+    expect(z.namen).toEqual(['Anna Kandidatin'])
+  })
+
+  it('306/310: Name aus dem Kopffeld, sonst geerbt vom Ausgangsblatt — ohne eigene Kopfzeile', () => {
+    const eltern = rec({ id: 'p1', trainees: [trainee('not_competent', 'Lukas Steiner')] })
+    const mitNamen = rec({ id: 'c1', formTypeId: '310', trainees: [], parentId: 'p1', header: { traineeName: ' Sophie Berger ' } })
+    expect(personenZeile(mitNamen, { id: '310', competencySet: null }, [eltern, mitNamen], name)).toEqual({
+      schluessel: 'forms:personPilot',
+      anzahl: 1,
+      namen: ['Sophie Berger'],
+      ausBlatt: false,
+    })
+    // Altbestand vor dem Pflichtfeld: Name vom Ausgangsblatt.
+    const geerbt = rec({ id: 'c2', formTypeId: '306', trainees: [], parentId: 'p1', header: {} })
+    const z = personenZeile(geerbt, { id: '306', competencySet: null }, [eltern, geerbt], name)
+    expect([z.schluessel, z.namen, z.ausBlatt]).toEqual(['forms:personPilot', ['Lukas Steiner'], false])
+  })
+
+  it('ohne jede Person keine Namen', () => {
+    const r = rec({ id: 'c3', formTypeId: '306', trainees: [], header: {} })
+    expect(personenZeile(r, { id: '306', competencySet: null }, [r], name)).toEqual({
+      schluessel: 'forms:personPilot',
+      anzahl: 0,
+      namen: [],
+      ausBlatt: false,
+    })
+  })
+})
+
+describe('personenKurz / personenSuche — Personen in den Ablage-Listen (Nachtrag zu GRD-02/EXP-01)', () => {
+  // Vorher fragten die Listen nur traineesOf: 307A/307B standen als
+  // „no trainee" da, ihre Teilnehmer waren weder such- noch filterbar.
+  const name = (tr: { traineeName?: string; traineeId: string }) => tr.traineeName || '—'
+  const kurs = rec({
+    id: 'a1',
+    formTypeId: '307A',
+    trainees: [],
+    header: { traineeName: '' },
+    attendance: [
+      { name: 'Jürgen Müller', signature: null },
+      { name: ' ', signature: null },
+      { name: 'Zoë Ångström', signature: null },
+      { name: 'Lukas Steiner', signature: null },
+    ],
+  })
+
+  it('307A: zeigt „Erster +N" wie Kopf und Fuss des Dokuments und findet jeden Teilnehmer', () => {
+    expect(personenKurz(kurs, [kurs], name)).toBe('Jürgen Müller +2')
+    // Auch der letzte Teilnehmer, der in der Kurzform nicht steht, ist
+    // auffindbar — die Leerzeile ist keiner.
+    expect(personenSuche(kurs, [kurs], name)).toEqual(['Jürgen Müller', 'Zoë Ångström', 'Lukas Steiner'])
+    // Dieselbe Kurzform wie auf dem Dokument, nicht eine zweite Regel.
+    expect(personenKurz(kurs, [kurs], name)).toBe(personenZeile(kurs, { id: '307A', competencySet: null }, [kurs], name).namen.join(', '))
+  })
+
+  it('308A: alle Piloten des Blattes, unveraendert gegenueber traineesOf', () => {
+    const r = rec({ trainees: [trainee('competent', 'Sophie Berger'), trainee(null, 'Lukas Steiner')] })
+    expect(personenKurz(r, [r], name)).toBe('Sophie Berger, Lukas Steiner')
+    expect(personenSuche(r, [r], name)).toEqual(traineesOf(r, [r]).map(name))
+  })
+
+  it('306/310: Name aus dem Kopffeld, sonst geerbt vom Ausgangsblatt', () => {
+    const eltern = rec({ id: 'p1', trainees: [trainee('not_competent', 'Lukas Steiner')] })
+    const mitNamen = rec({ id: 'c1', formTypeId: '310', trainees: [], parentId: 'p1', header: { traineeName: 'Sophie Berger' } })
+    const geerbt = rec({ id: 'c2', formTypeId: '306', trainees: [], parentId: 'p1', header: {} })
+    const alle = [eltern, mitNamen, geerbt]
+    expect([personenKurz(mitNamen, alle, name), personenKurz(geerbt, alle, name)]).toEqual(['Sophie Berger', 'Lukas Steiner'])
+    expect(personenSuche(geerbt, alle, name)).toEqual(['Lukas Steiner'])
+  })
+
+  it('ohne jede Person leer — die Ansicht setzt dann ihren Platzhalter', () => {
+    const leer = rec({ id: 'c3', formTypeId: '307B', trainees: [], header: {}, attendance: [{ name: '', signature: null }] })
+    expect(personenKurz(leer, [leer], name)).toBe('')
+    expect(personenSuche(leer, [leer], name)).toEqual([])
+  })
+})
+
+describe('druckTitelTeile — Name des gedruckten Nachweises (EXM-10)', () => {
+  it('folgt dem Schema Form_Titel_Person_Instruktor_Datum_Event und behaelt Wortgrenzen im Event', () => {
+    const r = rec({ formTypeId: '308F', header: { date: '2026-08-05', event: 'OPC  Recurrent' } })
+    const teile = druckTitelTeile(r, { formTitel: 'Grading Sheet Recurrent', personen: ['Sophie Berger', 'Lukas Steiner'], instruktor: 'Mika Beispiel' })
+    expect(teile).toEqual(['308F', 'Grading Sheet Recurrent', 'Sophie Berger, Lukas Steiner', 'Mika Beispiel', '05.08.2026', 'OPC  Recurrent'])
+    // Zusammengesetzt nach dem gemeinsamen Schema — vorher „…_05.08.2026_OPCRecurrent".
+    expect(druckTitel(teile)).toBe('308F_Grading Sheet Recurrent_Sophie Berger, Lukas Steiner_Mika Beispiel_05.08.2026_OPC Recurrent')
+  })
+
+  it('307A: die Teilnehmer wie im Kopf; fehlende Angaben bleiben leer', () => {
+    const r = rec({ formTypeId: '307A', trainees: [], header: {} })
+    const teile = druckTitelTeile(r, { formTitel: 'Record of Attendance', personen: ['Jürgen Müller +25'], instruktor: '' })
+    expect(teile).toEqual(['307A', 'Record of Attendance', 'Jürgen Müller +25', '', '', ''])
+    expect(druckTitel(teile)).toBe('307A_Record of Attendance_Jürgen Müller +25')
+  })
+
+  it('308H: eine Mehrfachauswahl im Event bleibt lesbar', () => {
+    const r = rec({ formTypeId: '308H', header: { date: '2026-11-02', event: 'Adverse Weather, LVO / CAT II / CAT III, UPRT' } })
+    expect(druckTitel(druckTitelTeile(r, { formTitel: 'Grading Sheet Other Trainings', personen: [], instruktor: 'Mika Beispiel' }))).toBe(
+      '308H_Grading Sheet Other Trainings_Mika Beispiel_02.11.2026_Adverse Weather, LVO - CAT II - CAT III, UPRT',
+    )
   })
 })

@@ -52,7 +52,7 @@ export function StorageBanner() {
   return (
     <div
       role="alert"
-      className={`pointer-events-auto flex w-full max-w-lg items-center justify-center gap-2.5 rounded-2xl px-4 py-2.5 text-small font-medium shadow-soft print:hidden ${
+      className={`pointer-events-auto flex w-full max-w-lg items-center justify-center gap-2.5 rounded-2xl px-4 py-2.5 text-small font-medium shadow-soft ${
         failed || unreadable ? 'bg-danger text-white' : 'bg-wait text-waitInk'
       }`}
     >

@@ -58,7 +58,7 @@ export const VERMERK_PX = 32
 
 /** Hoehe der Unterschriftsbilder im Ausdruck (`main img` in index.css). */
 export const DRUCK_BILD_PX = 54
-/** Verkleinerung des Druckbereichs (`main { zoom }` in index.css). */
+/** Verkleinerung des Druckbereichs (`--druck-zoom`, `main { zoom }` in index.css). */
 export const DRUCK_ZOOM = 0.75
 
 /** Wie gross der Vermerk auf Papier ankommt, in Punkt (1 CSS-px = 0,75 pt). */

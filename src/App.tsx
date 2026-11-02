@@ -120,8 +120,16 @@ function AppShell() {
         Ein Flex-Stapel loest das Muster auf: Was gleichzeitig sichtbar ist,
         liegt untereinander statt uebereinander. Reihenfolge von unten nach
         oben, dringlichstes zuletzt.
+
+        Im Druck ist der ganze Stapel weg (Audit 11/2026, GRD-14/UI-01): Er
+        liegt ausserhalb von main, die Druckregel fuer Bedienelemente griff
+        dort nicht, und nur Offline- und Speicherstreifen trugen ein eigenes
+        `print:hidden`. Wer ein Blatt abschickte und gleich das PDF zog, hatte
+        „Form signed and sent." samt Schliessknopf auf dem Nachweis — Chrome
+        druckt ein `fixed`-Element auf JEDES Blatt. Die Regel sitzt hier, am
+        Stapel, damit sie fuer jeden Streifen gilt, auch fuer kuenftige.
       */}
-      <div className="above-sandbox pointer-events-none fixed inset-x-0 z-40 flex flex-col items-center gap-tight px-3">
+      <div className="above-sandbox pointer-events-none fixed inset-x-0 z-40 flex flex-col items-center gap-tight px-3 print:hidden">
         <ToastHost />
         <StorageBanner />
         <OfflineBanner />

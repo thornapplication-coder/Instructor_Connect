@@ -1,4 +1,4 @@
-import { expect, type Page } from '@playwright/test'
+import { expect, type Locator, type Page } from '@playwright/test'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -28,4 +28,15 @@ export async function anmelden(page: Page, email = SUPERADMIN): Promise<void> {
 export async function docCheckOeffnen(page: Page): Promise<void> {
   await page.goto('/#/doccheck')
   await page.getByRole('button', { name: 'Verstanden' }).click()
+}
+
+/** Strich mit der Maus — die Fläche erst in die Mitte holen, sonst liegt
+ *  sie unter der Abschlussleiste und der Klick trifft die Leiste. */
+export async function unterschreiben(page: Page, canvas: Locator): Promise<void> {
+  await canvas.evaluate((c) => c.scrollIntoView({ block: 'center' }))
+  const b = (await canvas.boundingBox())!
+  await page.mouse.move(b.x + 20, b.y + b.height / 2)
+  await page.mouse.down()
+  for (let k = 1; k <= 20; k++) await page.mouse.move(b.x + 20 + (k * (b.width - 40)) / 20, b.y + b.height / 2 + Math.sin(k / 3) * 15)
+  await page.mouse.up()
 }

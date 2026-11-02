@@ -1,5 +1,8 @@
 import { csvNum, csvRow } from './csv'
-import type { GradingRecord, TraineeGrading } from './types'
+import { formatDate, lokalerTag } from './datum'
+import { kopfText, kopfZeilen, type ZusatzSchluessel } from './gradingKopf'
+import { teilnehmerOf } from './gradingRules'
+import type { FormType, Grade, GradingRecord, TraineeGrading } from './types'
 
 /**
  * Der Behoerdenexport als reine Funktion — eine Quelle fuer zwei Ansichten.
@@ -44,6 +47,11 @@ export type ExportContext = {
   /** Kurzbezeichnung des Ausgangsformulars eines Folgeformulars. */
   parentLabel: (r: GradingRecord) => string
   formatDateTime: (ms: number) => string
+  /** Formularkatalog — Beschriftung und Art der Kopffelder (GTY-04). */
+  formTypes: Pick<FormType, 'id' | 'competencySet' | 'fields'>[]
+  /** Beschriftung der Angaben ohne Katalogfeld (Namensraum `forms`, nur
+   *  Englisch) — dieselben Woerter wie auf dem Dokument. */
+  beschriftung: (schluessel: ZusatzSchluessel) => string
   /** Kalibrierungszeilen fuer den Personen-Auszug; sonst leer. */
   kalibrierung?: { satz: string; personId: string; sessions: number; avg: number | null; abweichung: number | null }[]
 }
@@ -64,6 +72,32 @@ function kopf(c: ExportContext): string {
   return csv
 }
 
+/** Schluessel, die im Forms-Export eine eigene Spalte haben — sie stehen
+ *  nicht noch einmal in „HeaderFields". */
+const EIGENE_SPALTEN = ['aircraftType', 'trainingDevice', 'date', 'event', 'traineeName'] as const
+
+/** Kopfdaten eines Datensatzes so, wie das Dokument sie zeigt. */
+function kopfVon(c: ExportContext, r: GradingRecord) {
+  return kopfZeilen(
+    c.formTypes.find((f) => f.id === r.formTypeId),
+    r,
+    c.beschriftung,
+  )
+}
+
+/**
+ * Was eine Zeile ihrem Dokument zuordnet — in Forms- und Competencies-Export
+ * aus DERSELBEN Funktion, sonst stuende dasselbe Blatt in zwei Formaten da.
+ */
+function beleg(c: ExportContext, r: GradingRecord) {
+  return {
+    datum: r.header.date ? formatDate(r.header.date) : '',
+    event: r.header.event ?? '',
+    unterschrieben: r.signedAt ? c.formatDateTime(r.signedAt) : '',
+    fingerabdruck: r.contentHash ?? '',
+  }
+}
+
 /**
  * Ein Blatt je Pilot.
  *
@@ -71,49 +105,91 @@ function kopf(c: ExportContext): string {
  * Auszug fuer die Behoerde: AT- und UK-Vorgaenge liegen im selben Bestand,
  * und ohne `SignedAt`/`Fingerprint` laesst sich eine Zeile keinem geprueften
  * Dokument zuordnen.
+ *
+ * Audit 11/2026, GTY-04: Event und die typspezifischen Kopffelder fehlten —
+ * zwei 308H desselben Tages belegten damit nicht, WELCHES Training
+ * stattfand. „Event" steht jetzt neben dem Datum, alle uebrigen Kopffelder
+ * (Due Date, Topics Covered, Qualifikation und Sitz des Instruktors …) als
+ * „Label=Wert" in der letzten Spalte. Eine Spalte je Katalogfeld haette je
+ * Formulartyp eine andere Spaltenfolge ergeben.
+ *
+ * Audit 11/2026, EXP-04: Das Datum stand als ISO-Rohwert (2026-11-01) neben
+ * SignedAt im Format DD.MM.YYYY — zwei Datumsformate in derselben Zeile.
+ * Bewusst unveraendert bleiben die Programmwerte (not_competent,
+ * awaiting_signature): Der Auszug ist als Rohdaten beschriftet.
  */
 function recordsCsv(c: ExportContext): string {
   let csv = csvRow([
-    'Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Overall', 'Session', 'Status',
-    'Authority', 'SignedAt', 'Fingerprint', 'FollowUpTo', 'Avg',
+    'Form', 'Instructor', 'Trainee', 'AircraftType', 'Device', 'Date', 'Event', 'Overall', 'Session', 'Status',
+    'Authority', 'SignedAt', 'Fingerprint', 'FollowUpTo', 'Avg', 'HeaderFields',
   ])
   c.records.forEach((r) => {
+    const kopffelder = kopfText(kopfVon(c, r), EIGENE_SPALTEN)
+    const b = beleg(c, r)
+    const zeile = (trainee: string, overall: string, session: string, avg: string) =>
+      csvRow([
+        r.formTypeId, c.userName(r.instructorId), trainee, r.header.aircraftType ?? '', r.header.trainingDevice ?? '',
+        b.datum, b.event, overall, session, r.status,
+        r.authority ?? 'AT', b.unterschrieben, b.fingerabdruck,
+        r.parentId ? c.parentLabel(r) : '', avg, kopffelder,
+      ])
     if (r.trainees.length > 0) {
       r.trainees.forEach((tr) => {
         // Durchschnitt je Pilot, nicht des gesamten Formulars
         const avg = avgOf(tr.grades.map((g) => g.grade))
-        csv += csvRow([
-          r.formTypeId, c.userName(r.instructorId), c.traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice,
-          r.header.date, tr.overall, r.sessionStatus, r.status,
-          r.authority ?? 'AT', r.signedAt ? c.formatDateTime(r.signedAt) : '', r.contentHash ?? '',
-          r.parentId ? c.parentLabel(r) : '', csvNum(avg),
-        ])
+        csv += zeile(c.traineeLabel(tr), tr.overall ?? '', r.sessionStatus ?? '', csvNum(avg))
       })
+      return
+    }
+    /*
+     * Anwesenheitslisten 307A/307B: eine Zeile je Teilnehmer.
+     *
+     * Audit 11/2026, GRD-02/EXP-01: Dieser Zweig fehlte. Ohne `trainees`
+     * und ohne Kopffeld lieferte `traineesOf` nichts, und JEDER
+     * Anwesenheitsnachweis fiel aus der Datei — waehrend der Dateikopf
+     * „Rows;1 of 14" behauptete. Fuer die ORA.GEN.220-Ablage fehlte damit
+     * eine ganze Formularart.
+     */
+    const teilnehmer = teilnehmerOf(r)
+    if (teilnehmer.length > 0) {
+      teilnehmer.forEach((name) => (csv += zeile(name, '', '', '')))
       return
     }
     // Folgeformulare (306/310) fuehren keine Bewertung, gehoeren aber in die
     // Ablage — sie belegen die Nachschulung.
-    c.traineesOf(r, c.alle).forEach((tr) => {
-      csv += csvRow([
-        r.formTypeId, c.userName(r.instructorId), c.traineeLabel(tr), r.header.aircraftType, r.header.trainingDevice ?? '',
-        r.header.date, '', '', r.status,
-        r.authority ?? 'AT', r.signedAt ? c.formatDateTime(r.signedAt) : '', r.contentHash ?? '',
-        r.parentId ? c.parentLabel(r) : '', '',
-      ])
-    })
+    const personen = c.traineesOf(r, c.alle)
+    personen.forEach((tr) => (csv += zeile(c.traineeLabel(tr), '', '', '')))
+    // Rueckfall: Ein Datensatz ohne jede Person (leere Teilnehmerliste,
+    // Folgeformular ohne Namen und ohne Ausgangsblatt) steht trotzdem in der
+    // Datei. „Rows" im Dateikopf zaehlt Datensaetze — ein Datensatz ohne
+    // Zeile ist genau die Luecke, die GRD-02 war.
+    if (personen.length === 0) csv += zeile('', '', '', '')
   })
   return csv
 }
 
-/** Eine Zeile je Kompetenz, dazu die Freitexte — sie sind der eigentliche
- *  Nachweis und fehlten frueher in jedem Export. */
+/**
+ * Eine Zeile je Kompetenz, dazu die Freitexte — sie sind der eigentliche
+ * Nachweis und fehlten frueher in jedem Export.
+ *
+ * Nachtrag zum Audit 11/2026 (Formtypen, Punkt 1): Die Zeilen trugen nur
+ * Form und Person. Vier 308A desselben Piloten (FFS 1–4) ergaben 36
+ * Kompetenzzeilen, die keiner Session zuzuordnen waren. Datum und Event
+ * stehen jetzt neben der Person, Unterschriftszeitpunkt und Fingerabdruck
+ * am Ende — dieselben Werte wie im Forms-Export (`beleg`), ueber den
+ * Fingerabdruck lassen sich beide Dateien verbinden.
+ */
 function competenciesCsv(c: ExportContext): string {
-  let csv = csvRow(['Form', 'Trainee', 'Competency', 'Title', 'Grade', 'Comment'])
+  let csv = csvRow(['Form', 'Trainee', 'Date', 'Event', 'Competency', 'Title', 'Grade', 'Comment', 'SignedAt', 'Fingerprint'])
+  const zeile = (r: GradingRecord, person: string, code: string, titel: string, note: Grade | null | '', kommentar: string) => {
+    const b = beleg(c, r)
+    return csvRow([r.formTypeId, person, b.datum, b.event, code, titel, note, kommentar, b.unterschrieben, b.fingerabdruck])
+  }
   c.records.forEach((r) =>
     r.trainees.forEach((tr) => {
       tr.grades.forEach((gr) => {
         const title = r.competencies?.find((x) => x.code === gr.code)?.title ?? ''
-        csv += csvRow([r.formTypeId, c.traineeLabel(tr), gr.code, title, gr.grade, gr.comment])
+        csv += zeile(r, c.traineeLabel(tr), gr.code, title, gr.grade, gr.comment)
       })
       // Als eigene Zeilen je Pilot, damit die Spalten der Kompetenzzeilen
       // unveraendert bleiben.
@@ -123,20 +199,32 @@ function competenciesCsv(c: ExportContext): string {
         ['Summary', tr.summaryComment],
       ]
       zusammenfassung.forEach(([abschnitt, text]) => {
-        if (text?.trim()) csv += csvRow([r.formTypeId, c.traineeLabel(tr), '', abschnitt, '', text])
+        if (text?.trim()) csv += zeile(r, c.traineeLabel(tr), '', abschnitt, '', text)
       })
-      if (tr.overall) csv += csvRow([r.formTypeId, c.traineeLabel(tr), '', 'Overall result', '', tr.overall])
+      if (tr.overall) csv += zeile(r, c.traineeLabel(tr), '', 'Overall result', '', tr.overall)
     }),
   )
   c.records
     .filter((r) => r.trainees.length === 0)
-    .forEach((r) =>
+    .forEach((r) => {
+      // Audit 11/2026, GRD-02/EXP-01: Anwesenheit je Teilnehmer — mit den
+      // uebrigen Kopfdaten (Dauer, Muster, Ort) als Kommentar, denn eine
+      // Kompetenz gibt es auf diesen Blaettern nicht. Datum und Event haben
+      // eigene Spalten und stehen dort nicht noch einmal.
+      const teilnehmer = teilnehmerOf(r)
+      if (teilnehmer.length > 0) {
+        const kopf = kopfText(kopfVon(c, r), ['traineeName', 'date', 'event'])
+        teilnehmer.forEach((name) => (csv += zeile(r, name, '', 'Attendance', '', kopf)))
+      }
+      // Ohne Namen (Altbestand ohne Pflichtfeld und ohne Ausgangsblatt)
+      // gehen die Freitexte nicht verloren — sie stehen dann ohne Person da.
+      const personen = c.traineesOf(r, c.alle).map(c.traineeLabel)
       Object.entries(r.freeText).forEach(([section, text]) => {
-        c.traineesOf(r, c.alle).forEach((tr) => {
-          csv += csvRow([r.formTypeId, c.traineeLabel(tr), '', section, '', text])
+        ;(personen.length > 0 ? personen : ['']).forEach((person) => {
+          csv += zeile(r, person, '', section, '', text)
         })
-      }),
-    )
+      })
+    })
   return csv
 }
 
@@ -160,6 +248,7 @@ export function buildGradingCsv(scope: ExportScope, c: ExportContext): string {
 export function gradingCsvName(scope: ExportScope, ms: number): string {
   const d = new Date(ms)
   const zwei = (n: number) => String(n).padStart(2, '0')
-  const stamp = `${d.getFullYear()}-${zwei(d.getMonth() + 1)}-${zwei(d.getDate())}_${zwei(d.getHours())}-${zwei(d.getMinutes())}`
-  return `grading-${scope}_${stamp}.csv`
+  // Der Tag in Ortszeit aus datum.ts (GRD-16) — die dritte lokale Kopie
+  // dieser Regel ist damit weg (EXP-04).
+  return `grading-${scope}_${lokalerTag(ms)}_${zwei(d.getHours())}-${zwei(d.getMinutes())}.csv`
 }

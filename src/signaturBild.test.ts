@@ -162,9 +162,13 @@ describe('Vermerk „Typed signature" (SIG-01)', () => {
     // 6-pt-Zusage hier auf — nicht erst auf Papier.
     const css = readFileSync(new URL('./index.css', import.meta.url), 'utf8')
     const img = css.match(/main img \{[^}]*?\bheight:\s*(\d+)px/)
-    const zoom = css.match(/main \{[^}]*?zoom:\s*([\d.]+)/)
+    // Der Zoom steht als Variable, seit der Blattrand durch ihn geteilt wird
+    // (GRD-15/PRT-01) — geprueft werden der Wert UND dass main ihn benutzt.
+    const zoom = css.match(/--druck-zoom:\s*([\d.]+)/)
+    const mainZoom = css.match(/main \{[^}]*?zoom:\s*([^;]+);/)
     expect(Number(img?.[1])).toBe(DRUCK_BILD_PX)
     expect(Number(zoom?.[1])).toBe(DRUCK_ZOOM)
+    expect(mainZoom?.[1].trim()).toBe('var(--druck-zoom)')
   })
 
   it('das Bild wird breiter statt den Vermerk zu verkleinern', () => {

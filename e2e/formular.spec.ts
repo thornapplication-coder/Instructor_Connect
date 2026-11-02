@@ -1,6 +1,6 @@
-import { devices, expect, test, type Locator, type Page } from '@playwright/test'
+import { devices, expect, test, type Page } from '@playwright/test'
 import type { GradingRecord } from '../src/types'
-import { anmelden } from './hilfen'
+import { anmelden, unterschreiben } from './hilfen'
 
 /**
  * Grading-Formular im echten Browser (Ebene 3) — was Ebene 1 nicht sieht:
@@ -272,17 +272,6 @@ test('Entwurf: Öffnen sichert nichts, Zurück fragt genau einmal, Verwerfen fra
   expect(fragen).toHaveLength(3)
   expect(await entwuerfe()).toEqual([])
 })
-
-/** Strich mit der Maus — die Fläche erst in die Mitte holen, sonst liegt
- *  sie unter der Abschlussleiste und der Klick trifft die Leiste. */
-async function unterschreiben(page: Page, canvas: Locator) {
-  await canvas.evaluate((c) => c.scrollIntoView({ block: 'center' }))
-  const b = (await canvas.boundingBox())!
-  await page.mouse.move(b.x + 20, b.y + b.height / 2)
-  await page.mouse.down()
-  for (let k = 1; k <= 20; k++) await page.mouse.move(b.x + 20 + (k * (b.width - 40)) / 20, b.y + b.height / 2 + Math.sin(k / 3) * 15)
-  await page.mouse.up()
-}
 
 /** Gespeicherte Formulare aus IndexedDB (persist.ts) — was im Nachweis steht. */
 async function gespeicherteFormulare(page: Page): Promise<GradingRecord[]> {

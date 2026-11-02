@@ -453,7 +453,9 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
   je einzeln auf `fixed above-sandbox`. Zweimal ist derselbe Fehler passiert:
   erst verdeckte der Offline-Streifen die Formularleiste, dann die
   Bestätigung den Offline-Streifen. Was gleichzeitig sichtbar sein kann,
-  gehört untereinander.
+  gehört untereinander. Im Druck fehlt der Stapel als Ganzes (`print:hidden`
+  am Stapel, nicht je Streifen) — vorher stand „Form signed and sent." auf
+  dem Nachweis-PDF.
 - **Zwei Prüfungen für dieselbe Sache laufen auseinander.** Die
   Fortschrittsleiste des Formulars und die Absendeprüfung waren getrennt —
   die Leiste meldete „Alles erledigt", das Absenden verweigerte. Jetzt leitet
