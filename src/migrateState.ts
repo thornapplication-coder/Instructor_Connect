@@ -3,6 +3,34 @@ import { imprintHash, IMPRINT_DE, IMPRINT_EN, IMPRINT_LEGACY_HASHES } from './sa
 import { LESSON_CATEGORIES, type AppState } from './types'
 
 /**
+ * Pflichtfelder, die ein gespeicherter Stand haben MUSS, mit ihrer Vorgabe.
+ *
+ * Ein Stand ohne `lessonPlans` machte Startseite, Lesson Plans, Instructor
+ * Info und Impressum weiß („t.lessonPlans is not iterable") — und weil der
+ * Stand beim nächsten Start derselbe war, blieb die App auf dem Gerät
+ * dauerhaft unbenutzbar, bis jemand die Websitedaten von Hand löschte
+ * (Audit 11/2026, TEC-07). Geprüft wird die FORM, nicht nur das Vorhandensein:
+ * `null` oder ein Objekt an Stelle einer Liste stürzt genauso ab.
+ *
+ * `users` und `gradingRecords` stehen bewusst nicht hier: Ohne Nutzer lädt
+ * `ladeStand` den Stand gar nicht erst, und die Formularliste hat unten
+ * einen eigenen Nachtrag mit Marke.
+ */
+const LISTEN = ['groups', 'messages', 'polls', 'infoEntries', 'contacts', 'lessonPlans', 'feedbackEntries'] as const
+const OBJEKTE = ['seen', 'starredInfo', 'infoAcks'] as const
+const ZAHLEN = ['timeOffsetMs', 'contactsChangedAt'] as const
+
+/** Was fehlt oder die falsche Form hat — mit Vorgabe. Leer, wenn alles passt. */
+export function fehlendePflichtfelder(st: AppState): Partial<AppState> {
+  const roh = st as unknown as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const k of LISTEN) if (!Array.isArray(roh[k])) out[k] = []
+  for (const k of OBJEKTE) if (!roh[k] || typeof roh[k] !== 'object' || Array.isArray(roh[k])) out[k] = {}
+  for (const k of ZAHLEN) if (typeof roh[k] !== 'number' || !Number.isFinite(roh[k])) out[k] = 0
+  return out as Partial<AppState>
+}
+
+/**
  * Sanfte Datenmigrationen auf bereits gespeicherten Zustand — OHNE
  * STATE_VERSION-Bruch, der alle Daten verwerfen würde.
  *
@@ -13,10 +41,20 @@ import { LESSON_CATEGORIES, type AppState } from './types'
  * echte Organisation umgestellt — aber nur, wenn er noch der Platzhalter
  * (oder leer) ist; eine bewusst gesetzte eigene Angabe bleibt unangetastet.
  */
-export function migrateState(st: AppState): AppState {
+export function migrateState(eingang: AppState): AppState {
   // Ohne Einstellungen ist der Bestand nicht zu retten — dann bleibt er, wie
   // er ist.
-  if (!st.settings) return st
+  if (!eingang.settings) return eingang
+  /*
+   * Die Form ZUERST richten, dann nachtragen: Die Nachträge unten lesen die
+   * Listen selbst (`contacts.map` …). Stand dort ein Objekt statt einer
+   * Liste, stürzte schon diese Funktion ab, bevor die Prüfung am Ende sie
+   * ersetzen konnte (Gegenprüfung P3 zu TEC-07). Nur bei einem
+   * gespeicherten Bestand: `users === undefined` heißt hier „kein Bestand"
+   * (siehe oben) — dem wird nichts untergeschoben.
+   */
+  const pflicht = eingang.users === undefined ? {} : fehlendePflichtfelder(eingang)
+  const st: AppState = Object.keys(pflicht).length > 0 ? { ...eingang, ...pflicht } : eingang
   /*
    * Fehlende Kopfdaten sind KEIN Grund, alles Uebrige zu ueberspringen.
    * Hier stand `if (!dh) return st` — und darunter liegen saemtliche
@@ -171,6 +209,7 @@ export function migrateState(st: AppState): AppState {
     !formulareFehlten &&
     !impAlt
   )
+    // Gegebenenfalls mit gerichteter Form (oben) — dann ist `st` schon neu.
     return st
   return {
     ...st,

@@ -1,5 +1,4 @@
-import { expect, test } from '@playwright/test'
-import { anmelden, datei, docCheckOeffnen } from './hilfen'
+import { anmelden, datei, docCheckOeffnen, expect, test } from './hilfen'
 
 /** Ansichtsmodus am Telefon (Spez. 6.9): Prüfstand öffnen, ansehen, exportieren — Prüfen nur am Desktop. */
 test('Telefon: Prüfstand öffnen, Befunde lesen, CSV exportieren; fremde Version wird abgewiesen', async ({ page }) => {

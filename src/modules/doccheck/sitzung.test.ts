@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
+import { registrierteArbeitOffen } from '../../editGuard'
 import type { Zusammenfassung } from './kern'
+import type { ReCheckSitzung } from './recheck/ablauf'
 import {
-  abonnieren, aktualisiert, bestaetigen, paketBestaetigen, paketSetzen, paketStruktur, paketVorbelegen, datei, dateiAblegen, dateiEntfernen, duplikatFuer, entfernen, fehler, feldSetzen, fertig, fortschritt, fuerNutzer, LEER, lesenZustand, neu, offenePflichtfelder, setzen,
+  abonnieren, offeneArbeit, referenzenSetzen, aktualisiert, bestaetigen, paketBestaetigen, paketSetzen, paketStruktur, paketVorbelegen, datei, dateiAblegen, dateiEntfernen, duplikatFuer, entfernen, fehler, feldSetzen, fertig, fortschritt, fuerNutzer, LEER, lesenZustand, neu, offenePflichtfelder, setzen,
 } from './sitzung'
 
 const zf = (id: string, meta: Partial<Zusammenfassung['meta']> = {}, sha = 'h' + id): Zusammenfassung => ({
@@ -98,6 +100,31 @@ describe('Speicher', () => {
     dateiAblegen('z', new Uint8Array())
     dateiEntfernen('z')
     expect(datei('z')).toBeUndefined()
+  })
+})
+
+describe('Offene Arbeit für das automatische Update (Audit 11/2026, TEC-02)', () => {
+  /*
+   * Vorher lud ein DocCheck-Tab nach jedem Deployment binnen einer Minute von
+   * selbst neu — eingelesene Pakete, OCR-Läufe und Re-Check-Bestätigungen
+   * waren ohne Rückfrage weg. Die Sitzung meldet sich deshalb beim Laden des
+   * Moduls bei der Bearbeitungs-Wache an.
+   */
+  it('zählt Dokumente, Referenzlisten und einen Re-Check — eine leere Sitzung nicht', () => {
+    expect(offeneArbeit(LEER)).toBe(false)
+    expect(offeneArbeit({ ...LEER, referenzen: [] })).toBe(false)
+    expect(offeneArbeit(neu(LEER, { id: 'a', rolle: 'review', name: 'a', groesse: 1 }))).toBe(true)
+    expect(offeneArbeit(referenzenSetzen(LEER, [{ liste: null, datei: 'soll.xlsx', zeilen: [] }]))).toBe(true)
+    expect(offeneArbeit({ ...LEER, recheck: {} as ReCheckSitzung })).toBe(true)
+  })
+
+  it('ist bei der Wache angemeldet: Dokument da → offen, nach dem Abmelden nicht mehr', () => {
+    fuerNutzer('u-tec02')
+    expect(registrierteArbeitOffen()).toBe(false)
+    setzen((z) => neu(z, { id: 'p', rolle: 'review', name: 'p.docx', groesse: 1 }))
+    expect(registrierteArbeitOffen()).toBe(true)
+    fuerNutzer(null)
+    expect(registrierteArbeitOffen()).toBe(false)
   })
 })
 

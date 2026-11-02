@@ -75,7 +75,6 @@ export default defineConfig({
         'src/*.tsx',
         'src/types.ts', // nur Typen und Konstanten, keine Logik
         'src/vite-env.d.ts', // Typdeklaration
-        'src/net.ts', // Ebene 2 offen: braucht Service-Worker-Registrierung, nicht nur fetch
       ],
       // perFile ist der Kern der Zusage: Ohne diesen Schalter wertet v8 nur
       // die GESAMTSUMME, und eine kleine ungetestete Datei verschwindet

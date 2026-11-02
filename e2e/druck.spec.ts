@@ -1,6 +1,5 @@
-import { expect, test } from '@playwright/test'
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs'
-import { anmelden, unterschreiben } from './hilfen'
+import { anmelden, expect, test, unterschreiben } from './hilfen'
 
 /**
  * Druck und PDF eines Nachweises (Ebene 3) — Seitenumbruch, Zeigerereignisse

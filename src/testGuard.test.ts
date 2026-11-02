@@ -58,7 +58,6 @@ const LOGIK_IN_TSX: Record<string, string> = {}
 const OHNE_TEST: Record<string, string> = {
   'types.ts': 'nur Typen und Konstanten, keine Logik',
   'vite-env.d.ts': 'Typdeklaration',
-  'net.ts': 'Ebene 2 offen: braucht eine Service-Worker-Registrierung, nicht nur fetch',
   'modules/doccheck/types.ts': 'nur Typen, keine Logik',
   'modules/doccheck/parse/model.ts': 'nur Typen und Konstanten (Datenmodell Spez. 7.1), keine Logik',
 }

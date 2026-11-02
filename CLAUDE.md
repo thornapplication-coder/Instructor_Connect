@@ -26,6 +26,14 @@ importiert, erscheint gar nicht erst in der Auswertung. Nachgemessen: neue
 Datei mit ungetesteter Logik angelegt, `npm test` blieb grün. Erst die erste
 Wache schließt die Lücke.
 
+Beide sehen nur `src/`. Was der Build entscheidet — was vorab auf jedes
+Gerät kommt, wie der Cache heißt, der Text des Service Workers, CSP und
+Schlüsselprüfung —, steht deshalb ebenfalls in `src/*.ts` (`swQuelle`,
+`csp`, `backend/konfig`); `vite.config.ts` liest nur Dateien ein und ruft
+diese Funktionen. Typgeprüft werden Konfiguration und `e2e/` über
+`tsconfig.node.json` im selben `npm run build` — `tsconfig.json` umfasst
+nur `src/` (Gegenprüfung L-CI, Audit 11/2026).
+
 Beide dürfen nicht durch eine Erweiterung der Ausnahmelisten umgangen werden.
 Wer dort etwas einträgt, schreibt den Grund daneben, und der Grund lautet
 „braucht Browser-Umgebung (Ebene 2)", nicht „hat gerade keine Zeit".
@@ -51,21 +59,40 @@ prüfen, nicht der Code anzupassen**, bis er zum Test passt.
 - **Ebene 2 (vorhanden):** was eine Browser-Umgebung braucht — Dateiendung
   `*.dom.test.ts` (Speicher, Hooks) bzw. `*.test.tsx` (Komponenten), Umgebung
   `jsdom` mit `fake-indexeddb` und React Testing Library. Abgedeckt sind
-  `persist`, `editGuard`, `useIsDesktop`; `net` steht noch aus (braucht eine
-  Service-Worker-Registrierung, nicht nur `fetch`).
+  `persist`, `editGuard`, `useIsDesktop` und `net` — dessen Ausnahme in
+  beiden Wachen trug den Grund „braucht eine Service-Worker-Registrierung",
+  dabei liest die Probe nur `navigator.onLine` und ein `fetch`, beides
+  ersetzbar (Audit 11/2026, TEC-18).
 - **Ebene 3 (vorhanden, `e2e/`, `npm run e2e`):** wenige Wege mit Playwright
-  gegen den echten Build (`vite preview`, Port 4174), eigener CI-Job. Anmelden
+  gegen den echten Build (`vite preview`, Port 4174), eigener CI-Job — und
+  eigener Job vor jeder Veröffentlichung: `deploy` in `deploy.yml` wartet
+  auf ihn, ein roter Browser-Test geht nicht live. Anmelden
   über den echten Sandbox-Weg (E-Mail → angezeigter Code), Testdateien aus
   `benchmark/sbx.ts` (`e2e/vorbereitung.ts`), keine Binärdateien im Repo.
   Abgedeckt: DocCheck einlesen → Befund per Tastatur → Viewer-Fokus; Export
   (CSV/Excel gleiche IDs, Prüfstand hin und zurück); Re-Check bis zur Datei
   mit „Neue Findings"; Wartung und Wiedereinschalten; Telefon-Ansicht;
   Offline-Start. Offen: Grading (Formular → Unterschrift → Versand).
+  Die Content-Security-Policy steht nur im Build (`src/csp.ts`, Meta-Tag;
+  `vite dev` braucht ein Inline-Skript) — deshalb prüft JEDER Weg hier, dass
+  sie nichts abweist: `test` aus `e2e/hilfen.ts` scheitert an jedem
+  `securitypolicyviolation` und an Chromes CSP-Konsolenzeile, eigene
+  Kontexte melden sich mit `cspAbweisungen` an (Audit 11/2026, SEC-07).
+  Nicht nach „Refused to" suchen: Chrome hat den Wortlaut geändert, eine
+  Wache auf dieses Wort sah nachgemessen nichts; `e2e/csp.spec.ts` macht
+  die Gegenprobe.
   Der Offline-Test fand einen echten Fehler: Mit „Vary: Origin" (vite
   preview, manches Hosting) startete die App ohne Netz weiß, weil Module
   MIT Origin-Kopf angefragt, aber OHNE vorgeladen wurden — der Service
   Worker schlägt deshalb mit `ignoreVary` nach (gefahrlos: Dateien sind
-  inhaltsgehasht). Wer einen Test ergänzt: Was als Logik prüfbar ist,
+  inhaltsgehasht). Ein zweiter lag hinter `vite preview` verborgen, weil
+  es „no-cache" sendet: Unter GitHub Pages („max-age=600") holte die
+  Installation nach einem Update die ALTE index.html aus dem HTTP-Cache in
+  den neuen Vorab-Cache, und der nächste Offline-Start blieb weiß. Der
+  Worker lädt deshalb mit `cache: 'reload'` vor; seine Quelle steht in
+  `src/swQuelle.ts` (Ebene 1), der Offline-Test spielt ein Update gegen
+  einen eigenen Server mit Cache-Lebensdauer durch (Audit 11/2026,
+  TEC-01). Wer einen Test ergänzt: Was als Logik prüfbar ist,
   gehört in Ebene 1 — jeder Browser-Test kostet Sekunden und bricht bei
   Textänderungen.
 
@@ -94,11 +121,16 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   Bedienkomfort; mit Phase 1b wird sie Vorlage für RLS und Rollentest.
 - **Rechte nur über `setDocCheckRights`** (Superadmin, mit Audit-Zeile).
   `updateUser` lässt `docCheckAccess`/`docCheckAdmin` fallen.
-- **Statisch geladen wird nur `index.tsx`**; alles andere per `lazy`
-  hinter einer `ErrorBoundary`. Der Service Worker nimmt Dateien, die nur
-  über das Modul erreichbar sind, aus dem Vorab-Cache (`nurNachgeladen` in
-  `vite.config.ts`). Wer DocCheck aus dem Startbundle importiert, holt
-  Parser und Exportbibliotheken auf jedes Gerät.
+- **Statisch geladen wird nur der Einstieg `index.tsx`** und dazu wenige
+  kleine Module ohne Bibliothek (`access`, `settings`, `library` für den
+  Store, `ladefehler` für den Einstieg); alles andere per `lazy` hinter
+  einer `ErrorBoundary`. Der Service Worker nimmt Dateien, die nur über das
+  Modul erreichbar sind, aus dem Vorab-Cache (`nurNachgeladen` in
+  `src/swQuelle.ts`). Wer DocCheck aus dem Startbundle importiert, holt
+  Parser und Exportbibliotheken auf jedes Gerät — `src/startbundle.test.ts`
+  bildet die statische Importhülle ab `main.tsx` und lässt nur diese Module
+  zu, jedes mit Grund, und keine DocCheck-Bibliothek (jszip, pdf.js, docx,
+  pptxgenjs, tesseract.js, minisearch).
 - **Texte** im Namensraum `doccheck` (`i18n/de.json`, `i18n/en.json`),
   nachgereicht beim Laden des Moduls. Die Hülle (Wartung, Ladefehler) steht
   im App-Bundle unter `docCheck`, weil sie gerade dann gebraucht wird, wenn
@@ -107,8 +139,14 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   von `useIsDesktop` (Breite) — beide Regeln gelten je für ihren Bereich.
 - **Prüf- und Sitzungsdokumente liegen NIE im Anwendungszustand.** Der wird
   in IndexedDB gespeichert; die Dokumente leben in `sitzung.ts` (Speicher
-  des Tabs) und im Worker. Abmelden sendet `ic-abmelden`, Nutzerwechsel
-  („Ansicht als") leert die Sitzung ebenfalls.
+  des Tabs) und im Worker. JEDES Abmelden sendet `ic-abmelden` — Knopf,
+  Sitzungsablauf, Deaktivierung, anderer Tab; der Store löst es am
+  Übergang zu „abgemeldet" aus, nicht in `logout()`. Nutzerwechsel
+  („Ansicht als") leert die Sitzung ebenfalls. Weil ein Neuladen alles
+  verlöre, meldet `sitzung.ts` sich beim Laden des Moduls als offene
+  Arbeit an (`registriereOffeneArbeit` in `editGuard.ts`): Das
+  automatische Update wartet, solange Dokumente, Referenzlisten oder ein
+  Re-Check im Speicher liegen (Audit 11/2026, TEC-02/TEC-14).
 - **Lesen läuft im Worker** (`doccheck.worker.ts` übersetzt nur Nachrichten,
   die Arbeit macht `kern.ts`, in Node testbar). pdf.js wird in die Leser
   hineingereicht: im Browser die moderne Fassung, in Tests `legacy`.
@@ -288,7 +326,11 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
 - **Keine erfundenen Preise.** Modellpreise sind ab Werk leer; ohne Preise
   keine Kostenschätzung und kein Start.
 - **Keine echten OEM-Dokumente im Repo** — der Sandbox-Bestand ist
-  synthetisch (`SBX-…`), der Test prüft das.
+  synthetisch (`SBX-…`). Zwei Tests prüfen das: `library.test.ts` den
+  Bestand (Titel, Nummern), `src/repoDateien.test.ts` die DATEIEN im Repo —
+  PDF und Office nur mit `SBX-`-Präfix oder namentlich mit Grund, nie mit
+  Herstellernamen. Was in `public/` liegt, geht ungefiltert auf jedes Gerät
+  und auf die öffentliche Seite.
 
 ## Backend (Phase 1b, `supabase/`, `src/backend/`)
 
@@ -338,9 +380,12 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
 - **In die App gehört nur ein öffentlicher Schlüssel** (`sb_publishable_…`
   oder JWT `anon`); `backendKonfig` weist alles andere ab, auch unbekannte
   Formate. Weil Vite `VITE_*`-Werte fest ins Bundle schreibt, bricht
-  zusätzlich der **Build** ab (`geheimeVariablen` in `vite.config.ts`), und
-  `deploy.yml` durchsucht `dist/` nach Schlüsselwerten. `.env*` steht in
-  `.gitignore`.
+  zusätzlich der **Build** ab (`geheimeVariablen` in `vite.config.ts`) —
+  ebenso bei einem Schlüssel, der fest im Quelltext steht
+  (`geheimnisseImText`, gelesen wird das fertige Bundle). `deploy.yml`
+  durchsucht `dist/` noch einmal mit eigenem Code und dekodiert dabei jedes
+  JWT: Ein service_role-Schlüssel sieht aus wie der anon-Schlüssel, erst die
+  Rolle unterscheidet sie. `.env*` steht in `.gitignore`.
 - **KI-Proxy (Edge Function, folgt):** Der Anthropic-Schlüssel ist ein
   Secret der Function, nie im Browser. Die Function folgt dem Browser
   NICHT blind: JWT prüfen und `doccheck.can('pruefen')`, Systemprompt und

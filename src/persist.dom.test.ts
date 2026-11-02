@@ -212,6 +212,118 @@ describe('Sicherungen beim Versionssprung', () => {
   })
 })
 
+/** Alle Einträge der Ablage direkt aus IndexedDB — unabhängig vom Modul. */
+async function ablage(): Promise<Record<string, string>> {
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const req = indexedDB.open('instructor-connect', 1)
+    req.onupgradeneeded = () => req.result.createObjectStore('kv')
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
+  const out = await new Promise<Record<string, string>>((resolve) => {
+    const tx = db.transaction('kv')
+    const st = tx.objectStore('kv')
+    const out: Record<string, string> = {}
+    st.openCursor().onsuccess = (e) => {
+      const c = (e.target as IDBRequest<IDBCursorWithValue | null>).result
+      if (!c) return resolve(out)
+      out[String(c.key)] = c.value as string
+      c.continue()
+    }
+  })
+  db.close()
+  return out
+}
+
+describe('Laden: was nicht geladen wird, wird beiseitegelegt (ladeStand)', () => {
+  const gueltig = JSON.stringify({ v: 2, state: { users: [{ id: 'u1' }] } })
+
+  it('übernimmt einen gültigen Stand und legt nichts beiseite', async () => {
+    const p = await frischesModul()
+    expect(p.ladeStand(gueltig, 2)).toEqual({ users: [{ id: 'u1' }] })
+    expect(p.ladeStand(null, 2)).toBeNull()
+    expect(p.ladeStand('', 2)).toBeNull()
+    await new Promise((r) => setTimeout(r, 50))
+    expect(Object.keys(await ablage())).toEqual([])
+  })
+
+  it('unlesbarer Rohstand: null UND Sicherung unter „…-backup-vunknown-…" (Audit 11/2026, TEC-06)', async () => {
+    // Vorher lieferte der catch stumm null, und 400 ms später schrieb die
+    // App den Seed über den einzigen vorhandenen Rohstand.
+    const kaputt = gueltig.slice(0, Math.floor(gueltig.length / 2))
+    const p = await frischesModul()
+    expect(p.ladeStand(kaputt, 2)).toBeNull()
+    await new Promise((r) => setTimeout(r, 50))
+    const eintraege = Object.entries(await ablage())
+    expect(eintraege).toHaveLength(1)
+    expect(eintraege[0][0]).toMatch(/^aaa-state-backup-vunknown-\d+$/)
+    expect(eintraege[0][1]).toBe(kaputt)
+  })
+
+  it('anderer Stand: Versionssprung, leere Nutzerliste, kein Objekt — jeweils gesichert', async () => {
+    const p = await frischesModul()
+    // Je Fall eine eigene Millisekunde: Der Schlüssel trägt den Zeitpunkt.
+    for (const raw of [JSON.stringify({ v: 1, state: { users: [{ id: 'u1' }] } }), JSON.stringify({ v: 2, state: { users: [] } }), 'null', '"text"']) {
+      expect(p.ladeStand(raw, 2)).toBeNull()
+      await new Promise((r) => setTimeout(r, 5))
+    }
+    await new Promise((r) => setTimeout(r, 50))
+    const schluessel = Object.keys(await ablage()).map((k) => k.replace(/-\d+$/, ''))
+    expect(schluessel.sort()).toEqual(['aaa-state-backup-v1', 'aaa-state-backup-v2', 'aaa-state-backup-vunknown', 'aaa-state-backup-vunknown'])
+  })
+})
+
+describe('Stand beiseitelegen — der Ausweg nach einem Absturz (Audit 11/2026, TEC-07)', () => {
+  it('legt den Stand unter einen eigenen Schlüssel, lässt alte Sicherungen stehen und schreibt danach nichts mehr', async () => {
+    const p = await frischesModul()
+    await p.persistState('{"absturz":1}')
+    p.backupPersistedState('{"alt":1}', 1)
+    await new Promise((r) => setTimeout(r, 50))
+    await expect(p.standBeiseitelegen()).resolves.toBe(true)
+    const vorher = await ablage()
+    expect(vorher[STATE_KEY]).toBeUndefined()
+    const schluessel = Object.keys(vorher)
+    // clearPersistedState taugte dafür nicht: Es räumt die Sicherungen mit.
+    expect(schluessel.some((k) => k.startsWith('aaa-state-backup-v1-'))).toBe(true)
+    const reset = schluessel.find((k) => k.startsWith('aaa-state-backup-reset-'))!
+    expect(vorher[reset]).toBe('{"absturz":1}')
+    // Bis zum Neuladen schreibt der Tab den Absturzstand nicht zurück.
+    await expect(p.persistState('{"absturz":2}')).resolves.toBe(false)
+    expect((await ablage())[STATE_KEY]).toBeUndefined()
+  })
+
+  it('ohne gespeicherten Stand gibt es nichts zu sichern', async () => {
+    const p = await frischesModul()
+    await expect(p.standBeiseitelegen()).resolves.toBe(true)
+    expect(Object.keys(await ablage())).toEqual([])
+  })
+
+  it('auf der Rückfallebene (localStorage) ebenso', async () => {
+    vi.spyOn(indexedDB, 'open').mockImplementation(() => {
+      throw new Error('kein IndexedDB')
+    })
+    localStorage.setItem(STATE_KEY, '{"absturz":1}')
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    await expect(p.standBeiseitelegen()).resolves.toBe(true)
+    expect(localStorage.getItem(STATE_KEY)).toBeNull()
+    const reset = Object.keys(localStorage).find((k) => k.startsWith('aaa-state-backup-reset-'))!
+    expect(localStorage.getItem(reset)).toBe('{"absturz":1}')
+  })
+
+  it('scheitert die Sicherung, wird nichts gelöscht — und weiter gespeichert', async () => {
+    const p = await frischesModul()
+    await p.persistState('{"absturz":1}')
+    const sabotage = vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(() => {
+      throw new Error('voll')
+    })
+    await expect(p.standBeiseitelegen()).resolves.toBe(false)
+    sabotage.mockRestore()
+    expect((await ablage())[STATE_KEY]).toBe('{"absturz":1}')
+    await expect(p.persistState('{"weiter":1}')).resolves.toBe(true)
+  })
+})
+
 describe('Mehrere offene Tabs', () => {
   it('ruft den frisch gesicherten Stand aus und meldet ihn den anderen', async () => {
     const p = await frischesModul()
@@ -519,5 +631,214 @@ describe('Fehler der Datenbank selbst', () => {
     await expect(p.persistState('{"x":1}')).resolves.toBe(false)
     expect(gemeldet).toHaveBeenCalledTimes(1)
     window.removeEventListener(p.STORAGE_ERROR_EVENT, gemeldet)
+  })
+})
+
+describe('Start mit Zeitgrenze (Audit 11/2026, TEC-11)', () => {
+  /**
+   * Ein `indexedDB.open`, das nie antwortet — der Fall, den der Prüfer
+   * simulierte: Nach 8 s stand kein einziges Zeichen da. Die Anfrage wird
+   * zurückgegeben, damit ein Test sie nachträglich doch noch beantworten kann.
+   */
+  function haengendesOeffnen() {
+    const anfragen: Record<string, unknown>[] = []
+    vi.spyOn(indexedDB, 'open').mockImplementation(() => {
+      const req: Record<string, unknown> = { result: null, error: null }
+      anfragen.push(req)
+      return req as unknown as IDBOpenDBRequest
+    })
+    return anfragen
+  }
+
+  beforeEach(() => {
+    // Nur die Zeitgeber vortäuschen: fake-indexeddb plant seine Rückrufe
+    // über setImmediate — die müssen echt bleiben.
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('startet nach der Zeitgrenze, liest nichts und schreibt nichts', async () => {
+    haengendesOeffnen()
+    const p = await frischesModul()
+    let fertig = false
+    const laden = p.preloadPersistedState().then(() => (fertig = true))
+    await vi.advanceTimersByTimeAsync(p.LESE_ZEITGRENZE_MS - 1)
+    expect(fertig).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    await laden
+    expect(fertig).toBe(true)
+    // Keine Antwort ist kein Beleg für „nichts da": nicht schreiben, warnen.
+    expect(p.storageReadFailed()).toBe(true)
+    expect(p.readPreloadedState()).toBeNull()
+    const gemeldet = vi.fn()
+    window.addEventListener(p.STORAGE_ERROR_EVENT, gemeldet)
+    await expect(p.persistState('{"seed":true}')).resolves.toBe(false)
+    expect(gemeldet).toHaveBeenCalledOnce()
+    expect(localStorage.getItem(STATE_KEY)).toBeNull()
+    window.removeEventListener(p.STORAGE_ERROR_EVENT, gemeldet)
+  })
+
+  it('zeigt einen Altstand aus localStorage, schreibt aber auch dann nicht', async () => {
+    // Anders als ein Fehler beim Öffnen sagt das Schweigen nicht, dass die
+    // Datenbank leer ist — der Altstand könnte älter sein als ihr Inhalt.
+    haengendesOeffnen()
+    localStorage.setItem(STATE_KEY, '{"alt":true}')
+    const p = await frischesModul()
+    const laden = p.preloadPersistedState()
+    await vi.advanceTimersByTimeAsync(p.LESE_ZEITGRENZE_MS)
+    await laden
+    expect(p.readPreloadedState()).toBe('{"alt":true}')
+    expect(p.storageReadFailed()).toBe(true)
+    await expect(p.persistState('{"neu":true}')).resolves.toBe(false)
+    expect(localStorage.getItem(STATE_KEY)).toBe('{"alt":true}')
+  })
+
+  it('eine verspätete Antwort ändert am gelaufenen Start nichts — auch kein später Fehler', async () => {
+    const anfragen = haengendesOeffnen()
+    const p = await frischesModul()
+    const laden = p.preloadPersistedState()
+    await vi.advanceTimersByTimeAsync(p.LESE_ZEITGRENZE_MS)
+    await laden
+    // Die Datenbank meldet sich doch noch — mit einem Stand …
+    const db = {
+      transaction: () => ({
+        objectStore: () => ({
+          get: () => {
+            const r: Record<string, unknown> = { result: '{"spaet":true}' }
+            setTimeout(() => (r.onsuccess as () => void)(), 0)
+            return r
+          },
+        }),
+      }),
+    }
+    anfragen[0].result = db
+    ;(anfragen[0].onsuccess as () => void)()
+    await vi.advanceTimersByTimeAsync(10)
+    // … den niemand mehr liest: Der Store hat längst gerendert.
+    expect(p.readPreloadedState()).toBeNull()
+    expect(p.storageReadFailed()).toBe(true)
+  })
+
+  it('ein später Fehler bleibt still (keine unbehandelte Ablehnung)', async () => {
+    const anfragen = haengendesOeffnen()
+    const unbehandelt = vi.fn()
+    process.on('unhandledRejection', unbehandelt)
+    const p = await frischesModul()
+    const laden = p.preloadPersistedState()
+    await vi.advanceTimersByTimeAsync(p.LESE_ZEITGRENZE_MS)
+    await laden
+    anfragen[0].error = new Error('später kaputt')
+    ;(anfragen[0].onerror as () => void)()
+    await vi.advanceTimersByTimeAsync(10)
+    await new Promise((r) => setImmediate(r))
+    process.off('unhandledRejection', unbehandelt)
+    expect(unbehandelt).not.toHaveBeenCalled()
+    expect(p.storageReadFailed()).toBe(true)
+  })
+
+  it('der normale Start räumt seinen Zeitgeber weg', async () => {
+    const p = await frischesModul()
+    await p.persistState('{"a":1}')
+    const p2 = await frischesModul()
+    await p2.preloadPersistedState()
+    expect(p2.readPreloadedState()).toBe('{"a":1}')
+    expect(vi.getTimerCount()).toBe(0)
+    expect(p2.storageReadFailed()).toBe(false)
+  })
+})
+
+describe('Bitte um dauerhafte Ablage — nie abgewartet (Audit 11/2026, TEC-11)', () => {
+  const echt = Object.getOwnPropertyDescriptor(navigator, 'storage')
+  const setzeStorage = (wert: unknown) => Object.defineProperty(navigator, 'storage', { value: wert, configurable: true })
+  afterEach(() => {
+    if (echt) Object.defineProperty(navigator, 'storage', echt)
+    else delete (navigator as unknown as Record<string, unknown>).storage
+  })
+
+  it('der Start fragt gar nicht mehr — eine offene Abfrage hält ihn nicht auf', async () => {
+    // Firefox fragt für persist() den Nutzer. Vorher wartete der Start auf
+    // die Antwort, und solange blieb die App leer.
+    const persist = vi.fn(() => new Promise<boolean>(() => undefined))
+    setzeStorage({ persist })
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    expect(persist).not.toHaveBeenCalled()
+  })
+
+  it('bittet, ohne zu warten, und schluckt Ablehnung, Ausnahme und Fehlen', async () => {
+    const p = await frischesModul()
+    const offen = vi.fn(() => new Promise<boolean>(() => undefined))
+    setzeStorage({ persist: offen })
+    expect(p.ablageDauerhaftBitten()).toBeUndefined()
+    expect(offen).toHaveBeenCalledOnce()
+
+    const unbehandelt = vi.fn()
+    process.on('unhandledRejection', unbehandelt)
+    setzeStorage({ persist: () => Promise.reject(new Error('verweigert')) })
+    p.ablageDauerhaftBitten()
+    await new Promise((r) => setTimeout(r, 10))
+    process.off('unhandledRejection', unbehandelt)
+    expect(unbehandelt).not.toHaveBeenCalled()
+
+    setzeStorage({
+      persist: () => {
+        throw new Error('privates Fenster')
+      },
+    })
+    expect(() => p.ablageDauerhaftBitten()).not.toThrow()
+    setzeStorage({})
+    expect(() => p.ablageDauerhaftBitten()).not.toThrow()
+    setzeStorage(undefined)
+    expect(() => p.ablageDauerhaftBitten()).not.toThrow()
+  })
+})
+
+describe('Speichern klappt wieder — der Streifen darf gehen (Audit 11/2026, TEC-12)', () => {
+  it('ein Fehlschlag meldet den Fehler, das folgende Gelingen meldet „ok"', async () => {
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    const ereignisse: string[] = []
+    const fehler = () => ereignisse.push('fehler')
+    const ok = () => ereignisse.push('ok')
+    window.addEventListener(p.STORAGE_ERROR_EVENT, fehler)
+    window.addEventListener(p.STORAGE_OK_EVENT, ok)
+    const sabotage = vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(() => {
+      throw new Error('voll')
+    })
+    await expect(p.persistState('{"x":1}')).resolves.toBe(false)
+    sabotage.mockRestore()
+    await expect(p.persistState('{"x":2}')).resolves.toBe(true)
+    expect(ereignisse).toEqual(['fehler', 'ok'])
+    window.removeEventListener(p.STORAGE_ERROR_EVENT, fehler)
+    window.removeEventListener(p.STORAGE_OK_EVENT, ok)
+  })
+
+  it('auch auf der Rückfallebene (localStorage)', async () => {
+    vi.spyOn(indexedDB, 'open').mockImplementation(() => {
+      throw new Error('kaputt')
+    })
+    localStorage.setItem(STATE_KEY, '{"alt":true}')
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    const ok = vi.fn()
+    window.addEventListener(p.STORAGE_OK_EVENT, ok)
+    await expect(p.persistState('{"neu":true}')).resolves.toBe(true)
+    expect(ok).toHaveBeenCalledOnce()
+    window.removeEventListener(p.STORAGE_OK_EVENT, ok)
+  })
+
+  it('nach einem Lesefehler gibt es kein „ok" — dort wird ja nicht geschrieben', async () => {
+    vi.spyOn(indexedDB, 'open').mockImplementation(() => {
+      throw new Error('kaputt')
+    })
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    const ok = vi.fn()
+    window.addEventListener(p.STORAGE_OK_EVENT, ok)
+    await expect(p.persistState('{"neu":true}')).resolves.toBe(false)
+    expect(ok).not.toHaveBeenCalled()
+    window.removeEventListener(p.STORAGE_OK_EVENT, ok)
   })
 })

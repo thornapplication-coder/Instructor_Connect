@@ -1,7 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { AppFehler, SeitenFehler } from './components/Fehlerseite'
 import { SandboxBar } from './components/SandboxBar'
 import { OfflineBanner } from './components/OfflineBanner'
 import { StorageBanner } from './components/StorageBanner'
+import { SessionBanner } from './components/SessionBanner'
 import { UpdateBanner } from './components/UpdateBanner'
 import { ToastHost } from './components/Toast'
 import { Admin } from './pages/Admin'
@@ -132,6 +135,7 @@ function AppShell() {
       <div className="above-sandbox pointer-events-none fixed inset-x-0 z-40 flex flex-col items-center gap-tight px-3 print:hidden">
         <ToastHost />
         <StorageBanner />
+        <SessionBanner />
         <OfflineBanner />
         <UpdateBanner />
       </div>
@@ -139,10 +143,27 @@ function AppShell() {
         {/* Identitätswechsel baut die Seite neu auf: sonst schrieb ein offener
             Bildschirm dem neuen Nutzer sofort „gesehen" gut und übernahm
             fremden Formularzustand. */}
-        <Screen key={currentUser?.id ?? 'anon'} />
+        <SeitenGrenze>
+          <Screen key={currentUser?.id ?? 'anon'} />
+        </SeitenGrenze>
       </div>
       <SandboxBar />
     </div>
+  )
+}
+
+/**
+ * Fehlergrenze um die Seiten (Audit 11/2026, TEC-07): Ein Fehler in einer
+ * Ansicht nimmt Hülle, Leisten und Streifen nicht mit. Die Route setzt sie
+ * zurück — wer über Zurück oder ein Lesezeichen weitergeht, sieht die neue
+ * Seite statt der alten Fehlermeldung.
+ */
+function SeitenGrenze({ children }: { children: ReactNode }) {
+  const route = useRoute()
+  return (
+    <ErrorBoundary zuruecksetzenBei={route} fallback={(fehler, zuruecksetzen) => <SeitenFehler fehler={fehler} zuruecksetzen={zuruecksetzen} />}>
+      {children}
+    </ErrorBoundary>
   )
 }
 
@@ -164,9 +185,15 @@ function ReportRedirect() {
 }
 
 export default function App() {
+  // Die äußere Grenze fängt, was die Seitengrenze nicht erreicht: einen
+  // Fehler in der Hülle oder schon beim Aufbau des Stores (ein gespeicherter
+  // Stand, an dem die App abstürzt). Vorher blieb dann nur eine weiße Seite
+  // — bei jedem Start wieder, bis jemand die Websitedaten löschte.
   return (
-    <StoreProvider>
-      <AppShell />
-    </StoreProvider>
+    <ErrorBoundary fallback={(fehler) => <AppFehler fehler={fehler} />}>
+      <StoreProvider>
+        <AppShell />
+      </StoreProvider>
+    </ErrorBoundary>
   )
 }

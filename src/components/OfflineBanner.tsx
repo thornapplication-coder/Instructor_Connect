@@ -18,7 +18,16 @@ import { useStore } from '../store'
  * neben dem online-Ereignis wird beim Sichtbarwerden der App geprüft. Wer
  * das Gerät im Flugmodus einsteckt und später aufweckt, bekommt sonst kein
  * online-Ereignis zu sehen.
+ *
+ * Und solange etwas im Korb liegt, alle KORB_PROBE_MS erneut. Im WLAN ohne
+ * Internet meldet der Browser durchgehend „online" — kommt das Internet
+ * zurück, gibt es kein Ereignis. Bisher half dabei unbemerkt der
+ * 5-Sekunden-Takt des Stores: Er erneuerte alle Store-Funktionen, und dieser
+ * Effekt lief jedes Mal neu. Seit der Takt nichts mehr neu zeichnet (Audit
+ * 11/2026, TEC-10), steht die Wiederholung hier ausdrücklich.
  */
+export const KORB_PROBE_MS = 15_000
+
 export function OfflineBanner() {
   const { t } = useTranslation()
   const { state, flushOutbox } = useStore()
@@ -42,10 +51,12 @@ export function OfflineBanner() {
     // Beim Start ebenfalls prüfen: die App kann geschlossen worden sein,
     // während noch etwas im Ausgangskorb lag.
     sync()
+    const iv = queued > 0 ? setInterval(sync, KORB_PROBE_MS) : undefined
     return () => {
       window.removeEventListener('online', sync)
       window.removeEventListener('offline', sync)
       document.removeEventListener('visibilitychange', sync)
+      clearInterval(iv)
     }
     // `queued` gehört in die Abhängigkeiten: Ein Blatt, das gerade in den
     // Korb gewandert ist, soll sofort geprüft werden — nicht erst beim

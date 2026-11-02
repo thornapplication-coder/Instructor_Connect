@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createSeedState } from './sandbox/seed'
-import { migrateState } from './migrateState'
+import { fehlendePflichtfelder, migrateState } from './migrateState'
 import { imprintHash, IMPRINT_LEGACY_HASHES } from './sandbox/imprintDefaults'
 
 /**
@@ -215,6 +215,51 @@ describe('migrateState — fehlende Kopfdaten blockieren nichts mehr', () => {
   it('laesst einen Zustand ohne Einstellungen unveraendert, statt abzustuerzen', () => {
     const kaputt = { users: [] } as unknown as ReturnType<typeof createSeedState>
     expect(migrateState(kaputt)).toBe(kaputt)
+  })
+})
+
+describe('migrateState — Pflichtfelder (Audit 11/2026, TEC-07)', () => {
+  /*
+   * Ein gespeicherter Stand ohne `lessonPlans` machte Startseite, Lesson
+   * Plans, Instructor Info und Impressum weiß — dauerhaft, weil derselbe
+   * Stand bei jedem Start wieder geladen wurde. Damit war auch die
+   * Sandbox-Leiste („Daten zurücksetzen") unerreichbar.
+   */
+  it('macht aus einem Stand ohne lessonPlans eine leere Liste', () => {
+    const alt = createSeedState()
+    delete (alt as { lessonPlans?: unknown }).lessonPlans
+    expect(migrateState(alt).lessonPlans).toEqual([])
+  })
+
+  it('ergänzt jede fehlende Pflichtliste, jedes Objekt und jede Zahl mit ihrer Vorgabe', () => {
+    const alt = createSeedState() as unknown as Record<string, unknown>
+    for (const k of ['groups', 'messages', 'polls', 'infoEntries', 'contacts', 'lessonPlans', 'feedbackEntries', 'seen', 'starredInfo', 'infoAcks', 'timeOffsetMs', 'contactsChangedAt']) delete alt[k]
+    const neu = migrateState(alt as unknown as ReturnType<typeof createSeedState>)
+    expect(neu).toMatchObject({ groups: [], messages: [], polls: [], infoEntries: [], contacts: [], lessonPlans: [], feedbackEntries: [], seen: {}, starredInfo: {}, infoAcks: {}, timeOffsetMs: 0, contactsChangedAt: 0 })
+    // Und zwar beständig: Der zweite Lauf hat nichts mehr zu tun.
+    expect(migrateState(neu)).toBe(neu)
+  })
+
+  it('prüft die Form, nicht nur das Vorhandensein', () => {
+    const alt = { ...createSeedState(), lessonPlans: null, seen: [], infoAcks: 'x', timeOffsetMs: Number.NaN } as unknown as ReturnType<typeof createSeedState>
+    expect(fehlendePflichtfelder(alt)).toEqual({ lessonPlans: [], seen: {}, infoAcks: {}, timeOffsetMs: 0 })
+    expect(migrateState(alt)).toMatchObject({ lessonPlans: [], seen: {}, infoAcks: {}, timeOffsetMs: 0 })
+  })
+
+  it('richtet die Form, bevor ein Nachtrag die Liste liest — ein Objekt statt der Kontaktliste stürzt nicht ab', () => {
+    // Gegenprüfung P3: Die Prüfung stand am Ende, der Kontakt-Nachtrag
+    // (`contacts.map`) davor — „contacts is not a function" kam zuerst.
+    const alt = { ...createSeedState(), contacts: { c1: 'kaputt' } } as unknown as ReturnType<typeof createSeedState>
+    const neu = migrateState(alt)
+    expect(neu.contacts).toEqual([])
+    expect(migrateState(neu)).toBe(neu)
+  })
+
+  it('lässt einen vollständigen Stand unangetastet — Inhalte werden nie ersetzt', () => {
+    const st = migrateState(createSeedState())
+    expect(fehlendePflichtfelder(st)).toEqual({})
+    expect(migrateState(st)).toBe(st)
+    expect(st.contacts.length).toBeGreaterThan(0)
   })
 })
 

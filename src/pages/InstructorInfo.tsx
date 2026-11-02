@@ -9,6 +9,7 @@ import { ackStand, ackZiele } from '../infoAcks'
 import { infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
 import type { InfoEntry } from '../types'
 import { formatDate, formatDateTime } from '../datum'
+import { useJetzt } from '../zeitTakt'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
 
@@ -147,6 +148,11 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
 export function InstructorInfo() {
   const { t } = useTranslation()
   const { state, now, currentUser, deleteInfoEntry, markInfoSeen, toggleStarInfo, starredInfoIds, acknowledgeInfo, visibleInfoEntries, can } = useStore()
+  // Die Seite rechnet selbst mit der Uhr („neu" für 14 Tage ab
+  // Veröffentlichung, abgelaufen, geplant). Früher zeichnete der Store-Takt
+  // dafür alle 5 s die ganze App neu; jetzt zeichnet minütlich nur diese
+  // Seite (Audit 11/2026, TEC-10).
+  useJetzt(60_000)
   const [query, setQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   /** aufgeklappte Bestätigungsliste (Admins) */

@@ -9,9 +9,24 @@ import { Component, type ErrorInfo, type ReactNode } from 'react'
  * InstructorConnect nie beeintraechtigen"), aber bewusst allgemein
  * gehalten: Auch ein Ladefehler eines nachgeladenen Teils (Netz weg beim
  * Oeffnen der Kachel) landet hier, nicht in einer weissen Seite.
+ *
+ * Ausserhalb von DocCheck gab es lange keine — jeder Renderfehler machte die
+ * App weiss (Audit 11/2026, TEC-07). Jetzt liegen in App.tsx zwei: eine um
+ * die Seiten (die Huelle bleibt stehen) und eine um die ganze App.
  */
 export class ErrorBoundary extends Component<
-  { children: ReactNode; fallback: (fehler: Error, zuruecksetzen: () => void) => ReactNode; onError?: (fehler: Error, info: ErrorInfo) => void },
+  {
+    children: ReactNode
+    fallback: (fehler: Error, zuruecksetzen: () => void) => ReactNode
+    onError?: (fehler: Error, info: ErrorInfo) => void
+    /**
+     * Ändert sich dieser Wert, gilt der Fehler als erledigt. Die Grenze um
+     * die Seiten (App.tsx) bekommt die Route: Wer nach einem Absturz über
+     * Zurück oder ein Lesezeichen woandershin geht, sieht dort die neue
+     * Seite — nicht weiter die Fehlermeldung der alten.
+     */
+    zuruecksetzenBei?: unknown
+  },
   { fehler: Error | null }
 > {
   state = { fehler: null as Error | null }
@@ -22,6 +37,10 @@ export class ErrorBoundary extends Component<
 
   componentDidCatch(fehler: Error, info: ErrorInfo) {
     this.props.onError?.(fehler, info)
+  }
+
+  componentDidUpdate(vorher: { zuruecksetzenBei?: unknown }) {
+    if (this.state.fehler && vorher.zuruecksetzenBei !== this.props.zuruecksetzenBei) this.setState({ fehler: null })
   }
 
   zuruecksetzen = () => this.setState({ fehler: null })

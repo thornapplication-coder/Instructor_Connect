@@ -58,13 +58,65 @@ jobs:
             echo "Geheimer Schlüssel im Bundle gefunden — Veröffentlichung abgebrochen."
             exit 1
           fi
+          # Ein service_role-JWT sieht aus wie der öffentliche anon-Schlüssel;
+          # erst die Rolle in der Nutzlast unterscheidet sie (Audit 11/2026,
+          # CIG-04). Jede JWT-förmige Zeichenkette wird dekodiert — eine
+          # andere Rolle als anon bricht ab. Bewusst eigener Code statt
+          # src/backend/konfig.ts: Die zweite Stufe soll nicht mit der
+          # ersten zusammen irren.
+          grep -rEoh 'eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}' dist | sort -u > "$RUNNER_TEMP/jwt.txt" || true
+          node -e '
+            const jwt = require("fs").readFileSync(process.argv[1], "utf8").split("\n").filter(Boolean)
+            const rolle = (j) => { try { return JSON.parse(Buffer.from(j.split(".")[1], "base64url").toString()).role } catch { return undefined } }
+            const geheim = jwt.map(rolle).filter((r) => typeof r === "string" && r !== "anon")
+            if (geheim.length) {
+              console.error(`JWT mit Rolle ${[...new Set(geheim)].join(", ")} im Bundle gefunden — Veröffentlichung abgebrochen.`)
+              process.exit(1)
+            }
+          ' "$RUNNER_TEMP/jwt.txt"
 
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
+  # Ebene 3 auch vor der Veröffentlichung. Bisher lief sie nur in ci.yml —
+  # unabhängig von diesem Workflow, beide starten beim Push auf main. Ein
+  # roter Browser-Test (etwa ein kaputter Offline-Start, den Ebene 1 und 2
+  # nicht sehen) ging damit live, sofern nicht zufällig ein Branch-Schutz
+  # den Merge aufhielt (Gegenprüfung L-CI, Audit 11/2026). Eigener Job
+  # neben dem Build, damit die Veröffentlichung nicht um seine Laufzeit
+  # länger wartet als nötig; `deploy` braucht beide.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Abhängigkeiten und Browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Ebene 3 (Playwright)
+        run: npm run e2e
+
+      - name: Bericht bei Fehlern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
   deploy:
-    needs: build
+    needs: [build, e2e]
     runs-on: ubuntu-latest
     environment:
       name: github-pages

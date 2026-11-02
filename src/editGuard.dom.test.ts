@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { hasUnsavedWork, useUnsavedWork } from './editGuard'
+import { hasUnsavedWork, registriereOffeneArbeit, registrierteArbeitOffen, useUnsavedWork } from './editGuard'
 
 /**
  * Ebene 2: die Bearbeitungs-Wache.
@@ -93,5 +93,44 @@ describe('useUnsavedWork', () => {
     expect(hasUnsavedWork()).toBe(true)
     b.unmount()
     expect(hasUnsavedWork()).toBe(false)
+  })
+})
+
+describe('registriereOffeneArbeit', () => {
+  /*
+   * Audit 11/2026, TEC-02: DocCheck hält seine Dokumente nur im Speicher des
+   * Tabs und meldete sie nirgends an. Das automatische Update lud deshalb
+   * mitten in einer Prüfung neu — alle eingelesenen Dokumente waren weg.
+   */
+  it('eine angemeldete Prüfung hält das Update auf, solange sie Arbeit meldet', () => {
+    let offen = true
+    const abmelden = registriereOffeneArbeit(() => offen)
+    expect(hasUnsavedWork()).toBe(true)
+    expect(registrierteArbeitOffen()).toBe(true)
+    offen = false
+    expect(hasUnsavedWork()).toBe(false)
+    offen = true
+    abmelden()
+    // Abgemeldet zählt sie nicht mehr — sonst käme nie wieder ein Update an.
+    expect(hasUnsavedWork()).toBe(false)
+  })
+
+  it('eine Prüfung, die wirft, gilt als offene Arbeit', () => {
+    // Das Update kommt wieder, eine verworfene Prüfung nicht.
+    const abmelden = registriereOffeneArbeit(() => {
+      throw new Error('kaputt')
+    })
+    expect(hasUnsavedWork()).toBe(true)
+    abmelden()
+    expect(hasUnsavedWork()).toBe(false)
+  })
+
+  it('fragt alle angemeldeten Prüfungen', () => {
+    const a = registriereOffeneArbeit(() => false)
+    const b = registriereOffeneArbeit(() => true)
+    expect(hasUnsavedWork()).toBe(true)
+    b()
+    expect(hasUnsavedWork()).toBe(false)
+    a()
   })
 })

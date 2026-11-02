@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { registriereOffeneArbeit } from '../../editGuard'
 import { duplikatPruefen, type Duplikat, type Vergleichsdokument } from './parse/duplikat'
 import type { Zusammenfassung } from './kern'
 import type { ReferenzListe } from './referenz/liste'
@@ -236,6 +237,30 @@ export function fuerNutzer(nutzer: string | null): boolean {
   setzen(() => ({ nutzer, docs: [] }))
   return hatte
 }
+
+/**
+ * Liegt in der Sitzung etwas, das ein Neuladen verlöre?
+ *
+ * Alles hier lebt nur im Speicher des Tabs: eingelesene Dokumente (samt
+ * OCR-Läufen von Minuten), Referenzlisten und ein Re-Check mit Zuordnung
+ * und Bestätigungen — ob schon zurückgeschrieben oder nicht, weiß die
+ * Sitzung nicht, also zählt er, solange er da ist.
+ */
+export function offeneArbeit(z: Zustand): boolean {
+  return z.docs.length > 0 || (z.referenzen?.length ?? 0) > 0 || z.recheck !== undefined
+}
+
+/*
+ * Beim Laden des Moduls bei der Bearbeitungs-Wache anmelden (Audit 11/2026,
+ * TEC-02): Vorher lud das automatische Update einen DocCheck-Tab mitten in
+ * der Prüfung neu, und alle Sitzungsdokumente waren weg.
+ *
+ * Bewusst in Kauf genommen: Übernimmt ein ANDERER Tab die neue Version,
+ * lädt dieser Tab nicht nach (UpdateBanner, controllerchange). Der Streifen
+ * bleibt stehen, „Jetzt aktualisieren" lädt neu, und sobald die Sitzung
+ * leer ist, geschieht es von selbst.
+ */
+registriereOffeneArbeit(() => offeneArbeit(zustand))
 
 // Abmelden verwirft die Sitzung — das Ereignis kommt aus dem Store von
 // Instructor Connect, der von DocCheck sonst nichts weiß.

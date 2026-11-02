@@ -7,12 +7,17 @@ import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { toast } from '../../components/Toast'
 import { darf } from './access'
+import { istLadefehler } from './ladefehler'
 
 /**
  * Einstieg der DocCheck-Kachel (Spez. 3.2).
  *
- * Diese Datei ist das EINZIGE, was InstructorConnect von DocCheck statisch
- * laedt — klein mit Absicht. Alles andere kommt per `lazy` erst beim Oeffnen
+ * Diese Datei ist der einzige EINSTIEG, den InstructorConnect von DocCheck
+ * statisch laedt — klein mit Absicht. Dazu kommen nur kleine Module ohne
+ * Bibliothek: Rechte (`access`), Einstellungen (`settings`) und
+ * Sandbox-Bestand (`library`) fuer den Store, `ladefehler` fuer diese
+ * Huelle. `src/startbundle.test.ts` haelt die Liste (Audit 11/2026,
+ * CIG-03). Alles andere kommt per `lazy` erst beim Oeffnen
  * und liegt hinter einer Fehlergrenze: Scheitert das Nachladen (Netz weg)
  * oder wirft das Modul, steht hier eine Meldung, und Startseite, Sandbox-
  * Leiste und alle anderen Kacheln laufen weiter.
@@ -39,7 +44,10 @@ function Meldung({ icon, titel, text, code, aktion }: { icon: React.ReactNode; t
   )
 }
 
-export function DocCheckRoute() {
+/**
+ * @param neuLaden nur für Tests ersetzbar — jsdom kann die Seite nicht neu laden
+ */
+export function DocCheckRoute({ neuLaden = () => window.location.reload() }: { neuLaden?: () => void } = {}) {
   const { t } = useTranslation()
   const { docCheckSettings, docCheckRolle, updateDocCheckSettings } = useStore()
   // Feature-Schalter „DocCheck aus" (Spez. 13.2): Wartungshinweis, ohne dass
@@ -70,22 +78,39 @@ export function DocCheckRoute() {
   }
   return (
     <ErrorBoundary
-      fallback={(fehler, reset) => (
-        <Meldung
-          icon={<FileX2 size={26} />}
-          titel={t('docCheck.errorTitle')}
-          text={t('docCheck.errorBody')}
-          code={`${t('docCheck.errorCode')}: ${fehler.message.startsWith('DC-') ? fehler.message : 'DC-LOAD'}`}
-          aktion={
-            <div className="flex gap-2">
-              <Button variant="ghost" onClick={() => navigate('/')}>
-                {t('docCheck.toHome')}
-              </Button>
-              <Button onClick={reset}>{t('docCheck.retry')}</Button>
-            </div>
-          }
-        />
-      )}
+      fallback={(fehler, reset) => {
+        /*
+         * Ladefehler → Seite neu laden; Renderfehler → Grenze zurücksetzen.
+         *
+         * Vorher setzte „Erneut versuchen" immer nur zurück. Nach einem
+         * gescheiterten Nachladen konnte das nie gelingen: Das `lazy` oben
+         * hält sein abgelehntes Versprechen, und Chromium merkt sich den
+         * gescheiterten Modulabruf — selbst ein frischer import() derselben
+         * Adresse scheitert weiter (Audit 11/2026, TEC-08). Ein Neuladen
+         * kostet hier nichts: Ist das Modul nie geladen, gibt es auch keine
+         * Sitzungsdokumente. Ein Renderfehler dagegen setzt nur zurück, weil
+         * ein Neuladen die Dokumente verwürfe.
+         */
+        const laden = istLadefehler(fehler)
+        return (
+          <Meldung
+            icon={<FileX2 size={26} />}
+            titel={t('docCheck.errorTitle')}
+            text={laden ? t('docCheck.errorLoadBody') : t('docCheck.errorBody')}
+            // Vorher hieß JEDER Fehler ohne eigenen Code „DC-LOAD" — auch ein
+            // Renderfehler, der mit dem Netz nichts zu tun hat.
+            code={`${t('docCheck.errorCode')}: ${fehler.message.startsWith('DC-') ? fehler.message : laden ? 'DC-LOAD' : 'DC-RENDER'}`}
+            aktion={
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={() => navigate('/')}>
+                  {t('docCheck.toHome')}
+                </Button>
+                <Button onClick={laden ? neuLaden : reset}>{t('docCheck.retry')}</Button>
+              </div>
+            }
+          />
+        )
+      }}
     >
       <Suspense fallback={<Meldung icon={<span className="h-6 w-6 animate-spin rounded-full border-2 border-accent border-t-transparent" />} titel="DocCheck" text={t('docCheck.loading')} />}>
         <DocCheckApp />

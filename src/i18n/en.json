@@ -17,6 +17,7 @@
     "version": "Version",
     "updateAvailable": "New version available — updating automatically",
     "updateNow": "Update now",
+    "updateStale": "New version already active — this tab still runs the old one. Save your work, then update.",
     "refresh": "Reload app",
     "tooLarge": "“{{name}}” is {{size}} MB — the limit is {{max}} MB.",
     "discardConfirm": "Discard your entries and close?",
@@ -28,7 +29,19 @@
     "storageError": "Saving failed — device storage is full. Changes now only live in this session. Free up space on the device.",
     "storageUnreadable": "Saved data could not be read. Nothing is being saved right now — please reload the app before entering anything.",
     "storageAlmostFull": "Device storage is almost full — back up and free up space soon.",
+    "sessionExpired": "Your session has expired. Please finish or discard the open entry — you will be signed out afterwards.",
     "new": "New"
+  },
+  "crash": {
+    "pageTitle": "This view could not be displayed",
+    "pageBody": "The rest of the app keeps running. Go to the home screen or reload. If the error keeps coming back, choose “Back up data and start fresh” — the current data stays on this device as a backup.",
+    "appTitle": "Instructor Connect could not start",
+    "appBody": "Please reload. If the error comes back, choose “Back up data and start fresh” — the current data stays on this device as a backup.",
+    "toHome": "Home screen",
+    "reload": "Reload",
+    "reset": "Back up data and start fresh",
+    "resetFailed": "The data could not be backed up — nothing was deleted.",
+    "code": "Error"
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -517,6 +530,7 @@
     "maintenanceOnDone": "DocCheck is switched on again.",
     "errorTitle": "DocCheck could not be loaded",
     "errorBody": "The error affects DocCheck only. All other tiles keep working.",
+    "errorLoadBody": "DocCheck is downloaded when first opened and after each update. Once a connection is back, “Try again” reloads the page. All other tiles keep working.",
     "errorCode": "Error code",
     "toHome": "Back to home",
     "retry": "Try again",

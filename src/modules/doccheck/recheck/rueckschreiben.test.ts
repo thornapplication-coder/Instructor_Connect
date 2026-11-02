@@ -36,6 +36,26 @@ const teile = async (d: Uint8Array) => {
   return out
 }
 
+/**
+ * „Alle übrigen Teile byte-genau" (CLAUDE.md) — wörtlich (Audit 11/2026,
+ * CIG-02). Vorher lief der Vergleich als Text und nur über die Teile, die
+ * es VORHER gab: Ein zusätzlich eingefügter Teil (etwa ein externer Bezug,
+ * der in Excel eine Sicherheitswarnung auslöst) blieb unbemerkt, solange die
+ * Funktion ihn nicht selbst meldete. Jetzt muss die Menge der Teile genau
+ * stimmen: was wegfällt (`weg`), was dazukommt (`neu`), sonst nichts.
+ */
+async function nurErlaubteTeile(orig: Uint8Array, daten: Uint8Array, erlaubt: Set<string>, { weg = [] as string[], neu = [] as string[] } = {}) {
+  const roh = async (d: Uint8Array) => {
+    const zip = await JSZip.loadAsync(d)
+    const out: Record<string, Uint8Array> = {}
+    for (const [p, f] of Object.entries(zip.files)) if (!f.dir) out[p] = await f.async('uint8array')
+    return out
+  }
+  const [vorher, nachher] = [await roh(orig), await roh(daten)]
+  expect(Object.keys(nachher).sort()).toEqual([...Object.keys(vorher).filter((p) => !weg.includes(p)), ...neu].sort())
+  for (const p of Object.keys(vorher)) if (!erlaubt.has(p)) expect(Buffer.from(nachher[p]).equals(Buffer.from(vorher[p])), p).toBe(true)
+}
+
 describe('Zellen auf XML-Ebene', () => {
   it('Spaltennamen über Z hinaus', () => {
     expect([0, 25, 26, 51, 701, 702].map(spaltenName)).toEqual(['A', 'Z', 'AA', 'AZ', 'ZZ', 'AAA'])
@@ -185,9 +205,9 @@ describe('Round-Trip SBX-FL-01 (Nachtrag 6.5 Abnahme)', () => {
     })
     const nachher = await teile(r.daten)
 
-    // Unveränderte Teile: byte-gleich (Inhalt der ZIP-Einträge)
+    // Unveränderte Teile: byte-gleich (Inhalt der ZIP-Einträge); kein Teil dazu, nur calcChain weg
     const erlaubt = new Set([...GEAENDERTE_TEILE, 'xl/worksheets/sheet1.xml', 'xl/worksheets/sheet2.xml'])
-    for (const p of Object.keys(vorher)) if (!erlaubt.has(p)) expect(nachher[p], p).toBe(vorher[p])
+    await nurErlaubteTeile(orig, r.daten, erlaubt, { weg: ['xl/calcChain.xml'] })
     expect(new Set(r.geaendert)).toEqual(erlaubt)
     expect(nachher['xl/calcChain.xml']).toBeUndefined()
     expect(nachher['xl/workbook.xml']).toContain('<calcPr calcId="191029" fullCalcOnLoad="1"/>')
@@ -309,7 +329,8 @@ describe('Blatt „New findings" (Nachtrag N3.1 Schritt 6, N3.5)', () => {
     const pfad = 'xl/worksheets/sheet4.xml'
     // Zeile 5 steht schon auf „Closed" — die Zählformeln im Übersichtsblatt ändern sich nicht
     const erlaubt = new Set([...GEAENDERTE_TEILE, 'xl/worksheets/sheet1.xml', pfad, 'docProps/app.xml'])
-    for (const p of Object.keys(vorher)) if (!erlaubt.has(p)) expect(nachher[p], p).toBe(vorher[p])
+    // Dazu kommt genau das neue Blatt (ohne eigene Beziehungen), calcChain fällt weg
+    await nurErlaubteTeile(orig, r.daten, erlaubt, { weg: ['xl/calcChain.xml'], neu: [pfad] })
     expect(new Set(r.geaendert)).toEqual(erlaubt)
 
     // Name „Findings" ist vergeben → „Findings (2)"; eingetragen in Mappe, Beziehungen, Typen, app.xml

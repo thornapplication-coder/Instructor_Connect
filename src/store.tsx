@@ -13,7 +13,11 @@ import { faelligeErinnerungen, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EM
 import type { DocCheckAuditEintrag, DocCheckFlags, DocCheckRolle, DocCheckSettings, DocCheckState } from './modules/doccheck/types'
 import type { LogbookManuell, LogbookOverride, LogbookStand } from './logbook'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type Note, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
-import { backupPersistedState, clearPersistedState, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
+import { clearPersistedState, ladeStand, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
+import { hasUnsavedWork } from './editGuard'
+import { sitzungsSchritt, type SitzungsSchritt } from './sitzungsablauf'
+import { naechsteZeitgrenze } from './zeitTakt'
+import { basisWaehlen, kopfAus, kopfLesen, standNachricht, standZusammenfuehren, type Stammstand } from './zusammenfuehren'
 import type { FeedbackEntry, InfoEntry } from './types'
 
 const EMPTY_SEEN: SeenState = { chat: {}, info: 0, contacts: 0 }
@@ -39,6 +43,10 @@ export interface Store {
   markContactsSeen: () => void
   login: (identifier: string) => boolean
   logout: () => void
+  /** Sitzung abgelaufen, aber Arbeit offen — Warnstreifen statt Abmeldung
+   *  (sitzungsablauf.ts). Abgemeldet wird, sobald die Arbeit gesichert oder
+   *  verworfen ist, spaetestens nach der Nachfrist. */
+  sessionExpired: boolean
   switchUser: (userId: string) => void
   advanceTime: (ms: number) => void
   resetSandbox: () => void
@@ -157,25 +165,10 @@ const SESSION_EXP_KEY = 'aaa-session-exp'
 const STATE_VERSION = 2
 
 /** Gespeicherten Anwendungszustand lesen (aus IndexedDB vorgeladen, siehe
- *  persist.ts). Ein unlesbarer oder veralteter Stand wird verworfen, die
- *  App startet dann auf den Seed-Daten. */
+ *  persist.ts). Ein unlesbarer oder veralteter Stand wird beiseitegelegt
+ *  (ladeStand), die App startet dann auf den Seed-Daten. */
 function loadPersistedState(): AppState | null {
-  try {
-    const raw = readPreloadedState()
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as { v?: number; state?: AppState }
-    if (parsed.v !== STATE_VERSION || !parsed.state?.users?.length) {
-      // NICHT mehr löschen: Ein Sprung der STATE_VERSION verwarf bisher den
-      // gesamten Bestand — unterschriebene Formulare eingeschlossen — und
-      // zwar wortlos. Der alte Stand wird jetzt beiseitegelegt und bleibt
-      // auslesbar; die App startet daneben auf den Seed-Daten.
-      backupPersistedState(raw, parsed.v)
-      return null
-    }
-    return parsed.state
-  } catch {
-    return null
-  }
+  return ladeStand(readPreloadedState(), STATE_VERSION)
 }
 
 /** Sitzungen gelten bis Mitternacht (lokal) — außer man meldet sich ab. */
@@ -235,19 +228,56 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    * Zaehler echter Aenderungen. Nur er loest das Sichern aus.
    *
    * Vorher hing der Sicherungs-Effekt am gesamten Zustand — und der
-   * 5-Sekunden-Takt unten erzeugt alle fuenf Sekunden eine neue Referenz.
+   * 5-Sekunden-Takt erzeugte alle fuenf Sekunden eine neue Referenz.
    * Die Folge war eine vollstaendige Serialisierung des Bestands samt
    * Unterschriftsbildern (gemessen bis 14 MB) alle fuenf Sekunden, nur um
    * per Volltextvergleich festzustellen, dass sich nichts geaendert hat —
-   * mitten in eine laufende Unterschriftsgeste hinein.
+   * mitten in eine laufende Unterschriftsgeste hinein. (Der Takt erzeugt
+   * inzwischen gar keine neue Referenz mehr, TEC-10; der Zaehler bleibt die
+   * Regel: gesichert wird, was sich geaendert HAT.)
    */
   const [rev, setRev] = useState(0)
-  /** Zeitpunkt der letzten EIGENEN Aenderung — entscheidet beim Tab-Abgleich. */
+  /**
+   * Zeitpunkt der letzten EIGENEN Aenderung, als `at` im gesicherten Stand.
+   * Beim Tab-Abgleich entscheidet er nichts mehr (TEC-13: zusammengefuehrt
+   * statt verworfen) — ein waehrend eines Updates noch offener Tab der
+   * Vorversion liest ihn aber weiterhin.
+   */
   const lastChangeAt = useRef(0)
 
-  // Automatische Aktualisierung alle 5 Sekunden: neue Nachrichten erscheinen
-  // ohne manuelles Neuladen, abgelaufene werden ausgeblendet. In der
-  // Produktivversion übernimmt das eine Supabase-Realtime-Subscription.
+  /** Sitzung abgelaufen, aber Arbeit offen: Warnstreifen statt Abmeldung (TEC-04). */
+  const [sessionExpired, setSessionExpired] = useState(false)
+
+  /*
+   * Zeitstand: zaehlt hoch, sobald die Zeit etwas am Bestand aendert — eine
+   * Nachricht laeuft ab, eine Umfrage schliesst, der Tag wechselt
+   * (naechsteZeitgrenze). Die zeitabhaengigen Sichten unten haengen daran.
+   *
+   * Vorher erledigte das der 5-Sekunden-Takt nebenbei: Er gab bei JEDEM
+   * Schlag `{ ...s }` zurueck, der ganze Kontext bekam eine neue Referenz,
+   * und jede Ansicht zeichnete neu — im Chat mit einem Jahr Nachrichten ein
+   * Long Task von bis zu 270 ms alle fuenf Sekunden, mitten ins Tippen
+   * (Audit 11/2026, TEC-10). Jetzt wird genau dann neu gerechnet, wenn sich
+   * durch Zeitablauf etwas aendert, und sonst nie. Neue Nachrichten anderer
+   * Tabs kommen ohnehin ueber den Tab-Abgleich (setState), in der
+   * Produktivversion ueber eine Realtime-Subscription.
+   */
+  const [zeitStand, setZeitStand] = useState(0)
+  useEffect(() => {
+    const jetzt = Date.now() + state.timeOffsetMs
+    const grenze = naechsteZeitgrenze(
+      { messages: state.messages, polls: state.polls, groups: state.groups, defaultRetention: state.settings.defaultRetention },
+      jetzt,
+    )
+    // +1 ms: Die Sichten pruefen „jetzt − createdAt < Frist" — genau AUF
+    // der Grenze ist die Nachricht schon weg, eine Millisekunde davor nicht.
+    const tm = setTimeout(() => setZeitStand((z) => z + 1), grenze - jetzt + 1)
+    return () => clearTimeout(tm)
+  }, [state.messages, state.polls, state.groups, state.settings.defaultRetention, state.timeOffsetMs, zeitStand])
+
+  // Sitzungspruefung alle 5 Sekunden (Ablauf um Mitternacht, Deaktivierung,
+  // Abmelden in einem anderen Tab). Sie aendert den Zustand NUR, wenn sie
+  // abmeldet — sonst bleibt die Referenz, und niemand zeichnet neu (TEC-10).
   useEffect(() => {
     const iv = setInterval(() => {
       /*
@@ -258,39 +288,103 @@ export function StoreProvider({ children }: { children: ReactNode }) {
        * angemeldet, und wer im Admin-Panel (auch in einem anderen Tab)
        * deaktiviert wurde, arbeitete unbegrenzt weiter — bis er zufaellig
        * neu lud. Beides ist eine Zusage der Anmeldung, keine Kosmetik.
+       *
+       * Die Entscheidung trifft `sitzungsSchritt` (Audit 11/2026, TEC-04):
+       * Mit offener Arbeit wird beim Ablauf erst gewarnt — vorher warf der
+       * Takt um Mitternacht mitten aus einem Formular, und die geleisteten
+       * Unterschriften waren weg. Entschieden wird VOR dem Zustandswechsel,
+       * aus dem aktuellen Stand: hasUnsavedWork() fragt das DOM, und das
+       * gehoert nicht in eine Aktualisierungsfunktion von React.
        */
-      setState((s) => {
-        if (!s.currentUserId) return { ...s }
-        let abgelaufen = false
+      const s = stateRef.current
+      const angemeldet = s.currentUserId
+      let schritt: SitzungsSchritt = 'bleiben'
+      let gesperrt = false
+      if (angemeldet) {
+        let ablauf = Infinity
         try {
-          abgelaufen = Number(localStorage.getItem(SESSION_EXP_KEY) ?? 0) <= Date.now()
+          ablauf = Number(localStorage.getItem(SESSION_EXP_KEY) ?? 0)
         } catch {
           /* ohne localStorage bleibt es bei der Sitzung dieses Tabs */
         }
-        const gesperrt = !s.users.some((u) => u.id === s.currentUserId && u.active)
-        if (!abgelaufen && !gesperrt) return { ...s }
-        persistUser(null)
-        return { ...s, currentUserId: null }
-      })
+        gesperrt = !s.users.some((u) => u.id === angemeldet && u.active)
+        schritt = sitzungsSchritt({ ablauf, jetzt: Date.now(), gesperrt, offeneArbeit: hasUnsavedWork() })
+      }
+      // Gleicher Wert → React zeichnet nicht neu.
+      setSessionExpired(schritt === 'warnen')
+      if (schritt !== 'abmelden') return
+      // Beim Ablauf bleibt der (abgelaufene) Eintrag stehen: Ihn zu loeschen
+      // hiesse fuer einen zweiten Tab „ausdruecklich abgemeldet" — und der
+      // wuerde dort ein offenes Formular trotz Nachfrist schliessen. Beim
+      // naechsten Start raeumt initialState ihn ohnehin weg.
+      if (gesperrt) persistUser(null)
+      setState((st) => (st.currentUserId === angemeldet ? { ...st, currentUserId: null } : st))
     }, 5000)
     return () => clearInterval(iv)
   }, [])
 
-  // Zustand sichern. Der 5-Sekunden-Takt oben erzeugt bei gleichem Inhalt eine
-  // neue Referenz — deshalb wird nur geschrieben, wenn sich der serialisierte
-  // Stand tatsächlich geändert hat.
+  /*
+   * Jedes Abmelden verwirft die DocCheck-Sitzung (Spez. DocCheck 5.4,
+   * CLAUDE.md „Abmelden sendet ic-abmelden").
+   *
+   * Das Ereignis kam nur aus logout() — Sitzungsablauf, Deaktivierung und das
+   * Abmelden in einem anderen Tab liessen Dokumente im Speicher und den
+   * Worker am Leben (Audit 11/2026, TEC-14). Jetzt haengt es am Uebergang
+   * selbst: angemeldet → abgemeldet, egal auf welchem Weg, genau einmal.
+   */
+  const zuletztAngemeldet = useRef(state.currentUserId)
+  useEffect(() => {
+    const vorher = zuletztAngemeldet.current
+    zuletztAngemeldet.current = state.currentUserId
+    // Ein Ereignis statt eines Imports: Der Store soll das nachgeladene
+    // Modul nicht mitziehen.
+    if (vorher && !state.currentUserId) window.dispatchEvent(new Event('ic-abmelden'))
+  }, [state.currentUserId])
+
+  /*
+   * Abstammung fuer den Tab-Abgleich (Audit 11/2026, TEC-13, siehe
+   * basisWaehlen in zusammenfuehren.ts): Jeder ausgerufene Stand nennt
+   * seinen Tab, seine id und je Tab den zuletzt uebernommenen Stand.
+   */
+  const tabId = useRef(`tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`).current
+  /** Der Stand, mit dem dieser Tab begann — Basis, solange er keine bessere kennt. */
+  const startStand = useRef(state)
+  /** Je Tab die id des zuletzt uebernommenen Stands. Beim Start: was der
+   *  geladene Stand von sich sagt — ein frisch geladener Tab baut darauf auf. */
+  const uebernommen = useRef<Record<string, string> | null>(null)
+  if (uebernommen.current === null) {
+    const kopf = kopfLesen(readPreloadedState())
+    uebernommen.current = { ...kopf.basen, ...(kopf.von && kopf.id ? { [kopf.von]: kopf.id } : {}) }
+  }
+  /** Die zuletzt selbst geschriebenen Staende (Basis-Kandidaten). */
+  const geschrieben = useRef(new Map<string, Stammstand<AppState>>())
+  /** Je Absender-Tab sein zuletzt empfangener Stand (Basis-Kandidat). */
+  const vorherVon = useRef(new Map<string, Stammstand<AppState>>())
+
+  // Zustand sichern — nur, wenn sich der serialisierte Stand tatsächlich
+  // geändert hat (ein Tab-Abgleich etwa bringt denselben Stand zurück).
   const lastPersisted = useRef<string>('')
   const schreiben = useCallback(() => {
-    const json = JSON.stringify({ v: STATE_VERSION, state: stateRef.current, at: lastChangeAt.current })
-    if (json === lastPersisted.current) return
-    lastPersisted.current = json
-    void persistState(json).then((ok) => {
+    const stand = stateRef.current
+    const kern = JSON.stringify(stand)
+    if (kern === lastPersisted.current) return
+    lastPersisted.current = kern
+    const id = uid('stand')
+    const basen = { ...uebernommen.current }
+    geschrieben.current.set(id, { stand, basen })
+    // Die juengsten acht genuegen: Ein anderer Tab baut auf einem der
+    // letzten auf, sonst faellt die Wahl auf seinen vorigen Stand zurueck.
+    if (geschrieben.current.size > 8) geschrieben.current.delete(geschrieben.current.keys().next().value!)
+    void persistState(standNachricht(STATE_VERSION, lastChangeAt.current, { von: tabId, id, basen }, kern)).then((ok) => {
       // Fehlgeschlagen (Ablage voll, Speicherfehler): Merker zuruecksetzen,
       // damit der naechste Lauf es erneut versucht. Vorher galt der Stand
       // als gesichert, lag aber nirgends — und niemand versuchte es wieder.
-      if (!ok) lastPersisted.current = ''
+      if (!ok) {
+        lastPersisted.current = ''
+        geschrieben.current.delete(id)
+      }
     })
-  }, [])
+  }, [tabId])
   useEffect(() => {
     const tm = setTimeout(schreiben, 400)
     return () => clearTimeout(tm)
@@ -328,23 +422,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () =>
       subscribeToOtherTabs((raw) => {
         try {
-          const parsed = JSON.parse(raw) as { v?: number; at?: number; state?: AppState }
+          const parsed = JSON.parse(raw) as { v?: number; state?: AppState }
           if (parsed.v !== STATE_VERSION || !parsed.state?.users?.length) return
+          const fremd = parsed.state
+          const kopf = kopfAus(parsed as Record<string, unknown>)
+          const basis = basisWaehlen(tabId, kopf.basen, geschrieben.current, kopf.von ? vorherVon.current.get(kopf.von) : undefined, startStand.current)
+          if (kopf.von) {
+            vorherVon.current.set(kopf.von, { stand: fremd, basen: kopf.basen })
+            if (kopf.id) uebernommen.current = { ...uebernommen.current, [kopf.von]: kopf.id }
+          }
           /*
-           * Nur einen JUENGEREN Stand uebernehmen.
+           * Zusammenführen statt ersetzen (Audit 11/2026, TEC-13).
            *
-           * Bisher ersetzte der Empfaenger seinen gesamten Zustand, ohne zu
-           * fragen, wie alt der fremde ist. Ablauf: Tab A ruft seinen Stand
-           * aus; unmittelbar danach unterschreibt jemand in Tab B (die
-           * Sicherung steht noch im 400-ms-Zeitgeber); dann trifft A's Ruf
-           * ein — und B's Unterschrift ist aus dem Speicher UND aus dem
-           * Schreibpfad verschwunden, lautlos. Ein fremder Stand, der aelter
-           * ist als die eigene letzte Aenderung, wird deshalb verworfen; die
-           * eigene Sicherung laeuft ohnehin gleich und ruft ihn dann aus.
+           * Erst ersetzte der Empfänger seinen ganzen Stand — eine eigene
+           * Änderung, deren Sicherung noch im 400-ms-Zeitgeber stand, war
+           * weg. Dann wurde ein fremder Stand verworfen, wenn er älter war
+           * als die eigene letzte Änderung — damit verschwand die Änderung
+           * des ANDEREN Tabs: Er übernahm kurz darauf den Stand dieses Tabs,
+           * in dem sie fehlte. Jetzt bleiben beide (standZusammenfuehren),
+           * und wer Eigenes beizutragen hat, schreibt den gemeinsamen Stand.
            */
-          if ((parsed.at ?? 0) < lastChangeAt.current) return
-          lastPersisted.current = raw
-          setState((s) => ({ ...parsed.state!, currentUserId: s.currentUserId, timeOffsetMs: s.timeOffsetMs }))
+          setState((s) => {
+            const { stand, mitEigenem } = standZusammenfuehren(basis, s, fremd, ['currentUserId', 'timeOffsetMs'])
+            if (mitEigenem) {
+              // Wie bei einer eigenen Änderung: Sonst läge im Speicher der
+              // fremde Stand ohne sie, und ein Neuladen verlöre sie doch.
+              lastChangeAt.current = Date.now()
+              setRev((r) => r + 1)
+            }
+            return stand
+          })
         } catch {
           /* unlesbare Nachricht eines anderen Tabs wird ignoriert */
         }
@@ -371,7 +478,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .filter((m) => m.groupId === groupId && now() - m.createdAt < ttl)
         .sort((a, b) => a.createdAt - b.createdAt)
     },
-    [state, effectiveRetention, now],
+    // zeitStand: neu rechnen, sobald eine Nachricht ablaeuft (TEC-10)
+    [state, effectiveRetention, now, zeitStand],
   )
 
   const visiblePolls = useCallback(
@@ -383,7 +491,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .filter((p) => p.groupId === groupId && now() - p.createdAt < ttl)
         .sort((a, b) => a.createdAt - b.createdAt)
     },
-    [state, effectiveRetention, now],
+    [state, effectiveRetention, now, zeitStand],
   )
 
   const myGroups = useMemo(
@@ -442,7 +550,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         sichtbarFuer(currentUser, e.aircraftType) &&
         (darfVerwalten || (infoEntryAppliesTo(e, currentUser.id, state.groups) && infoIsPublished(e, now()))),
     )
-  }, [state.infoEntries, state.groups, state.settings, currentUser, now])
+    // zeitStand: ein geplanter Eintrag erscheint um Mitternacht seines
+    // validFrom — vorher erst bei der naechsten zufaelligen Aenderung.
+  }, [state.infoEntries, state.groups, state.settings, currentUser, now, zeitStand])
 
   /*
    * Rueckmeldungen, die diese Person im Panel sehen darf.
@@ -491,7 +601,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         infoEntryAppliesTo(e, state.currentUserId!, state.groups) &&
         !state.infoAcks[e.id]?.[state.currentUserId!],
     ).length
-  }, [visibleInfoEntries, state.infoAcks, state.currentUserId, state.groups, now])
+  }, [visibleInfoEntries, state.infoAcks, state.currentUserId, state.groups, now, zeitStand])
   const hasNewContacts = !!state.currentUserId && state.contactsChangedAt > seenOfCurrent.contacts
 
   // Instruktoren sehen ihre eigenen Formulare eine Woche lang, Admins alles
@@ -526,7 +636,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         r.instructorId === currentUser.id &&
         (!isComplete(r, state.gradingRecords) || now() - doneAt(r) < weekMs),
     )
-  }, [state.gradingRecords, state.settings, currentUser, now])
+    // zeitStand: Die Wochenfrist wird mindestens beim Tageswechsel neu
+    // geprueft (TEC-10) — vorher gar nicht, solange sich nichts aenderte.
+  }, [state.gradingRecords, state.settings, currentUser, now, zeitStand])
 
   // Instruktoren sehen nur Lesson Plans ihrer zugewiesenen Muster;
   // Admins und Superadmin sehen alle.
@@ -559,8 +671,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const p = fn(s)
         if (!p) return s
         // Echte Aenderung: Sicherung anstossen und den Zeitpunkt merken.
-        // Der Zeitpunkt entscheidet, ob der Stand eines anderen Tabs
-        // uebernommen werden darf (siehe Abgleich unten).
         lastChangeAt.current = Date.now()
         setRev((r) => r + 1)
         return { ...s, ...p }
@@ -600,6 +710,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       state,
       now,
       currentUser,
+      sessionExpired,
       effectiveRetention,
       visibleMessages,
       visiblePolls,
@@ -771,11 +882,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })),
       logout: () => {
         persistUser(null)
+        // Das Verwerfen der DocCheck-Sitzung („ic-abmelden") loest der
+        // Effekt am Uebergang zu „abgemeldet" aus — fuer JEDEN Weg dorthin.
         patch(() => ({ currentUserId: null }))
-        // DocCheck hält Dokumente nur im Speicher des Tabs — beim Abmelden
-        // werden sie verworfen (Spez. DocCheck 5.4). Ein Ereignis statt eines
-        // Imports: Der Store soll das nachgeladene Modul nicht mitziehen.
-        window.dispatchEvent(new Event('ic-abmelden'))
       },
       // Die drei Sandbox-Werkzeuge greifen NUR im Sandbox-Betrieb. Bisher
       // hing das allein daran, dass die Leiste sie anbietet — wer sie über
@@ -1411,7 +1520,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }),
     }
-  }, [state, now, currentUser, effectiveRetention, visibleMessages, visiblePolls, myGroups, unreadGroups, hasNewInfo, hasNewContacts, latestForeignContent, latestForeignInfo, visibleGradingRecords, visibleLessonPlans, visibleInfoEntries])
+  }, [state, now, currentUser, sessionExpired, effectiveRetention, visibleMessages, visiblePolls, myGroups, unreadGroups, hasNewInfo, hasNewContacts, latestForeignContent, latestForeignInfo, visibleGradingRecords, visibleLessonPlans, visibleInfoEntries])
 
   return <StoreCtx.Provider value={store}>{children}</StoreCtx.Provider>
 }

@@ -1,8 +1,7 @@
-import { expect, test } from '@playwright/test'
 import JSZip from 'jszip'
 import { readFileSync } from 'node:fs'
 import { SBX_CALC_01_NAME, SBX_FL_01_NAME, sbxPkg01 } from '../src/modules/doccheck/benchmark/sbx'
-import { anmelden, datei, docCheckOeffnen } from './hilfen'
+import { anmelden, datei, docCheckOeffnen, expect, test } from './hilfen'
 
 /**
  * DocCheck im echten Browser: was Ebene 1 und 2 nicht sehen — Worker,

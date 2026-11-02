@@ -17,6 +17,7 @@
     "version": "Version",
     "updateAvailable": "Neue Version verfügbar — wird automatisch geladen",
     "updateNow": "Jetzt aktualisieren",
+    "updateStale": "Neue Version schon aktiv — dieser Tab läuft noch mit der alten. Bitte Arbeit sichern, dann aktualisieren.",
     "refresh": "App neu laden",
     "tooLarge": "„{{name}}“ ist {{size}} MB groß — erlaubt sind {{max}} MB.",
     "discardConfirm": "Eingaben verwerfen und schließen?",
@@ -28,7 +29,19 @@
     "storageError": "Speichern fehlgeschlagen — der Gerätespeicher ist voll. Änderungen gelten nur noch für diese Sitzung. Bitte Speicherplatz freigeben.",
     "storageUnreadable": "Der gespeicherte Bestand konnte nicht gelesen werden. Es wird derzeit nichts gespeichert — bitte die App neu laden, bevor etwas eingegeben wird.",
     "storageAlmostFull": "Der Gerätespeicher ist fast voll — bald sichern und Platz schaffen.",
+    "sessionExpired": "Die Anmeldung ist abgelaufen. Bitte die offene Eingabe abschließen oder verwerfen — danach wird abgemeldet.",
     "new": "Neu"
+  },
+  "crash": {
+    "pageTitle": "Diese Ansicht konnte nicht angezeigt werden",
+    "pageBody": "Der Rest der App läuft weiter. Bitte zur Startseite wechseln oder neu laden. Kommt der Fehler immer wieder: „Stand sichern und frisch starten“ — der bisherige Stand bleibt als Sicherung auf diesem Gerät.",
+    "appTitle": "Instructor Connect konnte nicht gestartet werden",
+    "appBody": "Bitte neu laden. Kommt der Fehler wieder: „Stand sichern und frisch starten“ — der bisherige Stand bleibt als Sicherung auf diesem Gerät.",
+    "toHome": "Zur Startseite",
+    "reload": "Neu laden",
+    "reset": "Stand sichern und frisch starten",
+    "resetFailed": "Der Stand konnte nicht gesichert werden — es wurde nichts gelöscht.",
+    "code": "Fehler"
   },
   "roles": {
     "superadmin": "Superadmin",
@@ -517,6 +530,7 @@
     "maintenanceOnDone": "DocCheck ist wieder eingeschaltet.",
     "errorTitle": "DocCheck konnte nicht geladen werden",
     "errorBody": "Der Fehler betrifft nur DocCheck. Alle anderen Kacheln funktionieren weiter.",
+    "errorLoadBody": "DocCheck wird beim ersten Öffnen und nach jedem Update aus dem Netz geladen. Sobald wieder eine Verbindung besteht, lädt „Erneut versuchen“ die Seite neu. Alle anderen Kacheln funktionieren weiter.",
     "errorCode": "Fehlercode",
     "toHome": "Zur Startseite",
     "retry": "Erneut versuchen",
