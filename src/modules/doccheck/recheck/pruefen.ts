@@ -326,7 +326,15 @@ const W: Record<RemarkSprache, { rest: string; fehlt: string; widerlegt: string;
   en: { rest: 'Still present', fehlt: 'Missing', widerlegt: 'Team comment reports the correction; not found in the document.', vorschlag: 'Proposed correction', seite: 'p.', ausgenommen: (n) => `Not counted as remaining (quotation or verb form): ${n} occurrence${n === 1 ? '' : 's'}.` },
 }
 
-const zeile = (f: Fundstelle, s: RemarkSprache) => `• ${[f.dok, f.kapitel, /^\d+$/.test(f.seite) ? `${W[s].seite} ${f.seite}` : f.seite, `„${f.auszug}"`].filter(Boolean).join(' · ')}`
+/**
+ * Anführungszeichen je Remark-Sprache: deutsch „…“, englisch “…”. Vorher
+ * stand in beiden „…" — unten auf, gerade zu — und so ging es beim
+ * Rückschreiben in die fremde Excel-Liste, auch in den englischen Remark
+ * (Audit 11/2026, EXP-20/TXT-13).
+ */
+export const zitat = (text: string, s: RemarkSprache): string => (s === 'de' ? `„${text}“` : `“${text}”`)
+
+const zeile = (f: Fundstelle, s: RemarkSprache) => `• ${[f.dok, f.kapitel, /^\d+$/.test(f.seite) ? `${W[s].seite} ${f.seite}` : f.seite, zitat(f.auszug, s)].filter(Boolean).join(' · ')}`
 
 /**
  * Remark nach N3.2: Präfix mit Status und Datum, Restfundstellen je Zeile
@@ -342,10 +350,10 @@ export function remark(r: ReErgebnis, datum: string, s: RemarkSprache = 'de'): s
     if (r.grund !== 'restAnderesDok') teile.push(`${W[s].rest}:`)
     teile.push(...r.rest.map((f) => zeile(f, s)))
   }
-  if (r.fehlt.length) teile.push(`${W[s].fehlt}: ${r.fehlt.map((x) => `„${x}"`).join(', ')}`)
+  if (r.fehlt.length) teile.push(`${W[s].fehlt}: ${r.fehlt.map((x) => zitat(x, s)).join(', ')}`)
   if (r.behauptungWiderlegt) teile.push(W[s].widerlegt)
   if (r.ausgenommen?.length) teile.push(W[s].ausgenommen(r.ausgenommen.length))
   const { weg, da } = r.anweisung
-  if ((r.status === 'open' || r.status === 'partial') && weg.length && da.length) teile.push(`${W[s].vorschlag}: „${weg[0]}" → „${da[0]}"`)
+  if ((r.status === 'open' || r.status === 'partial') && weg.length && da.length) teile.push(`${W[s].vorschlag}: ${zitat(weg[0], s)} → ${zitat(da[0], s)}`)
   return teile.join('\n')
 }

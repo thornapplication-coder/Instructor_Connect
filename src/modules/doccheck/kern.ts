@@ -62,8 +62,17 @@ export interface LeseAuftrag {
   vorgabe?: Rechtscharakter
   bestand?: Vergleichsdokument[]
   /** Regelbasierte Prüfungen nach dem Einlesen (nur Prüfdokumente, Spez. 8.8) */
-  pruefen?: { formal: boolean; word: boolean; rechnen?: boolean }
+  pruefen?: PruefSchalter
 }
+
+/** Welche regelbasierten Prüfungen laufen — Abbild der Admin-Schalter formalCheck, wordCheck, calcCheck. */
+export interface PruefSchalter {
+  formal: boolean
+  word: boolean
+  rechnen?: boolean
+}
+
+const gleicheSchalter = (a: PruefSchalter, b: PruefSchalter) => a.formal === b.formal && a.word === b.word && !!a.rechnen === !!b.rechnen
 
 function zusammenfassen(id: string, roh: Rohdokument, sha256: string, meta: ErkannteMeta, duplikat: Duplikat, pdfPaar?: Zusammenfassung['pdfPaar']): Zusammenfassung {
   const l = roh.lenkung
@@ -95,7 +104,7 @@ function zusammenfassen(id: string, roh: Rohdokument, sha256: string, meta: Erka
 }
 
 export class Kern {
-  private docs = new Map<string, { titel: string; name: string; roh: Rohdokument; sha256: string; meta: ErkannteMeta; duplikat: Duplikat; pdfPaar?: Zusammenfassung['pdfPaar']; pruefen?: LeseAuftrag['pruefen'] }>()
+  private docs = new Map<string, { titel: string; name: string; roh: Rohdokument; sha256: string; meta: ErkannteMeta; duplikat: Duplikat; pdfPaar?: Zusammenfassung['pdfPaar']; pruefen?: PruefSchalter }>()
 
   /**
    * Zusammenfassung samt Prüfung. Die Prüfung läuft bei JEDEM Fassen neu:
@@ -144,6 +153,23 @@ export class Kern {
   }
   private laufend = new Map<string, AbortController>()
   private referenzen: ReferenzListe[] = []
+  /** Zuletzt gesetzter Schalterstand — gilt auch für Dokumente, die gerade noch gelesen werden. */
+  private schalter: PruefSchalter | null = null
+
+  /**
+   * Prüfschalter geändert (Superadmin): Alle Prüfdokumente nehmen den neuen
+   * Stand an und werden neu gefasst. Vorher galten die Schalter nur fürs
+   * nächste Hochladen — der Hinweis „wirken sofort" stimmte nicht, und neben
+   * „abgeschaltet" standen Befunde der abgeschalteten Prüfung (Audit 11/2026,
+   * DC-12). Liefert nur, was sich geändert hat: Derselbe Stand noch einmal
+   * (etwa beim Öffnen des Moduls) prüft nichts neu.
+   */
+  pruefenSetzen(schalter: PruefSchalter): Zusammenfassung[] {
+    this.schalter = { ...schalter }
+    const geaendert = [...this.docs.entries()].filter(([, d]) => d.pruefen && !gleicheSchalter(d.pruefen, schalter))
+    for (const [, d] of geaendert) d.pruefen = { ...schalter }
+    return geaendert.map(([id]) => this.fassen(id))
+  }
 
   /**
    * Referenzlisten setzen (Soll) — alle Prüfdokumente werden neu geprüft,
@@ -174,7 +200,10 @@ export class Kern {
       // Abgebrochen, während der letzte Schritt lief: nicht mehr aufnehmen.
       if (ctrl.signal.aborted) throw new Error('DC-ABORTED')
       const titel = a.titel || g.meta.titel || a.name
-      this.docs.set(a.id, { titel, name: a.name, ...g, pruefen: a.pruefen })
+      // Wurden die Schalter umgelegt, während dieses Dokument gelesen wurde,
+      // gilt der neue Stand — der Auftrag trägt noch den alten (DC-12).
+      const pruefen = a.pruefen && (this.schalter ? { ...this.schalter } : a.pruefen)
+      this.docs.set(a.id, { titel, name: a.name, ...g, pruefen })
       this.index.hinzufuegen({ id: a.id, titel, pages: g.roh.pages })
       return this.fassen(a.id)
     } finally {

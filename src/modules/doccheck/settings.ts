@@ -1,3 +1,4 @@
+import type { PruefSchalter } from './kern'
 import type { DocCheckFeature, DocCheckModell, DocCheckSettings } from './types'
 
 /**
@@ -51,6 +52,9 @@ export const VORGABE: DocCheckSettings = {
   gateSperrt: false,
   // Kein Organisationsname ab Werk (Spez. 10.1 Nr. 3) — der Superadmin trägt ihn ein
   organisation: '',
+  // Semikolon: Excel mit deutscher/österreichischer Ländereinstellung
+  // trennt sonst nicht (Spez. 10.6); Komma stellt der Superadmin um.
+  csvTrenner: ';',
 }
 
 export function einstellungen(gespeichert: Partial<DocCheckSettings> | undefined): DocCheckSettings {
@@ -71,6 +75,9 @@ export function einstellungen(gespeichert: Partial<DocCheckSettings> | undefined
     monatsbudgetUsd: g.monatsbudgetUsd ?? VORGABE.monatsbudgetUsd,
     gateSperrt: g.gateSperrt ?? VORGABE.gateSperrt,
     organisation: typeof g.organisation === 'string' ? g.organisation.slice(0, 120) : VORGABE.organisation,
+    // Nur die beiden Werte der Spezifikation — ein anderer Trenner (auch aus
+    // einem fremden Stand) ergäbe eine Datei, die kein Excel zerlegt
+    csvTrenner: g.csvTrenner === ',' ? ',' : VORGABE.csvTrenner,
   }
 }
 
@@ -90,6 +97,15 @@ export function ausweichFuer(s: DocCheckSettings, gewaehlt: string): string {
  */
 export function aktiv(s: DocCheckSettings, f: DocCheckFeature): boolean {
   return s.features.doccheck && s.features[f]
+}
+
+/**
+ * Die Prüfschalter, wie Kern und Worker sie brauchen — EINE Ableitung für
+ * Hochladen und Neuprüfen, sonst prüfte ein frisch geladenes Dokument
+ * anders als ein schon geladenes (Audit 11/2026, DC-12).
+ */
+export function pruefSchalter(s: DocCheckSettings): PruefSchalter {
+  return { formal: aktiv(s, 'formalCheck'), word: aktiv(s, 'wordCheck'), rechnen: aktiv(s, 'calcCheck') }
 }
 
 /** Sind alle Preise eines Modells gepflegt? Sonst keine Kostenschätzung. */

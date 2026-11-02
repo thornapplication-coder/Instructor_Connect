@@ -1,8 +1,9 @@
 import { useSyncExternalStore } from 'react'
 import { registriereOffeneArbeit } from '../../editGuard'
+import { hinweiseVergessen, sitzungsAblage } from './hinweis'
 import { duplikatPruefen, type Duplikat, type Vergleichsdokument } from './parse/duplikat'
 import type { Zusammenfassung } from './kern'
-import type { ReferenzListe } from './referenz/liste'
+import type { ListenArt, ReferenzListe } from './referenz/liste'
 import type { ReCheckSitzung } from './recheck/ablauf'
 import { revisionAusDateiname } from './parse/meta'
 import { gruppenVorschlagen, varianteAusKuerzel, vorbelegen, type PaketAngaben } from './paket/struktur'
@@ -45,6 +46,10 @@ export interface SitzungsReferenz {
   datei: string
   blatt?: string
   zeilen: string[][]
+  /** Vom Nutzer gewählte Art — bleibt, auch solange noch keine Liste entsteht (DC-13) */
+  art?: ListenArt
+  /** Vom Nutzer zugeordnete Spalten (Rolle → Spaltenindex), wenn die Köpfe nicht erkannt wurden */
+  spalten?: Record<string, number>
 }
 
 export interface Zustand {
@@ -124,6 +129,33 @@ export function bestaetigen(z: Zustand, id: string): Zustand {
 
 export function entfernen(z: Zustand, id: string): Zustand {
   return { ...z, docs: z.docs.filter((d) => d.id !== id) }
+}
+
+/**
+ * Warum keine regelbasierten Befunde da sind. Sind alle Schalter aus, legt
+ * der Kern keine Prüfung an — und Findings sagte „Prüfdokument hochladen",
+ * obwohl eines geladen war (Audit 11/2026, DC-12). `null`: Es gibt geprüfte
+ * Dokumente, eine leere Liste liegt dann am Filter.
+ */
+export function leerGrund(docs: SitzungsDok[]): 'keineDokumente' | 'abgeschaltet' | null {
+  const pruef = docs.filter((d) => d.rolle === 'review' && d.status === 'fertig' && d.z)
+  if (pruef.some((d) => d.z!.pruefung)) return null
+  return pruef.length ? 'abgeschaltet' : 'keineDokumente'
+}
+
+/**
+ * Befunde einer Dokumentkarte. Im Paketmodus liegen Paketbefunde beim
+ * tieferen Dokument (Hierarchieregel, `dokId`) und stehen in Findings dort
+ * — die Karte zählte nur die eigene Prüfung und zeigte grün „ohne Befund",
+ * während Widersprüche offen waren (Audit 11/2026, DC-14). Ohne Paketmodus
+ * zählen sie nicht: Dann gehören sie zu keiner Prüfung (wie in Findings).
+ * `hoch` zählt beide, `paketHoch` nur die Paketbefunde.
+ */
+export function befundZahl(d: SitzungsDok, paket: PaketErgebnis | undefined, paketAktiv: boolean): { eigen: number; paket: number; hoch: number; paketHoch: number } {
+  const eigen = d.z?.pruefung?.befunde ?? []
+  const imPaket = paketAktiv && paket ? paket.befunde.filter((b) => b.dokId === d.id) : []
+  const paketHoch = imPaket.filter((b) => b.prioritaet === 'High').length
+  return { eigen: eigen.length, paket: imPaket.length, hoch: eigen.filter((b) => b.prioritaet === 'High').length + paketHoch, paketHoch }
 }
 
 /** Was fehlt noch? Revision ist Pflicht (Spez. 6.1, 11.2); Master brauchen einen Titel. */
@@ -240,11 +272,17 @@ export function dateiEntfernen(id: string): void {
 /**
  * Gehört die Sitzung noch dem angemeldeten Nutzer? Sonst alles verwerfen —
  * auch der Sandbox-Wechsel „Ansicht als" darf keine fremden Dokumente
- * sehen. Liefert, ob verworfen wurde.
+ * sehen. Liefert, ob verworfen wurde; dann beendet der Aufrufer den Worker.
+ *
+ * „Verworfen" heißt jede offene Arbeit, nicht nur Dokumente: Referenzlisten
+ * liegen auch im Kern des Workers. Zählten nur Dokumente, blieb das Glossar
+ * des Vorgängers dort stehen, unsichtbar — und der nächste Nutzer bekam
+ * Befunde „… glossary glossar-alex.csv" aus einer Liste, die er nie geladen
+ * hatte (Audit 11/2026, Nachtrag SEC#1).
  */
 export function fuerNutzer(nutzer: string | null): boolean {
   if (zustand.nutzer === nutzer) return false
-  const hatte = zustand.docs.length > 0
+  const hatte = offeneArbeit(zustand)
   dateien.clear()
   setzen(() => ({ nutzer, docs: [] }))
   return hatte
@@ -275,5 +313,11 @@ export function offeneArbeit(z: Zustand): boolean {
 registriereOffeneArbeit(() => offeneArbeit(zustand))
 
 // Abmelden verwirft die Sitzung — das Ereignis kommt aus dem Store von
-// Instructor Connect, der von DocCheck sonst nichts weiß.
-if (typeof window !== 'undefined') window.addEventListener('ic-abmelden', () => fuerNutzer(null))
+// Instructor Connect, der von DocCheck sonst nichts weiß. Mit ihr endet auch
+// die Bestätigung des Hinweisdialogs: Der nächste Nutzer am selben Gerät sieht
+// ihn wieder (Audit 11/2026, SEC-05).
+if (typeof window !== 'undefined')
+  window.addEventListener('ic-abmelden', () => {
+    fuerNutzer(null)
+    hinweiseVergessen(sitzungsAblage())
+  })

@@ -126,6 +126,50 @@ export function rollenAudit(
 }
 
 /**
+ * Re-Check bestätigt (N11): Ins Audit gehören nur Nummer und Status, nie
+ * Befundtext — dieselbe Regel wie `doccheck.log_recheck` in der Migration,
+ * `src/backend/rls.test.ts` hält beide gegeneinander.
+ *
+ * Vorher übernahm die Sandbox die Nummernspalte ungeprüft: Stand dort Text,
+ * landeten bis zu 300 Zeichen Befundtext im gespeicherten Zustand
+ * („CONFIDENTIAL OEM remark …: Not verifiable"), und mit Backend wäre
+ * derselbe Klick an IC-INPUT gescheitert — schon bei „F 001" (Audit 11/2026,
+ * SEC-06). Jetzt steht für eine Nummer, die die Regel nicht erfüllt, die
+ * Zeile der Liste (`#<Zeile>`, wie `befundeLesen` es ohne Nummer tut); ein
+ * Status außerhalb der festen Liste fällt weg.
+ */
+export const RECHECK_STATUS: readonly string[] = ['Resolved', 'Partially resolved', 'Not resolved', 'Not verifiable', 'Closed – justification required']
+/** Wie `log_recheck`: höchstens so viele Einträge je Aufruf — mehr werden mehrere Zeilen, nicht abgeschnitten. */
+export const RECHECK_JE_AUFRUF = 500
+const RECHECK_REF = /^[A-Za-z0-9._#/-]{1,20}$/
+
+/** `zeile`: Zeile der Liste, wie der Nutzer sie sieht (Excel-Zeile, bei CSV Zeile ab 1). */
+export interface RecheckEintrag {
+  ref: string
+  zeile: number
+  status: string
+}
+
+/** Einträge, wie `log_recheck` sie annimmt. */
+export function recheckEintraege(eintraege: RecheckEintrag[]): { ref: string; status: string }[] {
+  return eintraege
+    .filter((e) => RECHECK_STATUS.includes(e.status))
+    .map((e) => ({ ref: RECHECK_REF.test(e.ref) ? e.ref : `#${Number.isSafeInteger(e.zeile) && e.zeile > 0 ? e.zeile : 0}`, status: e.status }))
+}
+
+/** Audit-Zeilen fürs Bestätigen — je höchstens 500 Einträge; Listenname ohne Steuerzeichen, höchstens 200 Zeichen, Wert höchstens 2000 (wie die Datenbank). */
+export function recheckAudit(liste: string, eintraege: RecheckEintrag[], kontext: { von: string; at: number; id: () => string }): DocCheckAuditEintrag[] {
+  const ok = recheckEintraege(eintraege)
+  const ziel = [...liste.replace(/\p{Cc}/gu, '')].slice(0, 200).join('')
+  const out: DocCheckAuditEintrag[] = []
+  for (let i = 0; i < ok.length; i += RECHECK_JE_AUFRUF) {
+    const wert = ok.slice(i, i + RECHECK_JE_AUFRUF).map((e) => `${e.ref}: ${e.status}`).join(', ')
+    out.push({ id: kontext.id(), at: kontext.at, von: kontext.von, aktion: 'recheckBestaetigt', ziel, wert: wert.slice(0, 2000) })
+  }
+  return out
+}
+
+/**
  * Zahl auf der Kachel (Spez. 3.2): offene Nachprüf-Empfehlungen für alle,
  * fällige Revisionserinnerungen zusätzlich für die, die sie bestätigen
  * dürfen. Ein Nutzer, der nichts tun kann, bekommt keine Mahnung.

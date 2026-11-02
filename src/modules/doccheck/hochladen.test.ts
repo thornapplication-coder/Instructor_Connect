@@ -130,6 +130,50 @@ describe('Word-PDF-Paar beim Hochladen (Nachtrag N5)', () => {
     expect(v.paaren).not.toHaveBeenCalled()
   })
 
+  it('DOCX nicht lesbar: das gleichnamige PDF wird ein eigenes Prüfdokument (Audit 11/2026, DC-07)', async () => {
+    const v = verbindung()
+    v.lesen.mockImplementation(async (a: { id: string; name: string }) => {
+      if (/docx$/.test(a.name)) throw new Error('DC-DOCX-INVALID')
+      return { ...zf(a.id), format: 'pdf' as const }
+    })
+    // vorher: drei lesen-Aufträge für vier Dateien, x.pdf ohne Karte und ohne Meldung
+    await hochladen([datei_('x.docx'), datei_('x.pdf')], 'review', v as never)
+    expect(v.lesen.mock.calls.map((c) => c[0].name)).toEqual(['x.docx', 'x.pdf'])
+    expect(lesenZustand().docs.map((d) => [d.name, d.status, d.fehler])).toEqual([
+      ['x.docx', 'fehler', 'DC-DOCX-INVALID'],
+      ['x.pdf', 'fertig', undefined],
+    ])
+    expect(v.paaren).not.toHaveBeenCalled()
+  })
+
+  it('DOCX zu groß: abgelehnt, das PDF wird normal gelesen — ein zu großes PDF wird nicht gepaart, sondern abgelehnt (DC-07)', async () => {
+    const v = verbindung()
+    const r = await hochladen([datei_('x.docx', MAX_BYTES + 1), datei_('x.pdf')], 'review', v as never)
+    expect(r.abgelehnt).toEqual([{ name: 'x.docx', grund: 'groesse' }])
+    expect(lesenZustand().docs.map((d) => d.name)).toEqual(['x.pdf'])
+    expect(v.paaren).not.toHaveBeenCalled()
+    fuerNutzer('u-test-gross')
+    const r2 = await hochladen([datei_('y.docx'), datei_('y.pdf', MAX_BYTES + 1)], 'review', v as never)
+    expect(r2.abgelehnt).toEqual([{ name: 'y.pdf', grund: 'groesse' }])
+    expect(lesenZustand().docs.map((d) => [d.name, d.z?.seitenQuelle])).toEqual([['y.docx', 'native']])
+    expect(v.paaren).not.toHaveBeenCalled()
+  })
+
+  it('Abbruch des DOCX nimmt das Paar ganz zurück; ein Paarling, der kein DOCX ergab, wird eigenes Dokument (DC-07)', async () => {
+    const v = verbindung()
+    v.lesen.mockImplementation(async (a: { id: string; name: string }) => {
+      if (/docx$/.test(a.name)) throw new Error('DC-ABORTED')
+      return { ...zf(a.id), format: 'pdf' as const }
+    })
+    await hochladen([datei_('a.docx'), datei_('a.pdf')], 'review', v as never)
+    expect(lesenZustand().docs).toEqual([])
+    // Der Leser meldet für die .docx-Datei ein anderes Format: keine Paarung, das PDF steht für sich
+    v.lesen.mockImplementation(async (a: { id: string }) => ({ ...zf(a.id), format: 'pdf' as const }))
+    await hochladen([datei_('b.docx'), datei_('b.pdf')], 'review', v as never)
+    expect(lesenZustand().docs.map((d) => d.name)).toEqual(['b.docx', 'b.pdf'])
+    expect(v.paaren).not.toHaveBeenCalled()
+  })
+
   it('pdfDazulegen ignoriert Meldungen zu anderen Dokumenten', async () => {
     let hoerer: ((z: Zusammenfassung) => void) | null = null
     const p = pdfDazulegen('x', datei_('x.pdf'), {

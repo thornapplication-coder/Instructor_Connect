@@ -8,6 +8,8 @@ import { dokumentPruefen } from '../pruefung/pruefen'
 import { xlsxTabellen } from '../parse/xlsx'
 import { befundeLesen, kopfzeileFinden, zielVorschlagen, zuordnungVorschlagen } from '../recheck/fremdliste'
 import { gruppenVorschlagen, vorbelegen } from '../paket/struktur'
+import { neueBefundeFuer } from '../recheck/neueBefunde'
+import type { Befund } from '../pruefung/befund'
 import { SBX_CALC_01_FEHLER, SBX_CALC_01_NAME, SBX_CALC_01_XLSX_FEHLER, SBX_CALC_01_XLSX_NAME, SBX_EAR_01_NAME, SBX_FL_01, SBX_FORMAL_01_FEHLER, SBX_PDF_02_NAME, SBX_WORD_01_NAME, SBX_WORD_02_NAME, sbxCalc01, sbxCalc01Pdf, sbxCalc01Xlsx, sbxEar01, sbxEar01Pruefdokument, sbxFl01, sbxFormal01, sbxPdf02, sbxPkg01, sbxWord01, sbxWord02 } from './sbx'
 import baseline from './baseline.json' with { type: 'json' }
 import { abgleichen, bericht, bewerten, kennzahlen, SBX_EAR_01_ERWARTET, SBX_FORMAL_01_FEHLALARME, SBX_PDF_02_ERWARTET, SBX_PDF_02_FEHLALARME, SBX_PKG_01_ERWARTET, SBX_WORD_01_ERWARTET, SBX_WORD_01_FEHLALARME, SBX_WORD_02_ERWARTET, SBX_WORD_02_FEHLALARME, SCHWELLE, tabelle, type Kennzahlen } from './qualitaet'
@@ -115,6 +117,28 @@ describe('Bewertungslogik', () => {
     const k = kennzahlen([abgleichen('SBX-X', ['a'], ['a'])], { richtig: 1, gesamt: 1, restGefunden: 1, restErwartet: 1 })
     expect(bericht(k)).toBe('DocCheck · Benchmark: Trefferquote 100 %, Fehlalarme 0 %, Re-Check-Status 100 %, Restfundstellen 100 %')
     expect(tabelle(k)).toMatch(/^SBX-X\s+1\/1\s+gefunden · {2}0 Fehlalarm\(e\) bei 1 Meldungen\n/)
+  })
+})
+
+describe('Re-Check: neue Befunde gegen eine echte Findingliste (N3.1 Schritt 6, N10.3)', () => {
+  it('SBX-FL-01 auf SBX-PKG-01: Der offene „TBD" in APX 4 erscheint nicht zusätzlich auf „Neue Findings" (Audit 11/2026, DC-04)', async () => {
+    // Mit allen Dokumentprüfungen — erst dann gibt es eigene Befunde, die mit Resten kollidieren können
+    const k = new Kern({ pdfjs: async () => { throw new Error('kein PDF erwartet') } })
+    const paket = await sbxPkg01()
+    const eigene: Befund[] = []
+    for (const d of paket) eigene.push(...((await k.lesen({ id: d.kuerzel, name: d.name, daten: d.daten, titel: d.titel, pruefen: { formal: true, word: true, rechnen: true } })).pruefung?.befunde ?? []))
+    const [blatt] = await xlsxTabellen(await sbxFl01())
+    const kopf = kopfzeileFinden(blatt.zeilen)
+    const befunde = befundeLesen(blatt.zeilen, kopf, zuordnungVorschlagen(blatt.zeilen[kopf]), blatt.zeilenNr)
+    const namen = paket.map((d) => ({ id: d.kuerzel, namen: [d.kuerzel, d.titel, d.name] }))
+    const ziele = Object.fromEntries(befunde.map((b) => [b.dokument, zielVorschlagen(b.dokument, namen)]))
+    const erg = k.nachpruefen(befunde.map((befund) => ({ befund, ziel: ziele[befund.dokument] })))
+    // Voraussetzung: Nr. 11 „Delete TBD" ist offen, mit Rest in APX 4
+    expect(erg.find((e) => befunde.find((b) => b.zeile === e.zeile)!.ref === '11')!.rest.map((r) => r.dokId)).toContain('APX 4')
+    expect(eigene.some((b) => b.dokId === 'APX 4' && b.pruefpunkt === 'reste')).toBe(true)
+    const neu = neueBefundeFuer(eigene, erg, befunde.map((b) => b.ref), ziele)
+    expect(neu.liste.filter((n) => n.dokId === 'APX 4' && eigene.find((b) => b.text === n.befund && b.dokId === n.dokId)?.pruefpunkt === 'reste')).toEqual([])
+    expect(neu.ausgenommen).toBeGreaterThanOrEqual(1)
   })
 })
 

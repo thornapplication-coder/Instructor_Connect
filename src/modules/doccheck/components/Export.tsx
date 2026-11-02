@@ -84,7 +84,7 @@ function Knoepfe({ stand, mitPruefstand }: { stand: () => Datenstand | null; mit
       setLaeuft(null)
     }
   }
-  const kontext = () => ({ userId: currentUser?.id ?? '', ts: new Date(now()).toISOString() })
+  const kontext = () => ({ userId: currentUser?.id ?? '', ts: new Date(now()).toISOString(), csvTrenner: docCheckSettings.csvTrenner })
   return (
     <div className="space-y-stack">
       <div className="grid gap-stack sm:grid-cols-2">
@@ -203,7 +203,8 @@ export function ExportTab() {
   const s = useAusSitzung()
   const [geladen, setGeladen] = useState<{ p: Pruefstand; datei: string } | null>(null)
   const leer = s.dokumente === 0
-  const zahl = useMemo(() => t('export.stand', { count: s.befunde, dokumente: s.dokumente }), [s.befunde, s.dokumente, t])
+  // Zweite Zahl mit eigener Ein-/Mehrzahl statt „Prüfdokument(en)" (Audit 11/2026, TXT-08)
+  const zahl = useMemo(() => t('export.stand', { count: s.befunde, dokumenteText: t('export.dokumente', { count: s.dokumente }) }), [s.befunde, s.dokumente, t])
   return (
     <div className="space-y-section">
       <div className="space-y-stack">

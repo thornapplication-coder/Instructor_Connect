@@ -1,7 +1,7 @@
 import type { Vergleichsdokument } from './parse/duplikat'
 import { SANDBOX_DOKUMENTE } from './library'
 import { aktualisiert, dateiAblegen, dateiEntfernen, entfernen, fehler, fertig, fortschritt, lesenZustand, neu, setzen, type Rolle } from './sitzung'
-import type { Zusammenfassung } from './kern'
+import type { PruefSchalter, Zusammenfassung } from './kern'
 import type { Verbindung } from './verbindung'
 
 /**
@@ -67,18 +67,26 @@ export async function hochladen(
   rolle: Rolle,
   v: Pick<Verbindung, 'lesen' | 'titel'> & Partial<Pick<Verbindung, 'paaren' | 'beiOcr' | 'entfernen'>>,
   jetzt: () => number = () => Date.now(),
-  opts: { paaren?: boolean; pruefen?: { formal: boolean; word: boolean; rechnen?: boolean } } = {},
+  opts: { paaren?: boolean; pruefen?: PruefSchalter } = {},
 ): Promise<{ abgelehnt: { name: string; grund: 'format' | 'groesse' }[] }> {
   const abgelehnt: { name: string; grund: 'format' | 'groesse' }[] = []
   const laeufe: Promise<void>[] = []
-  // Gleichnamige DOCX/PDF im selben Hochladen sind ein Word-PDF-Paar.
+  // Gleichnamige DOCX/PDF im selben Hochladen sind ein Word-PDF-Paar — aber
+  // nur, wenn beide angenommen werden: Ein zu großes DOCX nahm sein PDF sonst
+  // spurlos mit, und ein zu großes PDF umging als Paarling die Größengrenze
+  // (Audit 11/2026, DC-07).
   const paare = new Map<Datei, Datei>()
   if (opts.paaren !== false && v.paaren && v.beiOcr) {
     for (const d of dateien) {
-      if (!/\.docx$/i.test(d.name)) continue
-      const pdf = dateien.find((x) => /\.pdf$/i.test(x.name) && stamm(x.name) === stamm(d.name))
+      if (!/\.docx$/i.test(d.name) || annehmbar(d) !== 'ok') continue
+      const pdf = dateien.find((x) => /\.pdf$/i.test(x.name) && stamm(x.name) === stamm(d.name) && annehmbar(x) === 'ok')
       if (pdf) paare.set(d, pdf)
     }
+  }
+  /** Ohne gelesenes DOCX wird sein PDF ein eigenes Prüfdokument — vorher verschwand es ohne Karte und ohne Meldung (DC-07). */
+  const pdfAllein = async (pdf: Datei) => {
+    const r = await hochladen([pdf], rolle, v, jetzt, { ...opts, paaren: false })
+    abgelehnt.push(...r.abgelehnt)
   }
   const alsPaar = new Set(paare.values())
   for (const f of dateien) {
@@ -127,13 +135,19 @@ export async function hochladen(
           if (titel) v.titel(id, titel)
           const pdf = paare.get(f)
           if (pdf && z.format === 'docx') await pdfDazulegen(id, pdf, v as Pick<Verbindung, 'paaren' | 'beiOcr'>)
+          else if (pdf) await pdfAllein(pdf)
         } catch (e) {
           const code = (e as Error).message
           if (code === 'DC-ABORTED') {
+            // Abgebrochen ist das Paar: Das PDF gehörte zum DOCX und geht mit
             v.entfernen?.(id)
             setzen((s) => entfernen(s, id))
             dateiEntfernen(id)
-          } else setzen((s) => fehler(s, id, /^DC-/.test(code) ? code : 'DC-PARSE'))
+          } else {
+            setzen((s) => fehler(s, id, /^DC-/.test(code) ? code : 'DC-PARSE'))
+            const pdf = paare.get(f)
+            if (pdf) await pdfAllein(pdf)
+          }
         }
       })(),
     )

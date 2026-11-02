@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest'
 import { Kern } from './kern'
 import type { PdfJs } from './parse/pdf'
 import { pdfBauen, textSeite } from './parse/pdfBauen'
+import { befundeLesen, kopfzeileFinden, zuordnungVorschlagen } from './recheck/fremdliste'
+import { neueBefundeFuer } from './recheck/neueBefunde'
 
 const standardFontDataUrl = fileURLToPath(new URL('../../../node_modules/pdfjs-dist/standard_fonts/', import.meta.url))
 const kern = () => new Kern({ pdfjs: async () => pdfjs as unknown as PdfJs, standardFontDataUrl })
@@ -79,6 +81,39 @@ describe('Kern — regelbasierte Prüfung nach dem Einlesen', () => {
   })
 })
 
+describe('Kern — Prüfschalter wirken auf geladene Dokumente (Audit 11/2026, DC-12)', () => {
+  it('pruefenSetzen({formal:false,…}) entfernt die Formalbefunde, wieder an bringt sie zurück; Master bleiben ungeprüft', async () => {
+    const k = kern()
+    const daten = pdf(['Training Manual', 'Battery limits: TBD.', 'See chapter 9.9 for details.'])
+    const z = await k.lesen({ id: 'r', name: 'r.pdf', daten, pruefen: { formal: true, word: true, rechnen: true } })
+    expect(z.pruefung?.befunde.some((b) => b.quelle === 'formal' || b.quelle === 'verweis')).toBe(true)
+    await k.lesen({ id: 'm', name: 'm.pdf', daten: pdf(['Master TBD']) })
+    const aus = k.pruefenSetzen({ formal: false, word: true, rechnen: true })
+    // Nur das Prüfdokument kommt zurück — der Master hat keine Prüfung
+    expect(aus.map((x) => x.id)).toEqual(['r'])
+    expect(aus[0].pruefung?.befunde.filter((b) => b.quelle === 'formal' || b.quelle === 'verweis')).toEqual([])
+    // Der Word-Schalter steht noch: Sprache/Platzhalter laufen weiter, die Formalampel ist leer
+    expect(aus[0].pruefung?.ampel.formal).toEqual({})
+    expect(Object.keys(aus[0].pruefung!.ampel.sprache).length).toBeGreaterThan(0)
+    // Derselbe Stand noch einmal prüft nichts neu
+    expect(k.pruefenSetzen({ formal: false, word: true, rechnen: true })).toEqual([])
+    // Alles aus: keine Prüfung mehr — die Oberfläche sagt dann „abgeschaltet"
+    expect(k.pruefenSetzen({ formal: false, word: false, rechnen: false })[0].pruefung).toBeUndefined()
+    const wieder = k.pruefenSetzen({ formal: true, word: true, rechnen: true })
+    expect(wieder[0].pruefung?.befunde.some((b) => b.quelle === 'formal')).toBe(true)
+  })
+
+  it('ein Dokument, das während des Umschaltens noch gelesen wird, nimmt den neuen Stand an', async () => {
+    const k = kern()
+    k.pruefenSetzen({ formal: false, word: false, rechnen: false })
+    // Der Auftrag trägt noch den alten Stand (alles an)
+    const z = await k.lesen({ id: 'r', name: 'r.pdf', daten: pdf(['Training Manual', 'Battery limits: TBD.']), pruefen: { formal: true, word: true, rechnen: true } })
+    expect(z.pruefung).toBeUndefined()
+    const m = await k.lesen({ id: 'm', name: 'm.pdf', daten: pdf(['Master TBD']) })
+    expect(m.pruefung).toBeUndefined()
+  })
+})
+
 describe('Kern — Referenzlisten', () => {
   it('neue Listen prüfen alle Prüfdokumente neu, Sitzungs-Master nicht', async () => {
     const k = kern()
@@ -88,5 +123,42 @@ describe('Kern — Referenzlisten', () => {
     expect(z.map((x) => x.id)).toEqual(['r'])
     expect(z[0].pruefung?.befunde.map((b) => b.pruefpunkt)).toEqual(['glossar'])
     expect(k.referenzenSetzen([])[0].pruefung).toBeUndefined()
+  })
+})
+
+describe('Kern — Re-Check: jedes Auszugsformat „Treffer — Kontext" unter der Dublettenregel (N10.3)', () => {
+  it('Glossar- und Platzhalterbefund an einer Restfundstelle stehen nicht auf „Neue Findings" (Audit 11/2026, Nachtrag DCF#2)', async () => {
+    // Die Lücke aus DC-04 betraf nicht nur „Reste": Auch Glossar und Platzhalter
+    // schreiben „<Treffer> — <ganzer Absatz>", der Rest ist ein Fenster mit „…".
+    // Mit dem alten Enthaltensein stand „check list" zweimal in der Liste.
+    const k = kern()
+    await k.lesen({
+      id: 'TM',
+      name: 'TM.pdf',
+      daten: pdf(['Training Manual', 'The crew shall complete the check list before engine start.', 'Report deviations on form OPS_XX after the flight.', 'The takeoff briefing is given by the PF.']),
+      // Platzhalter (N9) laufen mit dem Word-Check
+      pruefen: { formal: true, word: true, rechnen: false },
+    })
+    const eigene = k.referenzenSetzen([{ id: 'g', name: 'glossar.csv', art: 'glossar', eintraege: [{ soll: 'checklist', varianten: ['check list'] }, { soll: 'take-off', varianten: ['takeoff'] }] }])[0].pruefung!.befunde
+    expect(eigene.filter((b) => b.pruefpunkt === 'glossar')).toHaveLength(2)
+    expect(eigene.some((b) => b.pruefpunkt === 'platzhalter')).toBe(true)
+    const zeilen = [
+      ['No.', 'Area', 'Finding', 'Status'],
+      ['1', 'TM', 'Replace "check list" with "checklist".', 'Closed'],
+      ['2', 'TM', 'Replace "OPS_XX" with "OPS-12".', 'Closed'],
+    ]
+    const kopf = kopfzeileFinden(zeilen)
+    const befunde = befundeLesen(zeilen, kopf, zuordnungVorschlagen(zeilen[kopf]))
+    const ziele = { TM: { art: 'dok' as const, ids: ['TM'] } }
+    const erg = k.nachpruefen(befunde.map((befund) => ({ befund, ziel: ziele.TM })))
+    // Voraussetzung: beide offen, mit Rest im TM
+    expect(erg.map((e) => [e.status, e.rest.length > 0])).toEqual([['open', true], ['open', true]])
+    const neu = neueBefundeFuer(eigene, erg, befunde.map((b) => b.ref), ziele)
+    const texte = neu.liste.map((n) => n.befund)
+    expect(texte.some((t) => t.includes('"checklist"'))).toBe(false)
+    expect(texte.some((t) => /placeholder/i.test(t))).toBe(false)
+    // Was die Liste nicht kennt, bleibt ein neuer Befund
+    expect(texte.some((t) => t.includes('"take-off"'))).toBe(true)
+    expect(neu.ausgenommen).toBe(2)
   })
 })

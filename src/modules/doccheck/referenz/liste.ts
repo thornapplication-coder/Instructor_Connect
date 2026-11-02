@@ -77,19 +77,48 @@ export function kopfzeile(zeilen: string[][]): number {
   return i < 0 ? 0 : i
 }
 
+/** Kopfzeile und ihre Zellen, aufgefüllt auf die breiteste Zeile — Beschriftung der Spaltenwahl. */
+export function kopfSpalten(zeilen: string[][]): { zeile: number; koepfe: string[] } {
+  const zeile = kopfzeile(zeilen)
+  const breite = Math.max(0, ...zeilen.map((z) => z.length))
+  return { zeile, koepfe: Array.from({ length: breite }, (_, i) => (zeilen[zeile]?.[i] ?? '').trim()) }
+}
+
+/**
+ * Spalten, die der Nutzer selbst zugeordnet hat, weil die Köpfe nicht
+ * erkannt wurden. Vorher führte „Art bitte wählen" in eine Sackgasse: Die
+ * Wahl lief wieder durch die Kopferkennung, fand nichts, und die Auswahl
+ * sprang zurück (Audit 11/2026, DC-13). Übernommen wird nur, was eindeutig
+ * ist — Rollen der Art, jede Spalte einmal, innerhalb der Tabelle; ohne die
+ * Pflichtrolle keine Liste. Geraten wird nichts.
+ */
+export function spaltenPruefen(art: ListenArt, spalten: Record<string, number>, breite: number): Record<string, number> | null {
+  const out: Record<string, number> = {}
+  for (const rolle of Object.keys(SPALTEN[art])) {
+    const i = spalten[rolle]
+    if (Number.isInteger(i) && i >= 0 && i < breite && !Object.values(out).includes(i)) out[rolle] = i
+  }
+  return Object.keys(SPALTEN[art])[0] in out ? out : null
+}
+
 // „|" trennt nur mit Leerraum davor und danach — als Umgebung je EIN
 // Zeichen geprüft: „\s+\|\s+" lief an langen Leerzeichenfolgen quadratisch
 // (Audit 11/2026, SEC-01); den übrigen Leerraum entfernt trim().
 const teilen = (s?: string) => (s ?? '').split(/[;,/\n]|(?<=\s)\|(?=\s)/).map((x) => x.trim()).filter(Boolean)
 
-export function listeAusTabelle(name: string, zeilen: string[][], vorgabe?: ListenArt, blatt?: string): ReferenzListe | null {
-  const k = kopfzeile(zeilen)
+/**
+ * Liste aus einer Tabelle. `spalten` ist die ausdrückliche Zuordnung des
+ * Nutzers (nur mit `vorgabe`) und geht der Kopferkennung vor.
+ */
+export function listeAusTabelle(name: string, zeilen: string[][], vorgabe?: ListenArt, blatt?: string, spalten?: Record<string, number>): ReferenzListe | null {
+  const { zeile: k, koepfe } = kopfSpalten(zeilen)
   const kopf = zeilen[k] ?? []
-  const erkannt = vorgabe ? { art: vorgabe, spalten: zuordnen(kopf, vorgabe) } : artErkennen(kopf)
+  const erkannt = vorgabe ? { art: vorgabe, spalten: spalten ? spaltenPruefen(vorgabe, spalten, koepfe.length) : zuordnen(kopf, vorgabe) } : artErkennen(kopf)
   if (!erkannt?.spalten) return null
-  const { art, spalten } = erkannt
+  const { art } = erkannt
+  const sp = erkannt.spalten
   const daten = zeilen.slice(k + 1).filter((z) => z.some((x) => x?.trim()))
-  const zelle = (z: string[], rolle: string) => (spalten[rolle] !== undefined ? (z[spalten[rolle]] ?? '').trim() : '')
+  const zelle = (z: string[], rolle: string) => (sp[rolle] !== undefined ? (z[sp[rolle]] ?? '').trim() : '')
   const id = `ref-${vergleichsform(name)}-${blatt ? vergleichsform(blatt) : ''}`
   const basis = { id, name, ...(blatt ? { blatt } : {}) }
   switch (art) {

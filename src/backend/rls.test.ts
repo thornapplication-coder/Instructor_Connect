@@ -2,7 +2,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { readdirSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { AKTIONEN, darf, docCheckRolle } from '../modules/doccheck/access'
+import { AKTIONEN, darf, docCheckRolle, RECHECK_STATUS, recheckEintraege } from '../modules/doccheck/access'
 import type { Role, User } from '../types'
 import { zuAenderung, zuNutzer, type ProfilZeile } from './profil'
 
@@ -271,6 +271,22 @@ describe('DocCheck', () => {
     await als(ID.super)
     const r = (await db.query<{ actor: string; target: string; value: string }>("select actor, target, value from doccheck.audit where action = 'recheckBestaetigt'")).rows
     expect(r).toEqual([{ actor: ID.nutzer, target: 'fl.xlsx', value: '12: Resolved, A-3: Not resolved' }])
+  })
+
+  it('Sandbox und Datenbank wenden dieselbe Regel an: was recheckEintraege durchlässt, nimmt log_recheck an, was es ersetzt, weist es ab (Audit 11/2026, SEC-06)', async () => {
+    // Als DocCheck-Admin: Die Mengenbegrenzung unten zählt die Zeilen des Nutzers
+    await als(ID.admin)
+    const refs = ['12', 'A-3', 'F_01.2', 'TM/4#2', 'x'.repeat(20), 'F 001', 'Ä1', 'x'.repeat(21), '', 'F-001\n', 'CONFIDENTIAL OEM remark about TOTAL 16:00']
+    for (const ref of refs) {
+      const [e] = recheckEintraege([{ ref, zeile: 5, status: 'Resolved' }])
+      const roh = JSON.stringify([{ ref, status: 'Resolved' }])
+      if (e.ref === ref) await db.query('select doccheck.log_recheck($1, $2)', ['fl.xlsx', roh])
+      else expect(await fehler('select doccheck.log_recheck($1, $2)', ['fl.xlsx', roh])).toContain('IC-INPUT')
+      // Der Ersatz selbst geht immer durch — mit Backend scheitert derselbe Klick nicht mehr an IC-INPUT
+      await db.query('select doccheck.log_recheck($1, $2)', ['fl.xlsx', JSON.stringify([e])])
+    }
+    // Jeder Status der Sandbox-Liste wird angenommen
+    await db.query('select doccheck.log_recheck($1, $2)', ['fl.xlsx', JSON.stringify(RECHECK_STATUS.map((status) => ({ ref: '1', status })))])
   })
 
   it('Mengenbegrenzung: höchstens 60 Audit-Zeilen je Minute und Nutzer', async () => {

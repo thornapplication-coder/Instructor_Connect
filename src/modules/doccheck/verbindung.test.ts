@@ -90,6 +90,21 @@ describe('Verbindung zum Worker', () => {
     expect(gesendet.slice(-4).map((g) => g.a.typ)).toEqual(['titel', 'entfernen', 'paaren', 'referenzen'])
   })
 
+  it('pruefenSetzen startet keinen Worker; läuft einer, geht der Stand hin und die Antworten an die Hörer (DC-12)', () => {
+    const { w, gesendet } = fakeWorker()
+    const erzeugen = vi.fn(() => w)
+    const v = new Verbindung(erzeugen, '')
+    v.pruefenSetzen({ formal: false, word: true, rechnen: true })
+    expect(erzeugen).not.toHaveBeenCalled()
+    void v.suchen('q')
+    v.pruefenSetzen({ formal: false, word: true, rechnen: true })
+    expect(gesendet.at(-1)!.a).toEqual({ typ: 'pruefenSetzen', schalter: { formal: false, word: true, rechnen: true } })
+    const h = vi.fn()
+    v.beiOcr(h)
+    w.antworten({ typ: 'fertig', id: 'd', z: { id: 'd' } as never })
+    expect(h).toHaveBeenCalledWith({ id: 'd' })
+  })
+
   it('beenden: Worker weg, offene Zusagen gelöst statt hängend', async () => {
     const { w } = fakeWorker()
     const v = new Verbindung(() => w, '')

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { artErkennen, csvLesen, kopfzeile, LISTE_MAX_MB, listeAusTabelle, listeGroessePruefen, mdTabelle, zuordnen, type ReferenzListe } from './liste'
+import { artErkennen, csvLesen, kopfSpalten, kopfzeile, LISTE_MAX_MB, listeAusTabelle, listeGroessePruefen, mdTabelle, spaltenPruefen, zuordnen, type ReferenzListe } from './liste'
 
 describe('Referenzlisten — Erkennung an den Spaltenköpfen', () => {
   it('Glossar (deutsch wie englisch), Varianten getrennt nach ; , / oder Zeilenumbruch', () => {
@@ -35,6 +35,43 @@ describe('Referenzlisten — Erkennung an den Spaltenköpfen', () => {
       eintraege: [{ dokument: 'SBX-PLM-300', revision: 'Rev 1', datum: '46082' }, { dokument: 'SBX-OM' }],
     })
     expect(listeAusTabelle('a', [['Acronym', 'Meaning'], ['AFM', 'Airplane Flight Manual']], undefined, 'Blatt1')).toMatchObject({ art: 'abkuerzungen', blatt: 'Blatt1', eintraege: [{ abk: 'AFM', bedeutung: 'Airplane Flight Manual' }] })
+  })
+})
+
+describe('Nicht erkannte Liste: der Nutzer ordnet die Spalten zu (Audit 11/2026, DC-13)', () => {
+  // Vorher sprang die gewählte Art zurück auf „nicht erkannt": Die Wahl lief
+  // erneut durch die Kopferkennung, und „Foo/Bar" passt zu keiner Art.
+  const fremd = [['Foo', 'Bar'], ['AFM', 'Airplane Flight Manual'], ['QRH', 'Quick Reference Handbook']]
+
+  it('Kopf „Foo;Bar", Art Abkürzungen, Spalten {abk:0, bedeutung:1} → Einträge', () => {
+    expect(listeAusTabelle('fremd.csv', fremd, 'abkuerzungen')).toBeNull()
+    expect(listeAusTabelle('fremd.csv', fremd, 'abkuerzungen', undefined, { abk: 0, bedeutung: 1 })).toEqual({
+      id: 'ref-fremdcsv-',
+      name: 'fremd.csv',
+      art: 'abkuerzungen',
+      eintraege: [{ abk: 'AFM', bedeutung: 'Airplane Flight Manual' }, { abk: 'QRH', bedeutung: 'Quick Reference Handbook' }],
+    })
+    // Spalten vertauscht ist eine Entscheidung des Nutzers — sie gilt
+    expect(listeAusTabelle('fremd.csv', fremd, 'abkuerzungen', undefined, { abk: 1 })).toMatchObject({ eintraege: [{ abk: 'Airplane Flight Manual', bedeutung: '' }, { abk: 'Quick Reference Handbook' }] })
+  })
+
+  it('ohne Pflichtspalte keine Liste; ohne Art zählt eine Zuordnung nichts', () => {
+    expect(listeAusTabelle('fremd.csv', fremd, 'abkuerzungen', undefined, { bedeutung: 1 })).toBeNull()
+    expect(listeAusTabelle('fremd.csv', fremd, undefined, undefined, { abk: 0, bedeutung: 1 })).toBeNull()
+  })
+
+  it('spaltenPruefen: nur Rollen der Art, jede Spalte einmal, innerhalb der Tabelle — nichts geraten', () => {
+    expect(spaltenPruefen('glossar', { soll: 0, varianten: 0, quelle: 1, fremd: 2 }, 3)).toEqual({ soll: 0, quelle: 1 })
+    expect(spaltenPruefen('kennungen', { kennung: 5 }, 3)).toBeNull()
+    expect(spaltenPruefen('kennungen', { kennung: -1 }, 3)).toBeNull()
+    expect(spaltenPruefen('kennungen', { kennung: 1.5 }, 3)).toBeNull()
+    expect(spaltenPruefen('register', { dokument: 2 }, 3)).toEqual({ dokument: 2 })
+  })
+
+  it('kopfSpalten: Kopf wie die Erkennung, aufgefüllt auf die breiteste Zeile', () => {
+    expect(kopfSpalten([['Title'], ['Identifier', 'Name'], ['X', 'y', 'z']])).toEqual({ zeile: 1, koepfe: ['Identifier', 'Name', ''] })
+    expect(kopfSpalten([[' Foo ', 'Bar']])).toEqual({ zeile: 0, koepfe: ['Foo', 'Bar'] })
+    expect(kopfSpalten([])).toEqual({ zeile: 0, koepfe: [] })
   })
 })
 

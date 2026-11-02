@@ -3,6 +3,7 @@ import { DokListe } from './Dokumente'
 import { useTranslation } from 'react-i18next'
 import { Badge, Card, CardHeading } from '../../../components/ui'
 import { nachSammlung, SANDBOX_DOKUMENTE, SANDBOX_SAMMLUNGEN } from '../library'
+import { zahl } from '../../../zahl'
 import type { BibliotheksDokument } from '../types'
 
 /**
@@ -42,7 +43,7 @@ export function ReviewDocsPanel() {
 }
 
 function DokZeile({ d, gewaehlt, onToggle }: { d: BibliotheksDokument; gewaehlt: boolean; onToggle: () => void }) {
-  const { t } = useTranslation('doccheck')
+  const { t, i18n } = useTranslation('doccheck')
   return (
     <li className="flex items-start gap-2.5 py-2">
       <input
@@ -62,7 +63,7 @@ function DokZeile({ d, gewaehlt, onToggle }: { d: BibliotheksDokument; gewaehlt:
           {d.titel}
         </p>
         <p className="text-micro text-dim">
-          {d.nummer} · {t('library.pages', { n: d.seiten.toLocaleString('de-AT') })} · {t(`legal.${d.rechtscharakter}`)}
+          {d.nummer} · {t('library.pages', { n: zahl(d.seiten, i18n.language) })} · {t(`legal.${d.rechtscharakter}`)}
         </p>
       </div>
     </li>

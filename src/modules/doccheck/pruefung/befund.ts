@@ -160,14 +160,18 @@ export function regelStand(docs: { ocrKandidaten: number[]; pruefung?: { befunde
  * abgeschalteten Prüfungen; im Bild zu Nachtrag DCF#5 stand es für einen
  * Regelwerksauszug. Geprüft heißt nur, was eine Prüfung hat, und
  * „nicht bewertbar" sagt nur, wer überhaupt bewertet wird.
+ *
+ * Ein Prüfdokument ohne Prüfung hat sie abgeschaltet bekommen — das sagt
+ * der Toast dazu, sonst wartete man auf Befunde, die nicht kommen
+ * (Audit 11/2026, DC-12).
  */
-export function leseMeldung(z: { ocrKandidaten: number[]; pruefung?: { befunde: unknown[]; ohneText?: boolean } }): {
-  schluessel: 'gelesen' | 'gelesenOcr' | 'gelesenOhneText' | 'gelesenUngeprueft' | 'gelesenOcrUngeprueft'
+export function leseMeldung(z: { ocrKandidaten: number[]; pruefung?: { befunde: unknown[]; ohneText?: boolean } }, pruefdokument = false): {
+  schluessel: 'gelesen' | 'gelesenOcr' | 'gelesenOhneText' | 'gelesenUngeprueft' | 'gelesenOcrUngeprueft' | 'gelesenOhnePruefung'
   count?: number
   ton?: 'wait'
 } {
   const ocr = z.ocrKandidaten.length
-  if (!z.pruefung) return ocr ? { schluessel: 'gelesenOcrUngeprueft', count: ocr, ton: 'wait' } : { schluessel: 'gelesenUngeprueft' }
+  if (!z.pruefung) return ocr ? { schluessel: 'gelesenOcrUngeprueft', count: ocr, ton: 'wait' } : pruefdokument ? { schluessel: 'gelesenOhnePruefung', ton: 'wait' } : { schluessel: 'gelesenUngeprueft' }
   if (ocr) return { schluessel: 'gelesenOcr', count: ocr, ton: 'wait' }
   if (z.pruefung.ohneText) return { schluessel: 'gelesenOhneText', ton: 'wait' }
   return { schluessel: 'gelesen', count: z.pruefung.befunde.length }

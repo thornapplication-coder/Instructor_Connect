@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { darf, docCheckRolle, kachelZahl, rechteAudit, rechteSetzen, rollenAudit } from './access'
+import { darf, docCheckRolle, kachelZahl, RECHECK_JE_AUFRUF, RECHECK_STATUS, recheckAudit, recheckEintraege, rechteAudit, rechteSetzen, rollenAudit } from './access'
 import type { DocCheckAktion, DocCheckRolle } from './types'
 
 const nutzer = (role: 'superadmin' | 'group_admin' | 'training_admin' | 'member', flags: { a?: boolean; d?: boolean } = {}, active = true) => ({
@@ -141,6 +141,43 @@ describe('rollenAudit', () => {
   it('ein neues Konto zaehlt von „keine" aus', () => {
     expect(rollenAudit(null, { role: 'superadmin', active: true }, ctx).map((e) => e.wert)).toEqual(['keine → superadmin'])
     expect(rollenAudit(null, { role: 'member', active: true }, ctx)).toEqual([])
+  })
+})
+
+describe('recheckAudit — Nummer und Status, nie Befundtext (wie doccheck.log_recheck, Audit 11/2026, SEC-06)', () => {
+  let n = 0
+  const ctx = { von: 'u-p', at: 1000, id: () => `r${n++}` }
+
+  it('Text in der Nummernspalte wird zur Zeile der Liste; eine echte Nummer bleibt', () => {
+    // Nachgestellt wie beim Prüfer: Die Spalte „No." trug Befundtext
+    const z = recheckAudit('id-text.csv', [{ ref: 'CONFIDENTIAL OEM remark about TOTAL 16:00 in module overview', zeile: 2, status: 'Not verifiable' }, { ref: 'F-001', zeile: 3, status: 'Resolved' }], ctx)
+    expect(z).toEqual([{ id: expect.any(String), at: 1000, von: 'u-p', aktion: 'recheckBestaetigt', ziel: 'id-text.csv', wert: '#2: Not verifiable, F-001: Resolved' }])
+  })
+
+  it('dieselbe Regel wie die Datenbank: Zeichen, Länge, Status aus fester Liste', () => {
+    const e = (ref: string, zeile = 7) => recheckEintraege([{ ref, zeile, status: 'Resolved' }])[0].ref
+    expect(['12', 'A-3', 'F_01.2', 'TM/4#2', 'x'.repeat(20)].map((r) => e(r))).toEqual(['12', 'A-3', 'F_01.2', 'TM/4#2', 'x'.repeat(20)])
+    // Leerzeichen, Umlaut, zu lang, leer, Zeilenumbruch: Zeile statt Nummer
+    expect(['F 001', 'Ä1', 'x'.repeat(21), '', 'F-001\n'].map((r) => e(r))).toEqual(['#7', '#7', '#7', '#7', '#7'])
+    // Keine sinnvolle Zeile: „#0", nie „#NaN" (das sähe aus wie eine Nummer)
+    expect(e('F 001', Number.NaN)).toBe('#0')
+    expect(e('F 001', -3)).toBe('#0')
+    // Status außerhalb der Liste fällt weg — ohne gültigen Eintrag keine Zeile
+    expect(recheckEintraege([{ ref: '1', zeile: 2, status: 'Erledigt laut Chef' }])).toEqual([])
+    expect(recheckAudit('fl.xlsx', [{ ref: '1', zeile: 2, status: 'Erledigt laut Chef' }], ctx)).toEqual([])
+    expect(RECHECK_STATUS.every((st) => recheckEintraege([{ ref: '1', zeile: 2, status: st }]).length === 1)).toBe(true)
+  })
+
+  it('höchstens 500 Einträge je Zeile — mehr werden mehrere Zeilen, keiner geht verloren', () => {
+    const viele = Array.from({ length: RECHECK_JE_AUFRUF + 1 }, (_, i) => ({ ref: String(i + 1), zeile: i + 2, status: 'Resolved' }))
+    const z = recheckAudit('fl.xlsx', viele, ctx)
+    expect(z).toHaveLength(2)
+    expect(z[1].wert).toBe('501: Resolved')
+    // Wert höchstens 2000 Zeichen, Listenname ohne Steuerzeichen und höchstens 200 — wie left()/regexp_replace in der Migration
+    expect(z[0].wert).toHaveLength(2000)
+    expect(recheckAudit('fl\u0007\u009f.xlsx', [viele[0]], ctx)[0].ziel).toBe('fl.xlsx')
+    expect([...recheckAudit(`${'ä'.repeat(250)}.xlsx`, [viele[0]], ctx)[0].ziel]).toHaveLength(200)
+    expect(new Set(z.map((x) => x.id)).size).toBe(2)
   })
 })
 

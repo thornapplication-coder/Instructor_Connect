@@ -16,7 +16,7 @@ import { schalteStumm } from './chatMute'
 import { einzelAenderung } from './benutzerRegeln'
 import { domainErlaubt, domainListe, domainSperre } from './domains'
 import { importPlanen, type ImportEingabe } from './userImport'
-import { darf, docCheckRolle, kachelZahl, rechteAudit, rechteSetzen, rollenAudit } from './modules/doccheck/access'
+import { darf, docCheckRolle, kachelZahl, recheckAudit, rechteAudit, rechteSetzen, rollenAudit, type RecheckEintrag } from './modules/doccheck/access'
 import { einstellungen as docCheckEinstellungen } from './modules/doccheck/settings'
 import { faelligeErinnerungen, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EMPFEHLUNGEN } from './modules/doccheck/library'
 import type { DocCheckAuditEintrag, DocCheckFlags, DocCheckRolle, DocCheckSettings, DocCheckState } from './modules/doccheck/types'
@@ -170,7 +170,7 @@ export interface Store {
   docCheckConfirmRevision: (docId: string) => void
   /** Re-Check-Vorschläge bestätigt (Nachtrag N3/N11) — eine Audit-Zeile je
    *  Bestätigung, mit Listennummern und Status, ohne Befundtext. */
-  docCheckRecheckConfirm: (liste: string, eintraege: { ref: string; status: string }[]) => void
+  docCheckRecheckConfirm: (liste: string, eintraege: RecheckEintrag[]) => void
 }
 
 const DC_LEER: DocCheckState = { audit: [], bestaetigt: {} }
@@ -895,13 +895,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             },
           }
         }),
+      // Dieselbe Regel wie doccheck.log_recheck (recheckAudit): Nummer und
+      // Status, nie Befundtext — vorher stand hier die Nummernspalte
+      // ungeprüft, bis 300 Zeichen (Audit 11/2026, SEC-06).
       docCheckRecheckConfirm: (liste, eintraege) =>
         patch((s) => {
-          if (!eintraege.length || !darf(docCheckRolle(actorOf(s)), 'pruefen')) return null
-          const at = Date.now() + s.timeOffsetMs
+          if (!darf(docCheckRolle(actorOf(s)), 'pruefen')) return null
+          const zeilen = recheckAudit(liste, eintraege, { von: s.currentUserId!, at: Date.now() + s.timeOffsetMs, id: () => uid('dca') })
+          if (!zeilen.length) return null
           const dc = s.docCheck ?? DC_LEER
-          const wert = eintraege.map((e) => `${e.ref}: ${e.status}`).join(', ')
-          return { docCheck: { ...dc, audit: [{ id: uid('dca'), at, von: s.currentUserId!, aktion: 'recheckBestaetigt', ziel: liste, wert: wert.length > 300 ? `${wert.slice(0, 297)}…` : wert }, ...dc.audit] } }
+          return { docCheck: { ...dc, audit: [...zeilen, ...dc.audit] } }
         }),
       // Die Rechtematrix aendert ausschliesslich der Superadmin. Die Sperre
       // lag bisher allein in der Oberflaeche (Reiterliste im Admin-Panel) —

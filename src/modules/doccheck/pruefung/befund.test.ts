@@ -74,6 +74,8 @@ describe('Befunde', () => {
       leseMeldung({ ocrKandidaten: [] }),
       // Gescannter Master: Texterkennung ja, „nicht bewertbar" nein — bewertet wird er nicht
       leseMeldung({ ocrKandidaten: [3] }),
+      // Prüfdokument ohne Prüfung: Die Schalter stehen aus — das sagt der Toast (Audit 11/2026, DC-12)
+      leseMeldung({ ocrKandidaten: [] }, true),
     ]
     expect(faelle).toEqual([
       { schluessel: 'gelesen', count: 2 },
@@ -81,12 +83,14 @@ describe('Befunde', () => {
       { schluessel: 'gelesenOhneText', ton: 'wait' },
       { schluessel: 'gelesenUngeprueft' },
       { schluessel: 'gelesenOcrUngeprueft', count: 1, ton: 'wait' },
+      { schluessel: 'gelesenOhnePruefung', ton: 'wait' },
     ])
     // Der Schlüssel wird in der Ansicht zusammengesetzt — die statische Schlüsselwache sieht ihn nicht
     for (const sprache of [de, en]) {
       const upload = sprache.upload as Record<string, unknown>
       for (const { schluessel, count } of faelle) expect(upload[count === undefined ? schluessel : `${schluessel}_other`], schluessel).toBeTruthy()
       expect(upload.gelesenUngeprueft).not.toMatch(/geprüft|checked/)
+      expect(upload.gelesenOhnePruefung).toMatch(/abgeschaltet|switched off/)
     }
   })
 })

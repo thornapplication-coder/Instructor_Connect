@@ -62,9 +62,10 @@
   "pruefung": {
     "regel": {
       "titel": "Rule-based check – runs automatically on reading",
-      "stand_one": "1 document under review checked: {{befunde}} findings, {{hoch}} high.",
-      "stand_other": "{{count}} documents under review checked: {{befunde}} findings, {{hoch}} high.",
+      "stand_one": "1 document under review checked: {{befundeText}}, {{hoch}} high.",
+      "stand_other": "{{count}} documents under review checked: {{befundeText}}, {{hoch}} high.",
       "leer": "Load documents under review in the left column – formal check, Word check, language, calculations and references then run by themselves.",
+      "abgeschaltet": "The rule-based checks have been switched off by the superadmin – loaded documents under review are not checked.",
       "zuFindings": "Go to findings",
       "nichtBewertbar": {
         "ocr_one": "1 document under review is not assessable – text recognition pending.",
@@ -114,6 +115,7 @@
       "verification": "Verification"
     },
     "empty": "No findings yet. Upload a review document — the formal check and Word check run automatically.",
+    "abgeschaltet": "No findings: the rule-based checks have been switched off by the superadmin – loaded documents under review are not checked.",
     "filter": {
       "dok": "Document",
       "alleDok": "All documents",
@@ -140,7 +142,7 @@
   },
   "rev": {
     "staende": "Library versions",
-    "empfehlungen": "Open re-check recommendations ({{n}})",
+    "empfehlungen": "Open follow-up recommendations ({{n}})",
     "keine": "No open recommendations.",
     "dokumente": "The revision history of reviewed documents appears here once a review state is loaded."
   },
@@ -161,8 +163,10 @@
     "laeuft": "Generating …",
     "fertig": "{{name}} created.",
     "fehler": "The export could not be created.",
-    "stand_one": "{{count}} finding from {{dokumente}} document(s) under review – each export freezes the current state with its own export ID.",
-    "stand_other": "{{count}} findings from {{dokumente}} document(s) under review – each export freezes the current state with its own export ID.",
+    "stand_one": "{{count}} finding from {{dokumenteText}} – each export freezes the current state with its own export ID.",
+    "stand_other": "{{count}} findings from {{dokumenteText}} – each export freezes the current state with its own export ID.",
+    "dokumente_one": "{{count}} document under review",
+    "dokumente_other": "{{count}} documents under review",
     "keineDokumente": "No checked documents under review yet. Load documents on the left – or open a saved review state.",
     "ladenHinweis": "A review state contains only metadata, findings and short excerpts – no document content.",
     "geladen_one": "{{name}} opened: 1 finding.",
@@ -232,7 +236,11 @@
     "organisation": "Organisation in exports",
     "organisationPh": "e.g. name of the ATO – leave empty to set no name",
     "gateSperrt": "Block export “ready for submission” while a high finding is open",
-    "gateSperrtHint": "Off by default: only a warning is shown (addendum N4.3)."
+    "gateSperrtHint": "Off by default: only a warning is shown (addendum N4.3).",
+    "csvTrenner": "Separator in CSV exports",
+    "csvTrennerHint": "Applies to the findings list and the re-check. Semicolon opens directly in Excel with German regional settings.",
+    "csvSemikolon": "Semicolon (;)",
+    "csvKomma": "Comma (,)"
   },
   "feature": {
     "doccheck": "DocCheck overall",
@@ -262,11 +270,11 @@
   "mobile": {
     "desktopOnly": "Reviews and library maintenance on desktop or laptop",
     "bibliothek": "Library",
-    "nachpruefungen": "Re-checks",
+    "nachpruefungen": "Follow-ups",
     "befunde": "Findings",
     "recheck": "Re-check",
     "chat": "Chat",
-    "startOnDesktop": "Start the re-check on a desktop",
+    "startOnDesktop": "Start the follow-up review on a desktop",
     "openState": "Open a review state file (.doccheck.json) – view and export its findings. It is saved on the desktop in the “Export” tab.",
     "chatLimit": "Q&A chat against selected library documents, at most 3,000 pages at a time."
   },
@@ -287,6 +295,7 @@
     "gelesenUngeprueft": "{{name}} read.",
     "gelesenOcrUngeprueft_one": "{{name}} read – 1 page without a text layer: text recognition pending.",
     "gelesenOcrUngeprueft_other": "{{name}} read – {{count}} pages without a text layer: text recognition pending.",
+    "gelesenOhnePruefung": "{{name}} read – checks switched off, not checked.",
     "nichtGelesen": "{{name}} could not be read.",
     "entfernt": "{{name}} removed.",
     "angabenBearbeiten": "Details",
@@ -574,14 +583,16 @@
     "befunde_one": "1 finding",
     "befunde_other": "{{count}} findings",
     "hoch_one": "1 high",
-    "hoch_other": "{{count}} high"
+    "hoch_other": "{{count}} high",
+    "paket_one": "1 package finding",
+    "paket_other": "{{count}} package findings"
   },
   "referenz": {
     "titel": "Reference lists",
     "hinweis": "Excel, CSV or Markdown with a header row: glossary, abbreviations, document register (revision/date) or identifiers. Every review document is checked against them; nothing is stored.",
     "drop": "Add list",
     "format": "{{name}}: Excel, CSV or Markdown only",
-    "unbekannt": "{{name}}: columns not recognised — please choose the type",
+    "unbekannt": "{{name}}: columns not recognised – choose the type and assign the columns",
     "entfernen": "Remove {{name}}",
     "art": "List type",
     "nichtErkannt": "— not recognised —",
@@ -593,7 +604,24 @@
     },
     "eintraege_one": "1 entry",
     "eintraege_other": "{{count}} entries",
-    "spaltenFehlen": "matching columns missing"
+    "spaltenFehlen": "matching columns missing",
+    "zuordnen": "Assign columns (header: row {{zeile}})",
+    "spalte": "Column {{n}}: {{kopf}}",
+    "spalteLeer": "Column {{n}} (no header)",
+    "pflichtspalte": "Required column (*) missing",
+    "rollen": {
+      "soll": "Preferred spelling",
+      "varianten": "Variants to avoid",
+      "hinweis": "Note",
+      "quelle": "Source",
+      "abk": "Abbreviation",
+      "bedeutung": "Meaning",
+      "dokument": "Document",
+      "revision": "Revision",
+      "datum": "Date",
+      "kennung": "Identifier",
+      "bezeichnung": "Designation"
+    }
   },
   "recheck": {
     "einleitung": "Re-check an external finding list (Excel or CSV from the team, an authority or an audit) against the current review package. The search covers the whole package, not just the page given — page numbers in the list refer to the previous revision. Like all documents, the list stays in this tab only.",
@@ -605,6 +633,10 @@
     "profilGeladen": "Column mapping taken from the saved list profile",
     "befunde_one": "{{count}} finding · header in row {{zeile}}",
     "befunde_other": "{{count}} findings · header in row {{zeile}}",
+    "befundeOhneKopf_one": "{{count}} finding · no header row found",
+    "befundeOhneKopf_other": "{{count}} findings · no header row found",
+    "ohneKopf": "No header row found: the list is read from the first row. Please map the columns – the options show examples from the first row. Without a header row no list profile is saved, and writing back into the file is not possible.",
+    "spalteBeispiel": "e.g. {{wert}}",
     "blatt": "Sheet",
     "ausProfil": "List profile",
     "schritt2": "Map columns",
@@ -630,6 +662,7 @@
     "ohneWert": "(empty)",
     "paketweit": "Whole package",
     "quelleFehlt": "Source missing",
+    "mehrere": "Several: {{namen}}",
     "sprache": "Remark language",
     "spracheDe": "German (correction in the manual's language)",
     "spracheEn": "English",
@@ -644,7 +677,9 @@
     "aufgehoben_one": "1 confirmation withdrawn – the proposal has changed.",
     "aufgehoben_other": "{{count}} confirmations withdrawn – the proposal has changed.",
     "schritt4": "Review and confirm proposals",
-    "veraltet": "The review package has changed since the check — please check again.",
+    "veraltet": "The package or the mapping has changed since the check — please check again. Confirmations stay as long as the proposal for their row stays the same.",
+    "verlustFrage_one": "This discards {{count}} confirmation. Continue anyway?",
+    "verlustFrage_other": "This discards {{count}} confirmations. Continue anyway?",
     "status": {
       "resolved": "Resolved",
       "partial": "Partially resolved",
@@ -688,6 +723,7 @@
     "remark": "Remark",
     "bestaetigen": "Confirm “{{status}}”",
     "zuruecknehmen": "Withdraw confirmation",
+    "aufklappen": "Expand finding {{nr}}: locations and confirmation",
     "bestaetigtToast_one": "{{count}} proposal confirmed",
     "bestaetigtToast_other": "{{count}} proposals confirmed",
     "folgt": "Next: AI check of content findings.",
@@ -700,12 +736,14 @@
       "zeilen_one": "{{count}} confirmed row will be written.",
       "zeilen_other": "{{count}} confirmed rows will be written.",
       "nurBestaetigt": "Unconfirmed proposals are left out — in the original a proposal would look like a decision.",
+      "veraltet": "Check again first: the proposals predate the last change to the package, mapping or targets – only a current state is written back.",
       "start": "Create new Excel file",
       "fertig": "{{name}} created",
       "fehler": "The file could not be written — the original is unchanged.",
       "neu_one": "Append 1 new finding as sheet “{{blatt}}”",
       "neu_other": "Append {{count}} new findings as sheet “{{blatt}}”",
-      "neuNummern": "Numbers {{von}} to {{bis}}, following the highest number in the list. In the list’s style: header, drop-downs, colours, filter, A4 landscape.",
+      "neuNummern_one": "Number {{von}}, following the highest number in the list. In the list’s style: header, drop-downs, colours, filter, A4 landscape.",
+      "neuNummern_other": "Numbers {{von}} to {{bis}}, following the highest number in the list. In the list’s style: header, drop-downs, colours, filter, A4 landscape.",
       "neuKeine": "DocCheck found nothing in the package that is not already in the list.",
       "neuAusgenommen_one": "1 finding left out: it is a remaining occurrence of an old finding and is listed in its remark.",
       "neuAusgenommen_other": "{{count}} findings left out: they are remaining occurrences of old findings and are listed in their remarks."

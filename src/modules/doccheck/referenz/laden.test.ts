@@ -1,7 +1,7 @@
 import JSZip from 'jszip'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { fuerNutzer, lesenZustand, neu, fertig, setzen } from '../sitzung'
-import { aendern, hinzufuegen, referenzDateiLesen } from './laden'
+import { aendern, artSetzen, hinzufuegen, referenzDateiLesen } from './laden'
 import { LISTE_MAX_MB } from './liste'
 
 async function mappe(): Promise<Uint8Array> {
@@ -47,6 +47,24 @@ describe('Referenzlisten laden', () => {
     aendern(0, null, vb as never)
     expect(lesenZustand().referenzen).toHaveLength(1)
     expect(vb.referenzen).toHaveBeenLastCalledWith([])
+  })
+
+  it('nicht erkannte Liste: gewählte Art bleibt, Spalten von Hand → Liste geht an den Worker (Audit 11/2026, DC-13)', async () => {
+    const vb = v()
+    const r = await hinzufuegen([{ name: 'fremd.csv', arrayBuffer: async () => new TextEncoder().encode('Foo;Bar\nAFM;Airplane Flight Manual').buffer as ArrayBuffer }], vb as never)
+    expect(r.unbekannt).toEqual(['fremd.csv'])
+    // Art gewählt, Köpfe passen nicht: keine Liste, aber die Wahl springt nicht zurück
+    aendern(0, 'abkuerzungen', vb as never)
+    expect(lesenZustand().referenzen?.[0]).toMatchObject({ art: 'abkuerzungen', liste: null })
+    expect(vb.referenzen).toHaveBeenLastCalledWith([])
+    aendern(0, 'abkuerzungen', vb as never, { abk: 0, bedeutung: 1 })
+    expect(lesenZustand().referenzen?.[0]).toMatchObject({ art: 'abkuerzungen', spalten: { abk: 0, bedeutung: 1 } })
+    expect(vb.referenzen).toHaveBeenLastCalledWith([expect.objectContaining({ art: 'abkuerzungen', eintraege: [{ abk: 'AFM', bedeutung: 'Airplane Flight Manual' }] })])
+    // Eine andere Art verwirft die Zuordnung — ihre Rollen gibt es dort nicht
+    const neu = artSetzen(lesenZustand().referenzen![0], 'kennungen')
+    expect(neu.spalten).toBeUndefined()
+    expect(neu).toMatchObject({ art: 'kennungen', liste: null })
+    expect(artSetzen(neu, 'kennungen', { kennung: 0, bezeichnung: 1 }).liste).toMatchObject({ art: 'kennungen', eintraege: [{ kennung: 'AFM', bezeichnung: 'Airplane Flight Manual' }] })
   })
 
   it('übergroße Datei: abgewiesen, bevor sie gelesen wird; die übrigen Dateien kommen trotzdem an (Audit 11/2026, SEC-01)', async () => {

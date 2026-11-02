@@ -22,8 +22,8 @@ test('Einlesen → Befund per Tastatur → Viewer hält und gibt den Fokus zurü
   // Reiter per Pfeiltaste (reiter.ts)
   await page.getByRole('tab', { name: 'Prüfung' }).focus()
   await page.keyboard.press('ArrowRight')
-  await expect(page.getByRole('tab', { name: 'Findings' })).toHaveAttribute('aria-selected', 'true')
-  await expect(page.getByRole('tab', { name: 'Findings' })).toBeFocused()
+  await expect(page.getByRole('tab', { name: 'Befunde' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: 'Befunde' })).toBeFocused()
 
   // Befundzeile per Tastatur aufklappen — vorher nur mit der Maus erreichbar
   const knopf = page.getByRole('button', { name: /^Befund C-\d+: Fundstellen anzeigen$/ }).first()
@@ -68,17 +68,27 @@ test('Export: CSV mit BOM und denselben IDs wie die Excel-Datei; Prüfstand spei
 test('Re-Check: Paket und Fremdliste → bestätigen → Datei mit Blatt „Neue Findings"', async ({ page }) => {
   await page.getByRole('tab', { name: 'Administration' }).click()
   await page.getByLabel(/Re-Check externer/).check()
-  await page.getByRole('tab', { name: 'Re-Check' }).click()
+  await page.getByRole('tab', { name: 'Prüfung' }).click()
   const paket = await sbxPkg01()
   await page.locator('input[type=file]').first().setInputFiles(paket.map((d) => datei(d.name)))
   await expect(page.getByRole('status').filter({ hasText: /gelesen und geprüft/ }).first()).toBeVisible()
+  // Paketmodus: Die Paketbefunde sind echte neue Befunde. Ohne ihn war der einzige
+  // „neue" Befund das offene „TBD" in APX 4 — der Rest von Nr. 11, also eine
+  // Dublette, die nie auf das Blatt gehört (N10.3, Audit 11/2026, DC-04)
+  await page.getByRole('radio', { name: 'Paket' }).click()
+  await page.getByRole('tab', { name: 'Re-Check' }).click()
   await page.locator('input[accept=".xlsx,.csv,.txt"]').setInputFiles(datei(SBX_FL_01_NAME))
   await page.getByRole('button', { name: /Befunde? nachprüfen/ }).click()
   await page.getByRole('button', { name: /„Behoben“ bestätigen/ }).click()
   const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Neue Excel-Datei erzeugen' }).click()])
   expect(dl.suggestedFilename()).toMatch(/_recheck_\d{4}-\d{2}-\d{2}\.xlsx$/)
-  const mappe = await (await JSZip.loadAsync(readFileSync((await dl.path())!))).file('xl/workbook.xml')!.async('string')
-  expect(mappe).toContain('name="Neue Findings"')
+  const zip = await JSZip.loadAsync(readFileSync((await dl.path())!))
+  expect(await zip.file('xl/workbook.xml')!.async('string')).toContain('name="Neue Findings"')
+  // Das neue Blatt ist das letzte; der offene Altbefund steht dort nicht ein zweites Mal
+  const blaetter = Object.keys(zip.files).filter((n) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort((a, b) => Number(a.match(/\d+/)![0]) - Number(b.match(/\d+/)![0]))
+  const neu = await zip.file(blaetter.at(-1)!)!.async('string')
+  expect(neu).toContain('is not part of the package')
+  expect(neu).not.toContain('TBD')
 })
 
 test('Wartung: Superadmin schaltet DocCheck ab und über den Wartungshinweis wieder ein', async ({ page }) => {
@@ -88,4 +98,59 @@ test('Wartung: Superadmin schaltet DocCheck ab und über den Wartungshinweis wie
   await expect(page.getByText(/Wartung/)).toBeVisible()
   await page.getByRole('button', { name: 'DocCheck wieder einschalten' }).click()
   await expect(page.getByRole('tab', { name: 'Prüfung' })).toBeVisible()
+})
+
+test('Reiterleiste bei 1280 und 1440 px vollständig — auch mit Re-Check und geladenem Dokument (Audit 11/2026, DC-11)', async ({ page }) => {
+  // Vorher endete „Administration" 46 px hinter dem Rand der Mittelspalte
+  await page.getByRole('tab', { name: 'Administration' }).click()
+  await page.getByLabel(/Re-Check externer/).check()
+  await page.getByRole('tab', { name: 'Prüfung' }).click()
+  await page.locator('input[type=file]').first().setInputFiles(datei(SBX_CALC_01_NAME))
+  await expect(page.getByRole('status').filter({ hasText: /gelesen und geprüft/ })).toBeVisible()
+  for (const breite of [1280, 1440]) {
+    await page.setViewportSize({ width: breite, height: 900 })
+    const leiste = page.getByRole('tablist', { name: 'DocCheck' })
+    const rand = (await leiste.boundingBox())!
+    const reiter = leiste.getByRole('tab')
+    await expect(reiter).toHaveCount(8)
+    for (const r of await reiter.all()) {
+      const b = (await r.boundingBox())!
+      expect(b.x + b.width, `${await r.textContent()} bei ${breite} px`).toBeLessThanOrEqual(rand.x + rand.width + 0.5)
+    }
+  }
+})
+
+test.describe('400 % Zoom am Desktop', () => {
+  // 320 CSS-px = 1280 px bei 400 %; Desktop-Profil, also pointer: fine — der Ansichtsmodus greift nicht
+  test.use({ viewport: { width: 320, height: 700 } })
+
+  test('bei 320 px kein waagerechtes Scrollen (Audit 11/2026, A11Y-11, WCAG 1.4.10)', async ({ page }) => {
+    // Vorher wuchs die einzige Rasterspalte auf 402 px, Text war abgeschnitten
+    await expect(page.getByRole('tab', { name: 'Prüfung' })).toBeVisible()
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
+    // Ohne Überlauf ist noch nicht lesbar: Neben dem Modell-Select blieb vom Titel
+    // „D…", und „Einzeldokumen/te" brach mitten im Wort (Nachtrag A11Y#3). Gezählt
+    // werden Zeilen, nicht Höhe — zwei Zeilen passten in die 44 px des Knopfs.
+    expect(await page.getByRole('heading', { name: 'DocCheck', level: 1 }).evaluate((h) => h.scrollWidth <= h.clientWidth)).toBe(true)
+    const radios = page.getByRole('radiogroup', { name: 'Prüfumfang' }).getByRole('radio')
+    await expect(radios).toHaveCount(2)
+    for (const r of await radios.all()) {
+      const zeilen = await r.evaluate((b) => {
+        const bereich = document.createRange()
+        bereich.selectNodeContents(b)
+        return new Set([...bereich.getClientRects()].map((x) => Math.round(x.top))).size
+      })
+      expect(zeilen, (await r.textContent()) ?? '').toBe(1)
+    }
+  })
+})
+
+test('Hinweisdialog je Anmeldung: nach Abmelden und erneutem Anmelden erscheint er wieder (Audit 11/2026, SEC-05)', async ({ page }) => {
+  // beforeEach hat ihn bestätigt. Vorher galt das für jeden späteren Nutzer
+  // im selben Tab — am geteilten iPad sah der nächste ihn nie.
+  await page.goto('/#/')
+  await page.getByRole('button', { name: /Abmelden/ }).first().click()
+  await anmelden(page)
+  await page.goto('/#/doccheck')
+  await expect(page.getByRole('button', { name: 'Verstanden' })).toBeVisible()
 })

@@ -3,7 +3,7 @@ import { registrierteArbeitOffen } from '../../editGuard'
 import type { Zusammenfassung } from './kern'
 import type { ReCheckSitzung } from './recheck/ablauf'
 import {
-  abbruchAnfordern, abonnieren, offeneArbeit, referenzenSetzen, aktualisiert, bestaetigen, paketBestaetigen, paketSetzen, paketStruktur, paketVorbelegen, datei, dateiAblegen, dateiEntfernen, duplikatFuer, entfernen, fehler, feldSetzen, fertig, fortschritt, fuerNutzer, LEER, lesenZustand, neu, offenePflichtfelder, setzen,
+  abbruchAnfordern, abonnieren, befundZahl, offeneArbeit, referenzenSetzen, aktualisiert, bestaetigen, paketBestaetigen, paketSetzen, paketStruktur, paketVorbelegen, datei, dateiAblegen, dateiEntfernen, duplikatFuer, entfernen, fehler, feldSetzen, fertig, fortschritt, fuerNutzer, LEER, leerGrund, lesenZustand, neu, offenePflichtfelder, setzen,
 } from './sitzung'
 
 const zf = (id: string, meta: Partial<Zusammenfassung['meta']> = {}, sha = 'h' + id): Zusammenfassung => ({
@@ -61,6 +61,34 @@ describe('Sitzungsübergänge', () => {
     expect(z.docs.map((d) => d.abbruch)).toEqual([true, undefined])
   })
 
+  it('leerGrund: geladenes Prüfdokument ohne Prüfung heißt „abgeschaltet", nicht „hochladen" (Audit 11/2026, DC-12)', () => {
+    let z = neu(LEER, { id: 'm', rolle: 'master', name: 'm', groesse: 1 })
+    z = fertig(z, 'm', zf('m'))
+    // Nur ein Master, und ein Prüfdokument liest noch: es gibt noch nichts Geprüftes
+    z = neu(z, { id: 'a', rolle: 'review', name: 'a', groesse: 1 })
+    expect(leerGrund(z.docs)).toBe('keineDokumente')
+    z = fertig(z, 'a', zf('a'))
+    expect(leerGrund(z.docs)).toBe('abgeschaltet')
+    z = aktualisiert(z, { ...zf('a'), pruefung: { befunde: [], ampel: {} } as never })
+    expect(leerGrund(z.docs)).toBeNull()
+  })
+
+  it('befundZahl: Paketbefunde beim Dokument zählen mit, nur im Paketmodus (Audit 11/2026, DC-14)', () => {
+    const b = (dokId: string, prioritaet: 'High' | 'Medium' = 'Medium') => ({ dokId, prioritaet }) as never
+    let z = neu(neu(LEER, { id: 'a', rolle: 'review', name: 'a', groesse: 1 }), { id: 'b', rolle: 'review', name: 'b', groesse: 1 })
+    z = fertig(z, 'a', { ...zf('a'), pruefung: { befunde: [], ampel: {} } as never })
+    z = fertig(z, 'b', { ...zf('b'), pruefung: { befunde: [b('b', 'High')], ampel: {} } as never })
+    const paket = { befunde: [b('a'), b('a'), b('a', 'High'), b('a'), b('b')], uebersicht: [], ampel: {} }
+    // Ohne eigene, aber mit vier Paketbefunden: nie „ohne Befund"
+    expect(befundZahl(z.docs[0], paket, true)).toEqual({ eigen: 0, paket: 4, hoch: 1, paketHoch: 1 })
+    expect(befundZahl(z.docs[1], paket, true)).toEqual({ eigen: 1, paket: 1, hoch: 1, paketHoch: 0 })
+    // Paketmodus aus oder noch kein Ergebnis → 0
+    expect(befundZahl(z.docs[0], paket, false)).toEqual({ eigen: 0, paket: 0, hoch: 0, paketHoch: 0 })
+    expect(befundZahl(z.docs[0], undefined, true)).toEqual({ eigen: 0, paket: 0, hoch: 0, paketHoch: 0 })
+    // Noch nicht gelesen: nichts
+    expect(befundZahl(neu(LEER, { id: 'c', rolle: 'review', name: 'c', groesse: 1 }).docs[0], paket, true)).toEqual({ eigen: 0, paket: 0, hoch: 0, paketHoch: 0 })
+  })
+
   it('Pflichtfelder: Revision immer, Titel für Master', () => {
     const r = neu(LEER, { id: 'a', rolle: 'review', name: 'a', groesse: 1 }).docs[0]
     const m = neu(LEER, { id: 'm', rolle: 'master', name: 'm', groesse: 1 }).docs[0]
@@ -107,6 +135,22 @@ describe('Speicher', () => {
     dateiAblegen('z', new Uint8Array())
     dateiEntfernen('z')
     expect(datei('z')).toBeUndefined()
+  })
+
+  it('auch Referenzlisten oder ein Re-Check ohne Dokument gelten als verworfen — sonst wirkt das Glossar des Vorgängers im Worker weiter (Audit 11/2026, Nachtrag SEC#1)', () => {
+    // Nachgestellt: A lädt nur ein Glossar, „Ansicht als" B, B liest ein Dokument
+    // und bekommt Befunde „… glossary glossar-a.csv". Ein true lässt DocCheckApp den Worker beenden.
+    fuerNutzer('a')
+    setzen((z) => referenzenSetzen(z, [{ liste: null, datei: 'glossar-a.csv', zeilen: [] }]))
+    expect(fuerNutzer('b')).toBe(true)
+    expect(lesenZustand()).toEqual({ nutzer: 'b', docs: [] })
+    setzen((z) => ({ ...z, recheck: {} as ReCheckSitzung }))
+    expect(fuerNutzer('c')).toBe(true)
+    expect(lesenZustand().recheck).toBeUndefined()
+    // Leere Sitzung: nichts zu verwerfen, der Worker darf bleiben
+    expect(fuerNutzer('d')).toBe(false)
+    setzen((z) => referenzenSetzen(z, []))
+    expect(fuerNutzer(null)).toBe(false)
   })
 })
 

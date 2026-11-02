@@ -43,6 +43,14 @@ describe('Alle Formate aus einem Datenstand (Spez. v1.1 Kap. 10.1, 10.8 „Inhal
     expect(total.slice(1, 5)).toEqual(['2', '2', '1', '5'])
   })
 
+  it('der eingestellte CSV-Trenner erreicht die Befund-CSV, auch im ZIP-Paket (Spez. 10.6; Audit 11/2026, EXP-17)', async () => {
+    expect(text(datei.csv.daten).split('\r\n')[0]).toMatch(/^"ID";"Document";/)
+    const komma = await erzeugen(d, 'csv', { ...kontext, csvTrenner: ',' })
+    expect(text(komma.daten).split('\r\n')[0]).toMatch(/^"ID","Document",/)
+    const z = await JSZip.loadAsync((await paket(d, ['csv'], { ...kontext, csvTrenner: ',' })).daten)
+    expect((await z.file('2026-11-01_Review_TM-CL30_Rev0.1_Findings.csv')!.async('string')).split('\r\n')[0]).toMatch(/"ID","Document",/)
+  })
+
   it('ZIP-Paket enthält alle gewählten Formate und immer den Prüfstand', async () => {
     const z = await paket(d, ['csv', 'xlsx'], kontext)
     expect(z.name).toBe('2026-11-01_Review_TM-CL30_Rev0.1_All.zip')

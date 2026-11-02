@@ -219,6 +219,12 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   Eine Restfundstelle eines alten Befunds ist NIE zugleich neuer Befund
   (Dublettenregel N10.3) — verglichen wird je Dokument, der kürzere Auszug
   braucht mindestens 8 Zeichen, sonst verschluckte „PF" echte Befunde.
+  Gezählt wird die Überlappung (20 Zeichen bzw. 80 % des kürzeren), nicht
+  das Enthaltensein — Rest und Befund sind verschieden geschnitten; bei
+  „Treffer — Kontext" muss der Treffer der beanstandete Text des alten
+  Befunds sein und im Rest in derselben Umgebung stehen, sonst wäre jedes
+  „TBD" eine Dublette und ein anderer Mangel im selben Satz ebenso (Audit
+  11/2026, DC-04).
   Das Blatt kopiert Wurzel-Namensräume, Spaltenbreiten, Kopfzellen,
   Zellformate, bedingte Formatierungen und Dropdowns der Quelle (eigene
   Bezüge aufs Quellblatt festgelegt, `xr:uid` entfernt) und behält die
@@ -295,10 +301,15 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   liegt IM Modul, ohne den Knopf sperrte er sich selbst aus. „Erneut
   prüfen" behält eine Bestätigung, solange der Vorschlag ihrer Zeile gleich
   bleibt (`nachLauf`, gemessen an `Bestaetigung.vorschlag`), und sagt, wie
-  viele wegfielen. Ab 1024 px zwei Spalten mit den Reitern oben, ab 1280 px
-  drei. Das Gate zeigt je Dokument nur auffällige Prüfpunkte, der Rest auf
-  Klick; Dokumentkarten klappen ihre Angaben ein, sobald nichts mehr offen
-  ist; Revision notfalls aus dem Dateinamen (`revisionAusDateiname`).
+  viele wegfielen. Ein weiteres Dokument, ein anderes Ziel oder eine andere
+  Spalte verwirft sie ebenso wenig: Der Stand heißt „veraltet"
+  (`istVeraltet`), zurückgeschrieben wird erst nach dem nächsten Lauf, und
+  was ein Spalten-, Blatt- oder Listenwechsel kostet, wird vorher erfragt
+  (Audit 11/2026, DC-02). Ab 1024 px zwei Spalten mit den Reitern oben,
+  ab 1280 px drei. Das Gate zeigt je Dokument nur auffällige Prüfpunkte,
+  der Rest auf Klick; Dokumentkarten klappen ihre Angaben ein, sobald
+  nichts mehr offen ist; Revision notfalls aus dem Dateinamen
+  (`revisionAusDateiname`).
   Befundzeilen klappen über einen echten Knopf auf (Tastatur), Reiter
   folgen dem ARIA-Muster (`reiter.ts`), Befundtext trägt `lang="en"`.
   „Nicht anwendbar" nie per Deckkraft dämpfen — das drückte den Kontrast

@@ -2,6 +2,7 @@ import JSZip from 'jszip'
 import { csvBefunde } from './csv'
 import type { Datenstand } from './datenstand'
 import { pruefstandAus, pruefstandText } from './pruefstand'
+import type { CsvTrenner } from '../types'
 
 /**
  * Alle Formate aus EINEM Datenstand (Spez. v1.1 Kap. 10.1 Nr. 1), mit den
@@ -34,11 +35,18 @@ export interface Datei {
   mime: string
 }
 
-export async function erzeugen(d: Datenstand, format: Format, kontext: { userId: string; ts: string; formate: Format[] }): Promise<Datei> {
+/** Was eine Ausgabe außer dem Datenstand braucht; der CSV-Trenner ist Einstellung des Superadmins (Spez. 10.6). */
+export interface Kontext {
+  userId: string
+  ts: string
+  csvTrenner?: CsvTrenner
+}
+
+export async function erzeugen(d: Datenstand, format: Format, kontext: Kontext & { formate: Format[] }): Promise<Datei> {
   const name = `${d.dateiStamm}${ENDUNG[format]}`
   const text = (s: string) => new TextEncoder().encode(s)
   let daten: Uint8Array
-  if (format === 'csv') daten = text(csvBefunde(d))
+  if (format === 'csv') daten = text(csvBefunde(d, kontext.csvTrenner))
   else if (format === 'json') daten = text(pruefstandText(pruefstandAus(d, kontext.userId, kontext.formate, kontext.ts)))
   else if (format === 'xlsx') daten = await (await import('./xlsx')).xlsxExport(d)
   else if (format === 'docx') daten = await (await import('./docx')).docxExport(d)
@@ -47,7 +55,7 @@ export async function erzeugen(d: Datenstand, format: Format, kontext: { userId:
 }
 
 /** ZIP-Paket `…_All.zip` mit allen gewählten Formaten und dem Prüfstand. */
-export async function paket(d: Datenstand, formate: Format[], kontext: { userId: string; ts: string }): Promise<Datei> {
+export async function paket(d: Datenstand, formate: Format[], kontext: Kontext): Promise<Datei> {
   const alle: Format[] = [...new Set([...formate, 'json' as const])]
   const zip = new JSZip()
   const date = new Date(`${d.datum}T00:00:00Z`)

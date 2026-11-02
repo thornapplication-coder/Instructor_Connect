@@ -43,13 +43,21 @@ export function zuordnungVorschlagen(kopf: string[]): Zuordnung {
   return out
 }
 
-/** Kopfzeile: die erste der ersten zehn Zeilen, in der Befund UND eine weitere Rolle erkannt werden. */
+/**
+ * Kopfzeile: die erste der ersten zehn Zeilen, in der Befund UND eine weitere
+ * Rolle erkannt werden; -1, wenn keine.
+ *
+ * Vorher galt ohne Treffer Zeile 0 als Kopf — bei einer Liste ohne
+ * Kopfzeile also die erste BEFUNDZEILE: Sie wurde nie geprüft, und ihr Text
+ * landete als Schlüssel des Listenprofils dauerhaft im Browser, auch über
+ * das Abmelden hinaus (Audit 11/2026, SEC-02). Mit -1 liest `befundeLesen`
+ * ab Zeile 0, und die Spalten ordnet der Nutzer zu, statt dass geraten wird.
+ */
 export function kopfzeileFinden(zeilen: string[][]): number {
-  const i = zeilen.slice(0, 10).findIndex((z) => {
+  return zeilen.slice(0, 10).findIndex((z) => {
     const v = zuordnungVorschlagen(z)
     return v.befund !== undefined && Object.keys(v).length >= 2
   })
-  return i < 0 ? 0 : i
 }
 
 export interface FremdBefund {
@@ -69,6 +77,7 @@ export interface FremdBefund {
   verantwortlich: string
 }
 
+/** `kopf` −1: Liste ohne Kopfzeile, Befunde ab der ersten Zeile. */
 export function befundeLesen(zeilen: string[][], kopf: number, z: Zuordnung, zeilenNr?: number[]): FremdBefund[] {
   const zelle = (row: string[], r: Rolle) => (z[r] !== undefined ? (row[z[r]!] ?? '').trim() : '')
   return zeilen
@@ -121,10 +130,20 @@ function fenster(name: string): string[] {
  * Dateiname), wird es dieses; paketweite Wörter → Paket; sonst „Quelle
  * fehlt" — etwa „OSD", wenn das OSD nicht geladen ist. Raten wäre schlimmer:
  * ein Befund, der gegen das falsche Dokument geprüft wird, gilt als behoben.
+ *
+ * Treffer in drei Stufen, die genaueste gewinnt: ein Name, der ganz dem
+ * Wert entspricht (Kürzel „TM"), dann ein ganzes Wort im Namen (Fenster,
+ * etwa im Dateinamen), dann ein Teil eines längeren Namens. Vorher zählten
+ * alle gleich, und ein Anhang, dessen Titel „TM" erwähnt, kam für den
+ * Listenwert „TM" neben dem Training Manual mit (Audit 11/2026, DC-05).
  */
 export function zielVorschlagen(wert: string, docs: { id: string; namen: string[] }[]): Ziel {
   const f = dokForm(wert)
   if (!f || PAKETWEIT.includes(vergleichsform(wert))) return { art: 'paket' }
-  const treffer = docs.filter((d) => d.namen.some((n) => dokForm(n) === f || fenster(n).includes(f) || (f.length >= 5 && dokForm(n).includes(f))))
-  return treffer.length ? { art: 'dok', ids: treffer.map((d) => d.id) } : { art: 'fehlt' }
+  const stufen: ((n: string) => boolean)[] = [(n) => dokForm(n) === f, (n) => fenster(n).includes(f), (n) => f.length >= 5 && dokForm(n).includes(f)]
+  for (const passt of stufen) {
+    const treffer = docs.filter((d) => d.namen.some(passt))
+    if (treffer.length) return { art: 'dok', ids: treffer.map((d) => d.id) }
+  }
+  return { art: 'fehlt' }
 }

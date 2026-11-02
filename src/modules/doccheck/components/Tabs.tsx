@@ -1,4 +1,4 @@
-import { CheckCircle2, MessageSquareText } from 'lucide-react'
+import { CheckCircle2, CircleSlash, MessageSquareText } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDate } from '../../../datum'
@@ -10,7 +10,7 @@ import { erinnerungAb, faelligeErinnerungen, offeneEmpfehlungen, SANDBOX_DOKUMEN
 import { aktiv, preiseVollstaendig } from '../settings'
 import { Dropzone, Phase } from './Panels'
 import { Suche } from './Suche'
-import { useSitzung } from '../sitzung'
+import { leerGrund, useSitzung } from '../sitzung'
 import { regelStand } from '../pruefung/befund'
 import { PaketPanel, PaketUmschalter } from './Paket'
 
@@ -24,17 +24,22 @@ import { PaketPanel, PaketUmschalter } from './Paket'
  */
 function RegelStand({ zuFindings }: { zuFindings: () => void }) {
   const { t } = useTranslation('doccheck')
-  const docs = useSitzung().docs.filter((d) => d.rolle === 'review' && d.z?.pruefung)
+  const alle = useSitzung().docs
+  const docs = alle.filter((d) => d.rolle === 'review' && d.z?.pruefung)
   // „1 Prüfdokument geprüft: 0 Befunde" stand auch bei einem Scan ohne Textebene (Audit 11/2026, DC-03, DCF#5)
   const s = regelStand(docs.map((d) => d.z!))
+  // Geladen, aber alle Schalter aus: nicht zum Hochladen auffordern (Audit 11/2026, DC-12) — und kein
+  // grüner Haken über „abgeschaltet" (Gegenprüfung)
+  const aus = !docs.length && leerGrund(alle) === 'abgeschaltet'
   return (
     <div className="flex flex-wrap items-center justify-between gap-stack rounded-2xl border border-accent/30 bg-accent/5 p-4">
       <div className="min-w-0 text-small">
         <p className="flex items-center gap-1.5 font-semibold">
-          <CheckCircle2 size={16} className="text-ok" aria-hidden /> {t('pruefung.regel.titel')}
+          {aus ? <CircleSlash size={16} className="text-dim" aria-hidden /> : <CheckCircle2 size={16} className="text-ok" aria-hidden />} {t('pruefung.regel.titel')}
         </p>
-        {!docs.length && <p className="text-dim">{t('pruefung.regel.leer')}</p>}
-        {s.geprueft > 0 && <p className="text-dim">{t('pruefung.regel.stand', { count: s.geprueft, befunde: s.befunde, hoch: s.hoch })}</p>}
+        {!docs.length && <p className="text-dim">{aus ? t('pruefung.regel.abgeschaltet') : t('pruefung.regel.leer')}</p>}
+        {/* Die Zahl der Befunde braucht ihre eigene Ein-/Mehrzahl — gewählt wurde nach den Dokumenten, und es stand „1 Befunde" (Audit 11/2026, TXT-08) */}
+        {s.geprueft > 0 && <p className="text-dim">{t('pruefung.regel.stand', { count: s.geprueft, befundeText: t('pruefungKurz.befunde', { count: s.befunde }), hoch: s.hoch })}</p>}
         {s.ocr > 0 && <p className="text-ink">{t('pruefung.regel.nichtBewertbar.ocr', { count: s.ocr })}</p>}
         {s.ohneText > 0 && <p className="text-ink">{t('pruefung.regel.nichtBewertbar.ohneText', { count: s.ohneText })}</p>}
       </div>

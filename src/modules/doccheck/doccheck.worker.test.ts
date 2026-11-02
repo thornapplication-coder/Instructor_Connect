@@ -70,6 +70,16 @@ describe('Worker-Nachrichtenschicht', () => {
   })
 })
 
+describe('Worker — Prüfschalter (Audit 11/2026, DC-12)', () => {
+  it('pruefenSetzen reicht den Stand an den Kern und meldet jedes neu geprüfte Dokument', async () => {
+    const pruefenSetzen = vi.fn(() => [{ id: 'a' } as never, { id: 'b' } as never])
+    const a = aufbau({ pruefenSetzen })
+    await a.senden({ typ: 'pruefenSetzen', schalter: { formal: false, word: true, rechnen: true } })
+    expect(pruefenSetzen).toHaveBeenCalledWith({ formal: false, word: true, rechnen: true })
+    expect(a.raus).toEqual([{ typ: 'fertig', id: 'a', z: { id: 'a' } }, { typ: 'fertig', id: 'b', z: { id: 'b' } }])
+  })
+})
+
 describe('fehlerCode', () => {
   it('lässt DC-Codes durch, alles andere wird DC-PARSE', () => {
     expect(fehlerCode(new Error('DC-PDF-PASSWORD'))).toBe('DC-PDF-PASSWORD')

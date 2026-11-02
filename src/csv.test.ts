@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { CSV_SEPARATOR, csvEsc, csvNum, csvRow, downloadCsv } from './csv'
+import { CSV_SEPARATOR, csvEsc, csvNum, csvRow, downloadCsv, formelSchutz } from './csv'
 
 /**
  * Der CSV-Export landet in Excel. Zwei Dinge müssen deshalb halten:
@@ -24,6 +24,15 @@ describe('csvEsc — Formelschutz', () => {
     expect(csvEsc('-0,63')).toBe('-0,63')
     expect(csvEsc('-12')).toBe('-12')
     expect(csvEsc('-1.5')).toBe('-1.5')
+  })
+
+  it('formelSchutz ist die eine Regel, die auch DocCheck nutzt — Tab und CR eingeschlossen (Audit 11/2026, EXP-22)', () => {
+    expect(formelSchutz('\t=1+1')).toBe("'\t=1+1")
+    expect(formelSchutz('\r=1+1')).toBe("'\r=1+1")
+    expect(formelSchutz('-5 kt')).toBe("'-5 kt")
+    expect(formelSchutz('-0,63')).toBe('-0,63')
+    expect(formelSchutz('Text')).toBe('Text')
+    expect(csvEsc('\tx')).toBe("'\tx")
   })
 
   it('maskiert auch dann, wenn der Formelschutz schon zugeschlagen hat', () => {
@@ -111,6 +120,13 @@ describe('downloadCsv', () => {
       downloadCsv('bericht.csv', 'a;b\n')
       expect((calls.parts as string[])[0]).toBe('﻿' + 'a;b\n')
       expect(calls.type).toBe('text/csv;charset=utf-8')
+    })
+  })
+
+  it('setzt kein zweites BOM vor einen Text, der seines schon mitbringt (DocCheck-CSV, EXP-17)', async () => {
+    await withStubs((calls) => {
+      downloadCsv('recheck.csv', '\uFEFF"a";"b"\r\n')
+      expect((calls.parts as string[])[0]).toBe('\uFEFF"a";"b"\r\n')
     })
   })
 

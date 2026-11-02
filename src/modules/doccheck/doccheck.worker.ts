@@ -1,4 +1,4 @@
-import { Kern, type LeseAuftrag, type Zusammenfassung } from './kern'
+import { Kern, type LeseAuftrag, type PruefSchalter, type Zusammenfassung } from './kern'
 import { pdfAblage, pdfjsLaden } from './pdfjsLaden'
 import type { ReferenzListe } from './referenz/liste'
 import type { Treffer } from './search/suche'
@@ -24,6 +24,7 @@ export type Anfrage =
   | { typ: 'ocr'; id: string; seiten: { n: number; text: string }[] }
   | { typ: 'paaren'; id: string; daten: Uint8Array }
   | { typ: 'referenzen'; listen: ReferenzListe[] }
+  | { typ: 'pruefenSetzen'; schalter: PruefSchalter }
   | { typ: 'nachpruefen'; nr: number; auftraege: { befund: FremdBefund; ziel: Ziel }[] }
   | { typ: 'paket'; nr: number; struktur: Omit<Mitglied, 'pages'>[]; korrekturen: Korrektur[] }
 
@@ -89,6 +90,9 @@ export function verbinden(bereich: Bereich, kernFuer: (basis: string) => Kern): 
         return
       case 'referenzen':
         for (const z of k().referenzenSetzen(a.listen)) bereich.postMessage({ typ: 'fertig', id: z.id, z })
+        return
+      case 'pruefenSetzen':
+        for (const z of k().pruefenSetzen(a.schalter)) bereich.postMessage({ typ: 'fertig', id: z.id, z })
         return
       case 'paaren': {
         const z = await k().paaren(a.id, a.daten)

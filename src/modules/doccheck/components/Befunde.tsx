@@ -13,7 +13,7 @@ import { PAKET_PUNKTE } from '../paket/pruefen'
 import { RECHEN_PUNKTE, seitenAnfang } from '../pruefung/rechnen'
 import { VERWEIS_PUNKTE } from '../pruefung/verweise'
 import { REGELWERK_PUNKTE } from '../pruefung/regelwerk'
-import { useSitzung } from '../sitzung'
+import { leerGrund, useSitzung } from '../sitzung'
 import { aktiv } from '../settings'
 import { useViewer } from './Viewer'
 
@@ -199,7 +199,7 @@ export function FindingsTab() {
           <tbody>
             {liste.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-major text-center text-dim">{geprueft.length ? t('findings.keineTreffer') : t('findings.empty')}</td>
+                <td colSpan={7} className="px-3 py-major text-center text-dim">{geprueft.length ? t('findings.keineTreffer') : leerGrund(docs) === 'abgeschaltet' ? t('findings.abgeschaltet') : t('findings.empty')}</td>
               </tr>
             )}
             {liste.map((b) => {

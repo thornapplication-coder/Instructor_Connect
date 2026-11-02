@@ -21,9 +21,16 @@ export async function referenzDateiLesen(name: string, daten: Uint8Array): Promi
   return [{ datei: name, zeilen, liste: listeAusTabelle(name, zeilen) }]
 }
 
-/** Art ausdrücklich setzen (Erkennung lag daneben oder fand nichts). */
-export function artSetzen(r: SitzungsReferenz, art: ListenArt): SitzungsReferenz {
-  return { ...r, liste: listeAusTabelle(r.datei, r.zeilen, art, r.blatt) }
+/**
+ * Art ausdrücklich setzen (Erkennung lag daneben oder fand nichts), auf
+ * Wunsch mit eigener Spaltenzuordnung. Die gewählte Art bleibt stehen, auch
+ * wenn noch keine Liste entsteht — sonst sprang die Auswahl zurück, und die
+ * Spaltenwahl hatte nichts, woran sie hängen konnte (Audit 11/2026, DC-13).
+ * Eine neue Art verwirft die alte Zuordnung: Ihre Rollen gibt es dort nicht.
+ */
+export function artSetzen(r: SitzungsReferenz, art: ListenArt, spalten?: Record<string, number>): SitzungsReferenz {
+  const { spalten: _alt, ...rest } = r
+  return { ...rest, art, ...(spalten ? { spalten } : {}), liste: listeAusTabelle(r.datei, r.zeilen, art, r.blatt, spalten) }
 }
 
 /** Aktuelle Listen an den Worker; neu geprüfte Dokumente zurück in die Sitzung. */
@@ -60,11 +67,11 @@ export async function hinzufuegen(
   return { unbekannt: neu.filter((r) => !r.liste).map((r) => (r.blatt ? `${r.datei} / ${r.blatt}` : r.datei)), fehler }
 }
 
-export function aendern(index: number, art: ListenArt | null, v: Pick<Verbindung, 'referenzen' | 'beiOcr'>): void {
+export function aendern(index: number, art: ListenArt | null, v: Pick<Verbindung, 'referenzen' | 'beiOcr'>, spalten?: Record<string, number>): void {
   setzen((s) => {
     const liste = [...(s.referenzen ?? [])]
     if (art === null) liste.splice(index, 1)
-    else liste[index] = artSetzen(liste[index], art)
+    else liste[index] = artSetzen(liste[index], art, spalten)
     return referenzenSetzen(s, liste)
   })
   anwenden(v)

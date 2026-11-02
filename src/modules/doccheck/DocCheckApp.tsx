@@ -18,10 +18,13 @@ import { APP_VERSION } from '../../types'
 import { SANDBOX } from '../../sandbox/flag'
 import { Badge, Button, Card, CardHeading, Modal, Page, selectCls, TopBar } from '../../components/ui'
 import { darf } from './access'
-import { aktiv } from './settings'
+import { aktiv, pruefSchalter } from './settings'
 import { registriereDocCheckTexte } from './i18n'
+import { hinweisMerken, hinweisOffen, sitzungsAblage } from './hinweis'
+import { profileBereinigen } from './recheck/profil'
 import { aktuellerStand, nachSammlung, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EMPFEHLUNGEN, SANDBOX_SAMMLUNGEN, SANDBOX_STAENDE, standLabel } from './library'
 import { useAnsichtsmodus } from './viewMode'
+import { zahl } from '../../zahl'
 import { naechsterReiter } from './reiter'
 import { aktualisiert, fuerNutzer, setzen } from './sitzung'
 import { standardVerbindung } from './verbindung'
@@ -41,25 +44,16 @@ registriereDocCheckTexte(i18n)
 
 type Reiter = 'pruefung' | 'findings' | 'recheck' | 'chat' | 'revisionen' | 'export' | 'verwalten' | 'admin'
 
-const HINWEIS_KEY = 'dc-notice-seen'
-
-/** Hinweisdialog je Sitzung (Spez. 5.5 Nr. 2). sessionStorage, nicht der
- *  App-Zustand: „je Sitzung" heisst, ein neuer Tab zeigt ihn wieder. */
-function useHinweis(): [boolean, () => void] {
-  const [offen, setOffen] = useState(() => {
-    try {
-      return sessionStorage.getItem(HINWEIS_KEY) !== '1'
-    } catch {
-      return true
-    }
-  })
+/** Hinweisdialog je Anmeldung (Spez. 5.5 Nr. 2, Regel in `hinweis.ts`) — je
+ *  Nutzer, damit auch „Ansicht als" und der nächste Nutzer am geteilten Gerät
+ *  ihn sehen (Audit 11/2026, SEC-05). `zu` hält das Schließen fest, auch
+ *  wenn die Ablage gesperrt ist; ein anderer Nutzer gilt nicht als gesehen. */
+function useHinweis(nutzer: string | null): [boolean, () => void] {
+  const [zu, setZu] = useState<string | null>(null)
+  const offen = zu !== nutzer && hinweisOffen(sitzungsAblage(), nutzer)
   const schliessen = () => {
-    try {
-      sessionStorage.setItem(HINWEIS_KEY, '1')
-    } catch {
-      /* ohne sessionStorage erscheint er eben wieder */
-    }
-    setOffen(false)
+    hinweisMerken(sitzungsAblage(), nutzer)
+    setZu(nutzer)
   }
   return [offen, schliessen]
 }
@@ -81,9 +75,10 @@ function Kopf({ modell, setModell, zeigeModell }: { modell: string; setModell: (
             <Badge tone="accent">{t('status.ai')}: {t('status.simulated')}</Badge>
           </span>
           {zeigeModell && (
+            /* Unter sm schmal: Bei 320 px (400 % Zoom) blieb vom Titel sonst nur „D…" (Audit 11/2026, A11Y-11) */
             <select
               aria-label={t('model')}
-              className={`${selectCls} !w-auto !py-1.5`}
+              className={`${selectCls} !w-auto max-w-24 !px-2 !py-1.5 sm:max-w-none sm:!px-3`}
               value={modell}
               onChange={(e) => setModell(e.target.value)}
             >
@@ -166,7 +161,11 @@ function Desktop() {
             zwei Spalten: Prüfdokumente links über beide Zeilen, rechts die
             Reiter und darunter Bibliothek/Sitzung; schmaler stehen die Reiter
             zuerst. Ab 1280 px wie bisher drei Spalten. */}
-        <div className={`grid items-start gap-stack ${verwaltung ? '' : nurLinks ? 'lg:grid-cols-[15rem_minmax(0,1fr)]' : 'lg:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_18rem]'}`}>
+        {/* Auch einspaltig eine ausdrückliche Spalte: Die stillschweigende
+            „auto"-Spur wuchs auf die Mindestbreite des Inhalts (402 px), und bei
+            320 px (400 % Zoom) musste man waagerecht scrollen, Text war
+            abgeschnitten (Audit 11/2026, A11Y-11, WCAG 1.4.10). */}
+        <div className={`grid grid-cols-[minmax(0,1fr)] items-start gap-stack ${verwaltung ? '' : nurLinks ? 'lg:grid-cols-[15rem_minmax(0,1fr)]' : 'lg:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_18rem]'}`}>
           {!verwaltung && (
             <div className="space-y-stack lg:row-span-2 xl:row-span-1">
               <ReviewDocsPanel />
@@ -174,7 +173,11 @@ function Desktop() {
             </div>
           )}
           <Card className={`min-w-0 p-0 ${verwaltung ? '' : 'order-first lg:order-none lg:col-start-2 lg:row-start-1'}`}>
-            <div role="tablist" aria-label="DocCheck" onKeyDown={reiterTasten(reiterListe, reiter, setReiter)} className="flex gap-1 overflow-x-auto border-b border-line/10 px-2 pt-2">
+            {/* Umbrechen statt waagerecht scrollen: Die Mittelspalte ist ab 1280 px
+                auf jeder Breite gleich schmal, und mit Re-Check endete
+                „Administration" 46 px hinter dem Rand — abgeschnitten, ohne
+                Zeichen, dass es weitergeht (Audit 11/2026, DC-11). */}
+            <div role="tablist" aria-label="DocCheck" onKeyDown={reiterTasten(reiterListe, reiter, setReiter)} className="flex flex-wrap gap-x-1 border-b border-line/10 px-2 pt-2">
               {reiterListe.map((r) => (
                 <button
                   key={r}
@@ -185,7 +188,7 @@ function Desktop() {
                   tabIndex={reiter === r ? 0 : -1}
                   aria-selected={reiter === r}
                   onClick={() => setReiter(r)}
-                  className={`min-h-11 shrink-0 rounded-t-xl border-b-2 px-2.5 text-small transition ${reiter === r ? 'border-accent font-semibold text-ink' : 'border-transparent text-dim hover:text-ink'}`}
+                  className={`min-h-11 shrink-0 whitespace-nowrap rounded-t-xl border-b-2 px-2.5 text-small transition ${reiter === r ? 'border-accent font-semibold text-ink' : 'border-transparent text-dim hover:text-ink'}`}
                 >
                   {t(`tabs.${r}`)}
                 </button>
@@ -220,7 +223,7 @@ type Segment = 'bibliothek' | 'nachpruefungen' | 'befunde' | 'recheck' | 'chat'
 
 /** Ansichtsmodus iPhone/iPad (Spez. 3.8, 6.9): einspaltig, keine Prüfläufe. */
 function Ansicht() {
-  const { t } = useTranslation('doccheck')
+  const { t, i18n: sprache } = useTranslation('doccheck')
   const { docCheckSettings } = useStore()
   const [seg, setSeg] = useState<Segment>('bibliothek')
   const empf = offeneEmpfehlungen(SANDBOX_EMPFEHLUNGEN)
@@ -265,7 +268,7 @@ function Ansicht() {
                       <span className="font-semibold">{d.typ}</span> {d.revision}
                       <span className="block truncate text-micro text-dim">{d.titel}</span>
                     </span>
-                    <span className="shrink-0 text-micro text-dim">{t('library.pages', { n: d.seiten.toLocaleString('de-AT') })}</span>
+                    <span className="shrink-0 text-micro text-dim">{t('library.pages', { n: zahl(d.seiten, sprache.language) })}</span>
                   </div>
                 ))}
               </Card>
@@ -306,12 +309,14 @@ function Ansicht() {
 
 export default function DocCheckApp() {
   const ansicht = useAnsichtsmodus()
-  const [hinweis, schliessen] = useHinweis()
-  const { docCheckRolle, currentUser } = useStore()
+  const { docCheckRolle, currentUser, docCheckSettings } = useStore()
+  const [hinweis, schliessen] = useHinweis(currentUser?.id ?? null)
   const { t } = useTranslation('doccheck')
-  // Gehört die Sitzung (Dokumente im Speicher) noch diesem Nutzer? „Ansicht
-  // als" in der Sandbox wechselt die Identität ohne Abmelden — fremde
-  // Dokumente dürfen dabei nicht stehen bleiben.
+  // Gehört die Sitzung (Dokumente, Referenzlisten, Re-Check) noch diesem
+  // Nutzer? „Ansicht als" in der Sandbox wechselt die Identität ohne
+  // Abmelden — fremde Dokumente dürfen dabei nicht stehen bleiben, auch
+  // nicht im Kern des Workers (Nachtrag SEC#1: dort wirkte das Glossar des
+  // Vorgängers weiter, solange er kein Dokument geladen hatte).
   useEffect(() => {
     if (fuerNutzer(currentUser?.id ?? null)) standardVerbindung().beenden()
   }, [currentUser?.id])
@@ -324,6 +329,22 @@ export default function DocCheckApp() {
       ab()
     }
   }, [])
+  // Listenprofile von vor SEC-02 trugen Zelltext als Schlüssel — beim Öffnen
+  // umschreiben, nicht erst, wenn wieder jemand einen Re-Check macht.
+  useEffect(() => {
+    try {
+      profileBereinigen(localStorage)
+    } catch {
+      /* gesperrte Website-Daten: dann liegt dort auch nichts */
+    }
+  }, [])
+  // Prüfschalter wirken sofort, auch auf schon geladene Prüfdokumente: Der
+  // Kern prüft sie neu, die Ergebnisse kommen über den Empfänger oben.
+  // Vorher galten sie nur fürs nächste Hochladen (Audit 11/2026, DC-12).
+  const { formal, word, rechnen } = pruefSchalter(docCheckSettings)
+  useEffect(() => {
+    standardVerbindung().pruefenSetzen({ formal, word, rechnen })
+  }, [formal, word, rechnen])
   // Doppelter Riegel: Die Route prueft schon, aber ein Rollenwechsel in der
   // Sandbox („View as") darf nicht in einer offenen Ansicht stehen bleiben.
   if (docCheckRolle === 'keine') {

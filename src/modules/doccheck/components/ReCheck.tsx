@@ -4,11 +4,14 @@ import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, CardHeading, Field, inputCls, selectCls } from '../../../components/ui'
 import { toast } from '../../../components/Toast'
 import { downloadCsv } from '../../../csv'
+import { lokalIso } from '../../../datum'
 import { useStore } from '../../../store'
 import {
+  auditEintraege,
   auftraege,
   bestaetigen,
   bestaetigenMit,
+  ohneBegruendung,
   blattWaehlen,
   csvExport,
   dokNamen,
@@ -21,7 +24,10 @@ import {
   zieleAuffrischen,
   zuordnungAendern,
   zuruecknehmen,
+  verlorenBei,
   kannZurueckschreiben,
+  istVeraltet,
+  spaltenWahl,
   rueckschreibAuftrag,
   neueBefunde,
   neuesBlatt,
@@ -39,6 +45,7 @@ import { aktiv } from '../settings'
 import type { Befund } from '../pruefung/befund'
 import { standardVerbindung } from '../verbindung'
 import { useViewer } from './Viewer'
+import { DateiName } from './Dokumente'
 
 /**
  * Re-Check externer Findinglisten (Nachtrag N3) — regelbasierter Teil.
@@ -70,10 +77,12 @@ function useBestaetigen() {
   const { t } = useTranslation('doccheck')
   const { currentUser, now, docCheckRecheckConfirm } = useStore()
   const { recheck: r } = useSitzung()
-  return (zs: number[]) => {
+  return (alle: number[]) => {
+    // Nur, was ohne Begründung bestätigt werden darf — und nur das ins Audit (DC-09)
+    const zs = r ? ohneBegruendung(r, alle) : []
     if (!r?.ergebnisse || !zs.length) return
     aendernRe((x) => bestaetigen(x, zs, currentUser!.id, now()))
-    docCheckRecheckConfirm(r.datei, zs.map((z) => ({ ref: r.befunde.find((b) => b.zeile === z)!.ref, status: STATUS_NAME[r.ergebnisse!.find((e) => e.zeile === z)!.status] })))
+    docCheckRecheckConfirm(r.datei, auditEintraege(r, zs.map((z) => ({ zeile: z, status: r.ergebnisse!.find((e) => e.zeile === z)!.status }))))
     toast(t('recheck.bestaetigtToast', { count: zs.length }))
   }
 }
@@ -84,7 +93,7 @@ function useBestaetigen() {
  * Begründung Pflicht. Ins Audit gehen nur Nummer und Status — die
  * Begründung ist freier Text und steht im Export, nicht im Protokoll.
  */
-function Freigabe({ r, zeile, vorschlag }: { r: ReCheckSitzung; zeile: number; vorschlag: ReStatus }) {
+function Freigabe({ r, zeile, vorschlag, schmal = false }: { r: ReCheckSitzung; zeile: number; vorschlag: ReStatus; schmal?: boolean }) {
   const { t } = useTranslation('doccheck')
   const { currentUser, now, docCheckRecheckConfirm } = useStore()
   const [status, setStatus] = useState<ReStatus>(vorschlag)
@@ -98,11 +107,11 @@ function Freigabe({ r, zeile, vorschlag }: { r: ReCheckSitzung; zeile: number; v
       const n = bestaetigenMit(x, zeile, currentUser!.id, now(), status, text)
       return typeof n === 'string' ? x : n
     })
-    docCheckRecheckConfirm(r.datei, [{ ref: r.befunde.find((b) => b.zeile === zeile)!.ref, status: STATUS_NAME[status] }])
+    docCheckRecheckConfirm(r.datei, auditEintraege(r, [{ zeile, status }]))
     toast(t('recheck.bestaetigtToast', { count: 1 }))
   }
   return (
-    <div className="flex flex-wrap items-end justify-end gap-2">
+    <div className={schmal ? 'flex flex-col gap-2' : 'flex flex-wrap items-end justify-end gap-2'}>
       <Field label={t('recheck.freigabe.status')}>
         <select className={selectCls} value={status} onChange={(e) => setStatus(e.target.value as ReStatus)} onClick={(e) => e.stopPropagation()}>
           {STATI.map((s) => (
@@ -112,11 +121,11 @@ function Freigabe({ r, zeile, vorschlag }: { r: ReCheckSitzung; zeile: number; v
       </Field>
       {pflicht && (
         <Field label={t('recheck.freigabe.begruendung')}>
-          <input className={`${inputCls} min-w-[18rem]`} value={text} onChange={(e) => setText(e.target.value)} onClick={(e) => e.stopPropagation()} placeholder={t('recheck.freigabe.begruendungPh')} />
+          <input className={`${inputCls} ${schmal ? 'w-full' : 'min-w-[18rem]'}`} value={text} onChange={(e) => setText(e.target.value)} onClick={(e) => e.stopPropagation()} placeholder={t('recheck.freigabe.begruendungPh')} />
         </Field>
       )}
-      <Button onClick={bestaetigen} disabled={pflicht && text.trim().length < 5}>
-        <span className="flex items-center gap-1.5"><CheckCheck size={15} /> {t('recheck.bestaetigen', { status: t(`recheck.status.${status}`) })}</span>
+      <Button className={schmal ? 'w-full' : undefined} onClick={bestaetigen} disabled={pflicht && text.trim().length < 5}>
+        <span className="flex items-center justify-center gap-1.5"><CheckCheck size={15} /> {t('recheck.bestaetigen', { status: t(`recheck.status.${status}`) })}</span>
       </Button>
     </div>
   )
@@ -147,7 +156,9 @@ export function ReCheckMobil() {
   return (
     <div className="space-y-stack">
       <Card className="space-y-stack p-4">
-        <p className="break-words text-small font-semibold">{r.datei}</p>
+        <p className="break-words text-small font-semibold">
+          <DateiName name={r.datei} />
+        </p>
         <div className="flex flex-wrap gap-1.5">
           {STATI.map((s) => (
             <Badge key={s} tone={TON[s]}>{`${t(`recheck.status.${s}`)}: ${anzahl[s]}`}</Badge>
@@ -176,6 +187,8 @@ export function ReCheckMobil() {
               <Badge tone={TON[e.status]}>{t(`recheck.status.${e.status}`)}</Badge>
             </div>
             <p className="break-words">{b.befund || b.empfehlung}</p>
+            {/* Was bestätigt wird, muss sichtbar sein — wie am Desktop die geforderte Korrektur (DC-09) */}
+            {b.befund && b.empfehlung && <p className="break-words text-micro text-dim">{b.empfehlung}</p>}
             <p className="text-micro text-dim">
               {t('recheck.col.team')}: {b.teamStatus || '—'}
               {e.abweichung && <span className="text-wait"> · {t('recheck.abweichung')}</span>}
@@ -183,9 +196,12 @@ export function ReCheckMobil() {
             <button className="flex min-h-11 items-center gap-1 text-micro text-accent" onClick={() => setOffen(auf ? null : b.zeile)} aria-expanded={auf}>
               {auf ? <ChevronDown size={14} /> : <ChevronRight size={14} />} {t('recheck.remark')}
             </button>
-            {auf && <p className="whitespace-pre-wrap break-words rounded-xl border border-line/10 bg-surface/60 p-3 font-mono text-micro leading-relaxed">{remark(e, new Date(now()).toISOString(), r.sprache)}</p>}
+            {auf && <p className="whitespace-pre-wrap break-words rounded-xl border border-line/10 bg-surface/60 p-3 font-mono text-micro leading-relaxed">{remark(e, lokalIso(now()), r.sprache)}</p>}
             {ok ? (
               <p className="text-micro text-ok">{t('recheck.bestaetigtVon', { name: name(ok.von) })}</p>
+            ) : e.status === 'justify' ? (
+              // „Begründung erforderlich" nur mit Begründung — auch mobil (N11, DC-09)
+              <Freigabe r={r} zeile={b.zeile} vorschlag={e.status} schmal />
             ) : (
               <Button className="w-full" onClick={() => bestaetigenZeilen([b.zeile])}>
                 <span className="flex items-center justify-center gap-1.5"><CheckCheck size={15} /> {t('recheck.bestaetigen', { status: t(`recheck.status.${e.status}`) })}</span>
@@ -201,7 +217,7 @@ export function ReCheckMobil() {
 
 export function ReCheckTab() {
   const { t } = useTranslation('doccheck')
-  const { state, now } = useStore()
+  const { state, now, docCheckSettings } = useStore()
   const sitzung = useSitzung()
   const { docs, recheck: r } = sitzung
   const oeffnen = useViewer()
@@ -212,8 +228,12 @@ export function ReCheckTab() {
   const ziele = dokNamen(docs)
   const stand = paketStand(docs)
   const name = (id: string) => state.users.find((u) => u.id === id)?.name ?? id
+  // Kostet ein Wechsel Bestätigungen, wird vorher gefragt — still verworfen
+  // war stundenlange Freigabearbeit (Audit 11/2026, DC-02).
+  const verlustOk = (n: number) => !n || window.confirm(t('recheck.verlustFrage', { count: n }))
 
   // Neue Prüfdokumente: „Quelle fehlt" erneut zuordnen — vielleicht ist sie jetzt da.
+  // Bestätigungen bleiben dabei; der Hinweis „veraltet" sagt, dass neu zu prüfen ist.
   useEffect(() => {
     aendernRe((x) => zieleAuffrischen(x, docs))
   }, [stand])
@@ -228,6 +248,7 @@ export function ReCheckTab() {
       if (!blaetter.length) return toast(t('recheck.leer', { name: f.name }), 'wait')
       // Original nur bei XLSX behalten — dorthin wird zurückgeschrieben (N3.5).
       const re = blattWaehlen(f.name, blaetter, 0, docs, localStorage, /\.xlsx$/i.test(f.name) ? daten : undefined)
+      if (!verlustOk(verlorenBei(r, re))) return
       setzen((s) => ({ ...s, recheck: re }))
       setOffen(null)
       if (re.ausProfil) toast(t('recheck.profilGeladen'))
@@ -256,12 +277,15 @@ export function ReCheckTab() {
 
   const bestaetigenZeilen = useBestaetigen()
 
-  const zielWert = (z: Ziel | undefined) => (!z || z.art === 'fehlt' ? 'fehlt' : z.art === 'paket' ? 'paket' : z.ids[0])
-  const kopf = r?.blaetter[r.blatt]?.zeilen[r.kopf] ?? []
+  // Mehrfachzuordnung als solche zeigen — vorher stand nur das erste Dokument
+  // in der Auswahl, geprüft wurde aber gegen alle (Audit 11/2026, DC-05)
+  const zielWert = (z: Ziel | undefined) => (!z || z.art === 'fehlt' ? 'fehlt' : z.art === 'paket' ? 'paket' : z.ids.length > 1 ? 'mehrere' : z.ids[0])
+  const dokTitel = (id: string) => ziele.find((d) => d.id === id)?.titel ?? id
+  const spalten = r ? spaltenWahl(r) : []
   const anzahl = r ? zaehlen(r) : null
   const liste = r ? zeilen(r, filter) : []
   const sammel = r ? sammelKandidaten(r) : []
-  const veraltet = !!r?.ergebnisse && r.geprueftGegen !== stand
+  const veraltet = istVeraltet(r, stand)
   const dokWerte = r ? Object.keys(r.ziele) : []
 
   return (
@@ -285,12 +309,19 @@ export function ReCheckTab() {
         {r && (
           <div className="flex flex-wrap items-end gap-stack">
             <p className="min-w-0 flex-1 break-words text-small font-medium">
-              {r.datei}
-              <span className="block text-micro font-normal text-dim">{t('recheck.befunde', { count: r.befunde.length, zeile: r.kopf + 1 })}</span>
+              <DateiName name={r.datei} />
+              <span className="block text-micro font-normal text-dim">{r.kopf >= 0 ? t('recheck.befunde', { count: r.befunde.length, zeile: r.kopf + 1 }) : t('recheck.befundeOhneKopf', { count: r.befunde.length })}</span>
             </p>
             {r.blaetter.length > 1 && (
               <Field label={t('recheck.blatt')}>
-                <select className={selectCls} value={r.blatt} onChange={(e) => setzen((s) => ({ ...s, recheck: blattWaehlen(r.datei, r.blaetter, Number(e.target.value), docs, localStorage, r.original) }))}>
+                <select
+                  className={selectCls}
+                  value={r.blatt}
+                  onChange={(e) => {
+                    const neu = blattWaehlen(r.datei, r.blaetter, Number(e.target.value), docs, localStorage, r.original)
+                    if (verlustOk(verlorenBei(r, neu))) setzen((s) => ({ ...s, recheck: neu }))
+                  }}
+                >
                   {r.blaetter.map((b, i) => (
                     <option key={b.name} value={i}>{b.name}</option>
                   ))}
@@ -304,18 +335,21 @@ export function ReCheckTab() {
 
       {r && (
         <Schritt n={2} titel={t('recheck.schritt2')}>
-          <p className="text-micro text-dim">{t('recheck.spaltenHinweis')}</p>
+          {r.kopf >= 0 ? <p className="text-micro text-dim">{t('recheck.spaltenHinweis')}</p> : <p className="rounded-lg border border-wait/40 bg-wait/10 px-2.5 py-1.5 text-small text-ink">{t('recheck.ohneKopf')}</p>}
           <div className="grid gap-stack sm:grid-cols-2 xl:grid-cols-3">
             {ROLLEN.map((rolle: Rolle) => (
               <Field key={rolle} label={t(`recheck.rolle.${rolle}`)}>
                 <select
                   className={selectCls}
                   value={r.zuordnung[rolle] ?? ''}
-                  onChange={(e) => aendernRe((x) => zuordnungAendern(x, rolle, e.target.value === '' ? null : Number(e.target.value), docs))}
+                  onChange={(e) => {
+                    const spalte = e.target.value === '' ? null : Number(e.target.value)
+                    if (verlustOk(verlorenBei(r, zuordnungAendern(r, rolle, spalte, docs)))) aendernRe((x) => zuordnungAendern(x, rolle, spalte, docs))
+                  }}
                 >
                   <option value="">{t('recheck.keineSpalte')}</option>
-                  {kopf.map((k, i) => (
-                    <option key={i} value={i}>{`${spalteName(i)} – ${k || '…'}`}</option>
+                  {spalten.map((k, i) => (
+                    <option key={i} value={i}>{`${spalteName(i)} – ${!k.text ? '…' : k.beispiel ? t('recheck.spalteBeispiel', { wert: k.text.length > 40 ? `${k.text.slice(0, 40)}…` : k.text }) : k.text}`}</option>
                   ))}
                 </select>
               </Field>
@@ -344,14 +378,17 @@ export function ReCheckTab() {
                       <td className="py-2 pr-3 font-medium">{w || <span className="text-dim">{t('recheck.ohneWert')}</span>}</td>
                       <td className="py-2">
                         <select
-                          aria-label={t('recheck.pruefenGegen')}
+                          // Je Zeile benannt — sonst hieß jede Auswahl nur „Prüfen gegen"
+                          aria-label={`${t('recheck.pruefenGegen')}: ${w || t('recheck.ohneWert')}`}
                           className={`${selectCls} ${z?.art === 'fehlt' ? 'border-wait/60' : ''}`}
                           value={zielWert(z)}
                           onChange={(e) => {
                             const v = e.target.value
+                            if (v === 'mehrere') return
                             aendernRe((x) => zielAendern(x, w, v === 'fehlt' ? { art: 'fehlt' } : v === 'paket' ? { art: 'paket' } : { art: 'dok', ids: [v] }))
                           }}
                         >
+                          {z?.art === 'dok' && z.ids.length > 1 && <option value="mehrere">{t('recheck.mehrere', { namen: z.ids.map(dokTitel).join(', ') })}</option>}
                           {ziele.map((d) => (
                             <option key={d.id} value={d.id}>{d.titel}</option>
                           ))}
@@ -422,8 +459,10 @@ export function ReCheckTab() {
               <Button
                 variant="ghost"
                 onClick={() => {
-                  const datum = new Date(now()).toISOString()
-                  downloadCsv(`${r.datei.replace(/\.[^.]+$/, '')}_recheck_${datum.slice(0, 10)}.csv`, csvExport(r, datum, name))
+                  // Ortszeit: Mit toISOString() trugen Remark, Spaltenkopf und Dateiname
+                  // bis 01:00 (Sommer 02:00) den Vortag (Audit 11/2026, EXM-01)
+                  const datum = lokalIso(now())
+                  downloadCsv(ausgabeName(r.datei, datum, 'csv'), csvExport(r, datum, name, docCheckSettings.csvTrenner))
                   toast(t('recheck.exportiert'))
                 }}
               >
@@ -463,7 +502,23 @@ export function ReCheckTab() {
                   return (
                     <Fragment key={b.zeile}>
                       <tr className="cursor-pointer border-b border-line/[0.06] align-top hover:bg-line/[0.03]" onClick={() => setOffen(auf ? null : b.zeile)}>
-                        <td className="px-2 py-2.5 text-dim">{auf ? <ChevronDown size={15} /> : <ChevronRight size={15} />}</td>
+                        <td className="px-2 py-2.5 text-dim">
+                          {/* Ein echter Knopf wie im Findings-Reiter: Freigabe, Begründung und „Seite anzeigen"
+                              liegen im Aufklappbereich, und der ging nur per Maus auf (Audit 11/2026, DC-08) */}
+                          <button
+                            type="button"
+                            className="-m-1 flex items-center rounded p-1"
+                            aria-expanded={auf}
+                            aria-controls={`rc-${b.zeile}`}
+                            aria-label={t('recheck.aufklappen', { nr: b.ref })}
+                            onClick={(ev) => {
+                              ev.stopPropagation()
+                              setOffen(auf ? null : b.zeile)
+                            }}
+                          >
+                            {auf ? <ChevronDown size={15} aria-hidden /> : <ChevronRight size={15} aria-hidden />}
+                          </button>
+                        </td>
                         <td className="whitespace-nowrap px-2 py-2.5 font-semibold">{b.ref}</td>
                         <td className="whitespace-nowrap px-2 py-2.5">{b.dokument || '—'}</td>
                         <td className="max-w-[26rem] break-words px-2 py-2.5">
@@ -490,7 +545,7 @@ export function ReCheckTab() {
                         </td>
                       </tr>
                       {auf && (
-                        <tr className="border-b border-line/[0.06] bg-bg/40">
+                        <tr id={`rc-${b.zeile}`} className="border-b border-line/[0.06] bg-bg/40">
                           <td colSpan={7} className="space-y-stack px-4 py-3">
                             <p className="text-micro text-dim">{t(`recheck.grund.${e.grund}`)}</p>
                             {fund.length > 0 && (
@@ -515,7 +570,7 @@ export function ReCheckTab() {
                             )}
                             <div className="space-y-tight">
                               <p className="text-micro font-semibold uppercase tracking-wide text-dim">{t('recheck.remark')}</p>
-                              <p className="whitespace-pre-wrap break-words rounded-xl border border-line/10 bg-surface/60 p-3 font-mono text-micro leading-relaxed">{remark(e, new Date(now()).toISOString(), r.sprache)}</p>
+                              <p className="whitespace-pre-wrap break-words rounded-xl border border-line/10 bg-surface/60 p-3 font-mono text-micro leading-relaxed">{remark(e, lokalIso(now()), r.sprache)}</p>
                             </div>
                             <div className="flex justify-end gap-2">
                               {ok ? (
@@ -562,7 +617,7 @@ function Rueckschreiben({ r }: { r: ReCheckSitzung }) {
     ...docs.filter((d) => d.rolle === 'review' && d.z?.pruefung).flatMap((d) => d.z!.pruefung!.befunde.map((b) => ({ ...b, dokName: d.felder.titel || d.name }))),
     ...(paketModus && aktiv(docCheckSettings, 'packageCheck') ? (paketErgebnis?.ergebnis.befunde ?? []) : []),
   ]
-  const neu = neueBefunde(r, eigene)
+  const neu = neueBefunde(r, eigene, docs)
   const [mitNeuen, setMitNeuen] = useState(true)
   const [werteListe, setWerteListe] = useState<string[]>([])
   const [werte, setWerte] = useState<WerteZuordnung | null>(null)
@@ -584,11 +639,13 @@ function Rueckschreiben({ r }: { r: ReCheckSitzung }) {
   }, [r.original, r.blatt, sp])
 
   const anzahl = Object.keys(r.bestaetigt).length
+  // Erst erneut prüfen: Remarks und Status kämen sonst aus einem Lauf gegen ein früheres Ziel (DC-02, `istVeraltet`)
+  const veraltet = istVeraltet(r, paketStand(docs))
   const schreiben = async () => {
     if (!werte) return
     setLaeuft(true)
     try {
-      const datum = new Date(now()).toISOString()
+      const datum = lokalIso(now())
       const blatt = mitNeuen && neu.liste.length ? neuesBlatt(r, neu.liste, werte, datum) : undefined
       const { daten } = await rueckschreiben(r.original!, rueckschreibAuftrag(r, werte, datum, blatt))
       werteSpeichern(kopf, werte, localStorage)
@@ -634,7 +691,7 @@ function Rueckschreiben({ r }: { r: ReCheckSitzung }) {
         <span>
           {t('recheck.rs.neu', { count: neu.liste.length, blatt: r.sprache === 'de' ? 'Neue Findings' : 'New findings' })}
           <span className="block text-micro text-dim">
-            {neu.liste.length ? t('recheck.rs.neuNummern', { von: neu.liste[0].nr, bis: neu.liste.at(-1)!.nr }) : t('recheck.rs.neuKeine')}
+            {neu.liste.length ? t('recheck.rs.neuNummern', { count: neu.liste.length, von: neu.liste[0].nr, bis: neu.liste.at(-1)!.nr }) : t('recheck.rs.neuKeine')}
             {neu.ausgenommen > 0 && ` ${t('recheck.rs.neuAusgenommen', { count: neu.ausgenommen })}`}
           </span>
         </span>
@@ -643,8 +700,9 @@ function Rueckschreiben({ r }: { r: ReCheckSitzung }) {
         <p className="text-small">
           {t('recheck.rs.zeilen', { count: anzahl })}
           {anzahl < r.befunde.length && <span className="block text-micro text-dim">{t('recheck.rs.nurBestaetigt')}</span>}
+          {veraltet && <span className="block text-micro text-wait">{t('recheck.rs.veraltet')}</span>}
         </p>
-        <Button onClick={schreiben} disabled={laeuft || !werte || (!anzahl && !(mitNeuen && neu.liste.length))}>
+        <Button onClick={schreiben} disabled={laeuft || veraltet || !werte || (!anzahl && !(mitNeuen && neu.liste.length))}>
           <span className="flex items-center gap-1.5"><FileDown size={16} /> {t('recheck.rs.start')}</span>
         </Button>
       </div>
