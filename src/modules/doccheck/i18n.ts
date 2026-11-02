@@ -1,6 +1,6 @@
 import type { i18n as I18n } from 'i18next'
-import de from './i18n/de.json'
-import en from './i18n/en.json'
+import de from './i18n/de.json' with { type: 'json' }
+import en from './i18n/en.json' with { type: 'json' }
 
 /**
  * Texte von DocCheck im Namensraum `doccheck` (Spez. 3.5).
