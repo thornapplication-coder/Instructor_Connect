@@ -332,11 +332,67 @@ export function Button({
  *  Rand bleibt auch im Fokus stehen (die aria-Variante steht im CSS hinter
  *  `focus:`) — der Akzent-Ring daneben sagt „hier bist du", der Rand weiter
  *  „hier fehlt etwas". */
-export const selectCls =
-  'w-full rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-body text-ink outline-none transition aria-[invalid=true]:border-danger focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+const auswahlBasis =
+  'rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-body text-ink outline-none transition aria-[invalid=true]:border-danger focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
-export const inputCls =
-  'w-full rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-lead text-ink placeholder:text-dim outline-none transition aria-[invalid=true]:border-danger focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+const eingabeBasis =
+  'rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-lead text-ink placeholder:text-dim outline-none transition aria-[invalid=true]:border-danger focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+
+export const selectCls = `w-full ${auswahlBasis}`
+
+export const inputCls = `w-full ${eingabeBasis}`
+
+/**
+ * Dieselben Felder OHNE volle Breite — für Filterzeilen und schmale Felder
+ * (Kürzel, Formularnummer); die Breite setzt die Aufrufstelle.
+ *
+ * Audit 11/2026, UID-17: `${selectCls} w-auto` und `${inputCls} w-24` taten
+ * nichts. Im gebauten CSS steht `.w-full` HINTER `.w-auto`, `.w-24` und
+ * `.w-28` und gewinnt immer — der Standardisierungsbericht zeigte drei
+ * 1088 px breite Auswahlfelder untereinander statt einer Filterzeile.
+ * designScale.test.ts meldet die Kombination.
+ */
+export const selectInlineCls = auswahlBasis
+
+export const inputInlineCls = eingabeBasis
+
+/**
+ * Auswahlfeld einer Filterzeile, immer mit Namen.
+ *
+ * Audit 11/2026, A11Y-07: Die Filter der Grading-Verwaltung wurden als
+ * „Kombinationsfeld" ohne Namen angesagt; die Statistik hatte sichtbare
+ * Beschriftungen, die mit keinem Feld verbunden waren. Das <label> umschließt
+ * hier genau das eine Feld. `sichtbar = false` nur, wo die erste Option die
+ * Dimension schon nennt („All trainees") — vorgelesen wird der Name trotzdem.
+ */
+export function FilterAuswahl({
+  label,
+  value,
+  onChange,
+  children,
+  sichtbar = false,
+  symbol,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  children: ReactNode
+  sichtbar?: boolean
+  /** Sinnbild vor der sichtbaren Beschriftung (schmückend) */
+  symbol?: ReactNode
+}) {
+  return (
+    <label className="inline-flex items-center gap-1.5">
+      <span className={sichtbar ? 'inline-flex items-center gap-1.5 whitespace-nowrap text-small font-medium text-dim' : 'sr-only'}>
+        {symbol}
+        {label}
+      </span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={selectInlineCls}>
+        {children}
+      </select>
+    </label>
+  )
+}
 
 /**
  * Beschriftetes Feld.
@@ -565,6 +621,7 @@ export function ChipListe({
   pruefeEntfernen,
   fest = [],
   festHinweis,
+  formularTexte = false,
 }: {
   label: string
   values: string[]
@@ -581,8 +638,29 @@ export function ChipListe({
   fest?: string[]
   /** Warum die festen Eintraege bleiben — steht unter der Liste. */
   festHinweis?: string
+  /**
+   * Eigene Texte der Liste (Platzhalter, Knopfnamen, Doppelt-Meldung) aus
+   * dem Namensraum `forms`, also immer englisch — fuer den Grading-Bereich,
+   * dessen Bedienleisten bewusst englisch sind. Ohne das stand bei deutscher
+   * Oberflaeche „Hinzufügen …" in den englischen Verteilerlisten
+   * (Audit 11/2026, UID-18).
+   */
+  formularTexte?: boolean
 }) {
   const { t } = useTranslation()
+  const texte = formularTexte
+    ? {
+        platzhalter: t('forms:admin.addValue'),
+        hinzufuegen: t('forms:admin.addOption', { field: label }),
+        loeschen: (v: string) => t('forms:admin.deleteOption', { value: v }),
+        vergeben: (v: string) => t('forms:admin.optionTaken', { value: v }),
+      }
+    : {
+        platzhalter: t('admin.addValue'),
+        hinzufuegen: `${t('common.add')}: ${label}`,
+        loeschen: (v: string) => `${t('common.delete')}: ${v}`,
+        vergeben: (v: string) => t('admin.valueTaken', { value: v }),
+      }
   const [draft, setDraft] = useState('')
   // Meldung unter der Liste; `feld` heisst: Sie gilt der Eingabe (ungueltig),
   // nicht einem abgelehnten Loeschen — nur dann ist das Feld beanstandet.
@@ -637,7 +715,7 @@ export function ChipListe({
     // aus dem Feld (Nachtrag VERW#3).
     const vorhanden = vorhandenerEintrag(values, v)
     if (vorhanden !== undefined) {
-      setMeldung({ text: t('admin.valueTaken', { value: vorhanden }), feld: true })
+      setMeldung({ text: texte.vergeben(vorhanden), feld: true })
       return
     }
     setMeldung(null)
@@ -670,7 +748,7 @@ export function ChipListe({
                   else knoepfe.current.delete(v)
                 }}
                 onClick={() => entfernen(v, i)}
-                aria-label={`${t('common.delete')}: ${v}`}
+                aria-label={texte.loeschen(v)}
                 className="-my-2 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dim transition hover:text-danger"
               >
                 <X size={15} aria-hidden />
@@ -688,14 +766,14 @@ export function ChipListe({
           aria-label={label}
           aria-invalid={meldung?.feld || undefined}
           aria-describedby={meldung ? meldungId : undefined}
-          placeholder={t('admin.addValue')}
+          placeholder={texte.platzhalter}
           onChange={(e) => {
             setDraft(e.target.value)
             setMeldung(null)
           }}
           onKeyDown={(e) => e.key === 'Enter' && add()}
         />
-        <Button variant="ghost" onClick={add} label={`${t('common.add')}: ${label}`}>
+        <Button variant="ghost" onClick={add} label={texte.hinzufuegen}>
           <Plus size={16} aria-hidden />
         </Button>
       </div>

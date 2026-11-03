@@ -338,10 +338,14 @@ const f = (
   hint: opts?.hint,
 })
 
+/** Pflichtfeld Aircraft Type — dieselbe Definition für jeden Formulartyp,
+ *  der eines führt, und für den Nachtrag in migrateState (GTY-02). */
+export const MUSTER_PFLICHT: FormField = f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true })
+
 /* Kopffelder gemäß Original-Formularen (OM Appendix 5, Rev. 0.2) —
    exportiert, damit neu angelegte Formulartypen dieselbe Struktur bekommen */
 export const HEAD_STANDARD: FormField[] = [
-  f('aircraftType', 'Aircraft Type', 'select', { options: AIRCRAFT, required: true }),
+  MUSTER_PFLICHT,
   f('date', 'Date', 'date', { required: true }),
   f('event', 'Event', 'text', { required: true }),
   f('trainingDevice', 'Training Device', 'radiogroup', { options: DEVICES, required: true }),
@@ -411,6 +415,10 @@ export const FORM_TYPES: FormType[] = [
     title: 'Grading Sheet Difference Training',
     competencySet: 'pilot',
     fields: [
+      // Ohne Muster war das Blatt in Logbuch, Flottenmatrix, Flottenfilter,
+      // Monatsbericht und CSV musterlos (Audit 11/2026, GTY-02). Gespeicherte
+      // Kataloge bekommen das Feld einmalig über migrateState.
+      MUSTER_PFLICHT,
       f('variantFrom', 'From "Variant"', 'select', { options: VARIANTS, required: true }),
       f('variantTo', 'To "Variant"', 'select', { options: VARIANTS, required: true }),
       f('event', 'Event', 'text', { required: true }),
@@ -426,6 +434,9 @@ export const FORM_TYPES: FormType[] = [
     title: 'Grading Sheet Conversion',
     competencySet: 'pilot',
     fields: [
+      // Conv. From/To nennen die Betriebsart, nicht das Muster — es lässt
+      // sich nicht ableiten und steht deshalb als eigenes Feld (GTY-02).
+      MUSTER_PFLICHT,
       f('convFrom', 'Conv. From', 'select', { options: OPS_TYPES, required: true }),
       f('convTo', 'Conv. To', 'select', { options: OPS_TYPES, required: true }),
       f('event', 'Event', 'text', { required: true }),
@@ -559,6 +570,32 @@ export const FORM_TYPES: FormType[] = [
     ],
     freeTextSections: ['Deferred items', 'Planned completion'],
   },
+]
+
+/**
+ * Nachträge am GESPEICHERTEN Formularkatalog.
+ *
+ * Die Formulartypen liegen in den Einstellungen des Bestands — eine
+ * Änderung an FORM_TYPES erreicht ein Gerät, das schon läuft, nicht.
+ * migrateState trägt deshalb jedes hier genannte Feld EINMAL nach und merkt
+ * sich das in `formularNachtraege` (CLAUDE.md: ein Nachtrag braucht eine
+ * Marke). Ohne Marke liefe er bei jedem Start und machte es rückgängig, wenn
+ * ein Admin das Feld bewusst wieder entfernt.
+ *
+ * Die Marke ist ein fester Name — einmal ausgeliefert, nie umbenennen: Ein
+ * neuer Name hieße „noch nicht erledigt", und der Nachtrag liefe erneut.
+ */
+export interface FeldNachtrag {
+  marke: string
+  /** Formulartypen, die das Feld bekommen (sofern sie es nicht schon führen) */
+  typen: string[]
+  /** Kommt an den Anfang der Kopffelder — wie bei allen Typen, die es führen */
+  feld: FormField
+}
+
+export const FELD_NACHTRAEGE: readonly FeldNachtrag[] = [
+  // Audit 11/2026, GTY-02: 308C/308D führten kein Aircraft Type.
+  { marke: 'gty02-aircraftType-308C-308D', typen: ['308C', '308D'], feld: MUSTER_PFLICHT },
 ]
 
 export const GRADING_DEFAULTS: GradingSettings = {

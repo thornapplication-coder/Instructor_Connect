@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import de from './i18n/de.json'
 import en from './i18n/en.json'
 import forms from './i18n/forms.json'
+import i18n from './i18n/index'
 
 /**
  * Die Sprachregel der App ist mechanisch abgesichert, nicht durch Disziplin:
@@ -125,5 +126,65 @@ describe('Zaehler mit echter Ein- und Mehrzahl (Audit 11/2026, TXT-08, Teil Verw
       expect(bekannt.has(k), `${k} ohne Mehrzahl`).toBe(false)
       expect(bekannt.has(`${k}_one`) && bekannt.has(`${k}_other`), k).toBe(true)
     }
+  })
+})
+
+describe('Grading-Texte (Audit 11/2026, GRD-20)', () => {
+  it('die Zaehler des Grading-Bereichs fuehren beide Formen', () => {
+    // „Exports exactly the 1 rows the current filters show." — der Schluessel
+    // hatte nur die Grundform. Die Grundform als Einzahl neben _other ginge
+    // in i18next zwar auch, die Paarpflicht der Textwachen verlangt aber
+    // _one/_other; deshalb hier schon einheitlich.
+    const zaehler = [
+      'openItems',
+      'admin.exportListHint',
+      'admin.sessionCount',
+      'admin.sessionsCount',
+      'admin.recurringWeakCount',
+      'admin.otherSetOmitted',
+    ]
+    for (const k of zaehler) {
+      expect(formKeys.has(k), `${k} ohne Mehrzahl`).toBe(false)
+      expect(formKeys.has(`${k}_one`) && formKeys.has(`${k}_other`), k).toBe(true)
+    }
+  })
+
+  it('i18next waehlt die Form auch bei deutscher Oberflaeche richtig', () => {
+    // forms gibt es nur auf Englisch; bei „de" kommt der Text aus dem
+    // Rueckfall. Die Mehrzahlregel stammt dabei aus „de" — beide Sprachen
+    // kennen nur one/other, das Ergebnis muss dasselbe sein.
+    for (const lng of ['de', 'en']) {
+      const t = i18n.getFixedT(lng, 'forms')
+      expect(t('admin.exportListHint', { count: 1 })).toBe('Exports exactly the 1 row the current filters show.')
+      expect(t('admin.exportListHint', { count: 3 })).toBe('Exports exactly the 3 rows the current filters show.')
+      expect(t('admin.sessionsCount', { count: 1 })).toBe('1 session')
+      expect(t('admin.recurringWeakCount', { count: 2 })).toBe('2 recurring weaknesses')
+    }
+  })
+
+  it('der Aufbewahrungshinweis beschreibt die Regel des Stores', () => {
+    // Stand: „one week after creation". Der Store (visibleGradingRecords)
+    // rechnet ab dem Erledigen — jüngste Unterschrift der Formularfamilie —
+    // und laesst Offenes ohne Frist stehen. Wer die Regel dort aendert,
+    // aendert diesen Satz mit.
+    const hinweis = (forms as Tree).retentionHint as string
+    expect(hinweis).not.toMatch(/creation/i)
+    expect(hinweis).toMatch(/one week after completion/)
+    expect(hinweis).toMatch(/open ones stay until they are done/)
+  })
+
+  it('der Platzhalter der Auswahllisten steht im Namensraum forms', () => {
+    // UID-18: „Hinzufügen …" kam aus dem Oberflaechen-Bundle und stand bei
+    // deutscher Oberflaeche im sonst englischen Grading-Bereich.
+    expect(i18n.getFixedT('de', 'forms')('admin.addValue')).toBe('Add …')
+    const editor = quellen.find(([pfad]) => pfad === './pages/admin/FieldOptionsEditor.tsx')?.[1] as string
+    expect(editor).toContain("t('forms:admin.addValue')")
+    expect(editor).not.toMatch(/t\('admin\./)
+    // Die Verteilerlisten der Konfiguration nutzen die gemeinsame ChipListe —
+    // jede davon mit den englischen Texten.
+    const admin = quellen.find(([pfad]) => pfad === './pages/admin/GradingAdmin.tsx')?.[1] as string
+    const listen = admin.match(/<ChipListe\b[\s\S]*?\/>/g) ?? []
+    expect(listen.length).toBe(3)
+    expect(listen.filter((l) => !/\bformularTexte\b/.test(l))).toEqual([])
   })
 })

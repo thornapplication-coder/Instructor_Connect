@@ -1,4 +1,5 @@
-import type { CompetencySetKey, Grade, GradingRecord } from './types'
+import { formatDate } from './datum'
+import type { CompetencySetKey, Grade, GradingRecord, Settings } from './types'
 
 /**
  * Gemeinsame Rechengrundlage für alle Auswertungen des Grading-Moduls.
@@ -78,6 +79,40 @@ export function pct(part: number, total: number): number | null {
 }
 
 /**
+ * Anteil für die Anzeige: ganze Prozent, Zahl und Zeichen mit GESCHÜTZTEM
+ * Leerzeichen; ohne Wert „–".
+ *
+ * Audit 11/2026, GRD-13/MOB-06: Monatsbericht und Standardisierungsbericht
+ * schrieben `${v} %` mit normalem Leerzeichen — am Telefon stand „50" in
+ * der einen Zeile und „%" in der nächsten. `.tabular-nums` verhindert nur
+ * den Bruch IM Wort, nicht am Leerzeichen. Ein Wert ist eine Einheit.
+ */
+export function formatPct(v: number | null): string {
+  return v === null ? '–' : `${v.toFixed(0)}\u00a0%`
+}
+
+/**
+ * Abweichung zum Vergleichswert für die Anzeige: zwei Nachkommastellen, „+"
+ * nur bei einem Wert über null, ohne Wert „–".
+ *
+ * Audit 11/2026 (Nachtrag Exporte Kern-App #2): Die Kalibrierungs-Kachel der
+ * Statistik rechnete `row.delta ?? 0` und zeigte bei einem Instruktor, der
+ * nur „NO" vergeben hatte, „+0.00" neben einer leeren Durchschnittszelle —
+ * eine Aussage („genau im Schnitt"), wo es keine gibt. Monatsbericht und
+ * Standardisierungsbericht schrieben dafür „–", jede Ansicht mit eigener
+ * Formel und eigener Vorzeichenregel („+0.00" hier, „0.00" dort). Jetzt
+ * fragen alle drei diese Stelle. Gerundet wird VOR der Vorzeichenwahl, damit
+ * −0,001 nicht als „-0.00" erscheint.
+ */
+export function formatDelta(v: number | null): string {
+  if (v === null) return '–'
+  const gerundet = Number(v.toFixed(2))
+  // −0 und 0 gleichermaßen: keine Abweichung, kein Vorzeichen.
+  if (gerundet === 0) return '0.00'
+  return `${gerundet > 0 ? '+' : ''}${gerundet.toFixed(2)}`
+}
+
+/**
  * Maßgeblich ist der Schulungstag, nicht der Zeitpunkt der Erfassung. Ein
  * zwei Wochen später nachgetragenes Formular gehört in die Periode, in der
  * geschult wurde — sonst verschiebt der Nachtrag die Auswertung.
@@ -92,12 +127,28 @@ export function trainingDate(r: GradingRecord): number {
   return r.createdAt
 }
 
+/**
+ * Beginn des Fensters „letzte N Monate": Tagesbeginn (Ortszeit) desselben
+ * Kalendertags N Monate zuvor; gibt es den Tag im Zielmonat nicht, der
+ * Monatsletzte (31.05. − 3 → 28.02.).
+ *
+ * Audit 11/2026, TEC-15: `setMonth` lief am Monatsende über — 31.05. − 3
+ * ergab den 03.03., die Schulungen vom 1. und 2. März fielen still aus der
+ * Statistik. Ausserdem behielt der Beginn die Uhrzeit von „jetzt", der
+ * Schulungstag (trainingDate) liegt aber auf Mitternacht: Ein Blatt vom
+ * Randtag fehlte immer. Beides traf Statistik und Standardisierungsbericht
+ * gleichermassen (scopeRecords).
+ */
 export function periodStart(period: PeriodKey, now: number): number {
   const months = PERIODS.find((p) => p.key === period)?.months ?? 0
   if (months === 0) return 0
-  const d = new Date(now)
-  d.setMonth(d.getMonth() - months)
-  return d.getTime()
+  const jetzt = new Date(now)
+  // Monatsindex darf negativ werden — der Date-Konstruktor rechnet ihn ins
+  // Vorjahr um. Tag 0 des Folgemonats = letzter Tag des Zielmonats.
+  const zielJahr = jetzt.getFullYear()
+  const zielMonat = jetzt.getMonth() - months
+  const tageImZielmonat = new Date(zielJahr, zielMonat + 1, 0).getDate()
+  return new Date(zielJahr, zielMonat, Math.min(jetzt.getDate(), tageImZielmonat)).getTime()
 }
 
 export function periodLabel(period: PeriodKey): string {
@@ -135,6 +186,177 @@ export function scopeRecords(
       (!opts.authority || authorityOf(r) === opts.authority) &&
       trainingDate(r) >= from,
   )
+}
+
+/**
+ * Zeitraumfilter der Listen (Ablage des Superadmins, Liste des Training
+ * Admins): „beliebig", 24 h, 7 Tage, Monat, Jahr.
+ *
+ * Audit 11/2026, GRD-09: Dieselbe Auswahl „Last 7 days" lieferte in den
+ * beiden Listen verschiedene Zeilen — die Ablage filterte nach dem
+ * Erfassungszeitpunkt, die Liste des Training Admins nach dem Schulungstag.
+ * Die Ablage zeigte dabei den Schulungstag an, also Daten ausserhalb des
+ * gewaehlten Zeitraums, und ihr Exportkopf „Period: Last 7 days" beschrieb
+ * etwas anderes als die Zeilen darunter. Tabelle und Regel stehen deshalb
+ * hier, und beide Listen fragen sie.
+ */
+export const LISTEN_ZEITRAEUME = [
+  { key: 'all', days: null },
+  { key: 'day', days: 1 },
+  { key: 'week', days: 7 },
+  { key: 'month', days: 31 },
+  { key: 'year', days: 365 },
+] as const
+
+/** Fensterlaenge in Tagen zu einem Zeitraumschluessel; unbekannt = kein Filter. */
+export function zeitraumTage(key: string): number | null {
+  return LISTEN_ZEITRAEUME.find((p) => p.key === key)?.days ?? null
+}
+
+/**
+ * Liegt der SCHULUNGSTAG im Fenster der letzten `tage` Tage? Massgeblich ist
+ * dieselbe Regel wie in der Statistik (trainingDate): Ein nachgetragenes
+ * Blatt gehoert in die Zeit, in der geschult wurde. Weil der Schulungstag
+ * auf Mitternacht faellt, umfasst „7 Tage" die sieben Kalendertage bis
+ * heute; ohne Kopfdatum zaehlt der Erfassungszeitpunkt.
+ */
+export function imZeitraum(r: GradingRecord, tage: number | null, jetzt: number): boolean {
+  if (tage === null) return true
+  return jetzt - trainingDate(r) <= tage * 24 * 3600_000
+}
+
+/**
+ * Behoerdenangabe eines Auswertungsausschnitts — die Bereichszeile von
+ * Bericht und Exportkopf, nicht der Briefkopf.
+ *
+ * Audit 11/2026, GRD-05/STD-01/UID-06: Der Standardisierungsbericht setzte
+ * bei „All authorities" die AT-Nummer ein, weil die Rueckfallkette den Fall
+ * „keine Auswahl" nie erreichte. Das gedruckte Behoerdendokument wies damit
+ * UK-Bewertungen als AT.ATO.106 aus, waehrend die CSV derselben Ansicht
+ * „All authorities" schrieb. Der Briefkopf darf die Hauptzulassung der ATO
+ * tragen; die Bereichszeile sagt, welche Daten im Bericht stehen.
+ *
+ * Englisch, weil sie nur in Berichten und Exporten steht (wie periodLabel).
+ */
+export function berichtsKennung(
+  authority: '' | 'AT' | 'UK',
+  doc: Partial<Pick<Settings['documentHeader'], 'approvalNumber' | 'approvalNumberUK'>> | undefined,
+): string {
+  if (authority === 'UK') return doc?.approvalNumberUK || 'GBR.ATO.0541'
+  if (authority === 'AT') return doc?.approvalNumber || 'AT.ATO.106'
+  return 'All authorities'
+}
+
+/**
+ * Zulassung im BRIEFKOPF eines Berichts: die der gewählten Behörde, ohne
+ * Auswahl die Hauptzulassung der ATO (AT). Das ist der Absender, nicht der
+ * Inhalt — welche Daten im Bericht stehen, sagt die Bereichszeile
+ * (`berichtsKennung`). Standardisierungsbericht und Statistik drucken
+ * denselben Kopf (Audit 11/2026, RPT-01) und fragen deshalb diese Stelle.
+ */
+export function briefkopfZulassung(
+  authority: '' | 'AT' | 'UK',
+  doc: Partial<Pick<Settings['documentHeader'], 'approvalNumber' | 'approvalNumberUK'>> | undefined,
+): string {
+  return authority === 'UK' ? doc?.approvalNumberUK || 'GBR.ATO.0541' : doc?.approvalNumber || 'AT.ATO.106'
+}
+
+/**
+ * Teile des Drucktitels einer Auswertung (`druckTitel`, dateiName.ts):
+ * Titel_Zeitraum_Flotte_Behörde_Datum, z. B.
+ * „Standardisation Report_Last 12 months_All fleets_All authorities_02.11.2026".
+ *
+ * Audit 11/2026, EXM-04: Standardisierungsbericht und Statistik haben einen
+ * eigenen Druck (Kopf, Querformat), druckten aber als „Instructor
+ * Connect.pdf" — zwei Ausschnitte überschrieben sich im Downloadordner, und
+ * der PDF-Titel sagte nichts über den Inhalt. Der Titel nennt denselben
+ * Ausschnitt wie die Bereichszeile des Kopfes (periodLabel,
+ * berichtsKennung). Datum im App-Format wie auf dem Dokument (datum.ts),
+ * Ortszeit — der Tag des Ausdrucks unterscheidet zwei Stände.
+ *
+ * Englisch wie der Bericht; den Titel reicht die Ansicht aus `forms` herein.
+ */
+export function auswertungDruckTeile(
+  titel: string,
+  opts: {
+    fleet: string
+    authority: '' | 'AT' | 'UK'
+    period: PeriodKey
+    doc: Partial<Pick<Settings['documentHeader'], 'approvalNumber' | 'approvalNumberUK'>> | undefined
+    now: number
+  },
+): string[] {
+  return [titel, periodLabel(opts.period), opts.fleet || 'All fleets', berichtsKennung(opts.authority, opts.doc), formatDate(opts.now)]
+}
+
+export interface FlottenMatrix {
+  /** Muster mit mindestens einem Blatt im Ausschnitt, alphabetisch */
+  fleets: string[]
+  /** Kompetenzen in der Reihenfolge, in der sie im Bestand auftauchen */
+  codes: string[]
+  /** Mittel je Muster und Kompetenz; null = in dieser Zelle keine Zahlnote */
+  cell: Record<string, Record<string, number | null>>
+}
+
+/**
+ * Flottenmatrix eines Kompetenzsatzes: Mittel je Muster und Kompetenz.
+ *
+ * Audit 11/2026, GRD-07/STAT-01/UID-01/TXT-06: Die Matrix rechnete in der
+ * Ansicht aus ALLEN Blaettern des Satzes — unterschriebene und offene,
+ * jeder Zeitraum, jede Behoerde. Unter „Instructor competencies (308G) ·
+ * 0 sessions" stand eine gefuellte Zeile CL30 5.0/5.0/4.0 aus einem Blatt,
+ * das noch auf die Unterschrift wartete, und direkt darueber der Hinweis
+ * „Basis: only signed forms …". Jetzt gilt dieselbe Datenbasis wie fuer
+ * Trend und Kalibrierung (scopeRecords).
+ *
+ * Bewusst OHNE Flottenfilter — die Optionen kennen gar keinen: Die Matrix
+ * ist der Vergleich der Flotten untereinander, die Flottenauswahl der Seite
+ * wirkt auf Trend und Kalibrierung. Blaetter ohne Muster haben keine Zeile.
+ */
+export function flottenMatrix(
+  records: GradingRecord[],
+  setOf: (r: GradingRecord) => CompetencySetKey | null,
+  key: CompetencySetKey,
+  opts: { authority: '' | 'AT' | 'UK'; period: PeriodKey; now: number },
+): FlottenMatrix {
+  const rs = scopeRecords(records, { authority: opts.authority, period: opts.period, now: opts.now }).filter(
+    (r) => setOf(r) === key && !!r.header.aircraftType,
+  )
+  const fleets = [...new Set(rs.map((r) => r.header.aircraftType as string))].sort()
+  const codes = [...new Set(rs.flatMap((r) => r.trainees.flatMap((tr) => tr.grades.map((x) => x.code))))]
+  const cell: FlottenMatrix['cell'] = {}
+  fleets.forEach((f) => {
+    const vonMuster = rs.filter((r) => r.header.aircraftType === f)
+    cell[f] = {}
+    codes.forEach((c) => {
+      cell[f][c] = mean(vonMuster.flatMap((r) => r.trainees.flatMap((tr) => tr.grades.filter((x) => x.code === c).map((x) => x.grade))))
+    })
+  })
+  return { fleets, codes, cell }
+}
+
+/** Tönung einer Matrixzelle; `null` = keine Zahlnote, keine Fläche. */
+export type MatrixTon = 'hoch' | 'gut' | 'niedrig' | 'schwach'
+
+/**
+ * Stufe einer Zelle der Flottenmatrix: ab 4 „hoch", ab 3 „gut", ab 2
+ * „niedrig", darunter „schwach". Gestuft wird nach dem ANGEZEIGTEN Wert (eine
+ * Nachkommastelle) — sonst stünde „4.0" (aus 3.96) in der Farbe der 3er.
+ *
+ * Audit 11/2026, UID-19: Die Stufen standen als rohe Palettenfarben in der
+ * Ansicht (emerald/amber/red, je /20). Im Dunkelmodus ging das Amber auf dem
+ * dunkelblauen Grund in ein Grau-Oliv über und war von den 3er-Zellen kaum
+ * zu unterscheiden — die Warnstufe verlor ihre Bedeutung. Die Flächen kommen
+ * jetzt aus den Status-Tokens (`.matrix-ton-*` in index.css, mit eigenen
+ * Dunkelwerten), die Schwellen von hier.
+ */
+export function matrixTon(v: number | null): MatrixTon | null {
+  if (v === null) return null
+  const angezeigt = Number(v.toFixed(1))
+  if (angezeigt >= 4) return 'hoch'
+  if (angezeigt >= 3) return 'gut'
+  if (angezeigt >= 2) return 'niedrig'
+  return 'schwach'
 }
 
 /**

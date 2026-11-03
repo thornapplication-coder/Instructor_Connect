@@ -186,3 +186,25 @@ describe('ChipListe — Hinzufuegen', () => {
     expect(eingabe()).toHaveValue('CL30')
   })
 })
+
+describe('ChipListe — Texte des Grading-Bereichs (Audit 11/2026, UID-18)', () => {
+  it('ohne formularTexte folgt die Liste der Oberflaeche', () => {
+    render(<Liste start={['CL30']} />)
+    expect(eingabe()).toHaveAttribute('placeholder', 'Hinzufügen …')
+  })
+
+  it('mit formularTexte englisch, auch bei deutscher Oberflaeche', async () => {
+    // Die Verteilerlisten der Grading-Konfiguration zeigten „Hinzufügen …"
+    // im sonst englischen Bereich; Knopfnamen und die Doppelt-Meldung kamen
+    // ebenfalls aus dem deutschen Bundle.
+    const nutzer = userEvent.setup()
+    render(<Liste start={['ops@example.test']} formularTexte />)
+    expect(eingabe()).toHaveAttribute('placeholder', 'Add …')
+    expect(screen.getByRole('button', { name: 'Delete: ops@example.test' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Löschen/ })).toBeNull()
+    await nutzer.type(eingabe(), 'OPS@example.test')
+    await nutzer.click(screen.getByRole('button', { name: 'Add a value to Muster' }))
+    expect(onChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('alert')).toHaveTextContent('“ops@example.test” is already in this list.')
+  })
+})

@@ -1,5 +1,5 @@
 import { LESSON_CATEGORIES, type AppState } from '../types'
-import { GRADING_DEFAULTS } from './gradingDefaults'
+import { FELD_NACHTRAEGE, GRADING_DEFAULTS } from './gradingDefaults'
 import { IMPRINT_DE, IMPRINT_EN } from './imprintDefaults'
 
 const h = 3600_000
@@ -258,6 +258,8 @@ function seedState(now: number): AppState {
     // stellte sie beim nächsten Laden wieder her.
     seedHistoryMigrated: true,
     aircraftBackfilled: true,
+    // Der Seed-Katalog führt die nachgetragenen Felder schon selbst.
+    formularNachtraege: FELD_NACHTRAEGE.map((n) => n.marke),
     timeOffsetMs: 0,
     seen: {},
     contactsChangedAt: now - 2 * d,

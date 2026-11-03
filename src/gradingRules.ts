@@ -33,6 +33,54 @@ export function isFollowUpType(formTypeId: string): boolean {
 }
 
 /**
+ * Darf ein Formulartyp aus dem Katalog verschwinden? Nein, wenn er
+ *  - Pflicht-Folgeformular ist (306/310): Die Regeln verlangen ihn bei „Not
+ *    Competent" bzw. „Session not completed" — ohne ihn im Katalog liesse
+ *    sich ein solcher Durchgang gar nicht abschliessen (`'pflicht'`);
+ *  - schon Datensaetze hat: Ein unterschriebenes Dokument verloere sonst
+ *    seine Struktur (`'datensaetze'`).
+ * `null` = frei loeschbar.
+ *
+ * Audit 11/2026, GRD-18: Die Regel stand nur im Store, der den Typ beim
+ * Speichern still zurueckholte. Der Loeschknopf kannte sie nicht und fragte
+ * „Delete this form type? It disappears from the selection …" — nach OK
+ * stand 308A unveraendert da, ohne jede Rueckmeldung. Store und Ansicht
+ * fragen jetzt dieselbe Funktion; der Knopf sagt vorher, warum nicht.
+ */
+export function formularTypInGebrauch(
+  id: string,
+  records: readonly Pick<GradingRecord, 'formTypeId'>[],
+): 'pflicht' | 'datensaetze' | null {
+  if (isFollowUpType(id)) return 'pflicht'
+  return records.some((r) => r.formTypeId === id) ? 'datensaetze' : null
+}
+
+/**
+ * Steht ein Kompetenz-Kürzel im Satz schon bei einer ANDEREN Kompetenz?
+ * Groß-/Kleinschreibung zählt nicht — gespeichert wird ohnehin in
+ * Großbuchstaben, „com" ist also „COM". `eigenerCode` ist das Kürzel der
+ * gerade bearbeiteten Kompetenz (`null` bei einer neuen): Sie darf ihr
+ * eigenes Kürzel behalten.
+ *
+ * Audit 11/2026, GRD-19: Der Editor prüfte nur auf leere Eingabe. Zwei
+ * Kompetenzen mit demselben Kürzel liessen sich speichern — danach setzte
+ * ein Klick im Formular die Note bei BEIDEN (die Note hängt am Kürzel),
+ * die offenen Punkte und die React-Schlüssel kollidierten, und jede
+ * Auswertung je Kompetenz zählte beide zusammen. Für Formularnummern gab
+ * es die Prüfung längst (`formIdTaken`); hier fehlte sie.
+ */
+export function codeVergeben(
+  code: string,
+  competencies: readonly { code: string }[],
+  eigenerCode: string | null,
+): boolean {
+  const norm = (c: string) => c.trim().toUpperCase()
+  const gesucht = norm(code)
+  if (!gesucht) return false
+  return competencies.some((c) => norm(c.code) === gesucht && (eigenerCode === null || norm(c.code) !== norm(eigenerCode)))
+}
+
+/**
  * Beurteilt dieses Blatt einen angehenden Instruktor (308G) statt eines
  * Piloten? Maßgeblich ist der Kompetenzsatz; die Kennung fängt den Fall ab,
  * dass die Ansicht den Formulartyp nicht (mehr) im Katalog findet.

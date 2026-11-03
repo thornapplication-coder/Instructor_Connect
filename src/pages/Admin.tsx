@@ -2098,12 +2098,19 @@ export function Admin({ sub = '' }: { sub?: string }) {
           </>
         ) : (
           <>
-            <button
-              onClick={() => navigate('/admin')}
-              className="mb-4 flex min-h-11 items-center gap-1.5 text-small font-medium text-dim transition hover:text-ink"
-            >
-              <ArrowLeft size={15} /> {t('admin.backToOverview')}
-            </button>
+            {/* Ein Rückweg je Ebene: In einem Grading-Unterbereich führt
+                „← Grading Tool" (GradingAdmin) eine Ebene hinauf. Vorher
+                standen beide Links übereinander, dazu der Pfeil der
+                Kopfleiste — drei Rückwege, und welcher wohin ging, war nicht
+                zu erkennen (Audit 11/2026, UID-13). */}
+            {!(openTab === 'grading' && sectionSeg) && (
+              <button
+                onClick={() => navigate('/admin')}
+                className="mb-4 flex min-h-11 items-center gap-1.5 text-small font-medium text-dim transition hover:text-ink"
+              >
+                <ArrowLeft size={15} /> {t('admin.backToOverview')}
+              </button>
+            )}
             {openTab === 'users' && <UsersTab />}
             {openTab === 'permissions' && <PermissionsTab />}
             {openTab === 'grading' && <GradingAdmin section={sectionSeg} />}

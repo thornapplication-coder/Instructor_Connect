@@ -3,12 +3,14 @@ import { druckTitel } from './dateiName'
 import {
   autoNotCompetent,
   behoerdeFuer,
+  codeVergeben,
   bezeichnungen,
   dokumentStand,
   druckTitelTeile,
   einfrieren,
   empfaengerVon,
   followUpStarted,
+  formularTypInGebrauch,
   ganzzahligNichtNegativ,
   gleichePaare,
   gradingDayKey,
@@ -863,5 +865,51 @@ describe('druckTitelTeile — Name des gedruckten Nachweises (EXM-10)', () => {
     expect(druckTitel(druckTitelTeile(r, { formTitel: 'Grading Sheet Other Trainings', personen: [], instruktor: 'Mika Beispiel' }))).toBe(
       '308H_Grading Sheet Other Trainings_Mika Beispiel_02.11.2026_Adverse Weather, LVO - CAT II - CAT III, UPRT',
     )
+  })
+})
+
+describe('formularTypInGebrauch — Löschknopf und Store fragen dieselbe Regel (Audit 11/2026, GRD-18)', () => {
+  it('306 und 310 bleiben immer — auch ohne einen einzigen Datensatz', () => {
+    expect(formularTypInGebrauch('306', [])).toBe('pflicht')
+    expect(formularTypInGebrauch('310', [])).toBe('pflicht')
+  })
+
+  it('ein Typ mit Datensätzen bleibt; der Grund ist ein anderer als bei 306/310', () => {
+    expect(formularTypInGebrauch('308A', [rec({ formTypeId: '308A' })])).toBe('datensaetze')
+  })
+
+  it('ein unbenutzter neuer Typ ist frei löschbar — vorher sagte der Dialog dasselbe für alle', () => {
+    expect(formularTypInGebrauch('399X', [rec({ formTypeId: '308A' })])).toBeNull()
+    expect(formularTypInGebrauch('308A', [])).toBeNull()
+  })
+})
+
+describe('codeVergeben — ein Kürzel je Kompetenzsatz (Audit 11/2026, GRD-19)', () => {
+  // Der echte Pilotensatz: Daran hängen Formular, Auswertung und Export.
+  const pilot = GRADING_DEFAULTS.competencySets.find((s) => s.key === 'pilot')!.competencies
+
+  it('ein vorhandenes Kürzel ist für eine NEUE Kompetenz vergeben — vorher liess sich „COM" ein zweites Mal speichern', () => {
+    expect(pilot.some((c) => c.code === 'COM')).toBe(true)
+    expect(codeVergeben('COM', pilot, null)).toBe(true)
+  })
+
+  it('Gross-/Kleinschreibung und Leerraum zählen nicht: gespeichert wird „ COM " als „COM"', () => {
+    expect(codeVergeben('com', pilot, null)).toBe(true)
+    expect(codeVergeben(' Com ', pilot, null)).toBe(true)
+  })
+
+  it('beim Bearbeiten darf die Kompetenz ihr eigenes Kürzel behalten, auch anders geschrieben', () => {
+    expect(codeVergeben('COM', pilot, 'COM')).toBe(false)
+    expect(codeVergeben('com', pilot, 'COM')).toBe(false)
+  })
+
+  it('beim Bearbeiten ist das Kürzel einer ANDEREN Kompetenz vergeben', () => {
+    expect(codeVergeben('KNO', pilot, 'COM')).toBe(true)
+  })
+
+  it('ein neues Kürzel ist frei; leer entscheidet die Pflichtprüfung, nicht diese', () => {
+    expect(codeVergeben('XYZ', pilot, null)).toBe(false)
+    expect(codeVergeben('', pilot, null)).toBe(false)
+    expect(codeVergeben('   ', pilot, 'COM')).toBe(false)
   })
 })

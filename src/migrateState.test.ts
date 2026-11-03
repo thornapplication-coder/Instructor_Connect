@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { createSeedState } from './sandbox/seed'
-import { fehlendePflichtfelder, migrateState } from './migrateState'
+import { feldNachtragen, fehlendePflichtfelder, migrateState } from './migrateState'
+import { FELD_NACHTRAEGE, FORM_TYPES } from './sandbox/gradingDefaults'
+import type { FormType } from './types'
 import { imprintHash, IMPRINT_DE, IMPRINT_EN, IMPRINT_LEGACY_HASHES } from './sandbox/imprintDefaults'
 import vorgaenger from './sandbox/impressumVorgaenger.fixture.json'
 import startseite from './pages/Home.tsx?raw'
@@ -26,6 +28,7 @@ const bestand = (over: Partial<ReturnType<typeof createSeedState>> = {}) => {
   const st = { ...createSeedState(), ...over }
   delete (st as { seedHistoryMigrated?: boolean }).seedHistoryMigrated
   delete (st as { aircraftBackfilled?: boolean }).aircraftBackfilled
+  delete (st as { formularNachtraege?: string[] }).formularNachtraege
   return st
 }
 
@@ -496,5 +499,90 @@ describe('Seed ist widerspruchsfrei (Audit 11/2026, KERN-07/VERW-16/VERW-07)', (
       const fremd = Object.keys(r.header).filter((k) => !erlaubt.includes(k))
       expect(fremd, `${r.id} (${r.formTypeId})`).toEqual([])
     }
+  })
+})
+
+/**
+ * Audit 11/2026, GTY-02: 308C/308D führten kein Aircraft Type — Logbuch,
+ * Flottenmatrix, Flottenfilter, Monatsbericht und CSV verloren das Muster.
+ * Der Katalog liegt im gespeicherten Stand; ohne Nachtrag blieben laufende
+ * Geräte beim alten. Der Nachtrag braucht eine Marke (CLAUDE.md), sonst
+ * holte er ein bewusst entferntes Feld bei jedem Start zurück.
+ */
+describe('Formularkatalog nachtragen (GTY-02)', () => {
+  const ohneMuster = (ft: FormType): FormType => ({ ...ft, fields: ft.fields.filter((f) => f.key !== 'aircraftType') })
+  /** Bestand von vor dem Nachtrag: 308C/308D ohne Aircraft Type, keine Marke. */
+  const vorher = () => {
+    const st = bestand()
+    return {
+      ...st,
+      settings: {
+        ...st.settings,
+        grading: {
+          ...st.settings.grading,
+          formTypes: st.settings.grading.formTypes.map((ft) => (['308C', '308D'].includes(ft.id) ? ohneMuster(ft) : ft)),
+        },
+      },
+    }
+  }
+  const typ = (st: { settings: { grading: { formTypes: FormType[] } } }, id: string) => st.settings.grading.formTypes.find((f) => f.id === id)!
+
+  it('der Katalog ab Werk führt das Pflichtfeld bei 308C und 308D', () => {
+    for (const id of ['308C', '308D']) {
+      const feld = FORM_TYPES.find((f) => f.id === id)!.fields[0]
+      expect(feld, id).toMatchObject({ key: 'aircraftType', type: 'select', required: true })
+    }
+  })
+
+  it('trägt das Feld einmal an den Anfang nach und setzt die Marke', () => {
+    const neu = migrateState(vorher())
+    for (const id of ['308C', '308D']) {
+      expect(typ(neu, id).fields[0]).toMatchObject({ key: 'aircraftType', required: true })
+      expect(typ(neu, id).fields.filter((f) => f.key === 'aircraftType')).toHaveLength(1)
+    }
+    expect(neu.formularNachtraege).toEqual(FELD_NACHTRAEGE.map((n) => n.marke))
+    // Andere Typen bleiben dieselben Objekte.
+    expect(typ(neu, '308A')).toBe(typ(vorher(), '308A'))
+    // Zweiter Lauf: nichts mehr zu tun.
+    expect(migrateState(neu)).toBe(neu)
+  })
+
+  it('macht eine bewusste Entfernung durch den Admin NICHT rückgängig', () => {
+    const einmal = migrateState(vorher())
+    const entfernt = {
+      ...einmal,
+      settings: {
+        ...einmal.settings,
+        grading: { ...einmal.settings.grading, formTypes: einmal.settings.grading.formTypes.map((ft) => (ft.id === '308D' ? ohneMuster(ft) : ft)) },
+      },
+    }
+    expect(typ(migrateState(entfernt), '308D').fields.some((f) => f.key === 'aircraftType')).toBe(false)
+  })
+
+  it('setzt die Marke auch, wenn der Katalog das Feld schon führt', () => {
+    const st = bestand()
+    const neu = migrateState(st)
+    expect(neu.formularNachtraege).toEqual(FELD_NACHTRAEGE.map((n) => n.marke))
+    expect(neu.settings.grading.formTypes).toBe(st.settings.grading.formTypes)
+  })
+
+  it('der Seed trägt die Marken bereits — sein Katalog ist aktuell', () => {
+    expect(createSeedState().formularNachtraege).toEqual(FELD_NACHTRAEGE.map((n) => n.marke))
+  })
+
+  it('feldNachtragen doppelt nichts und lässt fremde Typen in Ruhe', () => {
+    const katalog = FORM_TYPES.map((ft) => (ft.id === '308C' ? ohneMuster(ft) : ft))
+    const neu = feldNachtragen(katalog, FELD_NACHTRAEGE)
+    expect(neu.find((f) => f.id === '308C')!.fields[0].key).toBe('aircraftType')
+    expect(neu.find((f) => f.id === '308D')).toBe(katalog.find((f) => f.id === '308D'))
+    expect(feldNachtragen(neu, FELD_NACHTRAEGE)).toBe(neu)
+  })
+
+  it('ein Bestand ohne Grading-Einstellungen bekommt nur die Marke, statt abzustürzen', () => {
+    const st = bestand()
+    const ohne = { ...st, settings: { ...st.settings, grading: undefined } } as unknown as typeof st
+    const neu = migrateState(ohne)
+    expect(neu.formularNachtraege).toEqual(FELD_NACHTRAEGE.map((n) => n.marke))
+    expect(neu.settings.grading).toBeUndefined()
   })
 })

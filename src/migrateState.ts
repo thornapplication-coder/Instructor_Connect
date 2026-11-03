@@ -1,6 +1,7 @@
 import { createSeedState } from './sandbox/seed'
+import { FELD_NACHTRAEGE, type FeldNachtrag } from './sandbox/gradingDefaults'
 import { imprintHash, IMPRINT_DE, IMPRINT_EN, IMPRINT_LEGACY_HASHES } from './sandbox/imprintDefaults'
-import { LESSON_CATEGORIES, type AppState } from './types'
+import { LESSON_CATEGORIES, type AppState, type FormType } from './types'
 
 /**
  * Pflichtfelder, die ein gespeicherter Stand haben MUSS, mit ihrer Vorgabe.
@@ -28,6 +29,22 @@ export function fehlendePflichtfelder(st: AppState): Partial<AppState> {
   for (const k of OBJEKTE) if (!roh[k] || typeof roh[k] !== 'object' || Array.isArray(roh[k])) out[k] = {}
   for (const k of ZAHLEN) if (typeof roh[k] !== 'number' || !Number.isFinite(roh[k])) out[k] = 0
   return out as Partial<AppState>
+}
+
+/**
+ * Felder in den gespeicherten Formularkatalog nachtragen — an den Anfang
+ * der Kopffelder, nur bei Typen, die das Feld noch nicht führen. Gibt den
+ * Katalog unverändert (dieselbe Referenz) zurück, wenn nichts fehlt.
+ */
+export function feldNachtragen(katalog: FormType[], nachtraege: readonly FeldNachtrag[]): FormType[] {
+  let geaendert = false
+  const neu = katalog.map((ft) => {
+    const fehlend = nachtraege.filter((n) => n.typen.includes(ft.id) && !ft.fields.some((f) => f.key === n.feld.key))
+    if (fehlend.length === 0) return ft
+    geaendert = true
+    return { ...ft, fields: [...fehlend.map((n) => ({ ...n.feld })), ...ft.fields] }
+  })
+  return geaendert ? neu : katalog
 }
 
 /**
@@ -162,6 +179,22 @@ export function migrateState(eingang: AppState): AppState {
   const markSeedHistory = !histDone
 
   /*
+   * Formularkatalog nachtragen (FELD_NACHTRAEGE), GENAU EINMAL je Nachtrag.
+   *
+   * Audit 11/2026, GTY-02: 308C/308D bekamen das Pflichtfeld Aircraft Type.
+   * Der Katalog liegt im gespeicherten Stand — ohne Nachtrag blieben die
+   * beiden auf jedem laufenden Gerät musterlos. Mit Marke, damit ein Admin,
+   * der das Feld bewusst wieder entfernt, es beim nächsten Start nicht
+   * zurückbekommt; dieselbe Falle wie bei `aircraftBackfilled`.
+   */
+  const nachtraegeErledigt = st.formularNachtraege ?? []
+  const offeneNachtraege = st.users === undefined ? [] : FELD_NACHTRAEGE.filter((n) => !nachtraegeErledigt.includes(n.marke))
+  const katalog = st.settings.grading?.formTypes
+  const formTypes = katalog && offeneNachtraege.length > 0 ? feldNachtragen(katalog, offeneNachtraege) : katalog
+  // Marke auch ohne Änderung — wie bei den übrigen Nachträgen.
+  const markFormulare = offeneNachtraege.length > 0
+
+  /*
    * Impressum: Der Text steht in den Einstellungen, eine geaenderte Vorgabe
    * erreicht Bestandsgeraete also nicht. Ersetzt wird er nur, solange er noch
    * unveraendert der vorigen Vorgabe entspricht (Pruefsumme) — eine im Admin
@@ -204,6 +237,7 @@ export function migrateState(eingang: AppState): AppState {
     // ersten Entzug zu. Genau der Fehler, den die Marke verhindern soll,
     // haette sich hinten herum wieder eingeschlichen.
     !markAircraft &&
+    !markFormulare &&
     !notesFehlten &&
     !kopfFehlte &&
     !formulareFehlten &&
@@ -217,6 +251,9 @@ export function migrateState(eingang: AppState): AppState {
     notes,
     seedHistoryMigrated: st.seedHistoryMigrated || markSeedHistory || undefined,
     aircraftBackfilled: st.aircraftBackfilled || markAircraft || undefined,
+    formularNachtraege: markFormulare
+      ? [...nachtraegeErledigt, ...offeneNachtraege.map((n) => n.marke)]
+      : st.formularNachtraege,
     users: usersChanged ? users! : st.users,
     contacts: contactsChanged ? contacts! : st.contacts,
     changelog,
@@ -227,6 +264,7 @@ export function migrateState(eingang: AppState): AppState {
       feedbackCategories: feedbackCategories ?? st.settings.feedbackCategories,
       infoCategories: infoCategories ?? st.settings.infoCategories,
       lessonCategories,
+      ...(formTypes !== katalog && st.settings.grading ? { grading: { ...st.settings.grading, formTypes: formTypes! } } : {}),
     },
   }
 }

@@ -1,11 +1,11 @@
 import { ArrowLeft, ChevronRight, Minus, Search, TrendingDown, TrendingUp, TriangleAlert } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Card, CardHeading, inputCls } from '../../components/ui'
+import { Badge, Card, CardHeading, inputCls, SectionHeading } from '../../components/ui'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { traineeHistories, type CompetencyTrack, type TraineeHistory as History } from '../../traineeHistory'
-import type { GradingRecord } from '../../types'
+import type { CompetencySetKey, GradingRecord } from '../../types'
 import { gradeColor } from '../Grading'
 import { formatDate } from '../../datum'
 
@@ -28,6 +28,12 @@ import { formatDate } from '../../datum'
 
 type T = ReturnType<typeof useTranslation>['t']
 
+/** Überschrift je Kompetenzsatz — Piloten zuerst, sie sind die Regel. */
+const SATZ_TITEL: Record<CompetencySetKey, string> = {
+  pilot: 'forms:admin.historyPilots',
+  instructor: 'forms:admin.historyCandidates',
+}
+
 function TrendBadge({ trend, t }: { trend: CompetencyTrack['trend']; t: T }) {
   if (trend === null)
     return <span className="text-micro text-dim">{t('forms:admin.trendNone')}</span>
@@ -43,12 +49,22 @@ function TrendBadge({ trend, t }: { trend: CompetencyTrack['trend']; t: T }) {
   )
 }
 
-function CompetencyRow({ c, t }: { c: CompetencyTrack; t: T }) {
+/**
+ * @param hideCodes Instruktorkompetenzen (308G) führen kein Kürzel — wie in
+ *  Formular und Ansicht steht dann nur der Wortlaut (Audit 11/2026, GTY-09).
+ */
+function CompetencyRow({ c, hideCodes, t }: { c: CompetencyTrack; hideCodes: boolean; t: T }) {
   return (
     <div className={`rounded-xl border p-3 ${c.recurringWeak ? 'border-warm/40 bg-warm/5' : 'border-line/10'}`}>
       <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="text-small font-semibold">{c.code}</span>
-        <span className="min-w-0 flex-1 truncate text-small text-dim">{c.title}</span>
+        {hideCodes ? (
+          <span className="min-w-0 flex-1 truncate text-small font-semibold">{c.title}</span>
+        ) : (
+          <>
+            <span className="text-small font-semibold">{c.code}</span>
+            <span className="min-w-0 flex-1 truncate text-small text-dim">{c.title}</span>
+          </>
+        )}
         {c.recurringWeak && (
           <Badge tone="wait">
             <TriangleAlert size={12} className="mr-1" /> {t('forms:admin.recurringWeak')}
@@ -91,6 +107,7 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
       <Card className="space-y-tight p-4">
         <h3 className="text-head font-bold">{history.name}</h3>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-dim">
+          <span>{t(SATZ_TITEL[history.competencySet])}</span>
           <span>{t('forms:admin.sessionsCount', { count: history.sessions.length })}</span>
           <span>{t('forms:admin.lastSession', { date: formatDate(history.lastDate) })}</span>
           {weak > 0 && (
@@ -111,7 +128,7 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
         {[...history.competencies]
           .sort((a, b) => Number(b.recurringWeak) - Number(a.recurringWeak))
           .map((c) => (
-            <CompetencyRow key={c.code} c={c} t={t} />
+            <CompetencyRow key={c.code} c={c} hideCodes={history.competencySet === 'instructor'} t={t} />
           ))}
       </Card>
 
@@ -151,11 +168,18 @@ export function TraineeHistory({ records }: { records: GradingRecord[] }) {
   // über die Sprache — und vergaß sie an einer von zwei Stellen, weshalb
   // derselbe Bericht im Grading Tool englisch und im Admin-Panel deutsch war.
   const { t } = useTranslation()
-  const { now } = useStore()
+  const { now, state } = useStore()
   const [query, setQuery] = useState('')
   const [openKey, setOpenKey] = useState<string | null>(null)
 
-  const histories = useMemo(() => traineeHistories(records, now()), [records, now])
+  // Kompetenzsatz je Blatt aus dem Katalog — Verläufe je Satz getrennt
+  // (Audit 11/2026, GTY-09).
+  const setOfRecord = useCallback(
+    (r: GradingRecord): CompetencySetKey | null =>
+      state.settings.grading.formTypes.find((f) => f.id === r.formTypeId)?.competencySet ?? null,
+    [state.settings.grading.formTypes],
+  )
+  const histories = useMemo(() => traineeHistories(records, now(), setOfRecord), [records, now, setOfRecord])
   const open = openKey ? histories.find((h) => h.key === openKey) : undefined
 
   const shown = useMemo(() => {
@@ -187,34 +211,50 @@ export function TraineeHistory({ records }: { records: GradingRecord[] }) {
           {shown.length === 0 ? (
             <Card className="p-4 text-small text-dim">{t('forms:admin.noMatch')}</Card>
           ) : (
-            <div className="space-y-stack">
-              {shown.map((h) => {
-                const weak = h.competencies.filter((c) => c.recurringWeak).length
+            <div className="space-y-section">
+              {/* Zwei Abschnitte: Ein Instruktoranwärter stand vorher als
+                  Pilot in der Liste, mit den Sitzungen beider Sätze
+                  (Audit 11/2026, GTY-09). */}
+              {(['pilot', 'instructor'] as const).map((satz) => {
+                const imSatz = shown.filter((h) => h.competencySet === satz)
+                if (imSatz.length === 0) return null
                 return (
-                  <Card key={h.key} className="p-0" onClick={() => setOpenKey(h.key)}>
-                    <div className="flex min-h-11 items-center gap-2.5 px-3.5 py-3">
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-body font-semibold">{h.name}</span>
-                        <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-micro text-dim">
-                          <span>{t('forms:admin.sessionsCount', { count: h.sessions.length })}</span>
-                          <span>{t('forms:admin.lastSession', { date: formatDate(h.lastDate) })}</span>
-                        </span>
-                      </span>
-                      {weak > 0 && (
-                        <span className="shrink-0">
-                          <Badge tone="wait">
-                            <TriangleAlert size={12} className="mr-1" /> {weak}
-                          </Badge>
-                        </span>
-                      )}
-                      {h.notCompetentCount > 0 && (
-                        <span className="shrink-0">
-                          <Badge tone="bad">{h.notCompetentCount}</Badge>
-                        </span>
-                      )}
-                      <ChevronRight size={16} className="shrink-0 text-dim" />
-                    </div>
-                  </Card>
+                  <section key={satz} className="space-y-stack">
+                    <SectionHeading
+                      right={<span className="shrink-0 text-micro font-semibold normal-case tracking-normal text-dim">{imSatz.length}</span>}
+                    >
+                      {t(SATZ_TITEL[satz])}
+                    </SectionHeading>
+                    {imSatz.map((h) => {
+                      const weak = h.competencies.filter((c) => c.recurringWeak).length
+                      return (
+                        <Card key={h.key} className="p-0" onClick={() => setOpenKey(h.key)}>
+                          <div className="flex min-h-11 items-center gap-2.5 px-3.5 py-3">
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-body font-semibold">{h.name}</span>
+                              <span className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-micro text-dim">
+                                <span>{t('forms:admin.sessionsCount', { count: h.sessions.length })}</span>
+                                <span>{t('forms:admin.lastSession', { date: formatDate(h.lastDate) })}</span>
+                              </span>
+                            </span>
+                            {weak > 0 && (
+                              <span className="shrink-0">
+                                <Badge tone="wait">
+                                  <TriangleAlert size={12} className="mr-1" /> {weak}
+                                </Badge>
+                              </span>
+                            )}
+                            {h.notCompetentCount > 0 && (
+                              <span className="shrink-0">
+                                <Badge tone="bad">{h.notCompetentCount}</Badge>
+                              </span>
+                            )}
+                            <ChevronRight size={16} className="shrink-0 text-dim" />
+                          </div>
+                        </Card>
+                      )
+                    })}
+                  </section>
                 )
               })}
             </div>

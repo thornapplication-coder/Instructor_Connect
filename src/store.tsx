@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { gradingListComparator, isComplete, isFollowUpType } from './gradingRules'
+import { formularTypInGebrauch, gradingListComparator, isComplete, isFollowUpType } from './gradingRules'
 import { networkReachable } from './net'
 import { createSeedState } from './sandbox/seed'
 import { migrateState } from './migrateState'
@@ -1489,14 +1489,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // sonst verliert ein unterschriebenes Dokument seine Struktur.
           if (next.formTypes) {
             const removed = s.settings.grading.formTypes.filter((f) => !next.formTypes!.some((n) => n.id === f.id))
-            // 306 und 310 sind Pflicht-Folgeformulare: Die Regeln verlangen sie
-            // bei „Not Competent" bzw. „Session not completed". Ohne sie im
-            // Katalog ließe sich ein solcher Durchgang gar nicht abschließen —
-            // sie bleiben deshalb unabhängig davon, ob schon Datensätze
-            // existieren.
-            const stillUsed = removed.filter(
-              (f) => f.id === '306' || f.id === '310' || s.gradingRecords.some((r) => r.formTypeId === f.id),
-            )
+            // Pflicht-Folgeformulare (306/310) und Typen mit Datensätzen
+            // bleiben — dieselbe Regel, die den Löschknopf der Konfiguration
+            // sperrt (gradingRules.formularTypInGebrauch, Audit 11/2026, GRD-18).
+            const stillUsed = removed.filter((f) => formularTypInGebrauch(f.id, s.gradingRecords) !== null)
             // Behaltene Typen an ihrer Stelle, nicht angehaengt (VERW-18).
             if (stillUsed.length > 0) {
               const neu = next.formTypes

@@ -283,6 +283,9 @@ export interface AppState {
    *  migrateState). Ohne diese Marke liefe der Nachtrag bei JEDEM Start und
    *  machte jede spaetere Entziehung wieder rueckgaengig. */
   aircraftBackfilled?: boolean
+  /** Marken der erledigten Nachträge am Formularkatalog (FELD_NACHTRAEGE,
+   *  sandbox/gradingDefaults.ts) — je Nachtrag einmal, nie wieder. */
+  formularNachtraege?: string[]
   /** DocCheck (Sandbox): Rechte-Protokoll und Bestätigungen „Stand
    *  bestätigt". Mit Phase 1b wandert beides in das Schema `doccheck`. */
   docCheck?: import('./modules/doccheck/types').DocCheckState

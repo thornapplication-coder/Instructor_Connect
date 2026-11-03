@@ -238,3 +238,86 @@ describe('Farbwerte', () => {
     }
   })
 })
+
+/**
+ * Status- und Notentöne kommen aus den Tokens (ok, wait, bad, danger …),
+ * nicht aus der Tailwind-Palette.
+ *
+ * Audit 11/2026, UID-08/UID-19: Auf dem Grading-Dashboard stand „offen/fehlt"
+ * in drei Farben — text-warm, das Orange der Ampel und `text-amber-500`, das
+ * auf der Karte bei 2,1:1 lag. Die Flottenmatrix tönte mit
+ * emerald/amber/red je /20; im Dunkelmodus wurde das Amber auf Dunkelblau
+ * zu Grau-Oliv. Rohe Palettenfarben kennen kein Thema und keine
+ * Kontrastprüfung. Varianten (`hover:`, `dark:`) zählen mit — sie sind
+ * genauso roh. Ausnahmen stehen mit Grund.
+ */
+describe('Palettenfarben', () => {
+  const PALETTE =
+    /\b(?:bg|text|border|ring|divide|outline|from|to|via|fill|stroke|decoration|accent|caret|shadow)-(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/g
+  const AUSNAHMEN: Record<string, string> = {
+    // Sandbox-Leiste und der Sandbox-Code beim Anmelden: bewusst ausserhalb
+    // des Themas und in hell wie dunkel gleich, damit sie nie wie
+    // App-Inhalt aussehen (siehe „Farbwerte").
+    './components/SandboxBar.tsx': 'ausserhalb des Themas',
+    './pages/Login.tsx': 'Sandbox-Hinweis, Gestalt der Sandbox-Leiste',
+    // Notenfarben nach Spez. 5.3 (gradeColor) und das Urteil Competent /
+    // Not Competent im Formular: Vollflaechen mit weisser Schrift in BEIDEN
+    // Themen. Die Status-Tokens werden im Dunkelmodus hell und truegen dort
+    // keine weisse Schrift.
+    './pages/Grading.tsx': 'Notenfarben Spez. 5.3, Vollflaeche',
+    './pages/GradingForm.tsx': 'Urteilsflaeche wie die Notenfarben',
+  }
+
+  it('benutzt in Seiten, Modulen und Bausteinen keine rohe Palettenfarbe', () => {
+    const treffer: string[] = []
+    for (const [pfad, inhalt] of dateien) {
+      if (!/^\.\/(pages|modules|components)\//.test(pfad) || AUSNAHMEN[pfad]) continue
+      ;(inhalt as string).split('\n').forEach((zeile, i) => {
+        if (istKommentar(zeile)) return
+        for (const m of zeile.matchAll(PALETTE)) treffer.push(`${pfad}:${i + 1}  ${m[0]}`)
+      })
+    }
+    expect(treffer).toEqual([])
+  })
+
+  it('fuehrt keine Ausnahme fuer eine Datei ohne Palettenfarbe', () => {
+    for (const pfad of Object.keys(AUSNAHMEN)) {
+      const inhalt = dateien.find(([p]) => p === pfad)?.[1] as string | undefined
+      expect(inhalt, pfad).toMatch(PALETTE)
+    }
+  })
+})
+
+/**
+ * Breite an einem Vollbreite-Feld wirkt nicht.
+ *
+ * Audit 11/2026, UID-17: `selectCls` und `inputCls` tragen `w-full`, und im
+ * gebauten CSS steht `.w-full` hinter `.w-auto`, `.w-24`, `.w-28` — eine
+ * angehängte Breite verlor IMMER. Der Standardisierungsbericht zeigte drei
+ * bildschirmbreite Auswahlfelder untereinander, die Kürzelfelder der
+ * Grading-Konfiguration waren so breit wie die Karte. Wer eine eigene
+ * Breite braucht, nimmt `selectInlineCls`/`inputInlineCls`. `!w-…` setzt
+ * sich durch und bleibt erlaubt.
+ */
+describe('Feldbreiten', () => {
+  it('haengt an selectCls/inputCls keine eigene Breite', () => {
+    const muster = /\$\{(?:selectCls|inputCls)\}[^`]*?(?<![\w!-])w-[\w./[\]-]+/g
+    const treffer: string[] = []
+    for (const [pfad, inhalt] of dateien) {
+      ;(inhalt as string).split('\n').forEach((zeile, i) => {
+        if (istKommentar(zeile)) return
+        for (const m of zeile.matchAll(muster)) treffer.push(`${pfad}:${i + 1}  ${m[0]}`)
+      })
+    }
+    expect(treffer).toEqual([])
+  })
+
+  it('erkennt das Muster — und laesst min-w-, max-w- und !w- durch', () => {
+    const muster = /\$\{(?:selectCls|inputCls)\}[^`]*?(?<![\w!-])w-[\w./[\]-]+/
+    expect('className={`${selectCls} w-auto`}').toMatch(muster)
+    expect('className={`${inputCls} w-24 font-mono`}').toMatch(muster)
+    expect('className={`${inputCls} min-w-40 flex-1`}').not.toMatch(muster)
+    expect('className={`${inputCls} max-w-xs`}').not.toMatch(muster)
+    expect('className={`${selectCls} !w-auto !py-1.5`}').not.toMatch(muster)
+  })
+})

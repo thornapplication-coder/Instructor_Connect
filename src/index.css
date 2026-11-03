@@ -53,6 +53,12 @@
   --c-prio-high: 190 18 60;   /* #BE123C */
   --c-prio-med: 154 52 18;    /* #9A3412 */
   --c-prio-low: 71 85 105;    /* #475569 */
+  /* Flottenmatrix der Statistik: Fläche je Notenstufe (matrixTon,
+     gradingStats.ts) aus den Status-Tokens — ab 4, ab 3, ab 2, darunter. */
+  --matrix-hoch: rgb(var(--c-ok) / 0.25);
+  --matrix-gut: rgb(var(--c-ok) / 0.1);
+  --matrix-niedrig: rgb(var(--c-wait) / 0.22);
+  --matrix-schwach: rgb(var(--c-bad) / 0.2);
   --sh-soft: 0 6px 18px rgba(22, 37, 61, 0.10);
   --sh-tile: 0 10px 26px rgba(22, 37, 61, 0.14);
   --grad-a: rgb(var(--c-accent) / 0.07);
@@ -81,6 +87,15 @@
   --c-prio-high: 253 164 175; /* #FDA4AF */
   --c-prio-med: 253 186 116;  /* #FDBA74 */
   --c-prio-low: 203 213 225;  /* #CBD5E1 */
+  /* Eigene, deckende Werte: Durchscheinend mischte sich das Amber mit dem
+     Dunkelblau der Karte zu Grau-Oliv, und die 2er-Zellen sahen aus wie
+     die 3er (Audit 11/2026, UID-19). Je Stufe der Dunkelmodus-Token mit
+     Schwarz gemischt (ok 42 % / 26 %, wait 42 %, bad 42 %); Schrift ink
+     erreicht darauf mindestens 6,7:1. */
+  --matrix-hoch: rgb(22 89 64);
+  --matrix-gut: rgb(14 55 40);
+  --matrix-niedrig: rgb(105 80 15);
+  --matrix-schwach: rgb(104 47 47);
   --sh-soft: 0 8px 24px rgba(3, 10, 22, 0.35);
   --sh-tile: 0 10px 30px rgba(3, 10, 22, 0.45);
   --grad-a: rgb(var(--c-raised) / 0.35);
@@ -211,8 +226,37 @@ input[type='date'] {
       rgb(var(--c-surface));
   }
 
+  /*
+   * Dasselbe waagerecht, für breite Tabellen am Telefon (Audit 11/2026,
+   * MOB-06): Die Kompetenztabelle des Monatsberichts zeigte 294 von 520 px,
+   * und nichts wies auf den Rest hin. Steht die erste Spalte fest (sticky),
+   * verdeckt sie den linken Schatten — der rechte sagt „hier geht es weiter".
+   */
+  .scroll-schatten-x {
+    background:
+      linear-gradient(to right, rgb(var(--c-surface)) 30%, rgb(var(--c-surface) / 0)) left / 2.5rem 100% no-repeat local,
+      linear-gradient(to right, rgb(var(--c-surface) / 0), rgb(var(--c-surface)) 70%) right / 2.5rem 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%, rgb(var(--c-line) / 0.22), transparent) left / 0.875rem 100% no-repeat scroll,
+      radial-gradient(farthest-side at 100% 50%, rgb(var(--c-line) / 0.22), transparent) right / 0.875rem 100% no-repeat scroll,
+      rgb(var(--c-surface));
+  }
+
   .above-sandbox-sticky {
     bottom: calc(2.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Zellen der Flottenmatrix, Stufe aus matrixTon (gradingStats.ts) */
+  .matrix-ton-hoch {
+    background-color: var(--matrix-hoch);
+  }
+  .matrix-ton-gut {
+    background-color: var(--matrix-gut);
+  }
+  .matrix-ton-niedrig {
+    background-color: var(--matrix-niedrig);
+  }
+  .matrix-ton-schwach {
+    background-color: var(--matrix-schwach);
   }
 }
 
@@ -253,6 +297,21 @@ button {
 input,
 select,
 textarea {
+  overflow-wrap: normal;
+}
+
+/*
+ * Tabellenköpfe brechen nur an Wortgrenzen — die oben genannte Ausnahme
+ * „Tabellen mit eigenem Scrollbereich", die bisher nur im Kommentar stand.
+ *
+ * Audit 11/2026, GRD-13/MOB-06/UID-02/A11Y-18: Mit `anywhere` fiel die
+ * Mindestbreite eines Kopfes auf einen Buchstaben; die Tabelle schrumpfte,
+ * statt in ihrem `overflow-x-auto` zu scrollen, und es stand „Fle/et",
+ * „Deviatio/n", „Not competen/t" da. Jede Tabelle mit Kopfzeile steht in
+ * einem Scrollbereich oder hat kurze Köpfe; Werte- und Namenszellen regeln
+ * die Berichte selbst (`whitespace-nowrap`, `break-normal`, `.zusammen`).
+ */
+th {
   overflow-wrap: normal;
 }
 
@@ -355,6 +414,11 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
     --c-prio-high: 190 18 60;
     --c-prio-med: 154 52 18;
     --c-prio-low: 71 85 105;
+    /* Papier ist hell — die Dunkelwerte der Matrix gelten hier nicht */
+    --matrix-hoch: rgb(var(--c-ok) / 0.25);
+    --matrix-gut: rgb(var(--c-ok) / 0.1);
+    --matrix-niedrig: rgb(var(--c-wait) / 0.22);
+    --matrix-schwach: rgb(var(--c-bad) / 0.2);
     --sh-soft: none;
     --sh-tile: none;
     --grad-a: transparent;

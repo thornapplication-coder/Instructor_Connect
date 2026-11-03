@@ -9,7 +9,7 @@ import { toast } from '../components/Toast'
 import { buildGradingCsv, gradingCsvName, type ExportScope } from '../gradingExport'
 import { navigate } from '../router'
 import { gradingListComparator } from '../gradingRules'
-import { trainingDate } from '../gradingStats'
+import { imZeitraum, LISTEN_ZEITRAEUME, zeitraumTage } from '../gradingStats'
 import { useStore } from '../store'
 import { TraineeHistory } from './admin/TraineeHistory'
 import { MonthlyReport } from './admin/MonthlyReport'
@@ -130,14 +130,9 @@ function TrainingAdminGrading() {
   // abgeschlossen = unterschrieben, versendet und ohne offenes Pflicht-Folgeformular
   const isCompleted = (r: GradingRecord) => trafficLight(r, state.gradingRecords) === 'green'
 
-  const PERIODS: Array<{ key: string; days: number | null }> = [
-    { key: 'all', days: null },
-    { key: 'day', days: 1 },
-    { key: 'week', days: 7 },
-    { key: 'month', days: 31 },
-    { key: 'year', days: 365 },
-  ]
-  const periodDays = PERIODS.find((x) => x.key === period)?.days ?? null
+  // Zeitraumtabelle und -regel teilt diese Liste mit der Ablage des
+  // Superadmins (gradingStats, Audit 11/2026, GRD-09).
+  const periodDays = zeitraumTage(period)
 
   // Folgeformulare tragen ihren Piloten in den Kopfdaten, Anwesenheitslisten
   // ihre Teilnehmer — über personenSuche erscheinen beide im Filter, statt
@@ -167,7 +162,7 @@ function TrainingAdminGrading() {
     // Zeitraum über den Schulungstag, nicht den Erfassungszeitpunkt — die
     // gleiche Regel wie in der Statistik (gradingStats.trainingDate): ein
     // nachgetragenes Formular gehört in die Periode, in der geschult wurde.
-    if (periodDays && now() - trainingDate(r) > periodDays * 24 * 3600_000) return false
+    if (!imZeitraum(r, periodDays, now())) return false
     if (fTrainee && !personenSuche(r, all, traineeLabel).includes(fTrainee)) return false
     if (fAircraft && r.header.aircraftType !== fAircraft) return false
     if (fInstructor && r.instructorId !== fInstructor) return false
@@ -310,7 +305,7 @@ function TrainingAdminGrading() {
             ))}
           </select>
           <select value={period} onChange={(e) => setPeriod(e.target.value)} aria-label={t('forms:ta.periodLabel')} className={selCls}>
-            {PERIODS.map((x) => (
+            {LISTEN_ZEITRAEUME.map((x) => (
               <option key={x.key} value={x.key}>
                 {t(`forms:ta.period.${x.key}`)}
               </option>
@@ -459,7 +454,12 @@ export function Grading() {
   // nur-lesender Zugriff (Training Admin bzw. per Matrix eingeschränkt)
   const isTrainingAdmin = !mayGrade && can('grading_view_all')
 
-  const isMember = currentUser!.role === 'member'
+  // Der Aufbewahrungshinweis gilt genau dort, wo der Store die Wochenfrist
+  // anwendet (visibleGradingRecords): ohne grading_view_all. Vorher hing er
+  // an der Rolle „member" — ein Gruppenadmin, dem die Matrix den vollen
+  // Archivzugriff nimmt, verlor Blätter ohne jeden Hinweis (Audit 11/2026,
+  // GRD-20).
+  const mitWochenfrist = !can('grading_view_all')
   // Filter über die Ampel-Legende (antippen zum Filtern)
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
   // Verlauf je Pilot: nur mit vollem Archivzugriff sinnvoll — die
@@ -606,8 +606,9 @@ export function Grading() {
           ))}
         </div>
 
-        {/* Aufbewahrung in der Instruktoren-Ansicht: 1 Woche */}
-        {isMember && <p className="px-1 text-micro leading-relaxed text-dim">{t('forms:retentionHint')}</p>}
+        {/* Aufbewahrung in der eigenen Ansicht: eine Woche ab Erledigung,
+            Offenes bleibt (GRD-20) */}
+        {mitWochenfrist && <p className="px-1 text-micro leading-relaxed text-dim">{t('forms:retentionHint')}</p>}
 
         {list.length === 0 &&
           (trafficFilter ? (
@@ -671,8 +672,13 @@ export function Grading() {
                       {personenKurz(r, state.gradingRecords, traineeLabel) || t('forms:noTrainee')}
                     </span>
                     {/* schrumpfbar: ein langer Mustername drängte sonst den
-                        Pilotennamen vollständig aus der Zeile */}
-                    <span className="min-w-0 max-w-[40%] shrink truncate">· {r.header.aircraftType}</span>
+                        Pilotennamen vollständig aus der Zeile. Ohne Muster
+                        (Anwesenheitslisten, Altbestand 308C/308D) kein Punkt —
+                        „Carl Diff ·" hing sonst ins Leere (Audit 11/2026,
+                        GTY-02). */}
+                    {r.header.aircraftType && (
+                      <span className="min-w-0 max-w-[40%] shrink truncate">· {r.header.aircraftType}</span>
+                    )}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {r.status === 'signed' ? (

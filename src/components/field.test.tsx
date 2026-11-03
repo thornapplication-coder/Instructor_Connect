@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
-import { Ankreuzknopf, Button, Field, inputCls, selectCls } from './ui'
+import { Ankreuzknopf, Button, Field, FilterAuswahl, inputCls, inputInlineCls, selectCls, selectInlineCls } from './ui'
 
 /**
  * Bausteine des Grading-Formulars, an denen Barrierefreiheitsbefunde hingen
@@ -91,5 +91,39 @@ describe('Button mit Symbol (A11Y-07)', () => {
     )
     // Vorher angesagt als bloße „Schaltfläche".
     expect(screen.getByRole('button', { name: 'Add recipient' })).toBeInTheDocument()
+  })
+})
+
+describe('Filterzeilen der Grading-Verwaltung (Audit 11/2026, UID-17/A11Y-07)', () => {
+  it('FilterAuswahl: das Feld trägt seinen Namen — auch wenn die Beschriftung nur vorgelesen wird', () => {
+    const wechsel = vi.fn()
+    render(
+      <>
+        <FilterAuswahl label="Trainee" value="" onChange={wechsel}>
+          <option value="">All trainees</option>
+          <option value="Sophie Berger">Sophie Berger</option>
+        </FilterAuswahl>
+        <FilterAuswahl label="Period" sichtbar value="12m" onChange={() => {}}>
+          <option value="12m">Last 12 months</option>
+        </FilterAuswahl>
+      </>,
+    )
+    // Vorher: „Kombinationsfeld" ohne Namen, angesagt wurde nur der Wert.
+    const trainee = screen.getByRole('combobox', { name: 'Trainee' })
+    expect(screen.getByText('Trainee')).toHaveClass('sr-only')
+    expect(screen.getByRole('combobox', { name: 'Period' })).toBeInTheDocument()
+    expect(screen.getByText('Period')).not.toHaveClass('sr-only')
+    fireEvent.change(trainee, { target: { value: 'Sophie Berger' } })
+    expect(wechsel).toHaveBeenCalledWith('Sophie Berger')
+  })
+
+  it('die Inline-Varianten tragen keine volle Breite — sonst verlöre jede eigene Breite gegen w-full', () => {
+    expect(selectCls.split(' ')).toContain('w-full')
+    expect(inputCls.split(' ')).toContain('w-full')
+    expect(selectInlineCls.split(' ')).not.toContain('w-full')
+    expect(inputInlineCls.split(' ')).not.toContain('w-full')
+    // Sonst dieselbe Gestalt: Rand, Fokus, Beanstandung.
+    expect(selectCls).toBe(`w-full ${selectInlineCls}`)
+    expect(inputCls).toBe(`w-full ${inputInlineCls}`)
   })
 })

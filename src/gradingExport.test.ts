@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { avgOf, buildGradingCsv, gradingCsvName, type ExportContext } from './gradingExport'
+import { avgOf, buildGradingCsv, gradingCsvName, kalibrierungsZeilen, statistikKopf, statistikRohdaten, type ExportContext } from './gradingExport'
+import { statsBySet } from './gradingStats'
 import { formatDateTime } from './datum'
 import { traineesOf } from './gradingRules'
 import { FORM_TYPES } from './sandbox/gradingDefaults'
@@ -487,15 +488,45 @@ describe('Auszug „people"', () => {
   it('listet die Kalibrierung je Kompetenzsatz', () => {
     const csv = buildGradingCsv(
       'people',
-      ctx([], { kalibrierung: [{ satz: 'Pilot', personId: 'u-mika', sessions: 7, avg: 3.4, abweichung: -0.63 }] }),
+      ctx([], { kalibrierung: [{ satz: 'Pilot', personId: 'u-mika', sessions: 7, avg: 3.4, abweichung: -0.63, einstufung: 'Discuss' }] }),
     )
-    expect(csv).toContain('CompetencySet;Person;Role;Sessions;AvgGrade;DeviationFromSetAvg')
-    expect(csv).toContain('Pilot;Mika Beispiel;Instructor;7;3,40;-0,63')
+    expect(csv).toContain('CompetencySet;Person;Role;Sessions;AvgGrade;DeviationFromSetAvg;Assessment')
+    expect(csv).toContain('Pilot;Mika Beispiel;Instructor;7;3,40;-0,63;Discuss')
   })
 
   it('bleibt ohne Kalibrierungsdaten bei der Kopfzeile', () => {
     const csv = buildGradingCsv('people', ctx([]))
-    expect(letzte(zeilen(csv))).toBe('CompetencySet;Person;Role;Sessions;AvgGrade;DeviationFromSetAvg')
+    expect(letzte(zeilen(csv))).toBe('CompetencySet;Person;Role;Sessions;AvgGrade;DeviationFromSetAvg;Assessment')
+  })
+
+  /*
+   * Audit 11/2026, EXP-02: Die Abweichung wurde fuer die Datei als
+   * (avg ?? 0) - (overall ?? 0) nachgerechnet. Ein Instruktor, der im
+   * Zeitraum nur „NO" vergeben hatte, stand damit als −Gesamtmittel im
+   * Auszug („Sam Beispiel;Instructor;1;;-3,10"), waehrend Kachel und
+   * Standardisierungsbericht fuer ihn keine Abweichung zeigten.
+   */
+  it('Instruktor nur mit „NO": Abweichung leer, nicht −Gesamtmittel — dieselbe Zahl wie im Bericht', () => {
+    const mitNoten = blatt({ id: 'a', instructorId: 'u-mika' })
+    const nurNO = blatt({
+      id: 'b',
+      instructorId: 'u-sam',
+      trainees: [pilot({ grades: [{ code: 'KNO', grade: 'NO', comment: '' }] })],
+    })
+    const saetze = statsBySet([mitNoten, nurNO], () => 'pilot')
+    const zeilenK = kalibrierungsZeilen(saetze, () => 'Pilot competencies', (f) => `flag:${f}`)
+    const sam = zeilenK.find((z) => z.personId === 'u-sam')!
+    expect(sam.avg).toBeNull()
+    expect(sam.abweichung).toBeNull()
+    expect(sam.einstufung).toBe('flag:insufficient')
+    // Die vorhandene Abweichung ist DIESELBE Zahl wie in statsBySet (Bericht, Kachel).
+    const mika = zeilenK.find((z) => z.personId === 'u-mika')!
+    expect(mika.abweichung).toBe(saetze[0].rows.find((r) => r.id === 'u-mika')!.delta)
+    expect(mika.satz).toBe('Pilot competencies')
+
+    const csv = buildGradingCsv('people', ctx([], { userName: (id) => (id === 'u-sam' ? 'Sam Beispiel' : 'Mika Beispiel'), kalibrierung: zeilenK }))
+    expect(csv).toContain('Pilot competencies;Sam Beispiel;Instructor;1;;;flag:insufficient')
+    expect(csv).not.toMatch(/Sam Beispiel;Instructor;1;;-/)
   })
 })
 
@@ -504,5 +535,52 @@ describe('Dateiname', () => {
     // Ortszeit: der Name soll zu dem passen, was die Person auf der Uhr sah.
     const d = new Date(2026, 7, 13, 5, 9)
     expect(gradingCsvName('records', d.getTime())).toBe('grading-records_2026-08-13_05-09.csv')
+  })
+})
+
+/**
+ * Audit 11/2026, EXP-03 (mit GRD-07): Die drei Auszuege der Statistik
+ * nannten weder Zeitraum noch Basis, und nur People folgte dem Zeitraum.
+ */
+describe('Statistik-Auszuege nennen ihren Ausschnitt', () => {
+  const doc = { approvalNumber: 'AT.ATO.106', approvalNumberUK: 'GBR.ATO.0541' }
+  const a = { fleet: '', authority: '' as const, period: '12m' as const, doc }
+
+  it('nennt Flotte, Behoerde, Zeitraum und Basis — je Auszug die richtige', () => {
+    const forms = Object.fromEntries(statistikKopf('records', a))
+    expect(forms).toEqual({
+      Fleet: 'All fleets',
+      Authority: 'All authorities',
+      Period: 'Last 12 months (by training date)',
+      Basis: 'All forms (raw data), including unsigned and follow-up forms',
+    })
+    expect(Object.fromEntries(statistikKopf('competencies', a)).Basis).toBe(forms.Basis)
+    const people = Object.fromEntries(statistikKopf('people', { ...a, fleet: 'CL30', authority: 'UK', period: 'all' }))
+    expect(people).toEqual({
+      Fleet: 'CL30',
+      Authority: 'GBR.ATO.0541',
+      Period: 'All records (by training date)',
+      Basis: 'Signed forms only, follow-up forms excluded',
+    })
+  })
+
+  it('steht im Dateikopf der Exportdatei', () => {
+    const csv = buildGradingCsv('records', ctx([blatt()], { filter: statistikKopf('records', a) }))
+    expect(csv).toContain('Period;Last 12 months (by training date)')
+    expect(csv).toContain('Basis;All forms (raw data), including unsigned and follow-up forms')
+  })
+
+  it('Rohdaten folgen Flotte, Behoerde und Zeitraum (Schulungstag), nicht der Unterschrift', () => {
+    const now = new Date(2026, 7, 20).getTime()
+    const offen = blatt({ id: 'offen', status: 'awaiting_signature' })
+    const alt = blatt({ id: 'alt', header: { aircraftType: 'C560 XLS+', date: '2024-02-01' }, createdAt: now })
+    const uk = blatt({ id: 'uk', authority: 'UK' })
+    const cl = blatt({ id: 'cl', header: { aircraftType: 'CL30', date: '2026-08-08' } })
+    const alle = [blatt(), offen, alt, uk, cl]
+    const ids = (x: GradingRecord[]) => x.map((r) => r.id)
+    expect(ids(statistikRohdaten(alle, { ...a, now }))).toEqual(['r1', 'offen', 'uk', 'cl'])
+    expect(ids(statistikRohdaten(alle, { ...a, period: 'all', now }))).toEqual(['r1', 'offen', 'alt', 'uk', 'cl'])
+    expect(ids(statistikRohdaten(alle, { ...a, authority: 'AT', now }))).toEqual(['r1', 'offen', 'cl'])
+    expect(ids(statistikRohdaten(alle, { ...a, fleet: 'CL30', now }))).toEqual(['cl'])
   })
 })

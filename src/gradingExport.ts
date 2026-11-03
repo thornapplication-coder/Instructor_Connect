@@ -2,7 +2,8 @@ import { csvNum, csvRow } from './csv'
 import { formatDate, lokalerTag } from './datum'
 import { kopfText, kopfZeilen, type ZusatzSchluessel } from './gradingKopf'
 import { teilnehmerOf } from './gradingRules'
-import type { FormType, Grade, GradingRecord, TraineeGrading } from './types'
+import { authorityOf, berichtsKennung, periodLabel, periodStart, trainingDate, type Flag, type PeriodKey, type SetStats } from './gradingStats'
+import type { FormType, Grade, GradingRecord, Settings, TraineeGrading } from './types'
 
 /**
  * Der Behoerdenexport als reine Funktion — eine Quelle fuer zwei Ansichten.
@@ -52,8 +53,50 @@ export type ExportContext = {
   /** Beschriftung der Angaben ohne Katalogfeld (Namensraum `forms`, nur
    *  Englisch) — dieselben Woerter wie auf dem Dokument. */
   beschriftung: (schluessel: ZusatzSchluessel) => string
-  /** Kalibrierungszeilen fuer den Personen-Auszug; sonst leer. */
-  kalibrierung?: { satz: string; personId: string; sessions: number; avg: number | null; abweichung: number | null }[]
+  /** Kalibrierungszeilen fuer den Personen-Auszug (`kalibrierungsZeilen`); sonst leer. */
+  kalibrierung?: KalibrierungsZeile[]
+}
+
+/** Eine Zeile des Personen-Auszugs: ein Instruktor in einem Kompetenzsatz. */
+export type KalibrierungsZeile = {
+  satz: string
+  personId: string
+  sessions: number
+  avg: number | null
+  /** Abweichung vom Mittel des Satzes; null, wenn es keinen Mittelwert gibt */
+  abweichung: number | null
+  /** Einstufung wie im Standardisierungsbericht (Within range, Discuss …) */
+  einstufung: string
+}
+
+/**
+ * Zeilen des Personen-Auszugs — uebernommen aus der Kalibrierung
+ * (gradingStats.statsBySet), nicht nachgerechnet.
+ *
+ * Audit 11/2026, EXP-02: Die Ansicht rechnete die Abweichung fuer die Datei
+ * selbst nach, als `(avg ?? 0) - (overall ?? 0)`. Wer im Zeitraum nur „NO"
+ * vergeben hatte, stand damit als extrem strenger Bewerter (−3,10) im
+ * Auszug fuer den Head of Training — waehrend Kachel und
+ * Standardisierungsbericht fuer dieselbe Person ehrlich „keine Abweichung"
+ * zeigten. Wer einen Wert in einem Format selbst ausrechnet, baut die
+ * zweite Wahrheit. Die Einstufung kommt mit, damit die Datei dieselbe
+ * Aussage traegt wie der Bericht.
+ */
+export function kalibrierungsZeilen(
+  saetze: readonly SetStats[],
+  satzName: (key: SetStats['key']) => string,
+  einstufung: (flag: Flag) => string,
+): KalibrierungsZeile[] {
+  return saetze.flatMap((st) =>
+    st.rows.map((r) => ({
+      satz: satzName(st.key),
+      personId: r.id,
+      sessions: r.sessions,
+      avg: r.mean,
+      abweichung: r.delta,
+      einstufung: einstufung(r.flag),
+    })),
+  )
 }
 
 /** Mittelwert der gesetzten Noten; „NO" (not observed) zaehlt nicht mit. */
@@ -231,9 +274,9 @@ function competenciesCsv(c: ExportContext): string {
 /** Kalibrierung getrennt je Kompetenzsatz — Piloten- und
  *  Instruktorenbewertungen werden nie miteinander verglichen. */
 function peopleCsv(c: ExportContext): string {
-  let csv = csvRow(['CompetencySet', 'Person', 'Role', 'Sessions', 'AvgGrade', 'DeviationFromSetAvg'])
+  let csv = csvRow(['CompetencySet', 'Person', 'Role', 'Sessions', 'AvgGrade', 'DeviationFromSetAvg', 'Assessment'])
   ;(c.kalibrierung ?? []).forEach((z) => {
-    csv += csvRow([z.satz, c.userName(z.personId), 'Instructor', z.sessions, csvNum(z.avg), csvNum(z.abweichung)])
+    csv += csvRow([z.satz, c.userName(z.personId), 'Instructor', z.sessions, csvNum(z.avg), csvNum(z.abweichung), z.einstufung])
   })
   return csv
 }
@@ -241,6 +284,58 @@ function peopleCsv(c: ExportContext): string {
 export function buildGradingCsv(scope: ExportScope, c: ExportContext): string {
   const koerper = scope === 'records' ? recordsCsv(c) : scope === 'competencies' ? competenciesCsv(c) : peopleCsv(c)
   return kopf(c) + koerper
+}
+
+/** Ausschnitt der Statistikseite: Flotte, Behoerde, Zeitraum. */
+export type StatistikAusschnitt = {
+  fleet: string
+  authority: '' | 'AT' | 'UK'
+  period: PeriodKey
+  doc?: Partial<Pick<Settings['documentHeader'], 'approvalNumber' | 'approvalNumberUK'>>
+}
+
+/**
+ * Dateikopf der drei Auszuege der Statistikseite.
+ *
+ * Audit 11/2026, EXP-03 (mit GRD-07): Der Kopf nannte nur Flotte und
+ * Behoerde. Der Zeitraum der Kalibrierung stand nirgends in der Datei, und
+ * dass Forms/Competencies Rohdaten sind, People dagegen nur unterschriebene
+ * Blaetter ohne Folgeformulare zaehlt, sagte nur der Hinweis auf dem
+ * Bildschirm. Die Datei muss selbst sagen, welcher Ausschnitt sie ist.
+ *
+ * Die Basis der Rohdaten bleibt bewusst ungefiltert (Hinweis „Unprocessed
+ * raw data"), steht aber jetzt im Kopf — samt Zeitraum, der fuer alle drei
+ * Auszuege gleich gilt (statistikRohdaten).
+ */
+export function statistikKopf(scope: ExportScope, a: StatistikAusschnitt): [string, string][] {
+  return [
+    ['Fleet', a.fleet || 'All fleets'],
+    ['Authority', berichtsKennung(a.authority, a.doc)],
+    ['Period', `${periodLabel(a.period)} (by training date)`],
+    [
+      'Basis',
+      scope === 'people'
+        ? 'Signed forms only, follow-up forms excluded'
+        : 'All forms (raw data), including unsigned and follow-up forms',
+    ],
+  ]
+}
+
+/**
+ * Datensaetze der Rohdaten-Auszuege der Statistikseite: Flotte, Behoerde
+ * und Zeitraum (ueber den Schulungstag) wie auf der Seite, aber ohne die
+ * Regeln der Kennzahlen — unterschrieben oder nicht, Folgeformular oder
+ * nicht. Vorher galt der Zeitraum nur fuer den People-Auszug; drei Knoepfe
+ * nebeneinander lieferten drei verschiedene Ausschnitte (EXP-03).
+ */
+export function statistikRohdaten(records: GradingRecord[], a: StatistikAusschnitt & { now: number }): GradingRecord[] {
+  const ab = periodStart(a.period, a.now)
+  return records.filter(
+    (r) =>
+      (!a.fleet || r.header.aircraftType === a.fleet) &&
+      (!a.authority || authorityOf(r) === a.authority) &&
+      trainingDate(r) >= ab,
+  )
 }
 
 /** Exportzeitpunkt auch im Dateinamen — zwei Auszuege desselben Tages sind
