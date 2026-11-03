@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rasterKlasse, rasterSpalten } from './kachelRaster'
+import { rasterKlasse, rasterSpalten, startRasterKlasse, startSpalten } from './kachelRaster'
 
 /**
  * Kachelraster ohne Waise (Audit 11/2026, UID-09): Neun Kacheln in vier
@@ -39,5 +39,54 @@ describe('rasterSpalten', () => {
 
   it('liefert fuer jede Zahl eine wirklich vorhandene Klasse', () => {
     for (let n = 1; n <= 40; n++) expect(rasterKlasse(n)).toMatch(/^grid-cols-[2-5]$/)
+  })
+})
+
+/**
+ * Startseite (Audit 11/2026, UID-09, Teil Startseite): Neun Kacheln in vier
+ * Spalten — „DocCheck" allein in Reihe 3 und unter der Falz.
+ */
+describe('startSpalten', () => {
+  const STUFEN = ['telefon', 'tablet', 'desktop', 'flach'] as const
+
+  it('Superadmin und Gruppenadmin (neun Kacheln): am Desktop 5 + 4, zwei Reihen', () => {
+    expect(startSpalten(9, 'desktop')).toBe(5)
+    expect(startSpalten(9, 'tablet')).toBe(3)
+    expect(startSpalten(9, 'flach')).toBe(3) // 3 × 3 statt 4 + 4 + 1
+    expect(startSpalten(9, 'telefon')).toBe(2)
+  })
+
+  it('Mitglied ohne DocCheck (acht) und mit nur sieben Modulen', () => {
+    expect(startSpalten(8, 'desktop')).toBe(4)
+    expect(startSpalten(7, 'desktop')).toBe(4)
+    expect(startSpalten(7, 'tablet')).toBe(4) // 4 + 3 statt 3 + 3 + 1
+  })
+
+  it('Training Admin ab Werk (zwei Kacheln): eine volle Reihe, kein leeres Feld daneben', () => {
+    for (const stufe of STUFEN) expect(startSpalten(2, stufe), stufe).toBe(2)
+    for (const stufe of STUFEN) expect(startSpalten(1, stufe), stufe).toBe(1)
+    expect(startSpalten(0, 'desktop')).toBe(1)
+  })
+
+  it('keine Kachelzahl bis 12 lässt auf einer Stufe eine Kachel allein unter vollen Reihen', () => {
+    for (const stufe of STUFEN) {
+      for (let n = 1; n <= 12; n++) {
+        const c = startSpalten(n, stufe)
+        const letzte = n % c === 0 ? c : n % c
+        if (n > c) expect(letzte, `${stufe}: ${n} Kacheln in ${c} Spalten`).toBeGreaterThanOrEqual(c - 1)
+        // Eine einzige Reihe ist immer voll.
+        else expect(c, `${stufe}: ${n} Kacheln`).toBe(n)
+      }
+    }
+  })
+
+  it('am Desktop nie mehr als zwei Reihen bis zehn Kacheln — sonst rutscht die letzte unter die Falz', () => {
+    for (let n = 1; n <= 10; n++) expect(Math.ceil(n / startSpalten(n, 'desktop')), `${n} Kacheln`).toBeLessThanOrEqual(2)
+  })
+
+  it('setzt die Klassen aller Stufen wörtlich zusammen — flach zuletzt', () => {
+    expect(startRasterKlasse(9)).toBe('grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 short:grid-cols-3')
+    expect(startRasterKlasse(2)).toBe('grid-cols-2 sm:grid-cols-2 lg:grid-cols-2 short:grid-cols-2')
+    for (let n = 1; n <= 12; n++) expect(startRasterKlasse(n)).toMatch(/^grid-cols-[12] sm:grid-cols-[1-4] lg:grid-cols-[1-5] short:grid-cols-[1-4]$/)
   })
 })

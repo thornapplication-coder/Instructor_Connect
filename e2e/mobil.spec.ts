@@ -98,3 +98,100 @@ test.describe('Feedback bei 360 px', () => {
     await expect(knopf).toHaveAttribute('aria-pressed', 'true')
   })
 })
+
+/**
+ * Audit 11/2026, MOB-02/KERN-17: Neben einer langen Aktion („+ Eintrag
+ * hinzufügen") blieb vom Seitentitel am Telefon „my A…" bzw. „Le…". Die
+ * Aktion zeigt unter `sm` nur das Plus; ihr Name bleibt die Beschriftung.
+ */
+test('Telefon 360 px: Seitentitel bleiben neben der Aktion lesbar', async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 780 })
+  await anmelden(page)
+  for (const [route, aktion] of [
+    ['/lessons', 'Lesson Plan hochladen'],
+    ['/logbook', 'Eintrag hinzufügen'],
+    ['/info', 'Neuer Eintrag'],
+    // Kurze Titel, aber derselbe Knopf (TopBarAktion): am Telefon nur das Plus.
+    ['/notes', 'Neue Notiz'],
+    ['/contacts', 'Neuer Kontakt'],
+    ['/chat', 'Gruppe anlegen'],
+  ] as const) {
+    await page.goto(`/#${route}`)
+    const titel = page.locator('header h1[data-page-heading]')
+    await expect(titel).toBeVisible()
+    const knopf = page.getByRole('button', { name: aktion })
+    await expect(knopf).toBeVisible()
+    const m = await titel.evaluate((h) => ({ sichtbar: h.clientWidth, noetig: h.scrollWidth }))
+    expect(m.noetig, `${route}: Titel gekürzt (${m.noetig} > ${m.sichtbar})`).toBeLessThanOrEqual(m.sichtbar)
+    const b = (await knopf.boundingBox())!
+    expect(Math.min(b.width, b.height), `${route}: Trefferfläche der Aktion`).toBeGreaterThanOrEqual(44)
+    // Eine Gestalt auf jeder Seite: Die Beschriftung steht erst ab sm.
+    await expect(knopf.getByText(aktion), `${route}: Beschriftung am Telefon`).toBeHidden()
+  }
+})
+
+/**
+ * Audit 11/2026, MOB-07: Die App läuft mit viewport-fit=cover unter die
+ * Systemleisten, eingerückt war aber nur oben und unten an Kopf und
+ * Sandbox-Leiste. Im Querformat lagen Karten bei 16 px — unter der
+ * Sensorkappe (47 px) —, und im Bottom-Sheet standen „Abbrechen" und
+ * „Speichern" im Bereich des Home-Indikators. Chromium gibt die
+ * Sicherheitsbereiche über CDP vor; `env(safe-area-inset-*)` liefert dann
+ * dieselben Werte wie ein iPhone 13.
+ */
+async function sicherheitsbereich(page: Page, insets: { top: number; left: number; right: number; bottom: number }) {
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets })
+}
+
+test.describe('Sicherheitsbereiche (Audit 11/2026, MOB-07)', () => {
+  test('Querformat mit Sensorkappe links und rechts: Karten, Kopfleiste und Sandbox-Leiste rücken ein', async ({ page }) => {
+    // Fenstermaß des iPhone 13 quer (Playwright-Profil): schmaler als die
+    // Seitenschranke von 768 px — bei 844 px rückte schon der Rand der
+    // zentrierten Seite die Karten aus der Kappe, und der Test sah nichts.
+    await page.setViewportSize({ width: 750, height: 342 })
+    await sicherheitsbereich(page, { top: 0, left: 47, right: 47, bottom: 21 })
+    await anmelden(page)
+    await page.goto('/#/notes')
+    const karte = page.locator('main .rounded-2xl').first()
+    await expect(karte).toBeVisible()
+    const m = await page.evaluate(() => {
+      const breite = innerWidth
+      const kante = (sel: string) => {
+        const r = document.querySelector(sel)!.getBoundingClientRect()
+        return { links: Math.round(r.left), rechts: Math.round(breite - r.right) }
+      }
+      // Inhalt = Kasten minus Innenabstand: Dort steht, was man lesen muss.
+      const inhalt = (sel: string) => {
+        const e = document.querySelector(sel)!
+        const r = e.getBoundingClientRect()
+        const s = getComputedStyle(e)
+        return { links: Math.round(r.left + parseFloat(s.paddingLeft)), rechts: Math.round(breite - r.right + parseFloat(s.paddingRight)) }
+      }
+      return { karte: kante('main .rounded-2xl'), kopf: inhalt('header > div'), leiste: inhalt('.sticky.bottom-0 > div') }
+    })
+    for (const [wo, k] of Object.entries(m)) {
+      expect(k.links, `${wo} links`).toBeGreaterThanOrEqual(47)
+      expect(k.rechts, `${wo} rechts`).toBeGreaterThanOrEqual(47)
+    }
+  })
+
+  test('Hochformat mit Home-Indikator: der letzte Knopf des Bottom-Sheets liegt darüber', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 664 })
+    await sicherheitsbereich(page, { top: 47, left: 0, right: 0, bottom: 34 })
+    await anmelden(page)
+    await page.goto('/#/notes')
+    await page.getByRole('button', { name: 'Neue Notiz' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Neue Notiz' })
+    await expect(dialog).toBeVisible()
+    const m = await dialog.evaluate((d) => ({
+      hoehe: innerHeight,
+      dialogUnten: Math.round(d.getBoundingClientRect().bottom),
+      knopfUnten: Math.max(...[...d.querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().bottom))),
+    }))
+    // Das Sheet selbst reicht bis an den Rand (seine Fläche liegt unter dem
+    // Indikator), sein Inhalt nicht.
+    expect(m.dialogUnten).toBe(m.hoehe)
+    expect(m.knopfUnten).toBeLessThanOrEqual(m.hoehe - 34)
+  })
+})

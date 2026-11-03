@@ -16,6 +16,14 @@ Abgesichert wird das nicht nur durch Absprache, sondern mechanisch — durch
 1. `src/testGuard.test.ts` verlangt zu jedem Logik-Modul in `src/*.ts` eine
    Testdatei (`X.test.ts` für reine Logik, `X.dom.test.ts` für alles, was eine
    Browser-Umgebung braucht). Ausnahmen stehen dort namentlich mit Grund.
+   Das gilt auch für `src/sandbox/*.ts` (Seed, Grading-Katalog, Impressum
+   ab Werk — jeder neue Stand entsteht daraus). Und es gilt für Logik, die
+   in einer `.tsx` steht: Jede exportierte Funktion mit kleinem
+   Anfangsbuchstaben außer Hooks (`use…`) wird gefunden und muss nach
+   `src/*.ts` — oder steht in `FREIGEGEBEN` mit Grund. Vorher war dort eine
+   Liste, deren Test nur prüfte, dass sie leer ist; `gradeColor` und
+   `parseImprint` lagen derweil ungetestet in Seiten (Audit 11/2026,
+   TEC-18).
 2. Die Abdeckungsschwelle in `vitest.config.ts` prüft, dass diese Tests auch
    etwas abdecken (`perFile`, 90 % Zeilen / 85 % Zweige).
 
@@ -99,6 +107,13 @@ prüfen, nicht der Code anzupassen**, bis er zum Test passt.
 Die Trennung der Ebenen ist Absicht: Liefe Ebene 1 ebenfalls unter `jsdom`,
 könnte ein Logik-Modul unbemerkt vom DOM abhängig werden und der Lauf bliebe
 grün.
+
+Ebene 1 und 2 laufen in der Zeitzone **Europe/Vienna** (`vitest.config.ts`),
+nicht in der der Maschine: In der CI (UTC) ist der UTC-Tag der Ortstag, und
+ein Datum aus `toISOString()` statt `lokalerTag` fiel keinem Test auf
+(EXM-01). `src/test/zeitzone*.test.ts` prüft, dass die Zone in beiden Ebenen
+ankommt; wer eine andere braucht (westlich von Greenwich), setzt sie im Test
+selbst und stellt sie danach zurück (Audit 11/2026, Nachtrag L-AUSGABE#2).
 
 ## DocCheck (`src/modules/doccheck/`)
 
@@ -455,12 +470,44 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
   `forms:`-Schlüssel existiert, und de/en führen dieselben Schlüssel.
   Folge, bewusst in Kauf genommen: Auch die Bedienleisten des Grading-
   Bereichs im Admin-Panel (Filter, Reiter, Export-Knöpfe) sind englisch.
+  Und sie **sagen es**: Jede Ansicht mit `forms:`-Texten trägt `lang="en"`
+  (`Page`, `TopBar`, Formularleiste, Wurzel der Grading-Ablage) oder wird
+  nur in einer solchen gezeigt; Dialoge geben es selbst an, weil sie per
+  Portal am <body> hängen. Ein Knopf aus `common` darin trägt die Sprache
+  der Oberfläche. Ohne das las die Sprachausgabe „Competent" deutsch
+  (WCAG 3.1.2, Audit 11/2026, A11Y-12) — `src/i18n.test.ts` prüft es.
+  Dort stehen auch die **Textwachen über alle Bundles** (App, forms,
+  DocCheck, Impressum ab Werk): Eine Zahl vor einem Wort, das sich nach ihr
+  richtet, kommt über `{{count}}` mit `_one`/`_other` — auch die zweite
+  Zahl eines Satzes („{{shown}} von {{count}} Einträgen", sonst „1 von 1
+  Seiten"); kein „(en)"/„(s)"; Anführungszeichen deutsch „…“, englisch
+  “…”, geschlossen; keine Sie-Anrede; gleicher Wert in de und en nur aus
+  einer benannten Gruppe (Produktnamen, Fachbegriffe …). Die Liste der
+  Mehrzahlwörter ist eine Heuristik — ein neues Zählwort gehört hinein
+  (Audit 11/2026, TXT-08/09/13, GRD-20).
 - **Überschriften** kommen aus `SectionHeading` (gliedert die Seite,
   Akzentmarke + Linie) und `CardHeading` (beschriftet den Inhalt einer
   Karte). Beide in `text-ink`, nicht `text-dim`: Eine Überschrift ist die
   Struktur des Textes, nicht sein Kleingedrucktes. Wer eine neue
   Zwischenüberschrift braucht, nimmt eine der beiden — das Muster war
   vorher an vierzig Stellen von Hand geschrieben und wich überall leicht ab.
+  Die Gliederung springt nie über eine Ebene: `CardHeading` ist h3 unter
+  einer `SectionHeading`, direkt unter der Seitenüberschrift `level={2}`
+  (Formular, Einstellungen, Statistik, Logbuch, DocCheck-Spalten). Jede
+  Seite hat genau ein `<main>` und eine h1 — auch Anmeldung und
+  Gerätevorschau (A11Y-14, geprüft in `e2e/barrierefreiheit.spec.ts`).
+- **Fenstertitel** setzt die Kopfleiste: „Notes – Instructor Connect"
+  (`useDokumentTitel`, `src/dokumentTitel.ts`); ohne Kopfleiste ruft die
+  Seite den Hook selbst. Eine Druckansicht (`useDruckTitel`) geht vor, ihr
+  Titel ist der Dateiname des PDF. Beide melden sich in EINEM Stapel an,
+  statt „vorigen Titel zurückzuschreiben" — das ließ je nach Reihenfolge
+  der Effekte den Titel einer geschlossenen Seite stehen (A11Y-13).
+- **Die Aktion der Kopfleiste** („+ Neue Notiz") kommt aus `TopBarAktion`
+  (`ui.tsx`): am Telefon nur das Plus, ihr Name bleibt die Beschriftung,
+  ab `sm` steht sie daneben. Neben einer langen Beschriftung blieb vom
+  Seitentitel „Le…" (MOB-02/KERN-17). Jede Kopfleiste nimmt sie, keine
+  eigene Pille — sonst zeigt dasselbe Telefon denselben Knopf in zwei
+  Gestalten.
 - **Musterbezogene Sichtbarkeit** läuft über `src/aircraftScope.ts` — eine
   Regel für Lesson Plans, Instructor Info und Chats. Zwei Festlegungen hängen
   daran: **ohne Muster heißt „für alle"** (ein allgemeiner Eintrag ist eine
@@ -519,6 +566,9 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
   trägt die getönte Fläche (mit Rand) die Farbe, die Schrift bleibt `ink`:
   farbige Schrift auf eigener 15-%-Fläche lag nachgemessen bei 3,4–4,3:1. Keine handgebaute
   Pille mehr: „Not Competent" stand vorher in drei Farben nebeneinander.
+  Wo `ok`/`wait`/`bad` doch als Schrift stehen („16 items open"), reichen
+  sie 4,5:1 auf Hintergrund, Karte und erhabener Fläche — in beiden Themen
+  und im Druck; `src/themeTokens.test.ts` rechnet nach (A11Y-05).
 - **Die Ampel** hat EINE Gestalt: `TrafficIcon` (`src/pages/Grading.tsx`) —
   Haken, Fragezeichen, Kreuz in `text-ok`/`text-wait`/`text-bad`. Vorher gab
   es zwei Formensysteme nebeneinander (Kreis/Dreieck/Quadrat als Marke,
@@ -535,9 +585,28 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
   `src/designScale.test.ts` prüft das mechanisch, ebenso die senkrechten
   Stapel. Wer eine Stufe braucht, die es nicht gibt, ändert die Skala und
   schreibt den Grund daneben — er lautet nicht „passt hier besser".
-- **Am Desktop** begrenzt `Page` die Breite (1152 px, `wide` 1280 px). Wo die
+- **Am Desktop** begrenzt `Page` die Breite (1152 px, `wide` 1280 px), von
+  1024 bis 1279 px auf 1024 px — vorher galt dort die Tablet-Schranke von
+  768 px, und das Admin-Panel, das ab 1024 px aufgeht, sah aus wie eine
+  Tablet-Spalte (UID-16). Kopfleiste, Seite und Sandbox-Leiste nehmen
+  dieselbe Klasse (`seitenBreiteCls`). Wo die
   Breite etwas zu tragen hat, füllt sie `CardGrid` mit zwei Spalten; bei einer
   einzelnen Karte bleibt es einspaltig, sonst stünde daneben eine leere Hälfte.
+  Kachelraster (Startseite, Admin-Panel) rechnen ihre Spalten aus der
+  Kachelzahl (`src/kachelRaster.ts`): nie eine Kachel allein unter vollen
+  Reihen — die Zahl hängt an Rolle und Rechten (zwei bis neun).
+- **Ränder am Gerät:** Die App läuft mit `viewport-fit=cover` unter die
+  Systemleisten. Seitlich nimmt jeder randnahe Container `safe-x` (eigener
+  Rand über `--rand-x`, im Querformat der Sicherheitsbereich der
+  Sensorkappe), Vollbildflächen `safe-rundum`, das Bottom-Sheet unten
+  `pb-safe-5` und `max-h-dialog` (dvh) — alles in `src/index.css`. Neben
+  `safe-x` steht kein `px-*` (MOB-07, `e2e/mobil.spec.ts` gibt die
+  Bereiche per CDP vor).
+- **Bewegung reduzieren** (Systemeinstellung) gilt app-weit: Übergänge und
+  Animationen kürzt eine Medienabfrage in `src/index.css`, Kachelhub nur mit
+  `motion-safe:`, und ein Sprung aus dem Code (`scrollIntoView`) fragt
+  `scrollVerhalten()` (`src/bewegung.ts`) — eine ausdrückliche
+  `behavior: 'smooth'` schlägt jede CSS-Regel (Audit 11/2026, A11Y-15).
 - **Alles am unteren Bildschirmrand** (Bestätigung, Offline-Streifen,
   Speicherwarnung, Update-Hinweis) liegt in EINEM Stapel in `App.tsx`, nicht
   je einzeln auf `fixed above-sandbox`. Zweimal ist derselbe Fehler passiert:
@@ -554,7 +623,17 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
 - **Dialoge** führen den Fokus über `useDialogFokus` (`src/components/ui.tsx`):
   hinein beim Öffnen, Tab im Kreis, Escape, zurück zum Auslöser. `Modal`
   und der DocCheck-Viewer nutzen denselben Hook — der Viewer hatte die
-  Regel nicht, und wer ihn per Tastatur öffnete, stand dahinter.
+  Regel nicht, und wer ihn per Tastatur öffnete, stand dahinter. Der
+  Auslöser wird beim ersten Rendern gemerkt, nicht im Effekt: `autoFocus`
+  greift vorher, und gemerkt war sonst das Dialogfeld selbst — der Fokus
+  fiel auf <body> (A11Y-03). Ist der Auslöser weg oder war es <body>,
+  landet der Fokus auf der Seitenüberschrift (`fokus.ts`, ebenso nach der
+  Anmeldung, A11Y-17) — mit `preventScroll`, wie beim Seitenwechsel: Die
+  Überschrift klebt oben und ist zu sehen, ein Rollen dorthin hieße
+  Seitenanfang (KERN-01). `autoFocus` in Dialogen braucht es deshalb nicht.
+  `Modal` rendert per Portal an den <body> — in einem `space-y-*`-Stapel
+  bekam die Abdunklung sonst einen Rand, oben blieb ein Streifen frei, und
+  ein Klick dorthin traf den Zurück-Knopf (UID-04).
 - **Bestätigungen** kommen aus `toast(text, tone)` (`src/components/Toast.tsx`),
   nicht aus einem Dialog: Eine Rückmeldung darf den nächsten Handgriff nicht
   aufhalten. Der Streifen trägt `role="status"`, damit Sprachausgaben ihn

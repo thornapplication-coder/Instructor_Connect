@@ -134,7 +134,7 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
         {result && !result.headerError && (
           <>
             <p className="text-small font-medium">
-              {t('admin.import.summary', { ok: uebernehmbar.length, total: gezaehlt.length })}
+              {t('admin.import.summary', { ok: uebernehmbar.length, count: gezaehlt.length })}
               {gezaehlt.length < result.rows.length && ` ${t('admin.import.examplesSkipped', { count: result.rows.length - gezaehlt.length })}`}
             </p>
             {/* Vorschau als echte Tabelle: Jede Zeile zeigt, ob sie durchgeht
@@ -669,7 +669,7 @@ function UsersTab() {
         >
           <div className="space-y-stack">
             <Field label={t('contacts.name')}>
-              <input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
+              <input className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </Field>
             {/* Die E-Mail ist die einzige Anmeldekennung — Pflichtfeld */}
             <Field label={t('contacts.email') + ' *'}>
@@ -1273,7 +1273,6 @@ function GroupsTab() {
                 className={`${inputCls} ${nameTaken ? 'border-danger/60' : ''}`}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                autoFocus
               />
               {nameTaken && <p className="mt-1.5 text-micro leading-relaxed text-danger">{t('admin.groupNameTaken')}</p>}
             </Field>
@@ -1599,7 +1598,7 @@ function StorageCard() {
   const share = info && info.quota > 0 ? info.usage / info.quota : null
   return (
     <Card className="space-y-stack p-4">
-      <CardHeading>{t('admin.storage')}</CardHeading>
+      <CardHeading level={2}>{t('admin.storage')}</CardHeading>
       {info === null || share === null ? (
         <p className="text-small text-dim">{t('admin.storageUnknown')}</p>
       ) : (
@@ -1749,7 +1748,7 @@ function SettingsTab() {
           Wer sie an die Personalabteilung schickt, will sie holen koennen,
           ohne einen Import zu beginnen. */}
       <Card className="space-y-stack p-4">
-        <CardHeading>{t('admin.import.templateSection')}</CardHeading>
+        <CardHeading level={2}>{t('admin.import.templateSection')}</CardHeading>
         <p className="text-small leading-relaxed text-dim">{t('admin.import.templateHint')}</p>
         <div className="flex flex-wrap gap-2">
           <Button
@@ -1821,7 +1820,7 @@ function SettingsTab() {
       {/* Herkunftsangaben des Ausdrucks — ohne sie ist ein ausgedrucktes
           Formular keiner Organisation und keinem Formularstand zuzuordnen. */}
       <Card className="space-y-stack p-4">
-        <CardHeading>{t('admin.documentHeader')}</CardHeading>
+        <CardHeading level={2}>{t('admin.documentHeader')}</CardHeading>
         {(
           [
             ['atoName', t('admin.atoName')],
@@ -2084,7 +2083,7 @@ export function Admin({ sub = '' }: { sub?: string }) {
                   <button
                     key={tb}
                     onClick={() => navigate(`/admin/${tb}`)}
-                    className="group flex h-40 flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
+                    className="group flex h-40 flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition motion-safe:hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
                   >
                     <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-raised text-accent transition group-hover:bg-accent group-hover:text-bg">
                       <Icon size={28} />

@@ -151,7 +151,7 @@ export function FindingsTab() {
                 ]}
               />
               {d.z!.pruefung!.regelwerk && d.z!.pruefung!.regelwerk.quellen.length > 0 && (
-                <p className="text-micro text-dim">{t('gate.regelwerkStand', { ...d.z!.pruefung!.regelwerk, quellen: d.z!.pruefung!.regelwerk.quellen.join(', ') })}</p>
+                <p className="text-micro text-dim">{t('gate.regelwerkStand', { ...d.z!.pruefung!.regelwerk, count: d.z!.pruefung!.regelwerk.verweise, quellen: d.z!.pruefung!.regelwerk.quellen.join(', ') })}</p>
               )}
             </div>
           ))}

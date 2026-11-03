@@ -228,7 +228,7 @@
     "proxyStart": "Start test call",
     "proxyRunning": "Streaming …",
     "cancel": "Cancel",
-    "usage": "Model {{model}} · input {{input}} · output {{output}} tokens · stop: {{stop}}",
+    "usage": "Model {{model}} · input tokens {{input}} · output tokens {{output}} · stop: {{stop}}",
     "error": "Error: {{code}}",
     "audit": "Audit log",
     "auditEmpty": "No entries yet. Every change to a DocCheck permission or setting is logged here.",
@@ -370,7 +370,8 @@
     "DC-EMPTY": "The file is empty (0 bytes)."
   },
   "ocr": {
-    "laeuft": "Text recognition: {{fertig}} of {{gesamt}} pages …",
+    "laeuft_one": "Text recognition: {{fertig}} of 1 page …",
+    "laeuft_other": "Text recognition: {{fertig}} of {{count}} pages …",
     "starten": "Start text recognition",
     "fehler": "Text recognition failed.",
     "frage_one": "1 page has no text layer (scan). Start text recognition? Takes a few seconds.",
@@ -555,7 +556,8 @@
     "rechnen": "Calculation check",
     "verweis": "References",
     "regelwerk": "Rule references",
-    "regelwerkStand": "Regulation: {{quellen}} · {{verweise}} references, {{verifiziert}} verified, {{nichtWiderlegbar}} paragraph not captured, {{zuPruefen}} to verify, {{ohneQuelle}} without source"
+    "regelwerkStand_one": "Regulation: {{quellen}} · 1 reference, {{verifiziert}} verified, {{nichtWiderlegbar}} paragraph not captured, {{zuPruefen}} to verify, {{ohneQuelle}} without source",
+    "regelwerkStand_other": "Regulation: {{quellen}} · {{count}} references, {{verifiziert}} verified, {{nichtWiderlegbar}} paragraph not captured, {{zuPruefen}} to verify, {{ohneQuelle}} without source"
   },
   "prio": {
     "High": "High",

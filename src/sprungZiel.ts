@@ -15,6 +15,8 @@
  * (Schritt 2) — vorher standen zwei Fassungen im Formular.
  */
 
+import { scrollVerhalten } from './bewegung'
+
 /** Deaktivierte zählen nicht: Ein Fokus darauf ginge ins Leere. */
 const BEDIENBAR = ['input', 'select', 'textarea', 'button'].map((t) => `${t}:not([disabled])`).join(', ')
 
@@ -37,7 +39,9 @@ export function sprungZiel(id: string, doc: Document): Sprungziel | null {
 export function springeZuFeld(id: string, doc: Document = document): boolean {
   const ziel = sprungZiel(id, doc)
   if (!ziel) return false
-  ziel.bereich.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  // Gleiten nur ohne „Bewegung reduzieren" — die Angabe hier schlägt jede
+  // CSS-Regel (Audit 11/2026, A11Y-15).
+  ziel.bereich.scrollIntoView({ block: 'center', behavior: scrollVerhalten() })
   // Erst scrollen, dann ohne zweiten Sprung fokussieren — sonst ruckt die
   // Seite zweimal, und der Fokus landet am Rand statt in der Mitte.
   ziel.fokus.focus({ preventScroll: true })

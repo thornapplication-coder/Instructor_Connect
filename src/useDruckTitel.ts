@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
 import { druckTitel } from './dateiName'
+import { useDokumentTitel } from './dokumentTitel'
 
 /**
  * Titel des Dokuments, solange die Ansicht offen ist.
@@ -14,17 +14,14 @@ import { druckTitel } from './dateiName'
  * Lag als Effekt allein in GradingView; als Hook, damit jede druckbare
  * Auswertung dasselbe Schema (`druckTitel`, dateiName.ts) benutzt.
  * `null` = noch nichts zu benennen (Datensatz nicht geladen).
+ *
+ * Seit jede Kopfleiste ihren Seitentitel setzt (A11Y-13), stehen zwei
+ * Titel an: Der Drucktitel geht vor, und welcher beim Verlassen gilt,
+ * entscheidet der gemeinsame Stapel in `dokumentTitel.ts` — „vorigen Titel
+ * zurückschreiben" ließ je nach Reihenfolge der Effekte einen fremden stehen.
  */
 export function useDruckTitel(teile: readonly (string | null | undefined)[] | null): void {
   // Abhaengig vom fertigen Text, nicht vom Feld: Ein neues Array je Render
   // setzte den Titel sonst bei jedem Render neu.
-  const titel = teile ? druckTitel(teile) : null
-  useEffect(() => {
-    if (titel === null) return
-    const vorher = document.title
-    document.title = titel
-    return () => {
-      document.title = vorher
-    }
-  }, [titel])
+  useDokumentTitel(teile ? druckTitel(teile) : null, 'druck')
 }

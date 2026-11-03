@@ -1,8 +1,8 @@
-import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, ScrollText, Search, Star, Trash2 } from 'lucide-react'
 import { musterZurAuswahl, sichtbarFuer } from '../aircraftScope'
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { Badge, Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar, TopBarAktion } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
 import { toast } from '../components/Toast'
 import { ackListeDateiName, ackStand, ackZiele, gueltigkeitFehler, infoIsExpired, infoIsPublished, infoIstNeu } from '../infoAcks'
@@ -62,7 +62,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
           </div>
         </Field>
         <Field label={t('info.entryTitle')}>
-          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} />
         </Field>
         <Field label={t('info.category')}>
           <select
@@ -284,14 +284,7 @@ export function InstructorInfo() {
         title="Instructor Info"
         back="/"
         right={
-          mayEdit ? (
-            <button
-              onClick={() => setShowNew(true)}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
-            >
-              <Plus size={15} /> {t('info.newEntry')}
-            </button>
-          ) : undefined
+          mayEdit ? <TopBarAktion label={t('info.newEntry')} onClick={() => setShowNew(true)} /> : undefined
         }
       />
       <Page className="space-y-stack">

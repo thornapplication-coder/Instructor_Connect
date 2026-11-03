@@ -1,7 +1,7 @@
 import { Download } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, CardHeading } from '../../components/ui'
+import { Badge, Button, Card, CardHeading, filterCls } from '../../components/ui'
 import { toast } from '../../components/Toast'
 import { downloadCsv } from '../../csv'
 import { downloadXlsx } from '../../xlsxExport'
@@ -10,7 +10,6 @@ import { useStore } from '../../store'
 /* Dieselbe Filterleisten-Optik wie auf der Logbuch-Seite — inkl. der festen
    Breite fuer Datumsfelder (WebKit gibt leeren date-Inputs kaum Eigenbreite).
    Eine Klassenliste, nicht zwei Kopien (UID-11). */
-import { filterCls } from '../Logbook'
 
 /**
  * Alle Zeiten aller Instruktoren, aufgeschluesselt — der Ueberblick fuer den
@@ -80,7 +79,7 @@ export function LogbookAdmin() {
     <Card className="space-y-stack p-4">
       <div className="space-y-tight">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardHeading>{t('admin.logbookHeading')}</CardHeading>
+          <CardHeading level={2}>{t('admin.logbookHeading')}</CardHeading>
           <div className="flex flex-wrap gap-2">
             <Button variant="ghost" onClick={exportCsv} className="flex items-center gap-1.5 text-micro">
               <Download size={13} /> CSV

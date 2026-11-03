@@ -1,7 +1,7 @@
-import { NotebookPen, Pencil, Pin, Plus, Search, Trash2 } from 'lucide-react'
+import { NotebookPen, Pencil, Pin, Search, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, TopBar } from '../components/ui'
+import { Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, TopBar, TopBarAktion } from '../components/ui'
 import { toast } from '../components/Toast'
 import { groupNotes, notePreview, PINNED, searchNotes } from '../notes'
 import { useStore } from '../store'
@@ -38,7 +38,7 @@ function NoteEditor({ note, onClose }: { note?: Note; onClose: () => void }) {
     >
       <div className="space-y-stack">
         <Field label={`${t('notes.title')} *`}>
-          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus maxLength={120} />
+          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} />
         </Field>
         <Field label={t('notes.body')}>
           {/* Mehrzeilig und mitwachsend: Eine Notiz ist selten ein Satz. */}
@@ -84,16 +84,15 @@ export function Notes() {
 
   return (
     <>
+      {/* Seitentitel = Kachel: Die Startkachel heißt laut Spez. §5 in beiden
+          Sprachen „Notes" (wie „Lesson Plan", „Who to call"), die Seite hieß
+          „Notizen" — als einzige wich sie von ihrer Kachel ab (Audit
+          11/2026, UID-18/TXT-10). */}
       <TopBar
-        title={t('notes.heading')}
+        title="Notes"
         back="/"
         right={
-          <button
-            onClick={() => setEditor(undefined)}
-            className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
-          >
-            <Plus size={15} /> {t('notes.new')}
-          </button>
+          <TopBarAktion label={t('notes.new')} onClick={() => setEditor(undefined)} />
         }
       />
       <Page className="space-y-section">
@@ -115,7 +114,7 @@ export function Notes() {
 
         {/* Suchergebnis ansagen — sichtbar aendert sich nur die Liste. */}
         <p role="status" className="sr-only">
-          {t('notes.resultCount', { shown: gefiltert.length, total: visibleNotes.length })}
+          {t('notes.resultCount', { shown: gefiltert.length, count: visibleNotes.length })}
         </p>
 
         {/* Leere Liste wie ueberall sonst in der App: ein Satz, sonst nichts.

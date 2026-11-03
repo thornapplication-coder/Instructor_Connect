@@ -113,7 +113,9 @@ test('Grading-Unterbereiche: ein Rückweg, benannte Filter in einer Zeile, eigen
 
   await page.goto('/#/admin/grading/stats')
   await expect(page).toHaveTitle(/^Analytics_Last 12 months_All fleets_All authorities_/)
-  // Beim Verlassen kommt der vorige Titel zurück.
+  // Beim Verlassen bleibt der Drucktitel nicht stehen — es gilt wieder der
+  // Seitentitel der Übersicht (seit A11Y-13 hat jede Ansicht einen eigenen,
+  // vorher war es überall „Instructor Connect").
   await page.goto('/#/admin')
-  await expect(page).toHaveTitle('Instructor Connect')
+  await expect(page).toHaveTitle('Admin Panel – Instructor Connect')
 })

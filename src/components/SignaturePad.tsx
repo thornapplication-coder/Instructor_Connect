@@ -412,7 +412,28 @@ export function SignaturePad({
     zuruecksetzen()
     ausgeben(null)
   }
-  const tippen = () => typedName.trim() && ausgeben(typedSignatureImage(typedName.trim(), Date.now() + zeitversatzMs))
+  /*
+   * Fokus nach der getippten Unterschrift: Mit dem Wert ersetzt die Vorschau
+   * Tippfeld und Knopf — wer dort Enter drückte oder „Use typed" wählte,
+   * stand danach auf <body> und fing das lange Formular von vorn an (Audit
+   * 11/2026, A11Y-04). Ziel ist „Clear": der Nachbar, der dieselbe
+   * Unterschrift betrifft. Nur wenn der Fokus vorher im Tippbereich lag —
+   * ein Wert von außen (Entwurf geladen) zieht niemandem den Fokus weg.
+   */
+  const tippBereichRef = useRef<HTMLDivElement>(null)
+  const clearRef = useRef<HTMLButtonElement>(null)
+  const fokusNachTippenRef = useRef(false)
+  const tippen = () => {
+    const name = typedName.trim()
+    if (!name) return
+    fokusNachTippenRef.current = tippBereichRef.current?.contains(document.activeElement) ?? false
+    ausgeben(typedSignatureImage(name, Date.now() + zeitversatzMs))
+  }
+  useEffect(() => {
+    if (!fokusNachTippenRef.current || !value) return
+    fokusNachTippenRef.current = false
+    clearRef.current?.focus()
+  }, [value])
 
   return (
     <div>
@@ -431,7 +452,7 @@ export function SignaturePad({
         <span className="min-w-0 text-small font-medium text-dim">{label}</span>
         <span className="ml-auto flex shrink-0 items-center gap-3">
           {value && (
-            <button onClick={clear} className="flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap text-micro text-dim hover:text-danger">
+            <button ref={clearRef} onClick={clear} className="flex min-h-11 shrink-0 items-center gap-1 whitespace-nowrap text-micro text-dim hover:text-danger">
               <Eraser size={12} /> {t('forms:clearSignature')}
             </button>
           )}
@@ -451,7 +472,7 @@ export function SignaturePad({
             /* Vorschau: exakt das Bild, das im Dokument stehen wird */
             <img src={value} alt={label} style={{ background: PAPER, borderColor: PAD_BORDER }} className="h-28 w-full rounded-xl border border-dashed object-contain" />
           ) : (
-            <div className="flex gap-2">
+            <div ref={tippBereichRef} className="flex gap-2">
               <input
                 value={typedName}
                 onChange={(e) => setTypedName(e.target.value)}
@@ -487,13 +508,17 @@ export function SignaturePad({
         noch einzeln ueber „Zurueck" abbauen. Das widersprach der eigenen
         Zusage im README, dass jeder Dialog dieser App mit Escape schliesst
         und den Fokus haelt.
+
+        Rand rundum mit Sicherheitsbereich (`safe-rundum`): Mit festem p-3
+        lagen „Done" und der Rand der Fläche im Querformat unter der
+        Sensorkappe und unten am Home-Indikator (Audit 11/2026, MOB-07).
       */}
       <div
         {...(gross ? { role: 'dialog' as const, 'aria-modal': true, 'aria-label': label } : {})}
         ref={grossRef}
         className={
           gross
-            ? 'fixed inset-0 z-50 flex flex-col gap-2 bg-bg p-3'
+            ? 'safe-rundum fixed inset-0 z-50 flex flex-col gap-2 bg-bg [--rand:0.75rem]'
             : mode === 'type'
               ? 'hidden'
               : 'block'

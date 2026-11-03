@@ -35,9 +35,13 @@
   --c-sand: 146 95 22;     /* Sandbox-Hinweistext              */
   /* Ampel- und Statusfarben. Im Hellmodus deutlich dunkler als die früheren
      400er-Töne: die Punkte lagen bei 1,5:1 und waren praktisch unsichtbar.
-     Alle Werte erreichen mindestens 3:1 auf Hintergrund, Karte und Fläche. */
-  --c-ok: 4 120 87;        /* #047857 */
-  --c-wait: 180 83 9;      /* #B45309 */
+     Sie stehen auch als SCHRIFT da („16 items open", „bestätigt von …") und
+     brauchen deshalb 4,5:1 auf Hintergrund, Karte und erhabener Fläche —
+     3:1 reichte nur für die Punkte. wait lag mit #B45309 bei 4,05:1 auf dem
+     Hintergrund, ok mit #047857 bei 4,32:1 auf der erhabenen Fläche (Audit
+     11/2026, A11Y-05). Geprüft in src/themeTokens.test.ts. */
+  --c-ok: 4 108 78;        /* #046C4E */
+  --c-wait: 154 64 6;      /* #9A4006 */
   --c-bad: 185 28 28;      /* #B91C1C */
   --c-focus: 37 99 190;    /* Tastaturfokus, >=3:1 gegen die Feldfläche */
   /* Textfarbe AUF den Ampelflächen — im Hellmodus sind sie dunkel, im
@@ -79,7 +83,7 @@
   --c-sand: 252 211 77;    /* Sandbox-Hinweistext              */
   --c-ok: 52 211 153;      /* #34D399 */
   --c-wait: 251 191 36;    /* #FBBF24 */
-  --c-bad: 248 113 113;    /* #F87171 */
+  --c-bad: 252 135 135;    /* #FC8787 — #F87171 lag auf raised bei 4,14:1 (A11Y-05) */
   --c-focus: 191 216 255;  /* heller Ring — der Akzent lag im Dunkelmodus bei 2,38:1 */
   --c-ok-ink: 6 26 20;
   --c-wait-ink: 32 22 2;
@@ -178,6 +182,41 @@ input[type='date'] {
   }
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  /*
+   * Seitlicher Rand mit Sicherheitsbereich.
+   *
+   * Audit 11/2026, MOB-07: Es gab nur oben und unten einen Einzug. Im
+   * Querformat lagen Karten bei 16 px und ihr Text bei 31 px — unter der
+   * Sensorkappe, die 47 px einnimmt. Der Rand ist der größere von beiden:
+   * der eigene (`--rand-x`, je Stufe setzbar, etwa `xl:[--rand-x:2rem]`)
+   * oder der Sicherheitsbereich. Wer `safe-x` trägt, setzt kein `px-*`
+   * daneben — zwei Regeln für dieselbe Eigenschaft entscheidet sonst die
+   * Reihenfolge im erzeugten CSS.
+   */
+  .safe-x {
+    padding-left: max(var(--rand-x, 1rem), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--rand-x, 1rem), env(safe-area-inset-right, 0px));
+  }
+  /* Vollbildflächen (Unterschrift, DocCheck-Viewer): alle vier Seiten. */
+  .safe-rundum {
+    padding: max(var(--rand, 0px), env(safe-area-inset-top, 0px)) max(var(--rand, 0px), env(safe-area-inset-right, 0px))
+      max(var(--rand, 0px), env(safe-area-inset-bottom, 0px)) max(var(--rand, 0px), env(safe-area-inset-left, 0px));
+  }
+  /*
+   * Dialog als Bottom-Sheet (Telefon hochkant): Der Innenabstand unten
+   * wächst um den Home-Indikator — „Abbrechen" und „Speichern" lagen mit
+   * 21 px Abstand zur Kante darin (MOB-07). Die Höhe folgt dem SICHTBAREN
+   * Fenster (dvh): 90vh rechnet in Safari mit eingeklappter Leiste, und der
+   * Dialog lief unter die Werkzeugleiste. 90vh bleibt Rückfall für Browser
+   * ohne dvh.
+   */
+  .pb-safe-5 {
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
+  .max-h-dialog {
+    max-height: 90vh;
+    max-height: 90dvh;
   }
   /* sitzt direkt über der Sandbox-Leiste (h-11) inkl. Home-Indikator */
   .above-sandbox {
@@ -358,6 +397,32 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
   outline: 2px solid rgb(var(--c-focus));
   outline-offset: 2px;
 }
+/* Die Seitenüberschrift nimmt den Fokus nur programmatisch (Seitenwechsel,
+   Anmeldung, Dialog ohne Auslöser) — als Einstieg für Sprachausgabe und
+   Tabulator, nicht als Bedienelement. Nach einem Seitenwechsel per Tastatur
+   zog die Regel oben einen 792 px breiten Rahmen um den Titel, als wäre er
+   ein Eingabefeld: Sie steht nach den Utilities und schlug das
+   `outline-none` der h1 (Audit 11/2026, UID-10). */
+[data-page-heading]:focus-visible {
+  outline: none;
+}
+
+/* „Bewegung reduzieren" (Systemeinstellung): Übergänge, Kachelhub,
+   Pulsieren und Kreisel laufen nicht mehr — vorher liefen sie unabhängig
+   davon (Audit 11/2026, A11Y-15, WCAG 2.3.3). Auf 0,01 ms statt `none`,
+   damit `transitionend`/`animationend` weiter feuern und nichts auf ein
+   Ende wartet, das nie kommt. Sprünge aus dem Code (`scrollIntoView`)
+   sieht CSS nicht — die fragen `scrollVerhalten()` in src/bewegung.ts. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /* Admin-Panel: die Entscheidung Hinweis-oder-Inhalt fällt in CSS, damit der
    Ausdruck (Seitenbreite < 1024px) den Inhalt zeigt und nicht den Hinweis.
@@ -404,8 +469,8 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
     --c-danger: 185 28 28;
     --c-line: 15 23 42;
     --c-sand: 146 95 22;
-    --c-ok: 4 120 87;
-    --c-wait: 180 83 9;
+    --c-ok: 4 108 78;
+    --c-wait: 154 64 6;
     --c-bad: 185 28 28;
     --c-focus: 37 99 190;
     --c-ok-ink: 255 255 255;

@@ -10,10 +10,10 @@ import { navigate } from '../router'
 import { userHasPerm } from '../adminAccess'
 import { useStore } from '../store'
 import type { GradingRecord } from '../types'
-import { bezeichnungen, dokumentStand, druckTitelTeile, empfaengerVon, isNotCompetent, istUnterschrift, personenZeile } from '../gradingRules'
+import { bezeichnungen, dokumentStand, druckTitelTeile, empfaengerVon, gradeColor, isNotCompetent, istUnterschrift, personenZeile } from '../gradingRules'
 import { useDruckTitel } from '../useDruckTitel'
 import { kopfZeilen, type KopfZeile } from '../gradingKopf'
-import { gradeColor, missingFollowUps, TrafficIcon, trafficLight } from './Grading'
+import { missingFollowUps, TrafficIcon, trafficLight } from './Grading'
 import { formatDate, formatDateTime } from '../datum'
 
 /**
@@ -186,6 +186,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         title={`${record.formTypeId} · ${formType?.title ?? ''}`}
         back="/grading"
         wide
+        lang="en"
         right={
           <button onClick={() => window.print()} title={t('forms:print')} className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-accent">
             <Printer size={19} />
@@ -196,7 +197,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           (siehe index.css) — nur so wiederholen Chrome und Safari Kopf und
           Fuss auf JEDEM Blatt. Am Bildschirm sind Kopf und Fuss ausgeblendet,
           der Abstand zwischen den Karten sitzt deshalb am Rumpf. */}
-      <Page wide className="print-doc">
+      <Page wide lang="en" className="print-doc">
         {/* Druck-Kopf: Organisation, Formularbenennung, Formularstand und
             Export-Stempel — ohne diese Angaben lässt sich ein Ausdruck weder
             der ATO noch einem Formularstand zuordnen. */}

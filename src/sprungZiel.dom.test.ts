@@ -65,6 +65,19 @@ describe('springeZuFeld', () => {
     expect(document.activeElement?.textContent).toBe('☐ FFS')
   })
 
+  it('mit „Bewegung reduzieren" springt die Seite, statt zu gleiten (A11Y-15)', () => {
+    const scroll = aufbauen('<div id="field-trainingDevice" role="group" tabindex="-1"><button>☐ FFS</button></div>')
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      ((q: string) => ({ matches: q === '(prefers-reduced-motion: reduce)', media: q })) as unknown as typeof window.matchMedia,
+    )
+    try {
+      expect(springeZuFeld('field-trainingDevice')).toBe(true)
+      expect(scroll).toHaveBeenCalledWith({ block: 'center', behavior: 'auto' })
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
   it('meldet false, wenn das Ziel (noch) nicht da ist — das Formular wechselt dann den Schritt', () => {
     const scroll = aufbauen('<button>Continue to grading</button>')
     const knopf = document.querySelector('button')!

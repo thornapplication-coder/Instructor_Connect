@@ -27,6 +27,26 @@ export function isNotCompetent(tr: TraineeGrading): boolean {
   return tr.overall === 'not_competent' || autoNotCompetent(tr)
 }
 
+/**
+ * Farbcodierung laut Spez. 5.3: 5/4 grün, 3 dunkelgrün, 2 orange, 1 rot, NO
+ * grau. Kräftige Vollfarben mit weißem/schwarzem Text — in Hell- UND
+ * Dunkelmodus lesbar.
+ *
+ * Stand in `src/pages/Grading.tsx`, exportiert und von vier Ansichten
+ * benutzt, ohne Test — die Testwache sah keine `.tsx` (Audit 11/2026,
+ * TEC-18). Die Klassen stehen weiter als ganze Wörter im Quelltext, damit
+ * Tailwind sie findet.
+ */
+export function gradeColor(g: number | 'NO' | null): string {
+  // Textfarbe je Fläche so gewählt, dass jede Note mindestens 4,5:1 erreicht:
+  // Weiß auf emerald-600 lag bei 3,77:1 und war zu blass.
+  if (g === 'NO' || g === null) return 'bg-line/10 text-dim'
+  if (g >= 4) return 'bg-emerald-700 text-white'
+  if (g === 3) return 'bg-emerald-800 text-white'
+  if (g === 2) return 'bg-amber-500 text-black'
+  return 'bg-red-700 text-white'
+}
+
 /** 306 und 310 sind die einzigen Folgeformular-Typen. */
 export function isFollowUpType(formTypeId: string): boolean {
   return formTypeId === '306' || formTypeId === '310'

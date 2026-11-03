@@ -1,7 +1,10 @@
 import { ArrowLeft, Home as HomeIcon, Lock, Moon, Plus, Sun, X } from 'lucide-react'
 import { Children, useCallback, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
+import { createPortal } from 'react-dom'
+import { knotenText, useDokumentTitel } from '../dokumentTitel'
 import { vorhandenerEintrag } from '../einstellungen'
+import { fokusZurueck } from '../fokus'
 import { navigate } from '../router'
 
 const THEME_KEY = 'aaa-theme'
@@ -47,6 +50,51 @@ export function ThemeToggle() {
   )
 }
 
+/**
+ * Sprachumschalter DE/EN — EINE Stelle für Startseite und Anmeldung.
+ *
+ * Er stand zweimal von Hand im Code und war nirgends ganz richtig
+ * (Audit 11/2026, A11Y-09/A11Y-08): Der Rahmen schnitt mit `overflow-hidden`
+ * den Fokusring ab — auf „EN" war im Hellmodus gar kein Fokus zu sehen —,
+ * und auf der Anmeldeseite fehlte `aria-pressed`, die Sprachausgabe sagte
+ * also nicht, welche Sprache gilt. Die Rundung sitzt deshalb an den Knöpfen,
+ * nicht am Rahmen, und der fokussierte Knopf liegt über seinem Nachbarn.
+ */
+export function LanguageToggle() {
+  const { t, i18n } = useTranslation()
+  return (
+    <div role="group" aria-label={t('common.language')} className="flex shrink-0 rounded-lg border border-line/15 text-micro">
+      {(['de', 'en'] as const).map((lng) => {
+        const aktiv = i18n.language === lng
+        return (
+          <button
+            key={lng}
+            onClick={() => i18n.changeLanguage(lng)}
+            aria-pressed={aktiv}
+            className={`relative min-h-11 whitespace-nowrap px-3.5 py-1 font-medium uppercase transition first:rounded-l-md last:rounded-r-md focus-visible:z-10 ${aktiv ? 'bg-accent text-bg' : 'text-dim hover:text-ink'}`}
+          >
+            {lng}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/*
+ * Breite von Kopfleiste, Seitenrahmen und Sandbox-Leiste — an EINER Stelle,
+ * weil die drei untereinander fluchten müssen.
+ *
+ * Zwischen 1024 und 1279 px galt die Telefon-Tablet-Schranke von 768 px:
+ * Das Admin-Panel, das ab 1024 px aufgeht, sah aus wie eine Tablet-Spalte,
+ * Filter und Statuschips brachen auf zwei Zeilen um, und die Sandbox-Leiste
+ * schnitt „iPhone/iPad-Vorschau" ab (Audit 11/2026, UID-16/UID-20). Die
+ * lg-Stufe gibt dort 1024 px frei; breite Seiten haben sie schon.
+ */
+export const seitenBreiteCls = 'max-w-3xl lg:max-w-5xl xl:max-w-6xl'
+const seitenBreiteWideCls = 'max-w-5xl xl:max-w-7xl'
+const seitenBreite = (wide: boolean) => (wide ? seitenBreiteWideCls : seitenBreiteCls)
+
 /** home=false unterdrückt den Home-Button — genutzt in den Grading-Forms,
  *  damit man dort nicht versehentlich aus dem Formular springt.
  *  wide=true nutzt am Desktop die volle Breite (Grading-Formulare). */
@@ -57,6 +105,7 @@ export function TopBar({
   home = true,
   wide = false,
   onBack,
+  lang,
 }: {
   title: ReactNode
   back?: string
@@ -65,11 +114,19 @@ export function TopBar({
   wide?: boolean
   /** Rückfrage vor dem Verlassen; false verhindert die Navigation */
   onBack?: () => boolean
+  /** Sprache des Titels, wenn sie von der Oberfläche abweicht (Grading:
+   *  immer `en`, A11Y-12). Nur am Titel — „Zurück" bleibt in der Sprache
+   *  der Oberfläche. */
+  lang?: string
 }) {
   const { t } = useTranslation()
+  // Fenstertitel aus dem Seitentitel: Vorher hieß jede Ansicht „Instructor
+  // Connect" — im Tab und in der Ansage beim Seitenwechsel (Audit 11/2026,
+  // A11Y-13). Auch ein Titel, der ein Knopf ist (Chat), hat einen Text.
+  useDokumentTitel(knotenText(title).trim() || null)
   return (
     <header className="safe-top sticky top-0 z-20 border-b border-line/10 bg-bg/85 backdrop-blur">
-      <div className={`mx-auto flex h-14 items-center gap-2 px-3 xl:px-8 ${wide ? 'max-w-5xl xl:max-w-7xl' : 'max-w-3xl xl:max-w-6xl'}`}>
+      <div className={`safe-x mx-auto flex h-14 items-center gap-2 [--rand-x:0.75rem] xl:[--rand-x:2rem] ${seitenBreite(wide)}`}>
         {back !== undefined && (
           <button
             onClick={() => {
@@ -87,7 +144,7 @@ export function TopBar({
             auf <body> — Tastaturnutzer fingen wieder ganz oben an, und
             Sprachausgaben meldeten den Wechsel gar nicht. In der
             Tab-Reihenfolge taucht die Ueberschrift dadurch nicht auf. */}
-        <h1 data-page-heading tabIndex={-1} className="min-w-0 flex-1 truncate text-head font-semibold tracking-tight outline-none">
+        <h1 data-page-heading tabIndex={-1} lang={lang} className="min-w-0 flex-1 truncate text-head font-semibold tracking-tight outline-none">
           {title}
         </h1>
         {/* Der Titel gibt nach, die Aktion rechts nicht: Ein langer Titel
@@ -110,6 +167,35 @@ export function TopBar({
 }
 
 /**
+ * Aktionsknopf rechts in der Kopfleiste („+ Neuer Eintrag").
+ *
+ * Die Kopfleiste lässt den Titel nachgeben, die Aktion nicht (siehe TopBar).
+ * Am Telefon hieß das: Neben „+ Eintrag hinzufügen" blieb vom Titel „my A…",
+ * neben „+ Lehrplan hochladen" nur „Le…" — die Seite verlor ihre Überschrift
+ * (Audit 11/2026, MOB-02/KERN-17). Unter `sm` steht deshalb nur das Plus;
+ * die Beschriftung bleibt der Name des Knopfs, und die Trefferfläche bleibt
+ * 44 × 44 px. Die Entscheidung „Aktion bricht nicht um" gilt weiter.
+ *
+ * JEDE Kopfleiste nimmt diesen Knopf, auch wo die Beschriftung heute kurz
+ * genug wäre: Mit einer Handvoll eigener Pillen zeigte das Telefon auf der
+ * einen Seite „+", auf der nächsten „+ Neue Notiz" — derselbe Knopf in zwei
+ * Gestalten (Gegenprüfung P12).
+ */
+export function TopBarAktion({ label, onClick, lang }: { label: string; onClick: () => void; lang?: string }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      lang={lang}
+      className="flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
+    >
+      <Plus size={15} aria-hidden className="shrink-0" />
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  )
+}
+
+/**
  * Seitenrahmen.
  *
  * Am Desktop lief der Inhalt vorher bis an beide Fensterraender
@@ -119,9 +205,24 @@ export function TopBar({
  * aufgespannt. Jetzt begrenzt der Rahmen auf 1152 px (breite Seiten:
  * 1280 px) — und die Breite wird dort, wo sie etwas traegt, ueber
  * `CardGrid` in zwei Spalten ausgefuellt statt in eine lange Zeile gezogen.
+ * Zwischen 1024 und 1279 px sind es 1024 px (`seitenBreiteCls`, UID-16).
+ *
+ * Seitlicher Rand über `safe-x` (index.css): mindestens 1rem bzw. ab xl
+ * 2rem, im Querformat am Telefon aber der Sicherheitsbereich — sonst lagen
+ * Karten unter der Sensorkappe (Audit 11/2026, MOB-07).
+ *
+ * `lang`: Sprache des Inhalts, wenn sie von der Oberfläche abweicht. Die
+ * Grading-Formulare sind bewusst immer englisch; ohne Auszeichnung las die
+ * Sprachausgabe „Competent" und „Overall Result" mit deutscher Aussprache
+ * (WCAG 3.1.2, Audit 11/2026, A11Y-12). Einzelne Bedienelemente in der
+ * Sprache der Oberfläche tragen darin ihr eigenes `lang`.
  */
-export function Page({ children, className = '', wide = false }: { children: ReactNode; className?: string; wide?: boolean }) {
-  return <main className={`mx-auto w-full flex-1 px-4 pb-24 pt-4 xl:px-8 ${wide ? 'max-w-5xl xl:max-w-7xl' : 'max-w-3xl xl:max-w-6xl'} ${className}`}>{children}</main>
+export function Page({ children, className = '', wide = false, lang }: { children: ReactNode; className?: string; wide?: boolean; lang?: string }) {
+  return (
+    <main lang={lang} className={`safe-x mx-auto w-full flex-1 pb-24 pt-4 xl:[--rand-x:2rem] ${seitenBreite(wide)} ${className}`}>
+      {children}
+    </main>
+  )
 }
 
 /**
@@ -196,8 +297,17 @@ export function SectionHeading({
   )
 }
 
-export function CardHeading({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <h3 className={`text-micro font-bold uppercase tracking-[0.08em] text-ink ${className}`}>{children}</h3>
+/**
+ * `level`: Ebene in der Gliederung. Standard h3 — unter einer
+ * `SectionHeading` (h2). Steht die Karte direkt unter der Seitenüberschrift,
+ * ist sie h2: Sonst sprang die Gliederung von h1 auf h3, und wer per
+ * Überschrift navigiert, suchte die fehlende Ebene (axe heading-order auf
+ * Statistik, Einstellungen, Logbuch, DocCheck und im Formular; Audit
+ * 11/2026, A11Y-14). Das Aussehen bleibt gleich — die Ebene ist Struktur.
+ */
+export function CardHeading({ children, className = '', level = 3 }: { children: ReactNode; className?: string; level?: 2 | 3 }) {
+  const Tag = level === 2 ? 'h2' : 'h3'
+  return <Tag className={`text-micro font-bold uppercase tracking-[0.08em] text-ink ${className}`}>{children}</Tag>
 }
 
 /**
@@ -292,6 +402,7 @@ export function Button({
   disabled,
   className = '',
   label,
+  lang,
 }: {
   children: ReactNode
   onClick?: () => void
@@ -302,6 +413,9 @@ export function Button({
   /** Name eines Knopfs, der nur ein Symbol zeigt — sonst sagt die
    *  Sprachausgabe bloß „Schaltfläche" (Audit 11/2026, A11Y-07). */
   label?: string
+  /** Sprache des Knopfs, wenn sie von seiner Umgebung abweicht — etwa
+   *  „Abbrechen" mitten im englischen Grading-Bereich (A11Y-12). */
+  lang?: string
 }) {
   const styles = {
     primary: 'bg-accent text-bg font-semibold hover:brightness-110',
@@ -315,6 +429,7 @@ export function Button({
       onClick={onClick}
       aria-label={label}
       title={label}
+      lang={lang}
       className={`min-h-11 rounded-xl px-4 py-2.5 text-body transition disabled:opacity-40 ${styles} ${className}`}
     >
       {children}
@@ -355,6 +470,19 @@ export const inputCls = `w-full ${eingabeBasis}`
 export const selectInlineCls = auswahlBasis
 
 export const inputInlineCls = eingabeBasis
+
+/* Filterleisten-Optik des Logbuchs und seiner Admin-Auswertung: kompakte
+   Felder, die sich nebeneinander legen — nicht die w-full-Felder der
+   Formulare. Die Datumsfelder brauchen zusaetzlich eine feste Breite: WebKit
+   gibt einem leeren <input type="date"> sonst fast keine Eigenbreite, und am
+   iPad standen zwei winzige Pillen da, die erst beim Antippen aufgingen.
+   Vorher stand die Klassenliste in der Admin-Auswertung als Kopie, und
+   beiden fehlte `placeholder:text-dim`: Der Platzhalter „Pilot" lag im
+   Browser-Grau bei 2,05:1 (Audit 11/2026, UID-11/A11Y-10). Sie stand dann
+   als Export in src/pages/Logbook.tsx, und die Admin-Auswertung zog sie von
+   Seite zu Seite — ein Baustein gehoert hierher (Gegenpruefung P10). */
+export const filterCls =
+  'min-h-11 rounded-xl border border-field bg-bg/60 px-3 py-2 text-small text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
 /**
  * Auswahlfeld einer Filterzeile, immer mit Namen.
@@ -865,13 +993,18 @@ export function useDialogFokus(panelRef: RefObject<HTMLElement>, onEscape: () =>
   const escRef = useRef(onEscape)
   escRef.current = onEscape
 
+  // Den Auslöser beim ERSTEN Rendern merken, nicht im Effekt: React setzt
+  // `autoFocus` schon beim Einhängen, also vor jedem Effekt. Gemerkt wurde
+  // so das Dialogfeld selbst, und nach dem Schließen fiel der Fokus auf
+  // <body> — in sechs von acht Dialogen (Audit 11/2026, A11Y-03).
+  const [opener] = useState(() => document.activeElement)
+
   // Fokus genau einmal setzen: beim Öffnen in den Dialog, beim Schließen
   // zurück auf das auslösende Element. Hing das früher an close, sprang der
   // Fokus bei jedem getippten Zeichen zwischen Feld und Dialog hin und her —
   // die Seite ruckelte und es kam nur der erste Buchstabe an.
   useEffect(() => {
     const panel = panelRef.current
-    const opener = document.activeElement
     // Das erste Eingabefeld ist der sinnvolle Startpunkt; erst wenn der
     // Dialog keines hat, zählt das erste bedienbare Element. Der
     // Schließen-Knopf steht im Quelltext vorne, ist als Startpunkt aber
@@ -881,9 +1014,10 @@ export function useDialogFokus(panelRef: RefObject<HTMLElement>, onEscape: () =>
     const target = field ?? items[0]
     if (target) target.focus()
     else panel?.focus()
-    return () => {
-      ;(opener as HTMLElement | null)?.focus?.()
-    }
+    // Ist der Auslöser weg oder war es <body> (Dialog beim Laden geöffnet,
+    // etwa der DocCheck-Hinweis), weicht der Fokus auf die Seitenüberschrift
+    // aus, statt auf <body> zu fallen (A11Y-17).
+    return () => fokusZurueck(opener)
   }, [])
 
   useEffect(() => {
@@ -917,14 +1051,18 @@ export function Modal({
   onClose,
   children,
   confirmDiscard,
+  lang,
 }: {
   title: string
   onClose: () => void
   children: ReactNode
   /** Rückfrage vor dem Verwerfen (Text); ohne Angabe schließt der Dialog sofort */
   confirmDiscard?: string
+  /** Sprache des Inhalts, wenn sie von der Oberfläche abweicht (Grading: immer
+   *  `en`). Der Dialog hängt am <body> und erbt sie nicht von seiner Seite. */
+  lang?: string
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const panelRef = useRef<HTMLDivElement>(null)
 
   const close = useCallback(() => {
@@ -943,7 +1081,12 @@ export function Modal({
     }
   }, [])
 
-  return (
+  // Direkt unter <body>, nicht an Ort und Stelle: In einem `space-y-*`-Stapel
+  // bekam die feste Abdunklung den Zeilenabstand als margin-top. Oben blieb
+  // ein heller Streifen von 12 px, und ein Klick dorthin traf den
+  // Zurück-Knopf der Kopfleiste — die App sprang auf die Startseite, die
+  // Eingaben im Dialog waren ohne Rückfrage weg (Audit 11/2026, UID-04).
+  return createPortal(
     <div
       className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-6"
       onClick={close}
@@ -954,16 +1097,23 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        lang={lang}
         tabIndex={-1}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-line/10 bg-surface p-5 shadow-tile sm:rounded-3xl"
+        // Unten Platz für den Home-Indikator, solange der Dialog am Rand
+        // sitzt (Bottom-Sheet); mittig ab sm genügt der normale Abstand (MOB-07).
+        className="max-h-dialog w-full max-w-lg overflow-y-auto rounded-t-3xl border border-line/10 bg-surface px-5 pb-safe-5 pt-5 shadow-tile sm:rounded-3xl sm:pb-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start gap-3">
           <h2 className="min-w-0 flex-1 text-head font-semibold">{title}</h2>
+          {/* „Schließen" kommt aus `common`, also in der Sprache der
+              Oberfläche — in einem englischen Dialog sagt der Knopf das
+              selbst, wie die übrigen Bedienknöpfe dort (A11Y-12). */}
           <button
             onClick={close}
             aria-label={t('common.close')}
             title={t('common.close')}
+            lang={lang ? i18n.language : undefined}
             className="-mr-1 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-ink"
           >
             <X size={18} />
@@ -971,6 +1121,7 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

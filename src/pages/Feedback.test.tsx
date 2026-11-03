@@ -92,7 +92,7 @@ describe('Pflichtfelder einzeln markiert, Banner nur solange etwas fehlt (A11Y-1
     fireEvent.change(nachricht(), { target: { value: 'Sitz klemmt.' } })
     fireEvent.click(screen.getByRole('button', { name: 'Musterbezogen' }))
     absenden()
-    const muster = screen.getByLabelText('Aircraft Type *')
+    const muster = screen.getByLabelText('Muster *')
     expect(muster).toHaveAttribute('aria-invalid', 'true')
     expect(muster).toHaveAccessibleDescription('Bitte das Muster wählen – oder „Allgemein“.')
     expect(empfaenger()).not.toHaveAttribute('aria-invalid')

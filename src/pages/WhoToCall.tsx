@@ -1,7 +1,7 @@
-import { Mail, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
+import { Mail, Pencil, Phone, Trash2 } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, TopBar } from '../components/ui'
+import { Avatar, Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, TopBar, TopBarAktion } from '../components/ui'
 import { toast } from '../components/Toast'
 import { kontaktFehler, kontaktGruppen, mailLink, telefonLink } from '../contacts'
 import { useStore } from '../store'
@@ -37,7 +37,7 @@ function ContactModal({ contact, onClose }: { contact: Partial<Contact> | null; 
     >
       <div className="space-y-stack">
         <Field label={t('contacts.department')}>
-          <input className={inputCls} value={form.department} onChange={set('department')} autoFocus />
+          <input className={inputCls} value={form.department} onChange={set('department')} />
         </Field>
         <Field label={t('contacts.position')}>
           <input className={inputCls} value={form.position} onChange={set('position')} />
@@ -132,12 +132,7 @@ export function WhoToCall() {
         back="/"
         right={
           mayEdit ? (
-            <button
-              onClick={() => setEditing(null)}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
-            >
-              <Plus size={15} /> {t('contacts.newContact')}
-            </button>
+            <TopBarAktion label={t('contacts.newContact')} onClick={() => setEditing(null)} />
           ) : undefined
         }
       />

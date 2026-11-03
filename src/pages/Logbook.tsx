@@ -1,8 +1,8 @@
-import { BookOpen, ChevronDown, Download, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { BookOpen, ChevronDown, Download, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { musterZurAuswahl } from '../aircraftScope'
-import { Badge, Button, Card, CardGrid, CardHeading, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { Badge, Button, Card, CardGrid, CardHeading, Field, filterCls, inputCls, Modal, Page, SectionHeading, selectCls, TopBar, TopBarAktion } from '../components/ui'
 import { toast } from '../components/Toast'
 import { downloadCsv } from '../csv'
 import {
@@ -35,17 +35,6 @@ import { formatDate, lokalerTag, monatsName } from '../datum'
  * Logbücher sind je nach Rolle sichtbar (Superadmin/Training Admin ganz,
  * Gruppenadmin in seinen Mustern), aber nie schreibbar.
  */
-
-/* Filterleisten-Optik wie in der Formularablage: kompakte Felder, die sich
-   nebeneinander legen — nicht die w-full-Felder der Formulare. Die
-   Datumsfelder brauchen zusaetzlich eine feste Breite: WebKit gibt einem
-   leeren <input type="date"> sonst fast keine Eigenbreite, und am iPad
-   standen zwei winzige Pillen da, die erst beim Antippen aufgingen.
-   Exportiert fuer die Admin-Auswertung — vorher stand die Klassenliste dort
-   als Kopie, und beiden fehlte `placeholder:text-dim`: Der Platzhalter
-   „Pilot" lag im Browser-Grau bei 2,05:1 (Audit 11/2026, UID-11/A11Y-10). */
-export const filterCls =
-  'min-h-11 rounded-xl border border-field bg-bg/60 px-3 py-2 text-small text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
 /**
  * Eingabefeld fuer eine Dauer als HH:MM — dieselbe Schreibweise wie in den
@@ -309,15 +298,9 @@ export function Logbook() {
         back="/"
         right={
           eigenes ? (
-            /* Dieselbe Pille wie „New contact" im Verzeichnis — die Kopfzeile
-               traegt ueberall denselben Aktionsknopf, nicht je Seite einen
-               anderen. */
-            <button
-              onClick={() => setZeigeManuell(true)}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
-            >
-              <Plus size={15} /> {t('logbook.addEntry')}
-            </button>
+            /* Derselbe Aktionsknopf wie in jeder Kopfzeile (TopBarAktion),
+               nicht je Seite ein anderer. */
+            <TopBarAktion label={t('logbook.addEntry')} onClick={() => setZeigeManuell(true)} />
           ) : undefined
         }
       />
@@ -348,7 +331,7 @@ export function Logbook() {
               der zweiten Kategorie war nicht mehr zu sehen, was wozu gehoert. */}
           <Card className="p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <CardHeading>{t('logbook.summary')}</CardHeading>
+              <CardHeading level={2}>{t('logbook.summary')}</CardHeading>
               <button onClick={exportiere} className="flex min-h-11 items-center gap-1.5 text-small text-dim transition hover:text-accent">
                 <Download size={15} /> {t('logbook.export')}
               </button>
@@ -422,7 +405,7 @@ export function Logbook() {
           </div>
 
           <p role="status" className="sr-only">
-            {t('logbook.resultCount', { shown: eintraege.length, total: alle.length })}
+            {t('logbook.resultCount', { shown: eintraege.length, count: alle.length })}
           </p>
 
           {/* Monatsweise gegliedert, lueckenlos: Ein Monat ohne Eintrag steht

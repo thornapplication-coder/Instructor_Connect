@@ -1,4 +1,4 @@
-import { LESSON_CATEGORIES, type AppState } from '../types'
+import { LESSON_CATEGORIES, type AppState, type GradingRecord, type GradingSettings } from '../types'
 import { FELD_NACHTRAEGE, GRADING_DEFAULTS } from './gradingDefaults'
 import { IMPRINT_DE, IMPRINT_EN } from './imprintDefaults'
 
@@ -28,15 +28,17 @@ export function createSeedState(): AppState {
   // Die Seed-Formulare wurden gegen den ausgelieferten Katalog geschrieben —
   // ihr Wortlaut wird beim Aufbau eingefroren, damit spätere Katalogpflege
   // die bereits unterschriebenen Dokumente nicht rückwirkend umschreibt.
-  return {
-    ...seed,
-    gradingRecords: seed.gradingRecords.map((r) => {
-      if (r.competencies || r.trainees.length === 0) return r
-      const setKey = GRADING_DEFAULTS.formTypes.find((f) => f.id === r.formTypeId)?.competencySet
-      const set = setKey ? GRADING_DEFAULTS.competencySets.find((c) => c.key === setKey) : undefined
-      return set ? { ...r, competencies: set.competencies.map((c) => ({ code: c.code, title: c.title })) } : r
-    }),
-  }
+  return { ...seed, gradingRecords: seed.gradingRecords.map((r) => wortlautEinfrieren(r, GRADING_DEFAULTS)) }
+}
+
+/** Kompetenz-Wortlaut aus dem Katalog an das Formular heften — nur, wenn es
+ *  Piloten hat und noch keinen trägt. Ein Typ ohne (bekannten) Satz bleibt,
+ *  wie er ist: Raten wäre ein erfundener Wortlaut. */
+export function wortlautEinfrieren(r: GradingRecord, katalog: Pick<GradingSettings, 'formTypes' | 'competencySets'>): GradingRecord {
+  if (r.competencies || r.trainees.length === 0) return r
+  const setKey = katalog.formTypes.find((f) => f.id === r.formTypeId)?.competencySet
+  const set = setKey ? katalog.competencySets.find((c) => c.key === setKey) : undefined
+  return set ? { ...r, competencies: set.competencies.map((c) => ({ code: c.code, title: c.title })) } : r
 }
 
 function seedState(now: number): AppState {
@@ -309,7 +311,10 @@ function seedState(now: number): AppState {
       { id: 'lp1', title: 'CL30 — Lesson Plan TR Session 1-4', description: 'Grundlagen Type Rating: Systeme, Normalverfahren, erste FFS-Sessions.', aircraftType: 'CL30', category: 'Type Rating', fileName: 'cl350-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 20 * d },
       { id: 'lp2', title: 'CL30 — Lesson Plan Recurrent OPC', description: 'Ablauf und Schwerpunkte der jährlichen OPC-Session im Simulator.', aircraftType: 'CL30', category: 'Recurrent', fileName: 'cl350-recurrent-opc.pdf', uploadedBy: 'u-christian', createdAt: now - 12 * d },
       { id: 'lp3', title: 'C560 XLS+ — Lesson Plan TR Session 1-4', description: 'Type Rating C560 XLS+: Systeme, SOPs, FFS-Einführung.', aircraftType: 'C560 XLS+', category: 'Type Rating', fileName: 'xls-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 18 * d },
-      { id: 'lp4', title: 'C560 XLS+ — Lesson Plan LVO / CAT II', description: 'Schulung für Allwetterflugbetrieb im Simulator.', aircraftType: 'C560 XLS+', category: 'Difference Training', fileName: 'xls-lvo.pdf', uploadedBy: 'u-christian', createdAt: now - 6 * d },
+      // Hochgeladen von Alex: Chris fliegt nur CL30 und könnte einen
+      // C560-Plan weder anlegen noch danach sehen (musterZurAuswahl,
+      // src/sandbox/seed.test.ts).
+      { id: 'lp4', title: 'C560 XLS+ — Lesson Plan LVO / CAT II', description: 'Schulung für Allwetterflugbetrieb im Simulator.', aircraftType: 'C560 XLS+', category: 'Difference Training', fileName: 'xls-lvo.pdf', uploadedBy: 'u-patrick', createdAt: now - 6 * d },
     ],
     gradingRecords: [
       /* Drei frühere Sessions von Sophie Berger — sie machen den Verlauf je

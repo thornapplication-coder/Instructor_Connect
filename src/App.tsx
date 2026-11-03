@@ -28,15 +28,19 @@ import { WhoToCall } from './pages/WhoToCall'
 import { navigate, useRoute } from './router'
 import { DocCheckRoute } from './modules/doccheck'
 import { StoreProvider, useStore } from './store'
+import { SANDBOX } from './sandbox/flag'
 import type { ModuleKey } from './types'
 
 function Screen() {
   const route = useRoute()
   const { currentUser, moduleAllowed, docCheckRolle } = useStore()
 
-  // Impressum und Gerätevorschau sind auch ohne Anmeldung erreichbar.
+  // Impressum und Gerätevorschau sind auch ohne Anmeldung erreichbar. Die
+  // Vorschau ist ein Sandbox-Werkzeug wie die Leiste, die zu ihr führt —
+  // ohne Sandbox gibt es sie nicht, auch nicht über die Adresszeile
+  // (Audit 11/2026, KERN-18).
   if (route === '/imprint') return <Imprint />
-  if (route === '/device') return <DevicePreview />
+  if (SANDBOX && route === '/device') return <DevicePreview />
 
   if (!currentUser) return <Login />
 
@@ -131,8 +135,11 @@ function AppShell() {
         „Form signed and sent." samt Schliessknopf auf dem Nachweis — Chrome
         druckt ein `fixed`-Element auf JEDES Blatt. Die Regel sitzt hier, am
         Stapel, damit sie fuer jeden Streifen gilt, auch fuer kuenftige.
+
+        Seitlich haelt `safe-x` den Stapel aus dem Sicherheitsbereich — im
+        Querformat lag ein Streifen sonst unter der Sensorkappe (MOB-07).
       */}
-      <div className="above-sandbox pointer-events-none fixed inset-x-0 z-40 flex flex-col items-center gap-tight px-3 print:hidden">
+      <div className="above-sandbox safe-x pointer-events-none fixed inset-x-0 z-40 flex flex-col items-center gap-tight [--rand-x:0.75rem] print:hidden">
         <ToastHost />
         <StorageBanner />
         <SessionBanner />

@@ -1,8 +1,8 @@
-import { AlertTriangle, CheckCircle2, Clock, Download, FileDown, FilePen, HelpCircle, Plus, Search, Trash2, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, Download, FileDown, FilePen, HelpCircle, Search, Trash2, XCircle } from 'lucide-react'
 import { formatDate, formatDateTime } from '../datum'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, inputCls, Page, SectionHeading, TopBar } from '../components/ui'
+import { Badge, Button, Card, FilterAuswahl, inputCls, Page, SectionHeading, TopBar, TopBarAktion } from '../components/ui'
 import { downloadCsv } from '../csv'
 import { fortsetzenAdresse, readDrafts } from '../drafts'
 import { toast } from '../components/Toast'
@@ -18,18 +18,6 @@ import type { GradingRecord } from '../types'
 
 // Weiterreichen, damit die Ansichten weiterhin aus einer Datei importieren
 export { followUpStarted, isComplete, missingFollowUps, traineesOf, trafficLight, type TrafficColor }
-
-/** Farbcodierung laut Spez. 5.3: 5/4 grün, 3 dunkelgrün, 2 orange, 1 rot, NO grau.
- *  Kräftige Vollfarben mit weißem/schwarzem Text — in Hell- UND Dunkelmodus lesbar. */
-export function gradeColor(g: number | 'NO' | null): string {
-  // Textfarbe je Fläche so gewählt, dass jede Note mindestens 4,5:1 erreicht:
-  // Weiß auf emerald-600 lag bei 3,77:1 und war zu blass.
-  if (g === 'NO' || g === null) return 'bg-line/10 text-dim'
-  if (g >= 4) return 'bg-emerald-700 text-white'
-  if (g === 3) return 'bg-emerald-800 text-white'
-  if (g === 2) return 'bg-amber-500 text-black'
-  return 'bg-red-700 text-white'
-}
 
 /**
  * Liste nach Schulungstag gruppieren — die Reihenfolge der bereits
@@ -237,13 +225,12 @@ function TrainingAdminGrading() {
     toast(t('forms:toast.exported'))
   }
 
-  const selCls = 'rounded-xl border border-field bg-bg/60 px-3 py-2 text-small'
   return (
     <>
       {/* Filterergebnis für Sprachausgaben — die Liste ändert sich sonst lautlos */}
-      <p role="status" className="sr-only">{t('forms:admin.resultCount', { shown: list.length, total: all.length })}</p>
-      <TopBar title="Grading Tool" back="/" />
-      <Page wide className="space-y-stack">
+      <p role="status" lang="en" className="sr-only">{t('forms:admin.resultCount', { shown: list.length, count: all.length })}</p>
+      <TopBar title="Grading Tool" back="/" lang="en" />
+      <Page wide lang="en" className="space-y-stack">
         <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small text-dim">{t('forms:trainingAdminNote')}</p>
 
         {/* Reiter: Abgeschlossen / Zu bearbeiten / Verlauf je Pilot.
@@ -295,46 +282,49 @@ function TrainingAdminGrading() {
           />
         </div>
 
+        {/* Dieselbe Filterzeile wie in der Grading-Verwaltung (FilterAuswahl,
+            UID-17/A11Y-07) — hier stand eine eigene Klassenliste mit kleinerer
+            Schrift und ohne Fokusring (Gegenprüfung P9). */}
         <div className="flex flex-wrap gap-2">
-          <select value={fType} onChange={(e) => setFType(e.target.value)} aria-label={t('forms:admin.allTypes')} className={selCls}>
+          <FilterAuswahl label={t('forms:admin.allTypes')} value={fType} onChange={setFType}>
             <option value="">{t('forms:admin.allTypes')}</option>
             {formTypeOptions.map((id) => (
               <option key={id} value={id}>
                 {id}
               </option>
             ))}
-          </select>
-          <select value={period} onChange={(e) => setPeriod(e.target.value)} aria-label={t('forms:ta.periodLabel')} className={selCls}>
+          </FilterAuswahl>
+          <FilterAuswahl label={t('forms:ta.periodLabel')} value={period} onChange={setPeriod}>
             {LISTEN_ZEITRAEUME.map((x) => (
               <option key={x.key} value={x.key}>
                 {t(`forms:ta.period.${x.key}`)}
               </option>
             ))}
-          </select>
-          <select value={fTrainee} onChange={(e) => setFTrainee(e.target.value)} aria-label={t('forms:admin.allTrainees')} className={selCls}>
+          </FilterAuswahl>
+          <FilterAuswahl label={t('forms:admin.allTrainees')} value={fTrainee} onChange={setFTrainee}>
             <option value="">{t('forms:admin.allTrainees')}</option>
             {traineeOptions.map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>
             ))}
-          </select>
-          <select value={fAircraft} onChange={(e) => setFAircraft(e.target.value)} aria-label={t('forms:admin.allAircraft')} className={selCls}>
+          </FilterAuswahl>
+          <FilterAuswahl label={t('forms:admin.allAircraft')} value={fAircraft} onChange={setFAircraft}>
             <option value="">{t('forms:admin.allAircraft')}</option>
             {aircraftOptions.map((a) => (
               <option key={a} value={a}>
                 {a}
               </option>
             ))}
-          </select>
-          <select value={fInstructor} onChange={(e) => setFInstructor(e.target.value)} aria-label={t('forms:admin.allInstructors')} className={selCls}>
+          </FilterAuswahl>
+          <FilterAuswahl label={t('forms:admin.allInstructors')} value={fInstructor} onChange={setFInstructor}>
             <option value="">{t('forms:admin.allInstructors')}</option>
             {instructorOptions.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}
               </option>
             ))}
-          </select>
+          </FilterAuswahl>
         </div>
 
         {/* Der Auszug folgt der Liste — was oben gefiltert ist, steht in der
@@ -479,8 +469,8 @@ export function Grading() {
   const [adminView, setAdminView] = useState<'records' | 'trainees' | 'monthly'>('records')
   const list = visibleGradingRecords.filter((r) => !trafficFilter || trafficLight(r, state.gradingRecords) === trafficFilter)
   const filterAnsage = (
-    <p role="status" className="sr-only">
-      {t('forms:admin.resultCount', { shown: list.length, total: visibleGradingRecords.length })}
+    <p role="status" lang="en" className="sr-only">
+      {t('forms:admin.resultCount', { shown: list.length, count: visibleGradingRecords.length })}
     </p>
   )
 
@@ -494,18 +484,12 @@ export function Grading() {
       <TopBar
         title="Grading Tool"
         back="/"
+        lang="en"
         right={
-          mayGrade ? (
-            <button
-              onClick={() => navigate('/grading/new')}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
-            >
-              <Plus size={15} /> {t('forms:newForm')}
-            </button>
-          ) : undefined
+          mayGrade ? <TopBarAktion label={t('forms:newForm')} onClick={() => navigate('/grading/new')} lang="en" /> : undefined
         }
       />
-      <Page className="space-y-stack">
+      <Page lang="en" className="space-y-stack">
         {!mayGrade && !isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small text-dim">{t('forms:noPermission')}</p>}
         {/* Training Admin: reiner Lese-/Download-Zugriff auf alle Formulare */}
         {isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small text-dim">{t('forms:trainingAdminNote')}</p>}

@@ -37,7 +37,7 @@ const SECTIONS: Section[] = ['dashboard', 'records', 'trainees', 'monthly', 'sta
 
 /** Kompetenzen samt Observable Behaviours anlegen, bearbeiten, löschen */
 function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: (competencies: Competency[]) => void }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   // Code der bearbeiteten Kompetenz oder '__new__' für einen neuen Eintrag
   const [editCode, setEditCode] = useState<string | null>(null)
   const [draft, setDraft] = useState({ code: '', title: '', behaviours: '' })
@@ -95,8 +95,8 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
       </Field>
       {codeTaken && <p className="text-micro text-danger">{t('forms:admin.codeTaken')}</p>}
       <div className="flex justify-end gap-2">
-        <Button variant="ghost" onClick={() => setEditCode(null)}>{t('common.cancel')}</Button>
-        <Button disabled={(!hideCodes && !draft.code.trim()) || !draft.title.trim() || codeTaken} onClick={save}>{t('common.save')}</Button>
+        <Button variant="ghost" lang={i18n.language} onClick={() => setEditCode(null)}>{t('common.cancel')}</Button>
+        <Button lang={i18n.language} disabled={(!hideCodes && !draft.code.trim()) || !draft.title.trim() || codeTaken} onClick={save}>{t('common.save')}</Button>
       </div>
     </div>
   )
@@ -111,12 +111,13 @@ function CompetencySetEditor({ set, onChange }: { set: CompetencySet; onChange: 
               {!hideCodes && <span className="w-12 shrink-0 font-mono text-micro font-semibold">{c.code}</span>}
               <span className="min-w-0 flex-1 truncate text-small">{c.title}</span>
               <span className="shrink-0 text-micro text-dim">{c.behaviours.length} OB</span>
-              <button onClick={() => startEdit(c)} title={t('common.edit')} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-accent">
+              <button onClick={() => startEdit(c)} title={t('common.edit')} lang={i18n.language} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-accent">
                 <Pencil size={14} />
               </button>
               <button
                 onClick={() => window.confirm(t('forms:admin.deleteCompetencyConfirm')) && onChange(set.competencies.filter((x) => x.code !== c.code))}
                 title={t('common.delete')}
+                lang={i18n.language}
                 className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-danger"
               >
                 <Trash2 size={14} />
@@ -146,7 +147,7 @@ function FormTypeEditor({
   records: GradingRecord[]
   onChange: (types: FormType[]) => void
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   // ID des bearbeiteten Typs oder '__new__'
   const [editId, setEditId] = useState<string | null>(null)
   // Formulartyp, dessen Auswahlwerte gerade gepflegt werden
@@ -190,7 +191,7 @@ function FormTypeEditor({
             <span className="shrink-0 text-micro text-dim">
               {f.fields.filter((x) => x.required).length} {t('forms:admin.requiredFields')} · {f.fields.length} {t('forms:admin.fieldsTotal')}
             </span>
-            <button onClick={() => startEdit(f)} title={t('common.edit')} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-accent">
+            <button onClick={() => startEdit(f)} title={t('common.edit')} lang={i18n.language} className="shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim hover:text-accent">
               <Pencil size={14} />
             </button>
             {/* 44 px wie die Nachbarknöpfe — vorher 26 px (Audit 11/2026, GRD-17) */}
@@ -253,8 +254,8 @@ function FormTypeEditor({
                 <input className={inputCls} value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} autoFocus />
               </Field>
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setEditId(null)}>{t('common.cancel')}</Button>
-                <Button disabled={!draft.title.trim()} onClick={save}>{t('common.save')}</Button>
+                <Button variant="ghost" lang={i18n.language} onClick={() => setEditId(null)}>{t('common.cancel')}</Button>
+                <Button lang={i18n.language} disabled={!draft.title.trim()} onClick={save}>{t('common.save')}</Button>
               </div>
             </div>
           )}
@@ -290,8 +291,8 @@ function FormTypeEditor({
             {idTaken && <p className="text-micro text-danger">{t('forms:admin.formIdTaken')}</p>}
             <p className="text-micro leading-relaxed text-dim">{t('forms:admin.newFormHint')}</p>
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setEditId(null)}>{t('common.cancel')}</Button>
-              <Button disabled={!draft.id.trim() || !draft.title.trim() || idTaken} onClick={save}>{t('common.save')}</Button>
+              <Button variant="ghost" lang={i18n.language} onClick={() => setEditId(null)}>{t('common.cancel')}</Button>
+              <Button lang={i18n.language} disabled={!draft.id.trim() || !draft.title.trim() || idTaken} onClick={save}>{t('common.save')}</Button>
             </div>
           </div>
         )}
@@ -322,7 +323,7 @@ export function GradingAdmin({ section = '' }: { section?: string }) {
 }
 
 function GradingAblage({ section: sectionSeg }: { section: string }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { state, currentUser, retryGradingMail, updateGrading, deleteGradingRecord, unhideGradingRecord } = useStore()
   const section = SECTIONS.includes(sectionSeg as Section) ? (sectionSeg as Section) : null
   // Unbekannter Unterbereich: Adresse ehrlich auf die Übersicht der Ablage
@@ -621,15 +622,18 @@ function GradingAblage({ section: sectionSeg }: { section: string }) {
     ...(darfKonfigurieren ? ([{ key: 'config', icon: SlidersHorizontal }] as const) : []),
   ]
 
+  // Der ganze Bereich ist englisch (forms) — auch im Admin-Panel einer
+  // deutschen Oberfläche. Ohne Auszeichnung las die Sprachausgabe ihn
+  // deutsch (A11Y-12); die wenigen Knöpfe aus `common` tragen ihre Sprache.
   return (
-    <div className="space-y-section">
+    <div lang="en" className="space-y-section">
       {section === null && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {SECTION_TILES.map(({ key, icon: Icon, badge }) => (
             <button
               key={key}
               onClick={() => navigate(`/admin/grading/${key}`)}
-              className="group relative flex aspect-square flex-col items-center justify-center gap-2.5 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
+              className="group relative flex aspect-square flex-col items-center justify-center gap-2.5 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition motion-safe:hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised"
             >
               {/* Dieselbe Zählmarke wie auf der Startseite — vorher braun
                   (bg-warm) und ohne Ansage (Audit 11/2026, UID-08) */}
@@ -842,7 +846,7 @@ function GradingAblage({ section: sectionSeg }: { section: string }) {
             <span className="text-micro text-dim">{t('forms:admin.exportListHint', { count: filtered.length })}</span>
           </div>
           {/* Filterergebnis ansagen — sichtbar ändert sich nur die Liste */}
-          <p role="status" className="sr-only">{t('forms:admin.resultCount', { shown: filtered.length, total: records.length })}</p>
+          <p role="status" className="sr-only">{t('forms:admin.resultCount', { shown: filtered.length, count: records.length })}</p>
           {filtered.length === 0 && <p className="pt-4 text-center text-body text-dim">{t('forms:empty')}</p>}
           {filtered.map((r) => (
             <Card
@@ -896,6 +900,7 @@ function GradingAblage({ section: sectionSeg }: { section: string }) {
                   }}
                   aria-label={t('common.delete')}
                   title={t('common.delete')}
+                  lang={i18n.language}
                   className="pointer-events-auto relative z-10 shrink-0 flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
                 >
                   <Trash2 size={16} />
@@ -918,7 +923,7 @@ function GradingAblage({ section: sectionSeg }: { section: string }) {
           </Card>
 
           <Card className="p-4">
-            <CardHeading className="mb-3">{t('forms:admin.competencySets')}</CardHeading>
+            <CardHeading level={2} className="mb-3">{t('forms:admin.competencySets')}</CardHeading>
             {g.competencySets.map((set) => (
               <CompetencySetEditor
                 key={set.key}
@@ -932,7 +937,7 @@ function GradingAblage({ section: sectionSeg }: { section: string }) {
           </Card>
 
           <Card className="p-4">
-            <CardHeading className="mb-3">{t('forms:admin.formTypes')}</CardHeading>
+            <CardHeading level={2} className="mb-3">{t('forms:admin.formTypes')}</CardHeading>
             <FormTypeEditor formTypes={g.formTypes} records={records} onChange={(formTypes) => updateGrading({ formTypes })} />
           </Card>
         </div>
@@ -993,13 +998,16 @@ function GradingAblage({ section: sectionSeg }: { section: string }) {
 
           {/* Je Kompetenzsatz eine eigene Auswertung — Piloten- und
               Instruktorenbewertungen folgen verschiedenen Maßstäben und
-              werden nie miteinander verrechnet. */}
+              werden nie miteinander verrechnet. Der Name des Satzes ist
+              die Überschrift seiner Karten (h2 über deren h3): Als Absatz
+              sprang die Gliederung von h1 auf h3, und „Pilot competencies"
+              fehlte in der Überschriftenliste (Audit 11/2026, A11Y-14). */}
           {statsBySet.map((st) => (
             <div key={st.key} className="space-y-section">
-              <p className="border-b border-line/10 pb-1 text-body font-semibold">
+              <h2 className="border-b border-line/10 pb-1 text-body font-semibold">
                 {st.name}{' '}
                 <span className="font-normal text-dim">· {t('forms:admin.sessionCount', { count: st.sessions })}</span>
-              </p>
+              </h2>
 
               <Card className="p-4">
                 <CardHeading className="mb-2 flex items-center gap-2">
@@ -1089,7 +1097,7 @@ function GradingAblage({ section: sectionSeg }: { section: string }) {
           {/* Bedienelement, kein Inhalt — im Ausdruck stand die Karte ohne
               ihre Knöpfe (RPT-01). */}
           <Card className="p-4 print:hidden">
-            <CardHeading className="mb-3">{t('forms:admin.export')}</CardHeading>
+            <CardHeading level={2} className="mb-3">{t('forms:admin.export')}</CardHeading>
             <div className="flex flex-wrap gap-2">
               {(['records', 'competencies', 'people'] as const).map((s) => (
                 <Button

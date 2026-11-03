@@ -283,14 +283,16 @@ describe('Palettenfarben', () => {
     // Not Competent im Formular: Vollflaechen mit weisser Schrift in BEIDEN
     // Themen. Die Status-Tokens werden im Dunkelmodus hell und truegen dort
     // keine weisse Schrift.
-    './pages/Grading.tsx': 'Notenfarben Spez. 5.3, Vollflaeche',
+    // Die Regel steht seit TEC-18 in gradingRules.ts statt in Grading.tsx
+    // — deshalb prüft die Wache auch die Logik-Module direkt unter src/.
+    './gradingRules.ts': 'Notenfarben Spez. 5.3, Vollflaeche',
     './pages/GradingForm.tsx': 'Urteilsflaeche wie die Notenfarben',
   }
 
-  it('benutzt in Seiten, Modulen und Bausteinen keine rohe Palettenfarbe', () => {
+  it('benutzt in Seiten, Modulen, Bausteinen und Logik-Modulen keine rohe Palettenfarbe', () => {
     const treffer: string[] = []
     for (const [pfad, inhalt] of dateien) {
-      if (!/^\.\/(pages|modules|components)\//.test(pfad) || AUSNAHMEN[pfad]) continue
+      if (!/^\.\/((pages|modules|components)\/|[^/]+\.tsx?$)/.test(pfad) || AUSNAHMEN[pfad]) continue
       ;(inhalt as string).split('\n').forEach((zeile, i) => {
         if (istKommentar(zeile)) return
         for (const m of zeile.matchAll(PALETTE)) treffer.push(`${pfad}:${i + 1}  ${m[0]}`)

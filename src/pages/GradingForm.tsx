@@ -16,6 +16,7 @@ import {
   bezeichnungen,
   einfrieren,
   empfaengerVon,
+  gradeColor,
   isFollowUpType,
   isNotCompetent,
   istInstruktorBlatt,
@@ -42,7 +43,6 @@ const mailStatusNow = () => 'queued' as const
 import { DURATION_OPTIONS } from '../sandbox/gradingDefaults'
 import { useStore } from '../store'
 import { GRADES, type AttendanceEntry, type FormField, type FormType, type FormTypeId, type Grade, type GradingRecord, type OverallResult, type SessionStatus, type TraineeGrading } from '../types'
-import { gradeColor } from './Grading'
 
 let seq = 0
 const newId = () => `gr-${Date.now()}-${seq++}`
@@ -973,8 +973,8 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   if (!mayGrade) {
     return (
       <>
-        <TopBar title={t('forms:newForm')} back="/grading" home={false} wide />
-        <Page>
+        <TopBar title={t('forms:newForm')} back="/grading" home={false} wide lang="en" />
+        <Page lang="en">
           <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small leading-relaxed text-dim">{t('forms:noPermission')}</p>
         </Page>
       </>
@@ -989,8 +989,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         onBack={leaveGuard}
         home={false}
         wide
+        lang="en"
       />
-      <Page wide className="space-y-section pb-32">
+      <Page wide lang="en" className="space-y-section pb-32">
         {/* Wiederhergestellter Entwurf: sichtbar machen und verwerfbar halten */}
         {draftRestored && (
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 p-3.5 text-small">
@@ -1055,10 +1056,13 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
         {formType && step === 1 && (
           <>
-            {/* 2a. Student / Instructor — Aufbau wie im Originalformular */}
+            {/* 2a. Student / Instructor — Aufbau wie im Originalformular.
+                Die Karten des Formulars stehen direkt unter der
+                Seitenüberschrift und tragen deshalb h2 — als h3 sprang die
+                Gliederung in beiden Schritten von h1 auf h3 (A11Y-14). */}
             {competencies.length > 0 && (
               <Card className="space-y-section p-4">
-                <CardHeading>{t(b.teilnehmer)}</CardHeading>
+                <CardHeading level={2}>{t(b.teilnehmer)}</CardHeading>
 
                 {trainees.map((tr, i) => {
                   // Bei mehreren Piloten sagt der Name der Gruppe, wessen Sitz es ist —
@@ -1076,8 +1080,8 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                       {trainees.length > 1 && (
                         <button
                           onClick={() => removeTrainee(i)}
-                          aria-label={`${t(b.person)} ${i + 1} — ${t('common.delete')}`}
-                          title={t('common.delete')}
+                          aria-label={`${t(b.person)} ${i + 1} — ${t('forms:removePilot')}`}
+                          title={t('forms:removePilot')}
                           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
                         >
                           <Trash2 size={15} />
@@ -1170,7 +1174,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
             {/* 2b. Kopfdaten (nur Felder, die VOR dem Grading erfasst werden) */}
             <Card className="space-y-stack p-4">
-              <CardHeading>{t('forms:headerData')}</CardHeading>
+              <CardHeading level={2}>{t('forms:headerData')}</CardHeading>
               <div className="grid gap-3 sm:grid-cols-2">{preFields.map(renderField)}</div>
               {/* Kein Katalogfeld: die Behörde gehört zu JEDEM Formulartyp
                   und bestimmt die ATO-Kennung im Dokumentkopf. */}
@@ -1253,7 +1257,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 return (
                 <Card key={i} className="space-y-section p-4">
                   <div className="flex items-center gap-2">
-                    <CardHeading className="flex-1">
+                    <CardHeading level={2} className="flex-1">
                       {tr.traineeName?.trim() || t(b.personN, { n: i + 1 })}
                       {tr.position ? ` · ${tr.position}` : ''}
                       {tr.seat ? ` · ${tr.seat}` : ''}
@@ -1415,7 +1419,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             {/* 4b. Session-Daten — werden immer erst NACH dem Grading erfasst */}
             {postFields.length > 0 && (
               <Card id="sessiondaten" className="scroll-mt-24 space-y-stack p-4">
-                <CardHeading>{t('forms:sessionData')}</CardHeading>
+                <CardHeading level={2}>{t('forms:sessionData')}</CardHeading>
                 <p className="text-micro leading-relaxed text-dim">{t('forms:sessionDataHint')}</p>
                 <div className="grid gap-3 sm:grid-cols-2">{postFields.map(renderField)}</div>
               </Card>
@@ -1424,15 +1428,19 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             {/* 4c. Teilnehmerliste (307A/307B) */}
             {isAttendance && (
               <Card id="anwesenheit" className="scroll-mt-24 space-y-stack p-4">
-                <CardHeading>{t('forms:attendance')}</CardHeading>
+                <CardHeading level={2}>{t('forms:attendance')}</CardHeading>
                 {attendance.map((a, i) => (
                   <div key={i} className="space-y-stack rounded-xl border border-line/10 p-3">
                     <div className="flex items-center gap-2">
                       <span className="w-6 shrink-0 text-micro text-dim">{i + 1}.</span>
+                      {/* Ein Platzhalter ist kein Name — er verschwindet beim
+                          Tippen, und die Sprachausgabe sagte nur „Eingabefeld"
+                          (Audit 11/2026, A11Y, Gegenprüfung Runde 1). */}
                       <input
                         value={a.name}
                         onChange={(e) => setAttendance(attendance.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
                         placeholder={t('forms:studentName')}
+                        aria-label={`${t('forms:studentName')} ${i + 1}`}
                         className={inputCls}
                       />
                       {attendance.length > 1 && (
@@ -1472,7 +1480,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 Bei mehreren Studenten unterschreibt JEDER einzeln; pro Student
                 entsteht beim Abschluss ein eigenes Formular. */}
             <Card id="unterschriften" className="scroll-mt-24 space-y-section p-4">
-              <CardHeading>{t('forms:signatures')}</CardHeading>
+              <CardHeading level={2}>{t('forms:signatures')}</CardHeading>
               <div className="grid gap-4 sm:grid-cols-2">
                 {/* Wie auf dem Dokument: auf dem 308G COI und CAI (GTY-10). */}
                 <SignaturePad value={sigInstructor} onChange={setSigInstructor} label={t(b.sigAusbilder)} zeitversatzMs={state.timeOffsetMs} />
@@ -1506,7 +1514,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
             {/* 6. Empfänger: Standard (Admin-Konfiguration) + zusätzliche */}
             <Card className="space-y-stack p-4">
-              <CardHeading>{t('forms:recipientsCard')}</CardHeading>
+              <CardHeading level={2}>{t('forms:recipientsCard')}</CardHeading>
               <div className="flex flex-wrap gap-1.5">
                 {/* Dieselbe Regel, deren Ergebnis beim Absenden im Datensatz
                     landet (GTY-06) — vorher kannte diese Vorschau die
@@ -1577,9 +1585,14 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         offenen Punkt — gemessene 3.900 px von der Stelle entfernt, an der er
         fehlte. Jetzt steht der Fortschritt dauerhaft da, die Liste nennt
         ALLE offenen Punkte, und jeder Eintrag springt hin.
+
+        `safe-x`: Im Querformat lag „Finish" sonst unter der Sensorkappe
+        (Audit 11/2026, MOB-07). Als benannte Region ist die Leiste per
+        Landmarke erreichbar — sie steht außerhalb von <main>, und der
+        Senden-Knopf fehlte in der Landmarkenliste (A11Y-14).
       */}
       {formType && step === 2 && (
-        <div ref={leisteRef} className="formularleiste above-sandbox fixed inset-x-0 z-30 border-t border-line/10 bg-bg/95 px-3 pb-3 pt-2 backdrop-blur print:hidden">
+        <div ref={leisteRef} lang="en" role="region" aria-label={t('forms:formBar')} className="formularleiste above-sandbox safe-x fixed inset-x-0 z-30 border-t border-line/10 bg-bg/95 pb-3 pt-2 backdrop-blur [--rand-x:0.75rem] print:hidden">
           <div className="mx-auto flex max-w-3xl flex-col gap-2">
             {/* Höchstens die halbe Höhe, und ein Schatten am Rand, solange
                 darunter noch etwas steht (`scroll-schatten`, index.css): Bei
@@ -1630,7 +1643,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
       )}
 
       {showFollowUp && (
-        <Modal title={t('forms:followUpTitle')} onClose={() => setShowFollowUp(false)}>
+        <Modal title={t('forms:followUpTitle')} onClose={() => setShowFollowUp(false)} lang="en">
           <p className="mb-4 text-small leading-relaxed text-dim">{t('forms:followUpBodyMandatory')}</p>
           <div className="space-y-stack">
             {/* Über den Katalog iterieren, nicht über eine feste Liste. Früher

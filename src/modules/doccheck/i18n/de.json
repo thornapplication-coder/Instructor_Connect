@@ -228,7 +228,7 @@
     "proxyStart": "Testaufruf starten",
     "proxyRunning": "Streamt …",
     "cancel": "Abbrechen",
-    "usage": "Modell {{model}} · Input {{input}} · Output {{output}} Tokens · Stopp: {{stop}}",
+    "usage": "Modell {{model}} · Input-Tokens {{input}} · Output-Tokens {{output}} · Stopp: {{stop}}",
     "error": "Fehler: {{code}}",
     "audit": "Audit-Log",
     "auditEmpty": "Noch keine Einträge. Jede Änderung einer DocCheck-Berechtigung oder Einstellung wird hier protokolliert.",
@@ -370,7 +370,8 @@
     "DC-EMPTY": "Datei ist leer (0 Byte)."
   },
   "ocr": {
-    "laeuft": "Texterkennung: {{fertig}} von {{gesamt}} Seiten …",
+    "laeuft_one": "Texterkennung: {{fertig}} von 1 Seite …",
+    "laeuft_other": "Texterkennung: {{fertig}} von {{count}} Seiten …",
     "starten": "Texterkennung starten",
     "fehler": "Texterkennung fehlgeschlagen.",
     "frage_one": "1 Seite hat keine Textebene (Scan). Texterkennung starten? Dauert einige Sekunden.",
@@ -555,7 +556,8 @@
     "rechnen": "Rechenprüfung",
     "verweis": "Verweise",
     "regelwerk": "Regelwerksverweise",
-    "regelwerkStand": "Regelwerk: {{quellen}} · {{verweise}} Verweise, {{verifiziert}} verifiziert, {{nichtWiderlegbar}} ohne erfassten Absatz, {{zuPruefen}} zu prüfen, {{ohneQuelle}} ohne Quelle"
+    "regelwerkStand_one": "Regelwerk: {{quellen}} · 1 Verweis, {{verifiziert}} verifiziert, {{nichtWiderlegbar}} ohne erfassten Absatz, {{zuPruefen}} zu prüfen, {{ohneQuelle}} ohne Quelle",
+    "regelwerkStand_other": "Regelwerk: {{quellen}} · {{count}} Verweise, {{verifiziert}} verifiziert, {{nichtWiderlegbar}} ohne erfassten Absatz, {{zuPruefen}} zu prüfen, {{ohneQuelle}} ohne Quelle"
   },
   "prio": {
     "High": "Hoch",

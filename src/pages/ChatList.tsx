@@ -1,8 +1,8 @@
-import { BellOff, ChevronRight, Plus } from 'lucide-react'
+import { BellOff, ChevronRight } from 'lucide-react'
 import { musterZurAuswahl } from '../aircraftScope'
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Button, Card, Field, inputCls, Modal, NewDot, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { Avatar, Button, Card, Field, inputCls, Modal, NewDot, Page, SectionHeading, selectCls, TopBar, TopBarAktion } from '../components/ui'
 import { kurzeZeit } from '../drafts'
 import { istStumm } from '../chatMute'
 import { gruppenNameFehler } from '../gruppen'
@@ -39,12 +39,7 @@ export function ChatList() {
           // Dieselbe Regel, die der Store beim Anlegen prueft (storeRechte.ts) —
           // „Ohne Muster" liegt in jedem Bereich, die Musterwahl folgt im Dialog.
           darfGruppeAnlegen(state.settings, currentUser, undefined) ? (
-            <button
-              onClick={() => setShowNew(true)}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
-            >
-              <Plus size={15} /> {t('admin.addGroup')}
-            </button>
+            <TopBarAktion label={t('admin.addGroup')} onClick={() => setShowNew(true)} />
           ) : undefined
         }
       />
@@ -126,7 +121,6 @@ export function ChatList() {
                   onChange={(e) => setName(e.target.value)}
                   aria-invalid={nameTaken || undefined}
                   aria-describedby={nameTaken ? nameFehlerId : undefined}
-                  autoFocus
                 />
                 {nameTaken && (
                   <p id={nameFehlerId} className="mt-1.5 text-micro leading-relaxed text-danger">

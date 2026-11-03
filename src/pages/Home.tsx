@@ -2,12 +2,13 @@ import { BookMarked, BookOpenCheck, FileCheck2, GraduationCap, LogOut, MessageSq
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { GradingIcon } from '../components/GradingIcon'
-import { Avatar, CountBadge, Modal, ThemeToggle } from '../components/ui'
+import { Avatar, CountBadge, LanguageToggle, Modal, seitenBreiteCls, ThemeToggle } from '../components/ui'
 import { navigate } from '../router'
 import { isAdminUser } from '../adminAccess'
 import { useStore } from '../store'
 import { useIsDesktop } from '../useIsDesktop'
 import { APP_VERSION } from '../types'
+import { startRasterKlasse } from '../kachelRaster'
 import { TrafficIcon, trafficLight, type TrafficColor } from './Grading'
 
 /* Kachel-Beschriftungen bleiben laut Spez. §5 in beiden Sprachen Englisch. */
@@ -15,8 +16,9 @@ import { TrafficIcon, trafficLight, type TrafficColor } from './Grading'
 //
 // Der Monatsbericht hat hier bewusst KEINE eigene Kachel mehr: Er ist im
 // Grading Tool bereits ein eigener Reiter, und dieselbe Auswertung an zwei
-// Stellen anzubieten heißt, sie an zwei Stellen pflegen zu müssen. Die
-// Startseite bleibt damit auf sechs Kacheln — eine Reihe.
+// Stellen anzubieten heißt, sie an zwei Stellen pflegen zu müssen. Wie viele
+// Kacheln jemand sieht, hängt an Rolle und Rechten (zwei bis neun) — die
+// Spalten rechnet deshalb `startRasterKlasse` aus der Zahl (kachelRaster.ts).
 const TILES = [
   { to: '/grading', label: 'Grading Tool', icon: GradingIcon },
   { to: '/lessons', label: 'Lesson Plan', icon: BookOpenCheck },
@@ -32,7 +34,7 @@ const TILES = [
 ] as const
 
 export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   // Ein Tippfehler in der Adresse zeigte die Startseite, ließ aber den
   // ungültigen Hash stehen — ein Neuladen landete dann wieder im Nichts.
   useEffect(() => {
@@ -113,7 +115,9 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="safe-top-6 mx-auto flex w-full max-w-3xl items-center justify-between px-5 xl:max-w-6xl xl:px-10">
+      {/* Seitlicher Rand über `safe-x`: im Querformat der Sicherheitsbereich
+          statt fester 20 px (Audit 11/2026, MOB-07). */}
+      <header className={`safe-top-6 safe-x mx-auto flex w-full items-center justify-between [--rand-x:1.25rem] xl:[--rand-x:2.5rem] ${seitenBreiteCls}`}>
         {/* Die Begrüßung gibt nach, die Bedienelemente nicht.
             Ohne `min-w-0`/`truncate` drückte ein längerer Vorname die rechte
             Gruppe zusammen — gemessen am iPhone: „Hello, <neunstelliger Vorname>" umbrach
@@ -144,18 +148,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
             <RefreshCw size={17} />
           </button>
           <ThemeToggle />
-          <div className="flex shrink-0 overflow-hidden rounded-lg border border-line/15 text-micro">
-            {(['de', 'en'] as const).map((lng) => (
-              <button
-                key={lng}
-                onClick={() => i18n.changeLanguage(lng)}
-          aria-pressed={i18n.language === lng}
-                className={`min-h-11 whitespace-nowrap px-3.5 py-1 font-medium uppercase transition ${i18n.language === lng ? 'bg-accent text-bg' : 'text-dim hover:text-ink'}`}
-              >
-                {lng}
-              </button>
-            ))}
-          </div>
+          <LanguageToggle />
         </div>
       </header>
 
@@ -163,7 +156,7 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
           sobald der Inhalt höher ist als das Fenster — zentrierter Überlauf
           ragt in beide Richtungen, und der obere Teil ist nicht erreichbar.
           Deshalb dort von oben ausrichten. */}
-      <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-5 py-8 short:justify-start short:py-3 md:max-w-4xl xl:max-w-6xl xl:px-10">
+      <main className="safe-x mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center py-8 [--rand-x:1.25rem] short:justify-start short:py-3 md:max-w-4xl lg:max-w-5xl xl:max-w-6xl xl:[--rand-x:2.5rem]">
         {/* Bildmarke und Titel mittig über den Kacheln. Im flachen Fenster
             (Handy quer) rückt der Schriftzug neben die Bildmarke, damit die
             Kacheln ohne Scrollen erreichbar bleiben. */}
@@ -173,25 +166,28 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
                 (flaches Fenster / ab Tablet) ohne mehrfaches Rendern. */}
             <Plane className="h-11 w-11 text-accent short:h-6 short:w-6 md:h-[52px] md:w-[52px]" />
           </span>
-          <h1 className="text-center text-mega font-bold tracking-tight short:text-display md:text-giant">
+          {/* Ziel des Fokus nach Anmeldung, Seitenwechsel und geschlossenem
+              Dialog ohne Auslöser — wie die Überschrift jeder anderen Seite
+              (TopBar). Ohne das stand er nach der Anmeldung auf <body>
+              (Audit 11/2026, A11Y-17). */}
+          <h1 data-page-heading tabIndex={-1} className="text-center text-mega font-bold tracking-tight outline-none short:text-display md:text-giant">
             Instructor <span className="text-accent">Connect</span>
           </h1>
         </div>
 
-        {/* 2 Spalten am Handy, 3 ab Tablet — große, gut greifbare Kacheln */}
-        {/* Vier Spalten am Desktop: Sechs Spalten liessen die siebte Kachel
-            als Waise in einer eigenen Reihe stehen, und jede Kachel wurde
-            ueber 400 px gross. Vier Spalten ergeben 4 + 3. */}
-        {/* Vier Spalten im Querformat: Mit sieben Kacheln ergaben drei Spalten
-            drei Reihen, und die Seite lief um rund 90 px über — die letzte
-            Kachel und die Fußzeile lagen unter der Falz. Vier Spalten sind
-            zwei Reihen. */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 xl:grid-cols-4 short:grid-cols-4 short:gap-2.5">
+        {/* Spalten je Breite aus der Kachelzahl (kachelRaster.ts): 2 am
+            Handy, 3–4 am Tablet, bis 5 ab 1024 px, 3–4 im Querformat — nie
+            eine Kachel allein unter vollen Reihen. Vier feste Spalten am
+            Desktop ließen bei neun Kacheln „DocCheck" allein in Reihe 3
+            stehen, unter der Falz (Audit 11/2026, UID-09). Ab lg feste Höhe
+            statt quadratisch: Quadrate von 250 px machten aus zwei Reihen
+            eine Seite von 1436 px. */}
+        <div className={`grid gap-4 sm:gap-5 short:gap-2.5 ${startRasterKlasse(tiles.length)}`}>
           {tiles.map(({ to, label, icon: Icon }) => (
             <button
               key={to}
               onClick={() => navigate(to)}
-              className="group relative flex aspect-square flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised short:aspect-auto short:h-[72px] short:flex-row short:justify-start short:gap-2.5 short:rounded-2xl short:px-3"
+              className="group relative flex aspect-square flex-col items-center justify-center gap-3 rounded-3xl border border-line/[0.07] bg-surface shadow-tile transition motion-safe:hover:-translate-y-0.5 hover:border-accent/40 hover:bg-raised lg:aspect-auto lg:h-44 short:aspect-auto short:h-[72px] short:flex-row short:justify-start short:gap-2.5 short:rounded-2xl short:px-3"
             >
               {to === '/grading' && gradingTraffic ? (
                 // Dieselbe Form-Codierung wie in der Formularliste

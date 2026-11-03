@@ -13,6 +13,7 @@ import {
   formularTypInGebrauch,
   ganzzahligNichtNegativ,
   gleichePaare,
+  gradeColor,
   gradingDayKey,
   gradingListComparator,
   gradingListDate,
@@ -911,5 +912,30 @@ describe('codeVergeben — ein Kürzel je Kompetenzsatz (Audit 11/2026, GRD-19)'
     expect(codeVergeben('XYZ', pilot, null)).toBe(false)
     expect(codeVergeben('', pilot, null)).toBe(false)
     expect(codeVergeben('   ', pilot, 'COM')).toBe(false)
+  })
+})
+
+/**
+ * Notenfarben (Spez. 5.3). Lagen in src/pages/Grading.tsx, von vier Ansichten
+ * benutzt und ohne Test — die Testwache sah keine `.tsx` (Audit 11/2026,
+ * TEC-18). Festgehalten wird die Zuordnung, nicht der genaue Ton: Die Töne
+ * sind auf 4,5:1 gewählt (Kommentar in gradingRules.ts).
+ */
+describe('gradeColor — Notenfarben nach Spez. 5.3', () => {
+  it('5 und 4 grün, 3 dunkelgrün, 2 orange, 1 rot', () => {
+    expect(gradeColor(5)).toBe(gradeColor(4))
+    expect(gradeColor(4)).toMatch(/\bbg-emerald-700\b/)
+    expect(gradeColor(3)).toMatch(/\bbg-emerald-800\b/)
+    expect(gradeColor(2)).toMatch(/\bbg-amber-500\b/)
+    expect(gradeColor(1)).toMatch(/\bbg-red-700\b/)
+  })
+
+  it('„NO" und keine Note sind grau — keine Note ist keine schlechte Note', () => {
+    expect(gradeColor('NO')).toBe('bg-line/10 text-dim')
+    expect(gradeColor(null)).toBe('bg-line/10 text-dim')
+  })
+
+  it('jede Vollfläche bringt ihre Schriftfarbe mit (sonst erbt sie text-ink und kippt im Dunkelmodus)', () => {
+    for (const g of [1, 2, 3, 4, 5]) expect(gradeColor(g)).toMatch(/\btext-(white|black)\b/)
   })
 })

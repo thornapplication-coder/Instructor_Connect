@@ -1,8 +1,8 @@
-import { Download, Eye, FileText, Plane, Plus, Trash2 } from 'lucide-react'
+import { Download, Eye, FileText, Plane, Trash2 } from 'lucide-react'
 import { musterZurAuswahl } from '../aircraftScope'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar, TopBarAktion } from '../components/ui'
 import { toast } from '../components/Toast'
 import { formatDate } from '../datum'
 import { useStore } from '../store'
@@ -51,7 +51,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
           </select>
         </Field>
         <Field label={t('lessons.title') + ' *'}>
-          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} />
         </Field>
         <Field label={t('lessons.description')}>
           <input className={inputCls} value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -132,14 +132,7 @@ export function LessonPlans() {
         title="Lesson Plan"
         back="/"
         right={
-          mayEdit ? (
-            <button
-              onClick={() => setShowUpload(true)}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
-            >
-              <Plus size={15} /> {t('lessons.newPlan')}
-            </button>
-          ) : undefined
+          mayEdit ? <TopBarAktion label={t('lessons.newPlan')} onClick={() => setShowUpload(true)} /> : undefined
         }
       />
       <Page className="space-y-section">

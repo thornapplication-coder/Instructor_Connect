@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2, Clock, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { toastDauer } from '../toastDauer'
 
 /**
  * Kurze Bestaetigung nach einer Aktion.
@@ -13,7 +14,8 @@ import { useTranslation } from 'react-i18next'
  * etwas Endgueltiges, und die Oberflaeche sagte nichts dazu. Wer unsicher
  * war, drueckte noch einmal.
  *
- * Deshalb hier ein Streifen, der drei Sekunden lang sagt, was passiert ist.
+ * Deshalb hier ein Streifen, der einige Sekunden lang sagt, was passiert ist
+ * (je nach Länge, `toastDauer.ts`).
  * Bewusst schlicht gehalten:
  *
  *  - `role="status"` und `aria-live="polite"`: Sprachausgaben lesen die
@@ -44,9 +46,6 @@ export function toast(text: string, tone: ToastTone = 'ok'): void {
   HOERER.forEach((h) => h(eintrag))
 }
 
-/** Sichtdauer: lang genug zum Lesen, kurz genug, um nicht im Weg zu stehen. */
-const DAUER_MS = 3500
-
 export function ToastHost() {
   const { t } = useTranslation()
   const [liste, setListe] = useState<ToastEintrag[]>([])
@@ -56,7 +55,9 @@ export function ToastHost() {
       // Nur die letzten drei: Wer eine Kette von Folgeformularen abschliesst,
       // haette sonst einen Stapel vor der halben Seite.
       setListe((alt) => [...alt, e].slice(-3))
-      window.setTimeout(() => setListe((alt) => alt.filter((x) => x.id !== e.id)), DAUER_MS)
+      // Sichtdauer nach Länge (toastDauer.ts): lang genug zum Lesen, kurz
+      // genug, um nicht im Weg zu stehen.
+      window.setTimeout(() => setListe((alt) => alt.filter((x) => x.id !== e.id)), toastDauer(e.text))
     }
     HOERER.add(h)
     return () => {

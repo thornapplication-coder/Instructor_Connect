@@ -31,7 +31,21 @@ import react from '@vitejs/plugin-react'
  * Dass jede Logik überhaupt einen Test hat, prüft deshalb `testGuard.test.ts`
  * — Datei für Datei, mit benannten Ausnahmen. Die beiden zusammen halten,
  * was hier vorher allein behauptet wurde.
+ *
+ * **Zeitzone:** Beide Ebenen laufen in Europe/Vienna, nicht in der Zone der
+ * Maschine. In der CI ist das UTC — dort IST der UTC-Tag der Ortstag, und ein
+ * `toISOString().slice(0, 10)` statt `lokalerTag` fiel keinem Test auf; die
+ * Exporte trugen kurz nach Mitternacht das Datum von gestern (EXM-01, GRD-16).
+ * Wien ist die Zone der Nutzer, und ihr Versatz (+1/+2 h) legt jede
+ * Mitternacht Ortszeit auf den UTC-Vortag. Nebenbei läuft die Suite damit
+ * überall gleich, an einem Rechner in Wien bisher anders als in der CI.
+ * Gesetzt, bevor die Worker starten: Sie erben die Umgebung und kennen die
+ * Zone ab dem ersten `Date`. Ein Test, der eine andere Zone braucht (westlich
+ * von Greenwich), setzt sie selbst und stellt diese danach wieder her
+ * (Audit 11/2026, Nachtrag L-AUSGABE#2; geprüft in `src/test/zeitzone*.test.ts`).
  */
+process.env.TZ = 'Europe/Vienna'
+
 export default defineConfig({
   plugins: [react()],
   test: {
@@ -62,7 +76,10 @@ export default defineConfig({
       // src/modules/: DocCheck. Dieselbe Schwelle wie fuer den Bestand —
       // ein Modul, das spaeter dazukam, bekommt keinen leichteren Massstab.
       // src/backend/: Anbindung an Supabase (Phase 1b) — gleiche Schwelle.
-      include: ['src/*.ts', 'src/modules/**/*.ts', 'src/backend/**/*.ts'],
+      // src/sandbox/: Seed, Grading-Katalog und Impressum ab Werk — stand
+      // außerhalb beider Wachen, obwohl jeder neue Stand daraus entsteht
+      // (Audit 11/2026, TEC-18).
+      include: ['src/*.ts', 'src/modules/**/*.ts', 'src/backend/**/*.ts', 'src/sandbox/*.ts'],
       exclude: [
         'src/modules/doccheck/types.ts', // nur Typen, keine Logik
         'src/modules/doccheck/parse/model.ts', // nur Typen und Konstanten (Datenmodell)

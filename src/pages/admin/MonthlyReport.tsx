@@ -17,7 +17,7 @@ import {
 } from '../../monthlyReport'
 import { useStore } from '../../store'
 import type { CompetencySetKey, GradingRecord } from '../../types'
-import { gradeColor } from '../Grading'
+import { gradeColor } from '../../gradingRules'
 
 /**
  * Persönlicher Monatsbericht.
@@ -305,7 +305,8 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
           {/* Kalibrierung zuerst — sie ist die Aussage, der Rest ist Beleg. */}
           <Card className="space-y-stack p-4">
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-              <h3 className="text-lead font-bold">{userName(report.instructorId)}</h3>
+              {/* h2: Kopf des Berichts, die Karten darunter sind h3 — als h3 sprang die Gliederung von h1 auf h3 (A11Y-14). */}
+              <h2 className="text-lead font-bold">{userName(report.instructorId)}</h2>
               <span className="text-small text-dim">· {monthLabel(report.month)}</span>
               {report.fleets.length > 0 && <span className="text-small text-dim">· {report.fleets.join(', ')}</span>}
               <span className="text-small text-dim">· {satzName(report.competencySet)}</span>

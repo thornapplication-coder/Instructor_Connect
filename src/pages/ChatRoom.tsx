@@ -217,7 +217,7 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
     >
       <div className="space-y-section">
         <Field label={t('chat.pollQuestion')}>
-          <input className={inputCls} value={question} onChange={(e) => setQuestion(e.target.value)} autoFocus />
+          <input className={inputCls} value={question} onChange={(e) => setQuestion(e.target.value)} />
         </Field>
         <Field label={t('chat.pollType')} group>
           <div className="flex gap-2">
@@ -622,7 +622,7 @@ export function ChatRoom({ groupId }: { groupId: string }) {
         )}
       </main>
 
-      <div className="above-sandbox-sticky sticky z-20 border-t border-line/10 bg-bg/90 px-3 py-2.5 backdrop-blur">
+      <div className="above-sandbox-sticky safe-x sticky z-20 border-t border-line/10 bg-bg/90 py-2.5 backdrop-blur [--rand-x:0.75rem]">
         {/* Vom Admin gesperrt: mitlesen ja, senden nein */}
         {currentUser!.chatBlocked ? (
           <div className="mx-auto flex max-w-3xl items-center gap-2.5 rounded-xl border border-danger/25 bg-danger/10 px-3.5 py-3 text-small text-danger">

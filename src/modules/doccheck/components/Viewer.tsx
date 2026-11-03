@@ -162,8 +162,11 @@ function Viewer({ ziel, onClose }: { ziel: ViewerZiel; onClose: () => void }) {
     return teile.map((x, i) => (i % 2 ? <mark key={i} className="rounded bg-wait/30 text-ink">{x}</mark> : x))
   }
 
+  // `safe-rundum`: Vollbild bis unter die Systemleisten — Titel und
+  // Schließen-Knopf lagen im Standalone-Betrieb unter der Statusleiste bzw.
+  // im Querformat unter der Sensorkappe (Audit 11/2026, MOB-07).
   return (
-    <div ref={dialog} tabIndex={-1} className="fixed inset-0 z-50 flex flex-col bg-bg/95 backdrop-blur" role="dialog" aria-modal="true" aria-label={t('viewer.titel')}>
+    <div ref={dialog} tabIndex={-1} className="safe-rundum fixed inset-0 z-50 flex flex-col bg-bg/95 backdrop-blur" role="dialog" aria-modal="true" aria-label={t('viewer.titel')}>
       <div className="flex flex-wrap items-center gap-2 border-b border-line/10 px-4 py-2">
         <p className="min-w-0 flex-1 truncate text-small font-semibold">
           {d?.felder.titel || d?.name}

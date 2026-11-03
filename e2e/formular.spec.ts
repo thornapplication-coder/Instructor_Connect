@@ -195,6 +195,44 @@ for (const geraet of ['iPhone 13', 'iPhone 13 landscape'] as const) {
 }
 
 /**
+ * Audit 11/2026, MOB-07: Im Querformat lag „Done" der Vollbild-Unterschrift
+ * (fest p-3) und die Abschlussleiste (px-3) unter der Sensorkappe, unten am
+ * Home-Indikator. A11Y-14: Die Leiste steht außerhalb von <main> und war in
+ * keiner Landmarke — wer per Landmarke springt, fand „Complete and send"
+ * nicht. Die Sicherheitsbereiche gibt Chromium über CDP vor.
+ */
+test.describe('Querformat mit Sensorkappe — iPhone 13', () => {
+  const { defaultBrowserType: _browser, ...profil } = devices['iPhone 13 landscape']
+  test.use(profil)
+
+  test('Abschlussleiste und Vollbild-Unterschrift halten den Sicherheitsbereich frei; die Leiste ist eine benannte Region', async ({ page }) => {
+    const rand = { top: 0, left: 47, right: 47, bottom: 21 }
+    const cdp = await page.context().newCDPSession(page)
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: rand })
+    await anmelden(page)
+    await zuSchritt2(page)
+
+    const leiste = page.getByRole('region', { name: 'Form progress and send' })
+    await expect(leiste).toBeVisible()
+    const senden = leiste.getByRole('button', { name: /Complete and send/ })
+    const breite = await page.evaluate(() => innerWidth)
+    const hoehe = await page.evaluate(() => innerHeight)
+    const s = (await senden.boundingBox())!
+    expect(breite - (s.x + s.width), 'Senden rechts').toBeGreaterThanOrEqual(rand.right)
+
+    await page.getByRole('button', { name: 'Sign full screen' }).first().click()
+    const vollbild = page.getByRole('dialog')
+    await expect(vollbild.getByRole('button', { name: 'Done', exact: true })).toBeVisible()
+    const fertig = (await vollbild.getByRole('button', { name: 'Done', exact: true }).boundingBox())!
+    const flaeche = (await page.locator(VOLLBILD).boundingBox())!
+    expect(breite - (fertig.x + fertig.width), 'Done rechts').toBeGreaterThanOrEqual(rand.right)
+    expect(flaeche.x, 'Fläche links').toBeGreaterThanOrEqual(rand.left)
+    expect(breite - (flaeche.x + flaeche.width), 'Fläche rechts').toBeGreaterThanOrEqual(rand.right)
+    expect(hoehe - (flaeche.y + flaeche.height), 'Fläche unten').toBeGreaterThanOrEqual(rand.bottom)
+  })
+})
+
+/**
  * Audit 11/2026, GRD-10/TEC-05: Bloßes Öffnen hinterließ einen Entwurf
  * („Draft · 308A" in der Liste, „A draft of this form was restored." beim
  * nächsten Mal), der Zurück-Pfeil fragte ZWEIMAL (navigate() löst popstate

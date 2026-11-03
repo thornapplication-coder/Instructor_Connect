@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { seitenUeberschriftFokussieren } from './fokus'
 
 // Der Browser stellt beim Zurückgehen sonst die alte Scrollposition wieder
 // her und arbeitet damit gegen den Sprung an den Seitenanfang.
@@ -39,17 +40,15 @@ export function useRoute(): string {
         // programmatisch fokussierbar (tabIndex -1), taucht also nicht in
         // der Tab-Reihenfolge auf.
         //
-        // `preventScroll`: Den Anfang hat `scrollToTop` schon gesetzt. Ohne
-        // die Option rollte `focus()` zur Ueberschrift in der klebenden
+        // Ohne Rollen (`seitenUeberschriftFokussieren` fokussiert mit
+        // `preventScroll`, src/fokus.ts): Den Anfang hat `scrollToTop` schon
+        // gesetzt. Ohne die Option rollte `focus()` zur Ueberschrift in der klebenden
         // Kopfleiste — also an den Seitenanfang — und machte NACH dem
         // Effekt der neuen Ansicht deren eigene Position zunichte: Der Chat
         // sprang ans Ende und wurde gleich wieder nach oben gezogen; am
         // iPhone lag die neueste Nachricht hinter der Eingabeleiste
         // (Audit 11/2026, KERN-01).
-        requestAnimationFrame(() => {
-          const ziel = document.querySelector<HTMLElement>('[data-page-heading]')
-          ziel?.focus({ preventScroll: true })
-        })
+        requestAnimationFrame(() => seitenUeberschriftFokussieren())
       }
       setRoute(next)
     }

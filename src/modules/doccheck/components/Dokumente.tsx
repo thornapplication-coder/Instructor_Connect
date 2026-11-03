@@ -329,7 +329,7 @@ function DokKarte({ d }: { d: SitzungsDok }) {
             <div className="space-y-tight rounded-xl bg-wait/10 p-2.5 text-micro">
               <p>{t('ocr.frage', { count: d.z.ocrKandidaten.length })}</p>
               {ocr ? (
-                <p className="text-dim">{t('ocr.laeuft', ocr)}</p>
+                <p className="text-dim">{t('ocr.laeuft', { fertig: ocr.fertig, count: ocr.gesamt })}</p>
               ) : (
                 <Button variant="ghost" className="!min-h-9 !py-1 text-small" onClick={ocrStarten}>
                   <span className="flex items-center gap-1.5">

@@ -6,7 +6,7 @@ import { navigate } from '../../router'
 import { useStore } from '../../store'
 import { traineeHistories, type CompetencyTrack, type TraineeHistory as History } from '../../traineeHistory'
 import type { CompetencySetKey, GradingRecord } from '../../types'
-import { gradeColor } from '../Grading'
+import { gradeColor } from '../../gradingRules'
 import { formatDate } from '../../datum'
 
 /**
@@ -105,7 +105,8 @@ function Detail({ history, onBack, t }: { history: History; onBack: () => void; 
       </button>
 
       <Card className="space-y-tight p-4">
-        <h3 className="text-head font-bold">{history.name}</h3>
+        {/* h2 über den Karten „Course"/„Sessions" (h3) — vorher h3 direkt unter h1 (A11Y-14). */}
+        <h2 className="text-head font-bold">{history.name}</h2>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-micro text-dim">
           <span>{t(SATZ_TITEL[history.competencySet])}</span>
           <span>{t('forms:admin.sessionsCount', { count: history.sessions.length })}</span>
