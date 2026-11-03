@@ -78,17 +78,52 @@ describe('Remark (N3.2)', () => {
     const r = befundPruefen(b({ befund: '"call-out" should read "callout"', teamStatus: 'Closed' }), tm, paket)
     expect(remark(r, '2026-11-01T09:00:00Z')).toBe(
       'TEILWEISE BEHOBEN (Re-Check 01.11.2026): Im genannten Dokument behoben, im Paket aber noch vorhanden:\n' +
-        '• APX 4 · S. 1 · „The call-out "rotate". The IPT session is held."\n' +
+        '• APX 4 · S. 1 · „The call-out "rotate". The IPT session is held.“\n' +
         'Team-Kommentar meldet die Korrektur, im Dokument nicht nachweisbar.\n' +
-        'Korrekturvorschlag: „call-out" → „callout"',
+        'Korrekturvorschlag: „call-out“ → „callout“',
     )
   })
 
   it('englisch; Korrekturvorschlag bleibt Manual-Text', () => {
     const r = befundPruefen(b({ befund: 'Replace "Threat management" with "TEM"' }), tm, paket)
+    // Seite bewusst geändert: vorher stand „S. 2 (±1)" im englischen Remark (Audit 11/2026, EXP-07/TXT-01)
     expect(remark(r, '2026-11-01', 'en')).toBe(
-      'NOT RESOLVED (re-check 2026-11-01): Text objected to is still present unchanged.\nStill present:\n• TM · S. 2 (±1) · „Approved by AT.ATO.106. Threat management."\nMissing: „TEM"\nProposed correction: „Threat management" → „TEM"',
+      'NOT RESOLVED (re-check 2026-11-01): Text objected to is still present unchanged.\nStill present:\n• TM · Page 2 (±1) · “Approved by AT.ATO.106. Threat management.”\nMissing: “TEM”\nProposed correction: “Threat management” → “TEM”',
     )
+  })
+
+  it('englischer Remark ohne „S." und „ca.", deutscher unverändert (Audit 11/2026, EXP-07/TXT-01)', () => {
+    const r = befundPruefen(b({ befund: '"call-out" should read "callout"', teamStatus: 'Closed' }), tm, paket)
+    const mit = (seiten: string[]) => ({ ...r, rest: seiten.map((seite) => ({ ...r.rest[0], seite })) })
+    const en = remark(mit(['1', 'ca. 3', 'S. 2 (±1)', 'S. 10–11 (±1)', '6-04-15 Page 2']), '2026-11-01', 'en')
+    expect(en).not.toMatch(/\b(S\.|ca\.|p\.) \d/)
+    expect(en.split('\n').filter((z) => z.startsWith('•')).map((z) => z.split(' · ')[1])).toEqual(['Page 1', 'approx. page 3', 'Page 2 (±1)', 'Pages 10–11 (±1)', '6-04-15 Page 2'])
+    // Die Oberfläche und der deutsche Remark behalten die Herkunft auf Deutsch (CLAUDE.md)
+    const de = remark(mit(['1', 'ca. 3', 'S. 2 (±1)']), '2026-11-01', 'de')
+    expect(de.split('\n').filter((z) => z.startsWith('•')).map((z) => z.split(' · ')[1])).toEqual(['S. 1', 'ca. 3', 'S. 2 (±1)'])
+  })
+
+  it('Anführung gepaart und je Sprache — der Remark landet in einer fremden Excel-Liste (Audit 11/2026, EXP-20/TXT-13)', () => {
+    // Bewusst geändert: vorher „…" (unten auf, ASCII zu) — auch im englischen Remark
+    const r = befundPruefen(b({ befund: '"call-out" should read "callout"', teamStatus: 'Closed' }), tm, paket)
+    expect(r.status).toBe('partial')
+    const en = remark(r, '2026-11-01', 'en')
+    expect(en).toContain('Proposed correction: “call-out” → “callout”')
+    expect(en).not.toContain('„')
+    // Kein gerades Anführungszeichen direkt hinter einem Auszug — das im Text selbst („"rotate"") bleibt, wie es im Manual steht
+    expect(en).not.toMatch(/(held\.|call-out|callout)"/)
+    const de = remark(r, '2026-11-01', 'de')
+    expect(de).toMatch(/„callout“$/)
+    expect(de).not.toContain('”')
+    // Jedes „ schließt mit “ in derselben Zeile
+    for (const z of de.split('\n')) expect((z.match(/„/g) ?? []).length).toBe((z.match(/“/g) ?? []).length)
+  })
+
+  it('Datum im Remark ist der Tag des übergebenen Zeitstempels samt Versatz — lokalIso, nicht toISOString (Audit 11/2026, EXM-01)', () => {
+    const r = befundPruefen(b({ befund: 'Delete "Rev"' }), tm, paket)
+    // 00:30 in Wien ist in UTC noch der 01.11. — mit Versatz bleibt der Tag des Nutzers
+    expect(remark(r, '2026-11-02T00:30:00+01:00', 'de')).toContain('(Re-Check 02.11.2026)')
+    expect(remark(r, '2026-11-02T00:30:00+01:00', 'en')).toContain('(re-check 2026-11-02)')
   })
 
   it('behoben und nicht prüfbar: nur der Satz', () => {

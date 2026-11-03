@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { planBulk } from './bulkUsers'
-import type { Role, User } from './types'
+import { planBulk, type BulkAktion } from './bulkUsers'
+import type { Group, Role, Settings, User } from './types'
 
 /**
  * An der Sammelbearbeitung haengen zwei Zusagen, die man beim Klicken nicht
@@ -210,5 +210,60 @@ describe('Sammelaktion nimmt niemandem das letzte Muster', () => {
     const u = wer('training_admin', ['CL30'])
     const plan = planBulk([u], [u], ['x'], entfernen, 'ich')
     expect(plan.patches).toEqual([{ id: 'x', patch: { aircraftTypes: [] } }])
+  })
+})
+
+describe('Personenrechte, die bei der Rolle nichts bewirken (Audit 11/2026, VERW-02)', () => {
+  // „Bewerten entziehen" bei einem Admin speicherte ein Flag ohne Folgen —
+  // bei seiner Rolle entscheidet die Matrix. Der Zaehler meldete es trotzdem
+  // als Aenderung.
+  const leute = [
+    u({ id: 'm', role: 'member', canGrade: true, canEditDirectory: true }),
+    u({ id: 'ga', role: 'group_admin', canGrade: true, canEditDirectory: true }),
+    u({ id: 'ta', role: 'training_admin', canGrade: true, canEditDirectory: true }),
+    u({ id: 'sa', role: 'superadmin', canGrade: true, canEditDirectory: true }),
+  ]
+  const ids = leute.map((x) => x.id)
+
+  it.each(['canGrade', 'canEditDirectory'] as const)('%s: nur das Mitglied wird geaendert, die anderen benannt', (art) => {
+    const plan = planBulk(leute, leute, ids, { art, wert: false }, 'ich')
+    expect(plan.patches).toEqual([{ id: 'm', patch: { [art]: false } }])
+    expect(plan.uebersprungen).toEqual([
+      { id: 'ga', grund: 'ueberRolle' },
+      { id: 'ta', grund: 'ueberRolle' },
+      { id: 'sa', grund: 'ueberRolle' },
+    ])
+  })
+
+  it.each(['isTrainee', 'chatBlocked'] as const)('%s wirkt bei jeder Rolle — niemand faellt heraus', (art) => {
+    const plan = planBulk(leute, leute, ids, { art, wert: true }, 'ich')
+    expect(plan.patches.map((p) => p.id)).toEqual(ids)
+    expect(plan.uebersprungen).toEqual([])
+  })
+})
+
+describe('Sammelaktion nimmt niemandem die letzte erreichbare Gruppe (Audit 11/2026, KERN-07/VERW-16)', () => {
+  // Seit die Gruppenpflicht nur Gruppen zaehlt, die jemand betreten kann,
+  // nimmt ein entferntes Muster dessen Gruppen mit. Der Store weist das ab —
+  // eingeplant, meldete der Zaehler eine Aenderung, die es nicht gab.
+  const kontext = {
+    settings: {} as Settings,
+    groups: [
+      { aircraftType: 'CL30', memberIds: ['nur-cl30', 'mit-allgemein'] },
+      { aircraftType: '', memberIds: ['mit-allgemein'] },
+    ] as Pick<Group, 'aircraftType' | 'memberIds'>[],
+  }
+  const nurCl30 = u({ id: 'nur-cl30', aircraftTypes: ['C560 XLS+', 'CL30'] })
+  const mitAllgemein = u({ id: 'mit-allgemein', aircraftTypes: ['C560 XLS+', 'CL30'] })
+  const entfernen: BulkAktion = { art: 'aircraft', wert: 'remove', typ: 'CL30' }
+
+  it('ueberspringt und benennt, wer sonst ohne erreichbare Gruppe dastuende', () => {
+    const plan = planBulk([nurCl30, mitAllgemein], [nurCl30, mitAllgemein], ['nur-cl30', 'mit-allgemein'], entfernen, 'ich', kontext)
+    expect(plan.patches).toEqual([{ id: 'mit-allgemein', patch: { aircraftTypes: ['C560 XLS+'] } }])
+    expect(plan.uebersprungen).toEqual([{ id: 'nur-cl30', grund: 'letzteGruppe' }])
+  })
+
+  it('ohne Gruppenkontext bleibt es bei der Musterpruefung', () => {
+    expect(planBulk([nurCl30], [nurCl30], ['nur-cl30'], entfernen, 'ich').patches).toHaveLength(1)
   })
 })

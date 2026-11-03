@@ -48,6 +48,10 @@ describe('dateiLesen', () => {
     expect((await dateiLesen({ name: 'l.xlsx', daten: await xlsxBauen() }, deps)).roh.format).toBe('xlsx')
     await expect(dateiLesen({ name: 'x.txt', daten: new Uint8Array([1, 2, 3]) }, deps)).rejects.toThrow('DC-FORMAT')
   })
+
+  it('leere Datei → DC-EMPTY mit eigenem Text, nicht „Format nicht erkannt" (Audit 11/2026, DC-16)', async () => {
+    for (const name of ['leer.pdf', 'leer.docx', 'leer.xlsx', 'leer']) await expect(dateiLesen({ name, daten: new Uint8Array() }, deps)).rejects.toThrow('DC-EMPTY')
+  })
 })
 
 describe('brauchbarerTitel', () => {

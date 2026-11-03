@@ -1,6 +1,53 @@
 import { createSeedState } from './sandbox/seed'
+import { FELD_NACHTRAEGE, type FeldNachtrag } from './sandbox/gradingDefaults'
 import { imprintHash, IMPRINT_DE, IMPRINT_EN, IMPRINT_LEGACY_HASHES } from './sandbox/imprintDefaults'
-import { LESSON_CATEGORIES, type AppState } from './types'
+import { LESSON_CATEGORIES, type AppState, type FormType, type Group } from './types'
+
+/**
+ * Pflichtfelder, die ein gespeicherter Stand haben MUSS, mit ihrer Vorgabe.
+ *
+ * Ein Stand ohne `lessonPlans` machte Startseite, Lesson Plans, Instructor
+ * Info und Impressum weiß („t.lessonPlans is not iterable") — und weil der
+ * Stand beim nächsten Start derselbe war, blieb die App auf dem Gerät
+ * dauerhaft unbenutzbar, bis jemand die Websitedaten von Hand löschte
+ * (Audit 11/2026, TEC-07). Geprüft wird die FORM, nicht nur das Vorhandensein:
+ * `null` oder ein Objekt an Stelle einer Liste stürzt genauso ab.
+ *
+ * `users` und `gradingRecords` stehen bewusst nicht hier: Ohne Nutzer lädt
+ * `ladeStand` den Stand gar nicht erst, und die Formularliste hat unten
+ * einen eigenen Nachtrag mit Marke.
+ */
+const LISTEN = ['groups', 'messages', 'polls', 'infoEntries', 'contacts', 'lessonPlans', 'feedbackEntries'] as const
+const OBJEKTE = ['seen', 'starredInfo', 'infoAcks', 'mutedGroups'] as const
+const ZAHLEN = ['timeOffsetMs', 'contactsChangedAt'] as const
+
+/** Was fehlt oder die falsche Form hat — mit Vorgabe. Leer, wenn alles passt. */
+export function fehlendePflichtfelder(st: AppState): Partial<AppState> {
+  const roh = st as unknown as Record<string, unknown>
+  const out: Record<string, unknown> = {}
+  for (const k of LISTEN) if (!Array.isArray(roh[k])) out[k] = []
+  for (const k of OBJEKTE) if (!roh[k] || typeof roh[k] !== 'object' || Array.isArray(roh[k])) out[k] = {}
+  for (const k of ZAHLEN) if (typeof roh[k] !== 'number' || !Number.isFinite(roh[k])) out[k] = 0
+  return out as Partial<AppState>
+}
+
+/**
+ * Felder in den gespeicherten Formularkatalog nachtragen — an den Anfang
+ * der Kopffelder (Nachfelder mit `ende` ans Ende), nur bei Typen, die das
+ * Feld noch nicht führen. Gibt den Katalog unverändert (dieselbe Referenz)
+ * zurück, wenn nichts fehlt.
+ */
+export function feldNachtragen(katalog: FormType[], nachtraege: readonly FeldNachtrag[]): FormType[] {
+  let geaendert = false
+  const neu = katalog.map((ft) => {
+    const fehlend = nachtraege.filter((n) => n.typen.includes(ft.id) && !ft.fields.some((f) => f.key === n.feld.key))
+    if (fehlend.length === 0) return ft
+    geaendert = true
+    const kopie = (n: FeldNachtrag) => ({ ...n.feld })
+    return { ...ft, fields: [...fehlend.filter((n) => !n.ende).map(kopie), ...ft.fields, ...fehlend.filter((n) => n.ende).map(kopie)] }
+  })
+  return geaendert ? neu : katalog
+}
 
 /**
  * Sanfte Datenmigrationen auf bereits gespeicherten Zustand — OHNE
@@ -13,10 +60,20 @@ import { LESSON_CATEGORIES, type AppState } from './types'
  * echte Organisation umgestellt — aber nur, wenn er noch der Platzhalter
  * (oder leer) ist; eine bewusst gesetzte eigene Angabe bleibt unangetastet.
  */
-export function migrateState(st: AppState): AppState {
+export function migrateState(eingang: AppState): AppState {
   // Ohne Einstellungen ist der Bestand nicht zu retten — dann bleibt er, wie
   // er ist.
-  if (!st.settings) return st
+  if (!eingang.settings) return eingang
+  /*
+   * Die Form ZUERST richten, dann nachtragen: Die Nachträge unten lesen die
+   * Listen selbst (`contacts.map` …). Stand dort ein Objekt statt einer
+   * Liste, stürzte schon diese Funktion ab, bevor die Prüfung am Ende sie
+   * ersetzen konnte (Gegenprüfung P3 zu TEC-07). Nur bei einem
+   * gespeicherten Bestand: `users === undefined` heißt hier „kein Bestand"
+   * (siehe oben) — dem wird nichts untergeschoben.
+   */
+  const pflicht = eingang.users === undefined ? {} : fehlendePflichtfelder(eingang)
+  const st: AppState = Object.keys(pflicht).length > 0 ? { ...eingang, ...pflicht } : eingang
   /*
    * Fehlende Kopfdaten sind KEIN Grund, alles Uebrige zu ueberspringen.
    * Hier stand `if (!dh) return st` — und darunter liegen saemtliche
@@ -124,6 +181,40 @@ export function migrateState(st: AppState): AppState {
   const markSeedHistory = !histDone
 
   /*
+   * Formularkatalog nachtragen (FELD_NACHTRAEGE), GENAU EINMAL je Nachtrag.
+   *
+   * Audit 11/2026, GTY-02: 308C/308D bekamen das Pflichtfeld Aircraft Type.
+   * Der Katalog liegt im gespeicherten Stand — ohne Nachtrag blieben die
+   * beiden auf jedem laufenden Gerät musterlos. GTY-03: 308G bekam die
+   * Sessiondauer (Session Time) — sonst zählte jedes 308G mit Session
+   * 00:00 im Logbuch. Mit Marke, damit ein Admin, der das Feld bewusst
+   * wieder entfernt, es beim nächsten Start nicht zurückbekommt; dieselbe
+   * Falle wie bei `aircraftBackfilled`.
+   */
+  const nachtraegeErledigt = st.formularNachtraege ?? []
+  const offeneNachtraege = st.users === undefined ? [] : FELD_NACHTRAEGE.filter((n) => !nachtraegeErledigt.includes(n.marke))
+  const katalog = st.settings.grading?.formTypes
+  const formTypes = katalog && offeneNachtraege.length > 0 ? feldNachtragen(katalog, offeneNachtraege) : katalog
+  // Marke auch ohne Änderung — wie bei den übrigen Nachträgen.
+  const markFormulare = offeneNachtraege.length > 0
+
+  /*
+   * Stummschalten je Nutzer (Audit 11/2026, KERN-06): Das alte `muted` an
+   * der Gruppe galt fuer ALLE Mitglieder. Es wird verworfen, nicht auf
+   * Nutzer verteilt — wer es gesetzt hat, steht nirgends, und es allen
+   * Mitgliedern zuzuschreiben hiesse, die Fehlwirkung festzuschreiben. Die
+   * neue Liste (`mutedGroups`) beginnt leer; die Form-Pruefung oben legt sie
+   * an. Mit Marke wie jeder Nachtrag hier, damit der Lauf beim naechsten
+   * Start nichts mehr anfasst.
+   */
+  const stummDone = st.stummJeNutzer === true || st.users === undefined
+  const altesStumm = !stummDone && st.groups.some((g) => 'muted' in g)
+  const groups: Group[] = altesStumm
+    ? st.groups.map((g) => ('muted' in g ? (Object.fromEntries(Object.entries(g).filter(([k]) => k !== 'muted')) as unknown as Group) : g))
+    : st.groups
+  const markStumm = !stummDone
+
+  /*
    * Impressum: Der Text steht in den Einstellungen, eine geaenderte Vorgabe
    * erreicht Bestandsgeraete also nicht. Ersetzt wird er nur, solange er noch
    * unveraendert der vorigen Vorgabe entspricht (Pruefsumme) — eine im Admin
@@ -166,11 +257,14 @@ export function migrateState(st: AppState): AppState {
     // ersten Entzug zu. Genau der Fehler, den die Marke verhindern soll,
     // haette sich hinten herum wieder eingeschlichen.
     !markAircraft &&
+    !markFormulare &&
+    !markStumm &&
     !notesFehlten &&
     !kopfFehlte &&
     !formulareFehlten &&
     !impAlt
   )
+    // Gegebenenfalls mit gerichteter Form (oben) — dann ist `st` schon neu.
     return st
   return {
     ...st,
@@ -178,6 +272,11 @@ export function migrateState(st: AppState): AppState {
     notes,
     seedHistoryMigrated: st.seedHistoryMigrated || markSeedHistory || undefined,
     aircraftBackfilled: st.aircraftBackfilled || markAircraft || undefined,
+    stummJeNutzer: st.stummJeNutzer || markStumm || undefined,
+    groups,
+    formularNachtraege: markFormulare
+      ? [...nachtraegeErledigt, ...offeneNachtraege.map((n) => n.marke)]
+      : st.formularNachtraege,
     users: usersChanged ? users! : st.users,
     contacts: contactsChanged ? contacts! : st.contacts,
     changelog,
@@ -188,6 +287,7 @@ export function migrateState(st: AppState): AppState {
       feedbackCategories: feedbackCategories ?? st.settings.feedbackCategories,
       infoCategories: infoCategories ?? st.settings.infoCategories,
       lessonCategories,
+      ...(formTypes !== katalog && st.settings.grading ? { grading: { ...st.settings.grading, formTypes: formTypes! } } : {}),
     },
   }
 }

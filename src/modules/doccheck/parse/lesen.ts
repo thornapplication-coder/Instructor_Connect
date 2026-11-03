@@ -3,6 +3,7 @@ import { duplikatPruefen, sha256Hex, type Duplikat, type Vergleichsdokument } fr
 import { metaErkennen, type ErkannteMeta } from './meta'
 import type { Format, Rechtscharakter, Rohdokument } from './model'
 import { pdfLesen, type PdfJs } from './pdf'
+import type { PdfAblage } from './pdfAblage'
 import { xlsxLesen } from './xlsx'
 
 /**
@@ -43,8 +44,12 @@ export interface Gelesen {
 export async function dateiLesen(
   datei: { name: string; daten: Uint8Array },
   deps: { pdfjs: () => Promise<PdfJs> },
-  opts: { vorgabe?: Rechtscharakter; standardFontDataUrl?: string; bestand?: Vergleichsdokument[]; onFortschritt?: (s: number, g: number) => void; signal?: AbortSignal } = {},
+  opts: PdfAblage & { vorgabe?: Rechtscharakter; bestand?: Vergleichsdokument[]; onFortschritt?: (s: number, g: number) => void; signal?: AbortSignal } = {},
 ): Promise<Gelesen> {
+  // Eine leere Datei (abgebrochener Download, leerer Anhang) ist kein
+  // unbekanntes Format — „PDF, DOCX oder XLSX?" führte auf die falsche
+  // Spur (Audit 11/2026, DC-16).
+  if (!datei.daten.byteLength) throw new Error('DC-EMPTY')
   const format = formatErkennen(datei.name, datei.daten)
   if (!format) throw new Error('DC-FORMAT')
   // Fingerabdruck VOR dem Lesen: pdf.js übernimmt den Puffer (transfer) und
@@ -53,10 +58,10 @@ export async function dateiLesen(
   const kopie = datei.daten.slice()
   const roh =
     format === 'pdf'
-      ? await pdfLesen(kopie, await deps.pdfjs(), { vorgabe: opts.vorgabe, standardFontDataUrl: opts.standardFontDataUrl, onFortschritt: opts.onFortschritt, signal: opts.signal })
+      ? await pdfLesen(kopie, await deps.pdfjs(), { vorgabe: opts.vorgabe, standardFontDataUrl: opts.standardFontDataUrl, wasmUrl: opts.wasmUrl, iccUrl: opts.iccUrl, onFortschritt: opts.onFortschritt, signal: opts.signal })
       : format === 'docx'
-        ? await docxLesen(kopie, opts.vorgabe)
-        : await xlsxLesen(kopie, opts.vorgabe)
+        ? await docxLesen(kopie, opts.vorgabe, opts.signal)
+        : await xlsxLesen(kopie, opts.vorgabe, opts.signal)
   const eig = { ...roh.lenkung.eigenschaften, title: brauchbarerTitel(roh.lenkung.eigenschaften.title) ?? '' }
   // Deckblatt-Textfelder zählen zur ersten Seite — dort stehen bei Word-
   // Handbüchern Nummer, Revision und Datum.
@@ -65,7 +70,7 @@ export async function dateiLesen(
   // den Titel daneben nicht — gefunden beim Browsertest mit SBX-WORD-01.
   const erste = roh.pages.slice(0, 3).map((p) => p.text)
   if (roh.lenkung.textfelder.length) erste[0] = [...roh.lenkung.textfelder, erste[0] ?? ''].join('\n')
-  const meta = metaErkennen(erste, eig)
+  const meta = metaErkennen(erste, eig, datei.name)
   const duplikat = duplikatPruefen({ sha256, nummer: meta.nummer, revision: meta.revision }, opts.bestand ?? [])
   return { roh, sha256, meta, duplikat }
 }

@@ -1,7 +1,7 @@
 import { HardDrive } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { STORAGE_ERROR_EVENT, storageInfo, storageReadFailed } from '../persist'
+import { ablageDauerhaftBitten, STORAGE_ERROR_EVENT, STORAGE_OK_EVENT, storageInfo, storageReadFailed } from '../persist'
 
 /**
  * Warnstreifen für die Ablage — sichtbar, BEVOR etwas verloren geht.
@@ -11,7 +11,10 @@ import { STORAGE_ERROR_EVENT, storageInfo, storageReadFailed } from '../persist'
  * jede Änderung beim nächsten Neuladen. Jetzt gilt:
  *
  *  1. Schlägt ein Speichervorgang fehl, erscheint sofort ein roter
- *     Streifen — der Zustand lebt dann nur noch in dieser Sitzung.
+ *     Streifen — der Zustand lebt dann nur noch in dieser Sitzung. Klappt
+ *     das nächste Speichern, verschwindet er wieder: Vorher blieb er nach
+ *     einem einzigen Fehlschlag stehen und behauptete Verluste, die es
+ *     nicht mehr gab (Audit 11/2026, TEC-12).
  *  2. Ist die zugeteilte Ablage zu über 85 % belegt, warnt ein gelber
  *     Streifen, solange noch alles funktioniert.
  *  3. Konnte der gespeicherte Bestand beim Start gar nicht GELESEN werden,
@@ -31,8 +34,12 @@ export function StorageBanner() {
   const [nearlyFull, setNearlyFull] = useState(false)
 
   useEffect(() => {
+    // Nach dem ersten Render und ohne zu warten (TEC-11, siehe persist.ts).
+    ablageDauerhaftBitten()
     const onError = () => setFailed(true)
+    const onOk = () => setFailed(false)
     window.addEventListener(STORAGE_ERROR_EVENT, onError)
+    window.addEventListener(STORAGE_OK_EVENT, onOk)
     let stop = false
     const check = () =>
       storageInfo().then((info) => {
@@ -43,6 +50,7 @@ export function StorageBanner() {
     return () => {
       stop = true
       window.removeEventListener(STORAGE_ERROR_EVENT, onError)
+      window.removeEventListener(STORAGE_OK_EVENT, onOk)
       clearInterval(iv)
     }
   }, [])
@@ -52,7 +60,7 @@ export function StorageBanner() {
   return (
     <div
       role="alert"
-      className={`pointer-events-auto flex w-full max-w-lg items-center justify-center gap-2.5 rounded-2xl px-4 py-2.5 text-small font-medium shadow-soft print:hidden ${
+      className={`pointer-events-auto flex w-full max-w-lg items-center justify-center gap-2.5 rounded-2xl px-4 py-2.5 text-small font-medium shadow-soft ${
         failed || unreadable ? 'bg-danger text-white' : 'bg-wait text-waitInk'
       }`}
     >

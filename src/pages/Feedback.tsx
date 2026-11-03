@@ -2,7 +2,8 @@ import { AlertTriangle, CheckCircle2, Info, Paperclip, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useUnsavedWork } from '../editGuard'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, Field, inputCls, Page, selectCls, TopBar } from '../components/ui'
+import { Badge, Button, Card, Field, inputCls, Page, selectCls, TopBar } from '../components/ui'
+import { feedbackFehlt, type FeedbackFeld } from '../feedbackPruefung'
 import { navigate } from '../router'
 import { useStore } from '../store'
 import type { Attachment } from '../types'
@@ -18,7 +19,11 @@ export function Feedback() {
   const [aircraftType, setAircraftType] = useState('')
   const [message, setMessage] = useState('')
   const [attachment, setAttachment] = useState<Attachment | undefined>(undefined)
-  const [error, setError] = useState(false)
+  /* Absenden versucht? Ab dann zeigt das Formular, was fehlt — und nur,
+     solange es fehlt: Der Fehler ist abgeleitet, nicht gespeichert. Vorher
+     blieb das Banner nach dem Ausfuellen stehen, und markiert war kein Feld
+     (Audit 11/2026, A11Y-16). */
+  const [versucht, setVersucht] = useState(false)
   // Halb ausgefülltes Feedback übersteht das automatische Update (editGuard)
   useUnsavedWork(!!message.trim() || !!attachment)
   const [sent, setSent] = useState(false)
@@ -40,18 +45,28 @@ export function Feedback() {
     setAttachment({ name: file.name, kind: file.type.startsWith('image/') ? 'image' : 'file', sizeMB })
   }
 
+  // Bei Musterbezug ist das Muster Pflicht — sonst wäre der Bezug leer
+  // (feedbackPruefung.ts, dieselbe Liste fragt der Store).
+  const fehlt = feedbackFehlt({ recipient, category, scope, aircraftType, message })
+  const beanstandet = (f: FeedbackFeld) => versucht && fehlt.includes(f)
+  /** aria-invalid und die Meldung am Feld — die Meldung steht außerhalb des
+   *  <label>, sonst wäre sie Teil des Feldnamens. */
+  const amFeld = (f: FeedbackFeld) => ({
+    'aria-invalid': beanstandet(f) || undefined,
+    'aria-describedby': beanstandet(f) ? `feedback-${f}-fehlt` : undefined,
+  })
+  const meldung = (f: FeedbackFeld, text: string) =>
+    beanstandet(f) && (
+      <p id={`feedback-${f}-fehlt`} className="mt-1.5 text-micro leading-relaxed text-danger">
+        {text}
+      </p>
+    )
+
   const submit = () => {
-    // Bei Musterbezug ist das Muster Pflicht — sonst wäre der Bezug leer.
-    if (!recipient || !category || !message.trim() || (scope === 'aircraft' && !aircraftType)) {
-      setError(true)
+    if (fehlt.length > 0) {
+      setVersucht(true)
       // Zum ersten fehlenden Feld springen, statt den Nutzer suchen zu lassen.
-      const ziel = !recipient
-        ? 'feedback-recipient'
-        : !category
-          ? 'feedback-category'
-          : scope === 'aircraft' && !aircraftType
-            ? 'feedback-aircraft'
-            : 'feedback-message'
+      const ziel = `feedback-${fehlt[0]}`
       requestAnimationFrame(() => document.getElementById(ziel)?.focus())
       return
     }
@@ -87,9 +102,12 @@ export function Feedback() {
             <p className="mb-3 truncate">{category}</p>
             <p className="mb-1 font-semibold text-dim">{t('feedback.recipients')}</p>
             <p className="truncate">{recipient}</p>
+            {/* Badge statt Handpille — eine Bedeutung, eine Gestalt (VERW-17). */}
             {urgent && (
-              <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-danger/15 px-2.5 py-1 text-micro font-semibold text-danger">
-                <AlertTriangle size={12} /> {t('feedback.urgent')}
+              <p className="mt-2">
+                <Badge tone="bad">
+                  <AlertTriangle size={12} className="mr-1" /> {t('feedback.urgent')}
+                </Badge>
               </p>
             )}
             {attachment && (
@@ -123,37 +141,45 @@ export function Feedback() {
         {/* Felder in einer Card — sie heben sich vom Seitenhintergrund ab,
             wie überall sonst in der App. */}
         <Card className="space-y-section p-4">
-        <Field label={t('feedback.recipient') + ' *'}>
-          <select
-            id="feedback-recipient"
-            value={recipient}
-            onChange={(e) => setRecipient(e.target.value)}
-            className={selectCls}
-          >
-            <option value="">…</option>
-            {recipients.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <div>
+          <Field label={t('feedback.recipient') + ' *'}>
+            <select
+              id="feedback-recipient"
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              className={selectCls}
+              {...amFeld('recipient')}
+            >
+              <option value="">…</option>
+              {recipients.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {meldung('recipient', t('feedback.missingRecipient'))}
+        </div>
 
-        <Field label={t('feedback.category') + ' *'}>
-          <select
-            id="feedback-category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className={selectCls}
-          >
-            <option value="">…</option>
-            {categories.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </Field>
+        <div>
+          <Field label={t('feedback.category') + ' *'}>
+            <select
+              id="feedback-category"
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className={selectCls}
+              {...amFeld('category')}
+            >
+              <option value="">…</option>
+              {categories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {meldung('category', t('feedback.missingCategory'))}
+        </div>
 
         {/*
          * Sicherheitsrelevantes gehoert NICHT in ein Feedback-Formular.
@@ -201,38 +227,57 @@ export function Feedback() {
           </div>
         </Field>
         {scope === 'aircraft' && (
-          <Field label={t('lessons.aircraftType') + ' *'}>
-            <select id="feedback-aircraft" value={aircraftType} onChange={(e) => setAircraftType(e.target.value)} className={selectCls}>
-              <option value="">…</option>
-              {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
-          </Field>
+          <div>
+            <Field label={t('lessons.aircraftType') + ' *'}>
+              <select
+                id="feedback-aircraft"
+                value={aircraftType}
+                onChange={(e) => setAircraftType(e.target.value)}
+                className={selectCls}
+                {...amFeld('aircraft')}
+              >
+                <option value="">…</option>
+                {[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => (
+                  <option key={a} value={a}>
+                    {a}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {meldung('aircraft', t('feedback.missingAircraft'))}
+          </div>
         )}
 
-        {/* Urgent-Kennzeichnung */}
+        {/* Urgent-Kennzeichnung. Die Beschriftung bricht nie: Bei 360 px
+            stand „Dringen-d" neben dem Hinweis — umbrechen darf der Hinweis.
+            aria-pressed: Den Zustand nannte vorher nur der wechselnde
+            Hinweistext (Audit 11/2026, MOB-08). */}
         <button
           onClick={() => setUrgent(!urgent)}
-          className={`flex w-full items-center gap-2.5 rounded-xl border px-3.5 py-3 text-left text-body font-semibold transition ${
-            urgent ? 'border-danger bg-danger/15 text-danger' : 'border-line/15 text-dim hover:border-danger/40'
+          aria-pressed={urgent}
+          className={`flex min-h-11 w-full items-center gap-2.5 rounded-xl border px-3.5 py-3 text-left text-body font-semibold transition ${
+            // Farbe in Rand und Flaeche, Schrift ink: Rot auf eigener
+            // Rotflaeche blieb unter 4,5:1 (VERW-17, wie Badge).
+            urgent ? 'border-danger bg-danger/15 text-ink' : 'border-line/15 text-dim hover:border-danger/40'
           }`}
         >
-          <AlertTriangle size={17} />
-          {t('feedback.urgent')}
-          <span className="ml-auto text-micro font-normal">{urgent ? t('feedback.urgentOn') : t('feedback.urgentOff')}</span>
+          <AlertTriangle size={17} className="shrink-0" />
+          <span className="shrink-0 whitespace-nowrap">{t('feedback.urgent')}</span>
+          <span className="ml-auto min-w-0 text-right text-micro font-normal">{urgent ? t('feedback.urgentOn') : t('feedback.urgentOff')}</span>
         </button>
 
-        <Field label={t('feedback.message') + ' *'}>
-          <textarea
-            id="feedback-message"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            className={`${inputCls} min-h-36`}
-          />
-        </Field>
+        <div>
+          <Field label={t('feedback.message') + ' *'}>
+            <textarea
+              id="feedback-message"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className={`${inputCls} min-h-36`}
+              {...amFeld('message')}
+            />
+          </Field>
+          {meldung('message', t('feedback.missingMessage'))}
+        </div>
 
         {/* Foto oder PDF anhängen */}
         <Field label={t('feedback.attachment')} group>
@@ -270,8 +315,9 @@ export function Feedback() {
 
         {/* `role="alert"`: Wer den Knopf am Seitenende drueckt, bekam bisher
             akustisch nichts und optisch eine Meldung, die je nach
-            Scrollstand ausserhalb des Bilds lag. */}
-        {error && (
+            Scrollstand ausserhalb des Bilds lag. Steht nur, solange etwas
+            fehlt (A11Y-16). */}
+        {versucht && fehlt.length > 0 && (
           <p role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-small text-danger">
             {t('feedback.errorEmpty')}
           </p>

@@ -1,15 +1,17 @@
 import { CheckCheck, ChevronDown, ChevronRight, Eye, FilePlus2, FileUp, Link2, ScanText, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button } from '../../../components/ui'
 import { toast } from '../../../components/Toast'
 import { hochladen, bibliotheksVergleich, pdfDazulegen } from '../hochladen'
 import { useStore } from '../../../store'
-import { aktiv } from '../settings'
+import { aktiv, pruefSchalter } from '../settings'
 import { ocrAusfuehren, type OcrPdf, type OcrTesseract } from '../ocr'
 import { pdfjsLaden } from '../pdfjsLaden'
-import { aktualisiert, bestaetigen, datei, dateiEntfernen, duplikatFuer, entfernen, feldSetzen, offenePflichtfelder, setzen, useSitzung, type Feld, type Rolle, type SitzungsDok } from '../sitzung'
+import { abbruchAnfordern, aktualisiert, befundZahl, bestaetigen, datei, dateiEntfernen, duplikatFuer, entfernen, feldSetzen, offenePflichtfelder, setzen, useSitzung, type Feld, type Rolle, type SitzungsDok } from '../sitzung'
 import { standardVerbindung } from '../verbindung'
+import { leseMeldung } from '../pruefung/befund'
+import { umbruchStellen } from '../dateiUmbruch'
 import { useViewer } from './Viewer'
 
 /**
@@ -21,6 +23,23 @@ import { useViewer } from './Viewer'
 const TYPEN: Record<Rolle, string[]> = {
   review: ['OM', 'TM', 'PLM', 'CMM', 'FORM', 'OTHER'],
   master: ['AFM', 'QRH', 'POH', 'SOP', 'AVIONICS', 'SUPPLEMENT', 'IR', 'AMC', 'GM', 'OTHER'],
+}
+
+/**
+ * Dateiname, der an „_", „-", „." umbricht statt mitten im Wort (UID-05).
+ * `break-words` greift erst, wenn ein Teil allein breiter ist als die Spalte.
+ */
+export function DateiName({ name }: { name: string }) {
+  return (
+    <>
+      {umbruchStellen(name).map((teil, i) => (
+        <Fragment key={i}>
+          {i > 0 && <wbr />}
+          {teil}
+        </Fragment>
+      ))}
+    </>
+  )
 }
 
 const feldCls = 'w-full rounded-lg border border-field bg-bg/60 px-2.5 py-1.5 text-small text-ink outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
@@ -35,8 +54,10 @@ export function DokListe({ rolle }: { rolle: Rolle }) {
 
   const annehmen = async (liste: FileList | null) => {
     if (!liste?.length) return
-    const { abgelehnt } = await hochladen([...liste], rolle, standardVerbindung(), undefined, { paaren: aktiv(docCheckSettings, 'pdfPairing'), pruefen: { formal: aktiv(docCheckSettings, 'formalCheck'), word: aktiv(docCheckSettings, 'wordCheck'), rechnen: aktiv(docCheckSettings, 'calcCheck') } })
+    const { abgelehnt, ohneAntwort } = await hochladen([...liste], rolle, standardVerbindung(), undefined, { paaren: aktiv(docCheckSettings, 'pdfPairing'), pruefen: pruefSchalter(docCheckSettings) })
     for (const a of abgelehnt) toast(t(`upload.abgelehnt.${a.grund}`, { name: a.name }), 'bad')
+    // Paarung ohne Antwort des Workers: Das DOCX ist gelesen, nur die Seiten bleiben geschätzt (Audit 11/2026, Runde 3)
+    for (const name of ohneAntwort) toast(t('paar.zeit', { name }), 'wait')
   }
 
   return (
@@ -97,10 +118,13 @@ function DokKarte({ d }: { d: SitzungsDok }) {
   // (Barrierefreiheitsprüfung 01.11.2026). Der Toast trägt role="status".
   const statusVorher = useRef(d.status)
   useEffect(() => {
-    if (statusVorher.current === 'liest' && d.status === 'fertig') toast(t('upload.gelesen', { name: d.name, count: d.z?.pruefung?.befunde.length ?? 0 }))
-    else if (statusVorher.current === 'liest' && d.status === 'fehler') toast(t('upload.nichtGelesen', { name: d.name }), 'bad')
+    // Ein Scan ohne Textebene oder ein Master ist gelesen, aber nicht geprüft — „0 Befunde" klang nach bestanden (Audit 11/2026, DC-03, DCF#5)
+    if (statusVorher.current === 'liest' && d.status === 'fertig' && d.z) {
+      const m = leseMeldung(d.z, d.rolle === 'review')
+      toast(t(`upload.${m.schluessel}`, { name: d.name, count: m.count }), m.ton)
+    } else if (statusVorher.current === 'liest' && d.status === 'fehler') toast(t('upload.nichtGelesen', { name: d.name }), 'bad')
     statusVorher.current = d.status
-  }, [d.status, d.name, d.z, t])
+  }, [d.status, d.name, d.z, d.rolle, t])
   // Entfernen in zwei Schritten: Gelesenes und Prüfergebnis sind danach weg
   const [wegFragen, setWegFragen] = useState(false)
   useEffect(() => {
@@ -110,6 +134,8 @@ function DokKarte({ d }: { d: SitzungsDok }) {
   }, [wegFragen])
   const dup = d.status === 'fertig' ? duplikatFuer(d, zustand, bibliotheksVergleich()) : null
   const format = d.z?.format ?? d.name.split('.').pop()?.toLowerCase()
+  // Im Paketmodus zählen die Paketbefunde dieses Dokuments mit — wie in Findings (DC-14)
+  const zahl = befundZahl(d, zustand.paketErgebnis?.ergebnis, !!zustand.paketModus && aktiv(docCheckSettings, 'packageCheck'))
 
   const weg = () => {
     standardVerbindung().entfernen(d.id)
@@ -177,7 +203,9 @@ function DokKarte({ d }: { d: SitzungsDok }) {
     <div className="space-y-tight rounded-2xl border border-line/10 bg-bg/40 p-3">
       <div className="flex items-start gap-2">
         <span className="mt-0.5 rounded-md bg-accent/15 px-1.5 text-micro font-bold uppercase">{format}</span>
-        <p className="min-w-0 flex-1 break-all text-small font-medium">{d.name}</p>
+        <p className="min-w-0 flex-1 break-words text-small font-medium">
+          <DateiName name={d.name} />
+        </p>
         {wegFragen ? (
           <button
             autoFocus
@@ -201,10 +229,20 @@ function DokKarte({ d }: { d: SitzungsDok }) {
           <div className="h-1.5 overflow-hidden rounded-full bg-line/10" role="progressbar" aria-valuemin={0} aria-valuemax={d.fortschritt?.gesamt ?? 1} aria-valuenow={d.fortschritt?.seite ?? 0}>
             <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${d.fortschritt ? (100 * d.fortschritt.seite) / d.fortschritt.gesamt : 5}%` }} />
           </div>
-          <div className="flex items-center justify-between text-micro text-dim">
-            <span>{d.fortschritt ? t('upload.seiteVon', { seite: d.fortschritt.seite, gesamt: d.fortschritt.gesamt }) : t('upload.startet')}</span>
-            <button className="underline hover:text-ink" onClick={() => standardVerbindung().abbrechen(d.id)}>
-              {t('upload.abbrechen')}
+          <div className="flex items-center justify-between gap-2 text-micro text-dim">
+            <span className="min-w-0">{d.fortschritt ? t('upload.seiteVon', { seite: d.fortschritt.seite, gesamt: d.fortschritt.gesamt }) : t('upload.startet')}</span>
+            {/* Abbrechen braucht bis zur nächsten Freigabe des Lesers (DC-01) — bis
+                dahin sagt der Knopf, dass er gehört wurde, statt nochmal geklickt zu werden.
+                Einzeilig: In der schmalen Spalte brachen Zähler und Knopf sonst beide um. */}
+            <button
+              className="shrink-0 whitespace-nowrap underline hover:text-ink disabled:no-underline"
+              disabled={d.abbruch}
+              onClick={() => {
+                setzen((z) => abbruchAnfordern(z, d.id))
+                standardVerbindung().abbrechen(d.id)
+              }}
+            >
+              {d.abbruch ? t('upload.bricht') : t('upload.abbrechen')}
             </button>
           </div>
         </div>
@@ -219,15 +257,23 @@ function DokKarte({ d }: { d: SitzungsDok }) {
             {d.z.ocrSeiten > 0 && ` · ${t('upload.ocrSeiten', { count: d.z.ocrSeiten })}`}
             {d.z.tabellen > 0 && ` · ${t('upload.tabellen', { count: d.z.tabellen })}`}
           </p>
-          {d.z.pruefung && (
+          {(d.z.pruefung || zahl.paket > 0) && (
             <p className="flex flex-wrap items-center gap-1.5 text-micro">
               <span className="text-dim">{t('pruefungKurz.titel')}:</span>
-              {d.z.pruefung.befunde.length === 0 ? (
-                <Badge tone="ok">{t('pruefungKurz.ohne')}</Badge>
+              {/* Ohne gelesenen Text ist „ohne Befund" keine Aussage (DC-03) */}
+              {d.z.ocrKandidaten.length > 0 ? (
+                <Badge tone="wait">{t('pruefungKurz.ocrAusstehend')}</Badge>
+              ) : d.z.pruefung?.ohneText ? (
+                <Badge tone="wait">{t('pruefungKurz.ohneText')}</Badge>
+              ) : null}
+              {zahl.eigen + zahl.paket === 0 ? (
+                !d.z.ocrKandidaten.length && !d.z.pruefung?.ohneText && <Badge tone="ok">{t('pruefungKurz.ohne')}</Badge>
               ) : (
                 <>
-                  <Badge tone={d.z.pruefung.befunde.some((b) => b.prioritaet === 'High') ? 'bad' : 'wait'}>{t('pruefungKurz.befunde', { count: d.z.pruefung.befunde.length })}</Badge>
-                  {d.z.pruefung.befunde.some((b) => b.prioritaet === 'High') && <span className="text-bad">{t('pruefungKurz.hoch', { count: d.z.pruefung.befunde.filter((b) => b.prioritaet === 'High').length })}</span>}
+                  {zahl.eigen > 0 && <Badge tone={zahl.hoch > zahl.paketHoch ? 'bad' : 'wait'}>{t('pruefungKurz.befunde', { count: zahl.eigen })}</Badge>}
+                  {/* Paketbefunde liegen beim tieferen Dokument — grün „ohne Befund" stand sonst neben offenen Widersprüchen (DC-14) */}
+                  {zahl.paket > 0 && <Badge tone={zahl.paketHoch > 0 ? 'bad' : 'wait'}>{zahl.eigen > 0 ? '+ ' : ''}{t('pruefungKurz.paket', { count: zahl.paket })}</Badge>}
+                  {zahl.hoch > 0 && <span className="text-bad">{t('pruefungKurz.hoch', { count: zahl.hoch })}</span>}
                 </>
               )}
             </p>
@@ -240,7 +286,9 @@ function DokKarte({ d }: { d: SitzungsDok }) {
                 <span className="text-dim">{t('paar.quelle')}: </span>
                 <span className="font-semibold">{t(`paar.${d.z.seitenQuelle}`)}</span>
               </p>
-              {d.z.pdfPaar?.warnung && <Badge tone="wait">{t(`paar.warnung.${d.z.pdfPaar.warnung}`, { prozent: Math.round(d.z.pdfPaar.abweichung * 100) })}</Badge>}
+              {/* Ein Satz ist keine Statusmarke: als Pille wurde er in der schmalen Karte
+                  zum vierzeiligen Oval (Audit 11/2026, FRD-19) — Hinweisfeld wie im Re-Check */}
+              {d.z.pdfPaar?.warnung && <p className="rounded-lg border border-wait/40 bg-wait/10 px-2.5 py-1.5 text-ink">{t(`paar.warnung.${d.z.pdfPaar.warnung}`, { prozent: Math.round(d.z.pdfPaar.abweichung * 100) })}</p>}
               {d.z.seitenQuelle !== 'pdf_pair' && aktiv(docCheckSettings, 'pdfPairing') && (
                 <>
                   <p className="text-dim">{t('paar.fehlt')}</p>
@@ -261,7 +309,10 @@ function DokKarte({ d }: { d: SitzungsDok }) {
                       setPaart(true)
                       try {
                         const z = await pdfDazulegen(d.id, f, standardVerbindung())
-                        toast(z.seitenQuelle === 'pdf_pair' ? t('paar.ok') : t('paar.nichtUebernommen'), z.seitenQuelle === 'pdf_pair' ? 'ok' : 'wait')
+                        // Keine Antwort binnen der Zeitgrenze: Knopf wieder frei, das DOCX bleibt mit geschätzten Seiten.
+                        // Inzwischen entfernt (oder abgemeldet): nichts zu melden.
+                        if (z === 'zeit') toast(t('paar.zeit', { name: d.name }), 'wait')
+                        else if (z !== 'entfernt') toast(z.seitenQuelle === 'pdf_pair' ? t('paar.ok') : t('paar.nichtUebernommen'), z.seitenQuelle === 'pdf_pair' ? 'ok' : 'wait')
                       } finally {
                         setPaart(false)
                       }
@@ -283,7 +334,7 @@ function DokKarte({ d }: { d: SitzungsDok }) {
             <div className="space-y-tight rounded-xl bg-wait/10 p-2.5 text-micro">
               <p>{t('ocr.frage', { count: d.z.ocrKandidaten.length })}</p>
               {ocr ? (
-                <p className="text-dim">{t('ocr.laeuft', ocr)}</p>
+                <p className="text-dim">{t('ocr.laeuft', { fertig: ocr.fertig, count: ocr.gesamt })}</p>
               ) : (
                 <Button variant="ghost" className="!min-h-9 !py-1 text-small" onClick={ocrStarten}>
                   <span className="flex items-center gap-1.5">

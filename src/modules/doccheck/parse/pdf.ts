@@ -1,4 +1,5 @@
 import { aufbereiten } from './aufbereiten'
+import { ablageParameter, type AblageParameter, type PdfAblage } from './pdfAblage'
 import { LEERE_LENKUNG, type Rechtscharakter, type Rohdokument } from './model'
 import { seitenZeilen, type TextStueck } from './zeilen'
 
@@ -12,9 +13,10 @@ import { seitenZeilen, type TextStueck } from './zeilen'
 
 /** Der Teil von pdf.js, den dieser Leser braucht. */
 export interface PdfJs {
-  getDocument(src: { data: Uint8Array; isEvalSupported?: boolean; useSystemFonts?: boolean; disableFontFace?: boolean; standardFontDataUrl?: string }): { promise: Promise<PdfDok>; destroy(): Promise<void> }
+  getDocument(src: { data: Uint8Array; isEvalSupported?: boolean; useSystemFonts?: boolean; disableFontFace?: boolean } & AblageParameter): { promise: Promise<PdfDok>; destroy(): Promise<void> }
   OPS: Record<string, number>
 }
+
 export interface PdfDok {
   numPages: number
   getPage(n: number): Promise<PdfSeite>
@@ -47,16 +49,20 @@ export function stueckeAus(items: unknown[]): TextStueck[] {
   return out
 }
 
-export interface PdfOptionen {
+export interface PdfOptionen extends PdfAblage {
   vorgabe?: Rechtscharakter
-  /** Ablage der Standardschriften von pdf.js — lokal, nie ein CDN (Spez. 4.1). */
-  standardFontDataUrl?: string
   onFortschritt?: (seite: number, gesamt: number) => void
   signal?: AbortSignal
 }
 
+/** Alle so viele Seiten gibt der Leser die Ereignisschleife frei. */
+export const FREIGABE_SEITEN = 8
+
+/** Einen Macrotask abwarten — erst dann kommen Nachrichten an den Worker an. */
+export const freigeben = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
+
 export async function pdfLesen(daten: Uint8Array, pdfjs: PdfJs, opts: PdfOptionen = {}): Promise<Rohdokument> {
-  const aufgabe = pdfjs.getDocument({ data: daten, isEvalSupported: false, useSystemFonts: false, disableFontFace: true, ...(opts.standardFontDataUrl ? { standardFontDataUrl: opts.standardFontDataUrl } : {}) })
+  const aufgabe = pdfjs.getDocument({ data: daten, isEvalSupported: false, useSystemFonts: false, disableFontFace: true, ...ablageParameter(opts) })
   let dok: PdfDok
   try {
     dok = await aufgabe.promise
@@ -69,6 +75,13 @@ export async function pdfLesen(daten: Uint8Array, pdfjs: PdfJs, opts: PdfOptione
     const roh: string[][] = []
     const ocr: number[] = []
     for (let n = 1; n <= dok.numPages; n++) {
+      // Im Fake-Worker antwortete pdf.js nur über Microtasks. Ohne Freigabe
+      // lief „abbrechen" — wie jede Suche — erst nach der letzten Seite ein;
+      // da war das Signal schon verwaist, und das abgebrochene Dokument
+      // wurde trotzdem aufgenommen (Audit 11/2026, DC-01). Der eigene Kanal
+      // (pdfjsLaden) antwortet über Tasks; die Freigabe bleibt trotzdem, weil
+      // sie nicht davon abhängen soll, wie pdf.js gerade antwortet.
+      if (n % FREIGABE_SEITEN === 0) await freigeben()
       if (opts.signal?.aborted) throw new Error('DC-ABORTED')
       const seite = await dok.getPage(n)
       const zeilen = seitenZeilen(stueckeAus((await seite.getTextContent()).items))

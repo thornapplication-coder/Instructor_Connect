@@ -81,3 +81,40 @@ export function einschuebe(text: string, liste: string[]): string[] {
   const menge = new Set(liste)
   return [...new Set((text.match(/[\p{L}]+/gu) ?? []).filter((w) => menge.has(w)))]
 }
+
+/** Kleine Bindewörter, die in Eigennamen klein bleiben („Rules of the Air"). */
+const BINDEWOERTER = new Set(['of', 'the', 'and', 'for', 'on', 'in', 'to', 'at', 'by', 'de', 'du', 'des', 'der', 'die', 'das', 'und', 'von', 'für', 'la', 'le', 'les', 'el', 'del', 'di', 'della', 'y', 'e', 'et'])
+
+/**
+ * Eigenname wie „Standardised European Rules of the Air" (Nachtrag N9:
+ * Eigennamen sind ausgenommen, Audit 11/2026, FRD-17): zwei bis sechs
+ * Wörter, kein Satzende, jedes Wort groß außer kleinen Bindewörtern — einen
+ * Satz mit Verb schreibt so niemand. Nicht für Deutsch: Dort sind alle
+ * Nomen groß, und „Hinweise für den Flugbetrieb" ist ein deutscher Rest in
+ * einem englischen Handbuch, kein Name.
+ */
+export function istEigenname(text: string): boolean {
+  const t = text.trim()
+  if (/[.!?;:](?:\s|$)/.test(t) || spracheVon(t) === 'de') return false
+  const w = t.split(/\s+/).map((x) => x.replace(/^[^\p{L}\d]+|[^\p{L}\d]+$/gu, '')).filter((x) => x && !/^\d/.test(x))
+  if (w.length < 2 || w.length > 6) return false
+  const gross = w.filter((x) => /^\p{Lu}/u.test(x)).length
+  return gross >= 2 && w.every((x) => /^\p{Lu}/u.test(x) || BINDEWOERTER.has(x.toLowerCase()))
+}
+
+/**
+ * Löst der Text das Kürzel auf? Die Anfangsbuchstaben seiner Wörter
+ * enthalten die Buchstaben des Kürzels der Reihe nach, der erste passt zum
+ * ersten: „SERA" ↔ „Standardised European Rules of the Air", „EASA" ↔
+ * „European Union Aviation Safety Agency". Eine Auflösung in einer
+ * Abkürzungsliste ist so erkennbar — ein Arbeitskommentar neben einem
+ * Kürzel („MMO | Bitte noch prüfen …") nicht (FRD-17).
+ */
+export function loestAuf(kuerzel: string, text: string): boolean {
+  const k = kuerzel.replace(/[^\p{L}]/gu, '').toLowerCase()
+  const anfaenge = (text.match(/\p{L}+/gu) ?? []).map((x) => x[0].toLowerCase())
+  if (k.length < 2 || anfaenge[0] !== k[0]) return false
+  let i = 0
+  for (const a of anfaenge) if (a === k[i]) i++
+  return i >= k.length
+}

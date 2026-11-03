@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { gruppenVorschlagen, varianteAusKuerzel, vorbelegen } from './struktur'
+import { gruppenVorschlagen, paketVergleich, varianteAusKuerzel, vorbelegen } from './struktur'
 
 describe('Paketstruktur vorbelegen (N1.1)', () => {
   it('Präfixe TM, APX/APPENDIX, ANX/ANNEX aus Dateiname, sonst aus dem Titel', () => {
@@ -27,5 +27,10 @@ describe('Paketstruktur vorbelegen (N1.1)', () => {
 
   it('Variante aus dem Kürzel', () => {
     expect([varianteAusKuerzel('ANX 2b'), varianteAusKuerzel('APX 4'), varianteAusKuerzel('TM')]).toEqual(['B', '', ''])
+  })
+
+  it('Reihenfolge im Paket: Ebene, dann Kürzel natürlich — für Baum und Export dieselbe (Audit 11/2026, EXP-08)', () => {
+    const a = (kuerzel: string, ebene: number) => ({ kuerzel, ebene })
+    expect([a('ANX 2B', 3), a('APX 10', 2), a('TM', 1), a('APX 4', 2), a('ANX 2A', 3)].sort(paketVergleich).map((x) => x.kuerzel)).toEqual(['TM', 'APX 4', 'APX 10', 'ANX 2A', 'ANX 2B'])
   })
 })

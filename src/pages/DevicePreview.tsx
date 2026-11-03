@@ -1,6 +1,7 @@
-import { RotateCcw, RotateCw, Smartphone, Tablet, X } from 'lucide-react'
+import { RefreshCw, RotateCcw, RotateCw, Smartphone, Tablet, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useDokumentTitel } from '../dokumentTitel'
 import { navigate } from '../router'
 
 /**
@@ -35,14 +36,21 @@ export function DevicePreview() {
   const outerW = w + d.bezel * 2
   const outerH = h + d.bezel * 2
   const scale = Math.min(1, (viewport.w - 48) / outerW, (viewport.h - 140) / outerH)
+  useDokumentTitel(t('sandbox.device'))
 
+  // Überschrift (unsichtbar) und Hauptlandmarke: Die Vorschau hatte weder
+  // noch — axe meldete page-has-heading-one und landmark-one-main (Audit
+  // 11/2026, A11Y-14). Sichtbar wäre die Überschrift nur doppelt: Die
+  // Knöpfe darüber sagen schon, was die Seite ist.
   return (
     <div className="flex min-h-full flex-1 flex-col items-center">
+      <h1 className="sr-only">{t('sandbox.device')}</h1>
       <header className="flex w-full max-w-3xl items-center justify-center gap-2 px-4 py-3">
         {(Object.keys(DEVICES) as DeviceKey[]).map((key) => (
           <button
             key={key}
             onClick={() => setDevice(key)}
+            aria-pressed={device === key}
             className={`min-h-11 flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-small transition ${
               device === key ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim hover:text-ink'
             }`}
@@ -50,30 +58,39 @@ export function DevicePreview() {
             {key === 'iphone' ? <Smartphone size={14} /> : <Tablet size={14} />} {DEVICES[key].label}
           </button>
         ))}
+        {/*
+          Symbolknöpfe tragen ihren Namen selbst (aria-label) — `title` allein
+          liest nicht jede Sprachausgabe vor. Der Neuladen-Knopf hieß
+          „Daten zurücksetzen", lud aber nur die Vorschau neu; zurückgesetzt
+          wird in der Sandbox-Leiste, mit Rückfrage (Audit 11/2026, KERN-18).
+        */}
         <button
           onClick={() => setLandscape((v) => !v)}
           title={t('sandbox.rotate')}
+          aria-label={t('sandbox.rotate')}
+          aria-pressed={landscape}
           className="min-h-11 rounded-full border border-line/15 p-2 text-dim transition hover:text-ink"
         >
-          {landscape ? <RotateCcw size={14} /> : <RotateCw size={14} />}
+          {landscape ? <RotateCcw size={14} aria-hidden /> : <RotateCw size={14} aria-hidden />}
         </button>
         <button
           onClick={() => frameRef.current?.contentWindow?.location.reload()}
-          title={t('sandbox.reset')}
-          className="min-h-11 rounded-full border border-line/15 px-3 py-1.5 text-small text-dim transition hover:text-ink"
+          title={t('sandbox.reloadPreview')}
+          aria-label={t('sandbox.reloadPreview')}
+          className="min-h-11 rounded-full border border-line/15 p-2 text-dim transition hover:text-ink"
         >
-          ⟳
+          <RefreshCw size={14} aria-hidden />
         </button>
         <button
           onClick={() => navigate('/')}
           aria-label={t('common.close')}
           className="min-h-11 ml-2 rounded-full border border-line/15 p-2 text-dim transition hover:text-danger"
         >
-          <X size={14} />
+          <X size={14} aria-hidden />
         </button>
       </header>
 
-      <div className="flex flex-1 items-center justify-center pb-6">
+      <main className="flex flex-1 items-center justify-center pb-6">
         <div style={{ width: outerW * scale, height: outerH * scale }}>
           <div
             style={{
@@ -99,7 +116,7 @@ export function DevicePreview() {
             />
           </div>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

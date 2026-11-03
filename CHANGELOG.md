@@ -994,3 +994,248 @@ N3.5) — damit ist N3 vollständig.
 - Neue Spaltenrolle „Priorität“ in der Zuordnung.
 - Gegenprobe: LibreOffice öffnet und speichert die Datei ohne Verlust.
   Offen bleibt die Öffnungsprobe in Microsoft Excel.
+
+## 1.22.0 — 2026-11-01
+
+DocCheck: Exporte und Prüfstand (Spezifikation v1.1 Kap. 10, 12; Phase 6).
+
+- **Ein Datenstand, alle Formate:** Excel (Summary, Findings, Compliance
+  Matrix, Documents & Sources), Word-Prüfbericht, CSV-Befundliste,
+  PowerPoint-Kurzbriefing (8 Folien, natives Diagramm) und ZIP-Paket —
+  gleiche IDs, Zahlen und Reihenfolge in allen Formaten, Export-ID je Export.
+- **Excel:** COUNTIFS-Formeln, Dropdowns, Zeilenfarbe nach Priorität,
+  fixierte Kopfzeile, Filter, A4 quer mit Fußzeile und Drucktiteln.
+- **Word:** Deckblatt, Dokumentlenkung, verlinkte Inhaltsübersicht ohne
+  Aktualisierungsdialog, Befunde quer nach Kapitel, Freigabefelder.
+- **CSV:** UTF-8 mit BOM, Semikolon, Schutz vor Formel-Injektion.
+- **Prüfstand `.doccheck.json`:** speichern und wieder öffnen, auch am
+  iPhone/iPad (Bereich „Befunde“); geprüft beim Laden, Hash-Abgleich mit
+  geladenen Dokumenten; keine Dokumentinhalte.
+- **Organisation** für Exporte in der DocCheck-Administration.
+- Neue Bibliotheken `docx` und `pptxgenjs`, nur beim Export nachgeladen.
+- Gegenprobe: LibreOffice öffnet alle Formate. Offen: Probe in Microsoft
+  Office und die Pixel-Layouttests aus Kap. 10.8 (brauchen LibreOffice in
+  der CI).
+
+## 1.23.0 — 2026-11-01
+
+Ebene-3-Tests (Playwright) und ein Offline-Fehler.
+
+- **Sechs Wege im echten Browser** gegen den gebauten Stand, eigener
+  CI-Job: DocCheck einlesen → Befund per Tastatur → Viewer-Fokus; Export
+  (CSV und Excel mit denselben IDs, Prüfstand speichern und wieder öffnen);
+  Re-Check bis zur Datei mit Blatt „Neue Findings“; Wartung und
+  Wiedereinschalten; Telefon-Ansicht mit Prüfstand; Offline-Start.
+  Anmeldung über den echten Sandbox-Weg.
+- **Behoben: Offline-Start.** Lieferte der Server „Vary: Origin“, fand der
+  Service Worker die vorgeladenen Startdateien nicht und die App blieb ohne
+  Netz weiß. Der Service Worker sieht beim Nachschlagen über `Vary` hinweg
+  (die Dateien sind inhaltsgehasht).
+
+## 1.24.0 — 2026-11-01
+
+Qualitäts-Regressionstest (Spezifikation v1.1 Kap. 19.1, Nachtrag Kap. 20).
+
+- Alle synthetischen Abnahmedateien laufen durch den echten Prüfkern und
+  werden gegen ihre Lösungsschlüssel gemessen: Trefferquote, Fehlalarmquote,
+  Re-Check-Statusvorschläge, gefundene Restfundstellen — mit festgehaltener
+  Baseline. Jede Verschlechterung lässt `npm test` scheitern; ab 10
+  Prozentpunkten heißt sie „Qualität gesunken“.
+- Stand: DocCheck · Benchmark: Trefferquote 100 %, Fehlalarme 0 %,
+  Re-Check-Status 100 %, Restfundstellen 100 % (synthetische Fälle).
+- `npm run benchmark` zeigt die Tabelle je Testdatei.
+
+## 1.25.0 — 2026-11-03
+
+Gesamtaudit 11/2026: zwölf Korrekturpakete, jedes von einem unabhängigen
+Gegenprüfer mit vollem Testlauf, Browser-Abnahme (Desktop, iPhone hell und
+dunkel, Druck) und Gegenprobe der schweren Befunde abgenommen. Die
+Befundnummern stehen in den Kommentaren am Code.
+
+**Grading-Formulare und Nachweise**
+
+- Unterschrift im Vollbild bleibt stehen; ohne Strich gilt nichts als
+  unterschrieben. Getippte Unterschrift trägt „Typed signature“ mit Datum.
+- Nach Mitternacht ist das richtige Datum vorbelegt. Zulassungsnummer,
+  Formularstand und Empfänger werden beim Absenden eingefroren;
+  Folgeformulare übernehmen die Behörde des Ausgangsformulars.
+- Angefangene 306/310 lassen sich fortsetzen und bleiben mit ihrem
+  Ausgangsformular verbunden; ein automatisches „Not Competent“ nimmt sich
+  nach Korrektur der Note zurück.
+- Unsichtbare Angaben landen nicht mehr in Formularen, die sie nicht zeigen.
+  Bloßes Öffnen legt keinen Entwurf an.
+- Kopfprüfungen (Due Date, ganze Zahlen, Von ≠ Nach); 308G nennt COI/CAI und
+  führt das Pflichtfeld „Session Time“; 308C/308D führen „Aircraft Type“.
+- Fehler springen zum Feld und stehen darunter; der Tastaturfokus
+  verschwindet nicht mehr hinter den Leisten.
+- Mehrseitige Ausdrucke mit Kopf und Fuß auf jedem Blatt, ohne mitgedruckte
+  Hinweise; lange Kopfwerte brechen nicht mehr mitten im Wort; PDF-Namen
+  lesbar.
+
+**Behördenexport, Auswertungen, Grading-Konfiguration**
+
+- Forms- und Competencies-CSV enthalten alle Anwesenheitslisten 307A/307B
+  (je Teilnehmer eine Zeile), Event und alle Kopffelder; jede
+  Kompetenzzeile ist ihrem Formular zuordenbar (geänderte Spaltenfolge).
+- Statistik: Flottenmatrix zählt nur unterschriebene Formulare von Zeitraum
+  und Behörde; Exporte nennen Flotte, Behörde, Zeitraum und Datenbasis.
+  Zeitraumfilter richten sich nach dem Schulungstag.
+- Standardisierungsbericht ohne AT-Zulassung bei „All authorities“;
+  Monatsbericht mit „–“ ohne Vergleichsdaten, Kompetenzsatz und
+  ausgelassenen Sitzungen.
+- Auswahlwerte in einem Zug umbenennen, keine Dubletten bei Werten und
+  Kompetenz-Kürzeln; benutzte Formulartypen nennen den Grund statt eines
+  Löschdialogs. Trainee progress trennt Piloten und Instruktoranwärter.
+- Einheitliche Statusfarben in Dashboard und Flottenmatrix, auch dunkel.
+
+**Logbuch**
+
+- Ein Durchgang mit mehreren Piloten zählt einmal (05:30 statt 11:00) — in
+  Liste, Admin-Übersicht, CSV und Excel.
+- Dauern am iPhone ohne Doppelpunkt („130“ = 1:30); Mehrdeutiges wird
+  gemeldet statt still 00:00.
+- Korrigierte Einträge sind markiert, entfernte lassen sich
+  wiederherstellen; der Musterbereich beim Blick in fremde Logbücher wird
+  genannt.
+- Exporte mit Kopf (Stand, exportierende Person), Dezimalstunden und
+  Summen; Admin-Excel formatiert, A4 quer. Formulare ohne Schulungstag
+  zählen am Ortstag der Unterschrift.
+
+**Verwaltung**
+
+- „Darf bewerten“ und „Darf Who to call bearbeiten“ nur noch bei Mitgliedern
+  schaltbar; bei anderen Rollen gesperrt mit dem wirksamen Wert „über
+  Rolle“. Training Admin sieht Grading nur mit „Alle Grading-Formulare
+  sehen“.
+- Eigene Rolle und eigenes Konto gesperrt; Rollenwechsel mit Rückfrage und
+  Quittung; Ablehnungen nennen den Grund. Rollenwechsel mit DocCheck-Wirkung
+  stehen im DocCheck-Protokoll.
+- Gruppennamen normal tippbar, gespeichert beim Verlassen; leere und
+  doppelte Namen abgewiesen.
+- Login-Domains geprüft und vereinheitlicht; keine Liste, mit der man sich
+  selbst oder alle Superadmins aussperrt.
+- Anlegen und Import nur mit erreichbaren Gruppen; Excel-Vorlage mit
+  Umlauten, Querformat, Begriffen der App. Impressum überarbeitet und
+  sicher gespeichert.
+
+**Chat, Instructor Info, Who to call, Feedback**
+
+- Chat am iPhone: neueste Nachricht steht über der Eingabeleiste; Löschen
+  per Tastatur und Touch (44 px); lange Verläufe bleiben flüssig.
+- Abgewiesene Aktionen nennen ihren Grund, der getippte Text bleibt stehen.
+  Umfrage-Ablauf ist Pflicht und auf die Aufbewahrung begrenzt; Prozente
+  ergeben 100 %. Stummschalten gilt je Nutzer.
+- Instructor Info: geplante Einträge ohne „Neu“-Marke; „Gültig bis“ vor
+  „Gültig ab“ nicht speicherbar; Kontrollliste mit Titel, Datum, Umlauten.
+- Who to call: bereinigte Eingaben, Anrufen/Schreiben nur mit Ziel.
+  Feedback markiert fehlende Felder einzeln.
+
+**Barrierefreiheit und Darstellung**
+
+- Dialoge decken den ganzen Bildschirm ab und geben den Tastaturfokus an
+  ihren Auslöser zurück; nach Anmeldung und Seitenwechsel steht er auf der
+  Seitenüberschrift, ohne die Seite zu verschieben.
+- Statusfarben als Schrift hell, dunkel und im Druck mit mindestens 4,5:1;
+  Grading-Seiten und -Dialoge als englisch ausgezeichnet; „Bewegung
+  reduzieren“ wird beachtet; jede Ansicht hat einen eigenen Fenstertitel.
+- Am Telefon zeigt die Aktion der Kopfleiste nur das Plus, Seitentitel
+  bleiben lesbar; im Querformat und am Home-Indikator bleibt der
+  Sicherheitsbereich frei; zwischen 1024 und 1279 px wird die Breite
+  genutzt.
+- Startseite: Kachelraster nach Zahl der Module, ohne verwaiste Lücke.
+- Texte: Einzahl/Mehrzahl, Anführungszeichen und Übersetzungen
+  durchgehend; Bestätigungen bleiben nach Länge stehen. Neue Wachen prüfen
+  Plural-Paare, Anführungszeichen, Anrede, de/en-Gleichheit und mit axe-core
+  die Barrierefreiheit im Browser.
+
+**DocCheck**
+
+- Leser: Word-Nummerierung wie angezeigt; Fußnoten, Textfelder und
+  verschachtelte Tabellen durchsuchbar; offene Verschiebungen und
+  Formatänderungen erkannt; PDF-Tabellen und Zweispalter richtig gelesen;
+  Excel-Datum/-Prozent wie in Excel; „Abbrechen“ wirkt sofort; eigene
+  Meldungen für leere, zu große und präparierte Dateien.
+- Prüfung: Scans ohne Textebene sind „nicht bewertbar“, nie
+  „einreichungsfähig“. Tabellen über Seitengrenzen, verbundene Kopfzellen,
+  LEP über „Page x of y“, Kurzverweise „see 9.4“, Kopf-/Fußzeilen je
+  Merkmal; weniger Fehlalarme (Rundungswerte, NOTE/WARNING, deutsche
+  Doppelwörter). Jeder Befund hat eine „Proposed Correction“.
+- Re-Check: Bestätigungen überleben neue Dokumente und Zieländerungen
+  (Stand „veraltet“); keine Doppelungen im Blatt „Neue Findings“;
+  Begründungspflicht auch mobil; Tastaturbedienung; Ortszeit in Remark und
+  Dateiname; Audit nur mit Nummer und Status.
+- Exporte: „Checks performed“ nur mit gelaufenen Prüfungen; englische
+  Seitenangaben („Page 12 (±1)“); Kapitel der Fundstelle; Ortszeit;
+  Hauptdokument und „+ N further documents“; Prüfstand vollständig
+  validiert; Word mit Ampel-Matrix und Lesezeichen; PowerPoint nach
+  Wichtigkeit; Excel-Fußzeile ≤ 255 Zeichen, A4 quer. CSV einheitlich
+  (BOM, CRLF, Trenner einstellbar, Formelschutz).
+- Oberfläche: Reiter brechen um, 400 % Zoom ohne waagerechtes Scrollen,
+  Prüfschalter wirken sofort, Texte und Zahlenformat nach Sprache.
+- Qualitäts-Regressionstest: fünf neue Abnahmefälle (SBX-WORD-02,
+  SBX-PDF-02, SBX-FORMAL-01-V, SBX-CALC-01-X, SBX-CALC-01-P),
+  Lösungsschlüssel von SBX-WORD-01 und SBX-EAR-01 erweitert; Baseline
+  nachgezogen, weiterhin 100 % Treffer und 0 % Fehlalarme (synthetisch).
+
+**App-Hülle, Technik, Sicherheit**
+
+- Offline-Start nach einem Update auch bei kurzer Cache-Lebensdauer; eine
+  laufende DocCheck-Prüfung blockiert das automatische Update; Abmelden auf
+  jedem Weg verwirft die DocCheck-Sitzung.
+- Fehlergrenzen statt weißer Seite; unlesbarer Stand wird gesichert; Start
+  nach 3 s auch ohne antwortenden Gerätespeicher; Tab-Abgleich ohne
+  Verlust.
+- Content-Security-Policy im Build, Vite 7, keine bekannten
+  Schwachstellen; neue Wachen für Startbundle, Repo-Dateien, Geheimnisse im
+  Bundle und Abhängigkeiten.
+
+## 1.26.0 — 2026-11-03
+
+Runde 3 nach dem Gesamtaudit: Restpunkte und die Entscheidungen vom
+03.11.2026 (Export-IDs überall, Excel-Druck ohne leere KI-Spalten,
+Meldungen im Dialog). Zwei Pakete, je mit unabhängigem Gegenprüfer, vollem
+Testlauf, Browser-Abnahme und Gegenprobe.
+
+**Dialoge und Quittungen**
+
+- Wird eine Eingabe in einem offenen Dialog abgelehnt, steht der Grund im
+  Dialog — am Feld oder über den Knöpfen (`DialogMeldung`). Am iPhone
+  verdeckt das Bottom-Sheet die Meldung nicht mehr; Dialog und Eingaben
+  bleiben stehen.
+- „Gespeichert“ erscheint erst, wenn der Gerätespeicher geschrieben hat
+  (`useQuittung`); scheitert das Speichern, steht „Nicht gespeichert“ da.
+- Notiz, Kontakt, Info-Eintrag, Lesson Plan und Logbuch-Eintrag melden
+  „gespeichert“ nicht mehr, wenn das Speichern abgelehnt wurde.
+
+**Grading und Auswertungen**
+
+- Monatsbericht eines anderen Instruktors: dessen Name statt „You“ und „vs
+  your types“ — am Bildschirm, im Ausdruck und in der CSV.
+- Monatsbericht im Druck: Die Kompetenzspalte fehlte und wird jetzt
+  mitgedruckt.
+- Formulartyp löschen: Jeder Ausgang meldet sich, mit Quittung oder Grund.
+  Die Grading-Konfiguration ändert nur der Superadmin — jetzt auch im
+  Store geprüft, nicht nur in der Ansicht.
+- Entwürfe von Nutzern, deren Kennung mit der eines anderen beginnt,
+  bleiben auf einem geteilten Gerät getrennt; ältere Entwürfe werden
+  übernommen.
+
+**DocCheck**
+
+- Befundtabelle und Viewer zeigen dieselben IDs wie Excel, Word, CSV und
+  PowerPoint (z. B. TM-003, DOC1-001, PKG-001), auch für Screenreader. Die
+  Tabelle ordnet nach Priorität, innerhalb einer Priorität wie der Bericht.
+- Excel „Findings“: Ohne KI-Prüfung sind die leeren KI-Spalten (Reference
+  bis Source, Technical Type) als Gruppe zugeklappt; alle 24 Spalten
+  bleiben in der Datei. Gedruckt wird A4 quer etwa doppelt so groß.
+- Word-PDF-Paarung mit Zeitgrenze (60 s plus 4 s je MB, höchstens
+  10 min): danach Hinweis, das Word-Dokument bleibt mit geschätzten Seiten
+  nutzbar. Kein verspäteter Hinweis nach Entfernen oder Abmelden; bei
+  erneutem Dazulegen zählt nur die jüngste Paarung.
+
+**Tests**
+
+- Browser-Tests laufen in Europe/Vienna (`timezoneId`), wie Ebene 1 und 2.
+- Der Grading-Weg läuft als EIN Durchgang im Browser: 308A anlegen →
+  Unterschriften → Absenden → Ablage → Logbuch → Forms-CSV mit
+  Fingerabdruck (`gradingweg.spec.ts`).

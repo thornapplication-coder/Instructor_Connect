@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { defineConfig, loadEnv, type Plugin } from 'vite'
-import { geheimeVariablen } from './src/backend/konfig'
+import { backendKonfig, geheimeVariablen, geheimnisseImText, type BackendKonfig } from './src/backend/konfig'
+import { cspFuer } from './src/csp'
+import { cacheName, dateiListe, nurNachgeladen, swQuelle } from './src/swQuelle'
 import react from '@vitejs/plugin-react'
 
 /** Alle Dateien aus public/ (rekursiv) — sie landen unverändert in dist/. */
@@ -17,65 +19,9 @@ function listPublicFiles(dir = 'public', prefix = ''): string[] {
 }
 
 /**
- * Erzeugt beim Build einen Service Worker (dist/sw.js), der alle gebauten
- * Dateien vorab cached. Damit startet die App offline (z. B. im
- * Simulator-Gebäude ohne Empfang) und meldet neue Versionen an die
- * UpdateBanner-Komponente. Der Cache-Name hängt an der Dateiliste — jede
- * neue Version (gehashte Asset-Namen) ergibt einen neuen Worker.
- */
-/**
- * Dateien, die NUR ueber ein nachgeladenes Modul erreichbar sind (DocCheck).
- *
- * Der Service Worker lud bisher JEDE gebaute Datei bei der Installation vorab.
- * Mit DocCheck kommen Parser, OCR und Exportbibliotheken dazu — Megabytes,
- * die sonst jedes Geraet laedt, auch das iPhone eines Instruktors, der die
- * Kachel nie sieht. Diese Dateien fehlen deshalb im Vorab-Cache; der Abruf-
- * Zweig unten legt sie beim ersten Oeffnen trotzdem in den Cache, offline
- * geht DocCheck danach also auch.
- *
- * Ermittelt ueber den Importgraphen, nicht ueber Dateinamen: Was das
- * Startbundle statisch braucht, bleibt drin — auch wenn DocCheck es ebenfalls
- * nutzt. Ein Dateinamens-Muster haette eine gemeinsam genutzte Datei
- * still mit ausgeschlossen.
- */
-function nurNachgeladen(bundle: Record<string, { type: string; isEntry?: boolean; imports?: string[]; dynamicImports?: string[]; facadeModuleId?: string | null; code?: string; source?: string | Uint8Array }>): Set<string> {
-  const namen = Object.keys(bundle)
-  const inhalt = (f: string) => {
-    const b = bundle[f]
-    return b.type === 'chunk' ? (b.code ?? '') : typeof b.source === 'string' ? b.source : ''
-  }
-  // Huelle: statische Importe, auf Wunsch auch dynamische — und jede Datei,
-  // deren Name im Code steht (Worker per `new URL(...)`, `?url`-Importe,
-  // die eigenen Teildateien eines Workers). Das waren genau die Faelle, die
-  // die erste Fassung uebersah: pdf.js (dynamisch) und sein Worker
-  // (per Adresse) lagen weiter im Vorab-Cache jedes Geraets.
-  const huelle = (start: string[], dynamisch: boolean, namenFolgen = dynamisch) => {
-    const gesehen = new Set<string>()
-    const offen = [...start]
-    while (offen.length) {
-      const f = offen.pop()!
-      if (gesehen.has(f) || !bundle[f]) continue
-      gesehen.add(f)
-      const c = bundle[f]
-      if (c.type === 'chunk') offen.push(...(c.imports ?? []), ...(dynamisch ? (c.dynamicImports ?? []) : []))
-      if (!namenFolgen) continue
-      const code = inhalt(f)
-      for (const n of namen) if (!gesehen.has(n) && n !== f && code.includes(n.split('/').pop()!)) offen.push(n)
-    }
-    return gesehen
-  }
-  const eintritt = namen.filter((f) => bundle[f].type === 'chunk' && bundle[f].isEntry)
-  // Die Startseite nur über STATISCHE Importe: Ihr Code nennt den Namen des
-  // nachgeladenen Moduls (im lazy-Import) — dem zu folgen, hiesse DocCheck
-  // doch wieder auf jedes Geraet zu laden.
-  const statisch = huelle(eintritt, false)
-  const modul = namen.filter((f) => bundle[f].type === 'chunk' && (bundle[f].facadeModuleId ?? '').includes('/src/modules/'))
-  return new Set([...huelle(modul, true)].filter((f) => !statisch.has(f)))
-}
-
-/**
  * Feste Dateien für DocCheck, die pdf.js und tesseract.js zur LAUFZEIT per
- * Adresse laden: Standardschriften, OCR-Worker, OCR-Kern, englische
+ * Adresse laden: Standardschriften, Bilddecoder und Farbprofil von pdf.js
+ * (`pdfAblage` in pdfjsLaden.ts), OCR-Worker, OCR-Kern, englische
  * Sprachdaten. Sie stehen unter festen Namen in `doccheck/` (tesseract.js
  * setzt die Dateinamen selbst zusammen, Hash-Namen fände es nicht).
  *
@@ -88,6 +34,12 @@ const DOCCHECK_DATEIEN: [string, string][] = [
   ...['', 'simd-', 'relaxedsimd-'].map((v): [string, string] => [`doccheck/ocr/tesseract-core-${v}lstm.wasm.js`, `node_modules/tesseract.js-core/tesseract-core-${v}lstm.wasm.js`]),
   ['doccheck/ocr/eng.traineddata.gz', 'node_modules/@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz'],
   ...readdirSync('node_modules/pdfjs-dist/standard_fonts').map((f): [string, string] => [`doccheck/pdf-fonts/${f}`, `node_modules/pdfjs-dist/standard_fonts/${f}`]),
+  // quickjs-eval gehört zur Skript-Sandbox von pdf.js — DocCheck führt
+  // keine PDF-Skripte aus (isEvalSupported: false).
+  ...readdirSync('node_modules/pdfjs-dist/wasm')
+    .filter((f) => !f.startsWith('quickjs'))
+    .map((f): [string, string] => [`doccheck/pdf-wasm/${f}`, `node_modules/pdfjs-dist/wasm/${f}`]),
+  ...readdirSync('node_modules/pdfjs-dist/iccs').map((f): [string, string] => [`doccheck/pdf-iccs/${f}`, `node_modules/pdfjs-dist/iccs/${f}`]),
 ]
 
 function docCheckDateien(): Plugin {
@@ -109,124 +61,82 @@ function docCheckDateien(): Plugin {
   }
 }
 
+/**
+ * Erzeugt beim Build einen Service Worker (dist/sw.js), der die gebauten
+ * Dateien vorab cached. Damit startet die App offline (z. B. im
+ * Simulator-Gebäude ohne Empfang) und meldet neue Versionen an die
+ * UpdateBanner-Komponente.
+ *
+ * Hier wird nur eingelesen. Was vorab auf jedes Gerät kommt
+ * (`nurNachgeladen`, `dateiListe`), wie der Cache heißt (`cacheName`) und
+ * der Text des Workers (`swQuelle`) stehen in src/swQuelle.ts — dort greifen
+ * Testwache und Typprüfung (Audit 11/2026, TEC-01, TEC-16; Gegenprüfung
+ * L-CI: diese Logik lag hier ohne jeden Test).
+ */
 function serviceWorker(): Plugin {
   return {
     name: 'ic-service-worker',
     apply: 'build',
     generateBundle(_options, bundle) {
       const built = Object.keys(bundle).filter((f) => !f.endsWith('.map') && f !== 'sw.js')
-      const nachgeladen = nurNachgeladen(bundle)
       // public/ wird vollständig eingelesen, damit neue Dateien (Icons u. Ä.)
       // nicht vergessen werden.
       const extras = listPublicFiles()
-      // Sortiert, damit zwei Builds derselben Quellen byte-gleiche sw.js
-      // ergeben. Ohne die Sortierung wechselte allein die Reihenfolge der
-      // Schrift-Assets bei jedem Lauf; der Browser vergleicht den Worker
-      // byteweise, hielt ihn deshalb für neu und lud die Seite neu — ohne
-      // dass sich etwas geändert hätte, denn der Cache-Name (unten, über
-      // die sortierte Liste gebildet) blieb gleich.
-      // doccheck/: OCR- und Schriftdateien (siehe docCheckDateien) — nur bei
-      // Bedarf, nie vorab auf jedes Gerät.
-      const files = [...new Set(['./', './index.html', ...[...built.filter((f) => !nachgeladen.has(f) && !f.startsWith('doccheck/')), ...extras].sort().map((f) => './' + f)])]
-
-      // Cache-Name über den INHALT aller ausgelieferten Dateien: eine
-      // Version, die nur index.html oder ein Icon ändert, ergibt damit
-      // trotzdem einen neuen Worker — sonst bliebe das Update unbemerkt.
-      const hash = createHash('sha256')
-      hash.update(readFileSync('index.html'))
-      for (const f of extras) hash.update(readFileSync(join('public', f)))
-      for (const name of built.sort()) {
-        const chunk = bundle[name]
-        hash.update(name)
-        hash.update(chunk.type === 'chunk' ? chunk.code : Buffer.from(chunk.source as string | Uint8Array))
-      }
-      const cacheName = 'ic-' + hash.digest('hex').slice(0, 12)
-
-      const source = `/* Beim Build generiert (vite.config.ts) — nicht von Hand editieren. */
-const CACHE = '${cacheName}'
-const ASSETS = ${JSON.stringify(files)}
-
-self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)))
-})
-
-self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches
-      .keys()
-      // Nur eigene Caches aufräumen: unter *.github.io teilen sich mehrere
-      // Apps denselben Origin, fremde Caches bleiben unangetastet.
-      .then((keys) => Promise.all(keys.filter((k) => k.startsWith('ic-') && k !== CACHE).map((k) => caches.delete(k))))
-      .then(() => self.clients.claim()),
-  )
-})
-
-// Die UpdateBanner-Komponente schickt SKIP_WAITING, wenn der Nutzer
-// "Aktualisieren" antippt — erst dann übernimmt die neue Version.
-self.addEventListener('message', (e) => {
-  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting()
-})
-
-// Nur vollständige, fehlerfreie Antworten cachen — ein einzelner 404/503
-// würde sonst dauerhaft ausgeliefert und die App blockieren.
-// Nur vollstaendige, fehlerfreie Antworten VOM EIGENEN Server cachen.
-// Umleitung und Inhaltstyp gehoeren dazu: Eine Anmeldeseite im Gaeste-WLAN
-// (genau die Umgebung, fuer die net.ts eigens einen Inhaltstyp-Test hat)
-// beantwortet auch den Aufruf einer .js-Datei mit 200/HTML. Weil Dateien
-// cache-first ausgeliefert werden, bliebe diese Seite bis zum naechsten
-// Deployment im Cache — die App waere kaputt.
-function cacheable(r, url) {
-  if (!r || !r.ok || r.status !== 200 || r.type === 'opaque' || r.redirected) return false
-  const typ = (r.headers.get('content-type') || '').toLowerCase()
-  if (typ.includes('text/html') && !/\.html?$/.test(url.pathname)) return false
-  return true
+      const files = dateiListe(built, nurNachgeladen(bundle), extras)
+      // Die Quell-index.html und public/ mit eigener Vorsilbe: Namen aus dem
+      // Bundle dürfen mit ihnen nicht zusammenfallen.
+      const name = cacheName(
+        [
+          ['quelle/index.html', readFileSync('index.html')],
+          ...extras.map((f): [string, Uint8Array] => ['public/' + f, readFileSync(join('public', f))]),
+          ...built.map((f): [string, string | Uint8Array] => {
+            const b = bundle[f]
+            return [f, b.type === 'chunk' ? b.code : b.source]
+          }),
+        ],
+        createHash('sha256'),
+      )
+      this.emitFile({ type: 'asset', fileName: 'sw.js', source: swQuelle(name, files) })
+    },
+  }
 }
 
-self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return
-  const url = new URL(e.request.url)
-  if (url.origin !== location.origin) return
-  if (e.request.mode === 'navigate') {
-    // Seitenaufrufe: Netz zuerst (frische Version), offline aus dem Cache.
-    //
-    // Die frische index.html wird bewusst NICHT in den Cache geschrieben:
-    // Sie gehört zu einem neuen Deployment, dessen Bundles erst der neue
-    // Service Worker vorlädt. Landete sie im Precache und schlug danach
-    // der Bundle-Download fehl (Funkloch beim Betreten des Gebäudes),
-    // blieb ein vergifteter Cache zurück — eine index.html, deren Bundle
-    // dort nicht existiert, und die App startete offline nie wieder.
-    // Der Precache aus der Installation ist als PAAR konsistent; er ist
-    // der einzige richtige Offline-Rückfall.
-    // Mit ZEITGRENZE: Ohne sie haengt der Seitenaufruf im Hangar mit einem
-    // Balken Empfang am Netz-Timeout des Systems (zig Sekunden), bevor
-    // ueberhaupt in den Cache geschaut wird — die App wirkt tot, obwohl
-    // alles lokal vorliegt. Nach 2,5 s gewinnt der Cache.
-    const ausCache = () => caches.match(e.request).then((hit) => hit || caches.match('./'))
-    e.respondWith(
-      Promise.race([
-        fetch(e.request).catch(() => ausCache()),
-        new Promise((res) => setTimeout(() => res(ausCache().then((hit) => hit || fetch(e.request))), 2500)),
-      ]),
-    )
-    return
+/**
+ * Content-Security-Policy als `<meta>` in der gebauten index.html — NUR im
+ * Build: `vite dev` mit dem React-Plugin braucht ein Inline-Skript, das die
+ * Richtlinie abwiese. Inhalt und Begründung je Quelle in src/csp.ts
+ * (Audit 11/2026, SEC-07). Ganz vorn im Kopf, weil eine Meta-CSP nur für
+ * das gilt, was NACH ihr geladen wird.
+ */
+function inhaltsRichtlinie(konfig: BackendKonfig | null): Plugin {
+  return {
+    name: 'ic-csp',
+    apply: 'build',
+    transformIndexHtml: () => [{ tag: 'meta', attrs: { 'http-equiv': 'Content-Security-Policy', content: cspFuer(konfig) }, injectTo: 'head-prepend' }],
   }
-  // Assets sind inhaltsgehasht: Cache zuerst, Netz als Fallback
-  e.respondWith(
-    caches.match(e.request).then(
-      (hit) =>
-        hit ||
-        fetch(e.request).then((r) => {
-          if (cacheable(r, url)) {
-            const copy = r.clone()
-            caches.open(CACHE).then((c) => c.put(e.request, copy))
-          }
-          return r
-        }),
-    ),
-  )
-})
-`
-      this.emitFile({ type: 'asset', fileName: 'sw.js', source })
+}
+
+/**
+ * Kein Geheimnis im fertigen Bundle (Audit 11/2026, CIG-04). Die Prüfung
+ * der VITE_*-Werte unten sieht einen Schlüssel nicht, der fest im
+ * Quelltext steht — diese hier liest, was tatsächlich ausgeliefert würde:
+ * jeden Chunk und jede Text-Datei. Bewertet wird wie bei der Anmeldung
+ * (`geheimnisseImText` → `schluesselArt`), ein anon-JWT bleibt also erlaubt.
+ * `enforce: 'post'`, damit auch die index.html schon im Bundle liegt.
+ */
+function keinGeheimnisImBundle(): Plugin {
+  const text = /\.(m?js|css|html|json|webmanifest|svg|txt)$/
+  return {
+    name: 'ic-kein-geheimnis',
+    apply: 'build',
+    enforce: 'post',
+    generateBundle(_options, bundle) {
+      const funde: string[] = []
+      for (const [name, b] of Object.entries(bundle)) {
+        const inhalt = b.type === 'chunk' ? b.code : text.test(name) ? (typeof b.source === 'string' ? b.source : Buffer.from(b.source).toString('utf8')) : ''
+        for (const f of geheimnisseImText(inhalt)) funde.push(`${name}: ${f}`)
+      }
+      if (funde.length) this.error(`Build abgebrochen: geheimer Schlüssel im Bundle (${funde.join('; ')}). In die App gehört nur der öffentliche (publishable/anon) Schlüssel.`)
     },
   }
 }
@@ -237,13 +147,33 @@ self.addEventListener('fetch', (e) => {
 export default defineConfig(({ mode }) => {
   // Alle VITE_*-Werte landen fest im öffentlichen Bundle. Steht dort ein
   // Geheimnis (sb_secret_…, service_role, sk-ant-…), bricht der Build ab —
-  // bevor es auf GitHub Pages liegt.
-  const geheim = geheimeVariablen(loadEnv(mode, process.cwd(), 'VITE_'))
+  // bevor es auf GitHub Pages liegt. Was fest im Quelltext steht, findet
+  // `keinGeheimnisImBundle` (oben) im fertigen Bundle.
+  const env = loadEnv(mode, process.cwd(), 'VITE_')
+  const geheim = geheimeVariablen(env)
   if (geheim.length) throw new Error(`Build abgebrochen: ${geheim.join(', ')} enthält einen geheimen Schlüssel. In die App gehört nur der öffentliche (publishable/anon) Schlüssel.`)
   return {
   base: process.env.AC_BASE || './',
   // Der DocCheck-Worker ist ein ES-Modul (er lädt pdf.js dynamisch nach).
   worker: { format: 'es' },
-  plugins: [react(), docCheckDateien(), serviceWorker()],
+  // Warnschwelle für einzelne Chunks (Audit 11/2026, CIG-07). Das
+  // Startbundle liegt bei rund 700 kB (gzip gut 200 kB) und riss die
+  // Vorgabe von 500 kB bei JEDEM Build — Dauerrauschen in CI und e2e, in
+  // dem eine echte Warnung unterginge. Begründet statt aufgeteilt:
+  //  - Die PWA lädt das Startbundle ohnehin bei der Installation vorab;
+  //    jeder weitere Start kommt aus dem Cache.
+  //  - Im Audit gemessen (lokaler Server, iPhone-13-Profil, ohne Service
+  //    Worker): Inhalt nach 0,16 s, bei 4- bzw. 6-facher CPU-Drosselung
+  //    nach 0,49 bzw. 0,74 s.
+  //  - Was wirklich schwer ist, lädt schon nach: DocCheck mit Parsern und
+  //    Exportbibliotheken (`src/startbundle.test.ts` hält es draußen).
+  // Bewusst KEIN lazy() für den Verwaltungsbereich: `nurNachgeladen`
+  // (src/swQuelle.ts) nimmt alles aus dem Vorab-Cache, was ein Chunk unter src/modules/
+  // erreicht und die Startseite nicht statisch braucht. Teilten sich ein
+  // nachgeladener Admin-Chunk und DocCheck einen Chunk, fehlte er dort —
+  // die Verwaltung bräche offline. Die Schwelle lässt rund 100 kB Luft:
+  // Wächst das Startbundle darüber, meldet der Build es wieder.
+  build: { chunkSizeWarningLimit: 800 },
+  plugins: [react(), docCheckDateien(), serviceWorker(), inhaltsRichtlinie(backendKonfig(env).konfig), keinGeheimnisImBundle()],
   }
 })

@@ -16,8 +16,12 @@
  * IndexedDB ist asynchron, der Store liest aber synchron beim ersten
  * Render. Gelöst über eine Vorlade-Stufe: main.tsx wartet auf
  * preloadPersistedState(), erst danach startet React. readPreloadedState()
- * liefert dann synchron den vorgeladenen Stand.
+ * liefert dann synchron den vorgeladenen Stand. Das Warten hat eine
+ * Zeitgrenze (LESE_ZEITGRENZE_MS) — ohne sie blieb die Seite weiß, solange
+ * IndexedDB nicht antwortete.
  */
+
+import type { AppState } from './types'
 
 const DB_NAME = 'instructor-connect'
 const DB_STORE = 'kv'
@@ -27,6 +31,25 @@ const SYNC_CHANNEL = 'aaa-state-sync'
 
 /** Wird gemeldet, wenn ein Speichern fehlschlägt — vorher passierte das stumm. */
 export const STORAGE_ERROR_EVENT = 'aaa-storage-error'
+/**
+ * Wird gemeldet, wenn ein Speichern WIEDER klappt.
+ *
+ * Der rote Streifen kannte nur „fehlgeschlagen": Nach einem einzigen
+ * Fehlschlag blieb er stehen, auch wenn jede weitere Änderung längst sicher
+ * lag — ein Dauer-Fehlalarm, der behauptete, Änderungen gingen verloren
+ * (Audit 11/2026, TEC-12).
+ */
+export const STORAGE_OK_EVENT = 'aaa-storage-ok'
+
+/**
+ * Wie lange der Start höchstens auf IndexedDB wartet.
+ *
+ * Bisher ohne Grenze: Antwortete `indexedDB.open` nicht (WebKit-Fehler beim
+ * Öffnen, eine Abfrage im Hintergrund), blieb die Seite weiß — ohne jede
+ * Meldung (Audit 11/2026, TEC-11; nachgestellt: nach 8 s 0 Zeichen). Ein
+ * Lesevorgang dauert sonst Millisekunden; drei Sekunden sind ein Ausfall.
+ */
+export const LESE_ZEITGRENZE_MS = 3000
 
 let dbPromise: Promise<IDBDatabase> | null = null
 
@@ -106,6 +129,9 @@ let idbBroken = false
  * geladen werden muss.
  */
 let readFailed = false
+/** Der Stand wurde beiseitegelegt, die App lädt gleich neu — bis dahin nichts
+ *  mehr schreiben (siehe standBeiseitelegen). */
+let beiseitegelegt = false
 
 /** Konnte der gespeicherte Bestand nicht gelesen werden? */
 export function storageReadFailed(): boolean {
@@ -126,12 +152,9 @@ export async function preloadPersistedState(): Promise<void> {
   } catch {
     /* ohne localStorage gibt es nichts zu migrieren */
   }
-  try {
+  const ausIndexedDb = async (): Promise<string | null> => {
     const stored = await idbGet(STATE_KEY)
-    if (stored !== null) {
-      preloaded = stored
-      return
-    }
+    if (stored !== null) return stored
     if (legacy !== null) {
       await idbSet(STATE_KEY, legacy)
       try {
@@ -140,20 +163,60 @@ export async function preloadPersistedState(): Promise<void> {
         /* verbleibender Alteintrag stört nicht — IndexedDB gewinnt künftig */
       }
     }
-    preloaded = legacy
+    return legacy
+  }
+  let zeitgeber: ReturnType<typeof setTimeout> | undefined
+  const zeitUm = new Promise<'zeit'>((resolve) => {
+    zeitgeber = setTimeout(() => resolve('zeit'), LESE_ZEITGRENZE_MS)
+  })
+  try {
+    const gelesen = ausIndexedDb()
+    const ergebnis = await Promise.race([gelesen.then((stand) => ({ stand })), zeitUm])
+    if (ergebnis === 'zeit') {
+      /*
+       * IndexedDB antwortet nicht. Das ist KEIN Beleg, dass dort nichts
+       * liegt — anders als ein Fehler beim Öffnen sagt es nicht einmal, dass
+       * die Datenbank unbrauchbar ist. Deshalb gilt hier immer readFailed,
+       * auch wenn ein localStorage-Altstand da ist: Der könnte älter sein
+       * als das, was in der stummen Datenbank liegt. Angezeigt wird, was da
+       * ist; geschrieben wird nichts, und der Warnstreifen sagt es.
+       */
+      idbBroken = true
+      readFailed = true
+      preloaded = legacy
+      // Kommt die Antwort doch noch, ist der Start längst gelaufen — sie
+      // wird verworfen, ein später Fehler ebenso.
+      gelesen.catch(() => undefined)
+      return
+    }
+    preloaded = ergebnis.stand
   } catch {
     idbBroken = true
     preloaded = legacy
     // Nur wenn es auch keinen localStorage-Stand gibt, ist der Bestand
     // wirklich unbekannt — dann darf nichts überschrieben werden.
     readFailed = legacy === null
+  } finally {
+    clearTimeout(zeitgeber)
   }
-  // Den Browser bitten, die Ablage nicht bei Platzmangel zu räumen —
-  // auf einem Nachweissystem darf der Verlauf nicht heimlich verschwinden.
+}
+
+/**
+ * Den Browser bitten, die Ablage nicht bei Platzmangel zu räumen — auf
+ * einem Nachweissystem darf der Verlauf nicht heimlich verschwinden.
+ *
+ * Wurde früher VOR dem ersten Render abgewartet. Firefox fragt dafür den
+ * Nutzer; solange die Abfrage offen war, blieb die App leer (Audit 11/2026,
+ * TEC-11). Jetzt stößt StorageBanner die Bitte nach dem ersten Render an,
+ * und niemand wartet auf die Antwort: Ohne Zusage ändert sich am Verhalten
+ * nichts.
+ */
+export function ablageDauerhaftBitten(): void {
   try {
-    await navigator.storage?.persist?.()
+    // Auch eine abgelehnte Bitte bleibt still — sie ist rein vorsorglich.
+    navigator.storage?.persist?.()?.catch(() => undefined)
   } catch {
-    /* rein vorsorglich; ohne Zusage ändert sich am Verhalten nichts */
+    /* ältere Browser, private Fenster: keine Zusage, kein Unterschied */
   }
 }
 
@@ -174,6 +237,10 @@ export function readPreloadedState(): string | null {
  * Merker zurueck und versucht es erneut.
  */
 export async function persistState(payload: string): Promise<boolean> {
+  // Zwischen „beiseitegelegt" und dem Neuladen: Der Stand im Speicher ist
+  // genau der, an dem die App abstürzte — ihn jetzt zu schreiben, machte
+  // den Ausweg zunichte.
+  if (beiseitegelegt) return false
   // Nach einem Lesefehler wird nichts geschrieben: Was nicht gelesen werden
   // konnte, darf nicht überschrieben werden.
   if (readFailed) {
@@ -187,7 +254,7 @@ export async function persistState(payload: string): Promise<boolean> {
       window.dispatchEvent(new CustomEvent(STORAGE_ERROR_EVENT))
       return false
     }
-    broadcast(payload)
+    gesichert(payload)
     return true
   }
   try {
@@ -196,8 +263,14 @@ export async function persistState(payload: string): Promise<boolean> {
     window.dispatchEvent(new CustomEvent(STORAGE_ERROR_EVENT))
     return false
   }
-  broadcast(payload)
+  gesichert(payload)
   return true
+}
+
+/** Nach einem gelungenen Schreiben: Streifen zurücknehmen (TEC-12), dann die anderen Tabs rufen. */
+function gesichert(payload: string) {
+  window.dispatchEvent(new CustomEvent(STORAGE_OK_EVENT))
+  broadcast(payload)
 }
 
 /**
@@ -228,6 +301,76 @@ export function backupPersistedState(raw: string, version: number | undefined): 
   idbSet(key, raw).catch(() => {
     window.dispatchEvent(new CustomEvent(STORAGE_ERROR_EVENT))
   })
+}
+
+/**
+ * Den vorgeladenen Rohstand in einen Zustand übersetzen — oder beiseitelegen.
+ *
+ * Die Entscheidung stand in store.tsx, und dort fehlte ein Fall: War der
+ * Rohstand gar kein lesbares JSON, lieferte der `catch` stumm `null`, die
+ * App startete auf dem Seed und schrieb ihn 400 ms später über den einzigen
+ * vorhandenen Rohstand — mögliche Reste unterschriebener Formulare waren
+ * unwiederbringlich weg (Audit 11/2026, TEC-06). Jetzt gilt für JEDEN Stand,
+ * der nicht geladen wird, dieselbe Regel wie beim Versionssprung: erst
+ * beiseitelegen, dann auf dem Seed starten.
+ *
+ * @param version erwartete STATE_VERSION (steht im Store, der die Form kennt)
+ */
+export function ladeStand(raw: string | null, version: number): AppState | null {
+  if (!raw) return null
+  let parsed: { v?: unknown; state?: AppState } | null
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    // Unlesbar: Version unbekannt — der Schlüssel heißt dann `…-vunknown-…`.
+    backupPersistedState(raw, undefined)
+    return null
+  }
+  if (!parsed || typeof parsed !== 'object' || parsed.v !== version || !Array.isArray(parsed.state?.users) || !parsed.state.users.length) {
+    // NICHT löschen: Ein Sprung der STATE_VERSION verwarf früher den gesamten
+    // Bestand — unterschriebene Formulare eingeschlossen — und zwar wortlos.
+    backupPersistedState(raw, typeof parsed?.v === 'number' ? parsed.v : undefined)
+    return null
+  }
+  return parsed.state
+}
+
+/**
+ * Den gespeicherten Stand beiseitelegen, damit die App frisch startet — OHNE
+ * die vorhandenen Sicherungen anzutasten.
+ *
+ * Der Ausweg aus einer App, die an ihrem eigenen Stand abstürzt (Audit
+ * 11/2026, TEC-07): Vorher blieb nur, die Websitedaten von Hand zu löschen,
+ * samt aller Nachweise. `clearPersistedState` taugt dafür nicht — es räumt
+ * die Sicherungen mit. Gelöscht wird erst, wenn die Sicherung geschrieben
+ * ist; danach schreibt dieser Tab nichts mehr, bis er neu geladen ist.
+ *
+ * Liefert, ob es geklappt hat. Bei `false` ist nichts gelöscht.
+ */
+export async function standBeiseitelegen(): Promise<boolean> {
+  const key = `${STATE_KEY}-backup-reset-${Date.now()}`
+  // Schon VOR dem Lesen sperren: Ein Schreibvorgang zwischen Sichern und
+  // Löschen legte den Absturzstand sonst gleich wieder ab.
+  beiseitegelegt = true
+  try {
+    if (idbBroken) {
+      const raw = localStorage.getItem(STATE_KEY)
+      if (raw !== null) {
+        localStorage.setItem(key, raw)
+        localStorage.removeItem(STATE_KEY)
+      }
+    } else {
+      const raw = await idbGet(STATE_KEY)
+      if (raw !== null) {
+        await idbSet(key, raw)
+        await idbDel(STATE_KEY)
+      }
+    }
+  } catch {
+    beiseitegelegt = false
+    return false
+  }
+  return true
 }
 
 /* ===================== Mehrere Tabs ===================== */

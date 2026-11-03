@@ -1,5 +1,6 @@
 import JSZip from 'jszip'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { lokalIso } from '../../../datum'
 import { SBX_FL_01, SBX_FL_01_WERTE, sbxFl01 } from '../benchmark/sbx'
 import { blattRaster } from '../parse/xlsx'
 import {
@@ -15,6 +16,7 @@ import {
   GEAENDERTE_TEILE,
   inlineZelle,
   listenWerte,
+  NAME_MAX,
   neuBerechnen,
   rueckschreiben,
   spaltenBreite,
@@ -34,6 +36,26 @@ const teile = async (d: Uint8Array) => {
   const out: Record<string, string> = {}
   for (const [p, f] of Object.entries(zip.files)) if (!f.dir) out[p] = await f.async('string')
   return out
+}
+
+/**
+ * „Alle übrigen Teile byte-genau" (CLAUDE.md) — wörtlich (Audit 11/2026,
+ * CIG-02). Vorher lief der Vergleich als Text und nur über die Teile, die
+ * es VORHER gab: Ein zusätzlich eingefügter Teil (etwa ein externer Bezug,
+ * der in Excel eine Sicherheitswarnung auslöst) blieb unbemerkt, solange die
+ * Funktion ihn nicht selbst meldete. Jetzt muss die Menge der Teile genau
+ * stimmen: was wegfällt (`weg`), was dazukommt (`neu`), sonst nichts.
+ */
+async function nurErlaubteTeile(orig: Uint8Array, daten: Uint8Array, erlaubt: Set<string>, { weg = [] as string[], neu = [] as string[] } = {}) {
+  const roh = async (d: Uint8Array) => {
+    const zip = await JSZip.loadAsync(d)
+    const out: Record<string, Uint8Array> = {}
+    for (const [p, f] of Object.entries(zip.files)) if (!f.dir) out[p] = await f.async('uint8array')
+    return out
+  }
+  const [vorher, nachher] = [await roh(orig), await roh(daten)]
+  expect(Object.keys(nachher).sort()).toEqual([...Object.keys(vorher).filter((p) => !weg.includes(p)), ...neu].sort())
+  for (const p of Object.keys(vorher)) if (!erlaubt.has(p)) expect(Buffer.from(nachher[p]).equals(Buffer.from(vorher[p])), p).toBe(true)
 }
 
 describe('Zellen auf XML-Ebene', () => {
@@ -185,9 +207,9 @@ describe('Round-Trip SBX-FL-01 (Nachtrag 6.5 Abnahme)', () => {
     })
     const nachher = await teile(r.daten)
 
-    // Unveränderte Teile: byte-gleich (Inhalt der ZIP-Einträge)
+    // Unveränderte Teile: byte-gleich (Inhalt der ZIP-Einträge); kein Teil dazu, nur calcChain weg
     const erlaubt = new Set([...GEAENDERTE_TEILE, 'xl/worksheets/sheet1.xml', 'xl/worksheets/sheet2.xml'])
-    for (const p of Object.keys(vorher)) if (!erlaubt.has(p)) expect(nachher[p], p).toBe(vorher[p])
+    await nurErlaubteTeile(orig, r.daten, erlaubt, { weg: ['xl/calcChain.xml'] })
     expect(new Set(r.geaendert)).toEqual(erlaubt)
     expect(nachher['xl/calcChain.xml']).toBeUndefined()
     expect(nachher['xl/workbook.xml']).toContain('<calcPr calcId="191029" fullCalcOnLoad="1"/>')
@@ -231,6 +253,51 @@ describe('Round-Trip SBX-FL-01 (Nachtrag 6.5 Abnahme)', () => {
     expect(ohne.geaendert).not.toContain('xl/styles.xml')
     await expect(rueckschreiben(orig, { blatt: 'X', kopfZeile: 1, remarkTitel: 'R', zeilen: [] })).rejects.toThrow('DC-XLSX-SHEET')
     expect(ausgabeName('SBX-FL-01.XLSX', '2026-11-01T10:00:00Z')).toBe('SBX-FL-01_recheck_2026-11-01.xlsx')
+  })
+})
+
+describe('Ausgabename (N3.5; Audit 11/2026, EXM-01/EXM-05)', () => {
+  let vorher: string | undefined
+  beforeEach(() => {
+    vorher = process.env.TZ
+    process.env.TZ = 'Europe/Vienna'
+  })
+  afterEach(() => {
+    if (vorher === undefined) delete process.env.TZ
+    else process.env.TZ = vorher
+  })
+
+  it('Tag des Nutzers: Wien 00:30 ergibt den 02.11., nicht den UTC-Vortag', () => {
+    const datum = lokalIso(Date.parse('2026-11-01T23:30:00Z'))
+    expect(ausgabeName('SBX-FL-01_Findings.xlsx', datum)).toBe('SBX-FL-01_Findings_recheck_2026-11-02.xlsx')
+    // Sommerzeit: bis 02:00 Ortszeit
+    expect(ausgabeName('fl.xlsx', lokalIso(Date.parse('2026-07-01T23:30:00Z')))).toBe('fl_recheck_2026-07-02.xlsx')
+    // Dieselbe Form für die CSV des Re-Checks — Endung der Liste fällt weg
+    expect(ausgabeName('fl.csv', datum, 'csv')).toBe('fl_recheck_2026-11-02.csv')
+    expect(ausgabeName('fl.TXT', datum, 'csv')).toBe('fl_recheck_2026-11-02.csv')
+  })
+
+  it('langer Name: unter 150 Zeichen, endet immer auf „_recheck_<Tag>.xlsx", gekürzt am Trenner', () => {
+    const datum = lokalIso(Date.parse('2026-11-01T23:30:00Z'))
+    // Wie beim Prüfer: 240 Zeichen Stamm ergaben 264
+    const lang = `${'Findings list Training Manual Appendix 4 Line Training '.repeat(5)}Rev 2.xlsx`
+    const n = ausgabeName(lang, datum)
+    expect(n.length).toBeLessThan(150)
+    expect(n.length).toBeLessThanOrEqual(NAME_MAX)
+    expect(n.endsWith('_recheck_2026-11-02.xlsx')).toBe(true)
+    // Wortende statt Wortrest, kein Trenner vor dem Zusatz
+    const stamm = n.slice(0, -'_recheck_2026-11-02.xlsx'.length)
+    expect(lang.startsWith(stamm)).toBe(true)
+    expect(lang[stamm.length]).toMatch(/[\s_.-]/)
+    expect(stamm).not.toMatch(/[\s_.-]$/)
+    // Ohne Trenner im letzten Viertel: hart geschnitten, nicht auf einen Bruchteil
+    const ohne = ausgabeName(`${'x'.repeat(300)}.xlsx`, datum)
+    expect(ohne).toBe(`${'x'.repeat(NAME_MAX - 24)}_recheck_2026-11-02.xlsx`)
+    // Gezählt in Byte (Dateisysteme), geschnitten nach Zeichen: kein halbes Emoji, Umlaute zählen doppelt
+    const emoji = ausgabeName(`${'😀'.repeat(200)}.xlsx`, datum)
+    expect(new TextEncoder().encode(emoji).length).toBeLessThanOrEqual(NAME_MAX)
+    expect(emoji).toBe(`${'😀'.repeat(29)}_recheck_2026-11-02.xlsx`)
+    expect(new TextEncoder().encode(ausgabeName(`${'Überprüfung '.repeat(30)}.xlsx`, datum)).length).toBeLessThanOrEqual(NAME_MAX)
   })
 })
 
@@ -309,7 +376,8 @@ describe('Blatt „New findings" (Nachtrag N3.1 Schritt 6, N3.5)', () => {
     const pfad = 'xl/worksheets/sheet4.xml'
     // Zeile 5 steht schon auf „Closed" — die Zählformeln im Übersichtsblatt ändern sich nicht
     const erlaubt = new Set([...GEAENDERTE_TEILE, 'xl/worksheets/sheet1.xml', pfad, 'docProps/app.xml'])
-    for (const p of Object.keys(vorher)) if (!erlaubt.has(p)) expect(nachher[p], p).toBe(vorher[p])
+    // Dazu kommt genau das neue Blatt (ohne eigene Beziehungen), calcChain fällt weg
+    await nurErlaubteTeile(orig, r.daten, erlaubt, { weg: ['xl/calcChain.xml'], neu: [pfad] })
     expect(new Set(r.geaendert)).toEqual(erlaubt)
 
     // Name „Findings" ist vergeben → „Findings (2)"; eingetragen in Mappe, Beziehungen, Typen, app.xml

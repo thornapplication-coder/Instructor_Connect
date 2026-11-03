@@ -1,5 +1,5 @@
-import { LESSON_CATEGORIES, type AppState } from '../types'
-import { GRADING_DEFAULTS } from './gradingDefaults'
+import { LESSON_CATEGORIES, type AppState, type GradingRecord, type GradingSettings } from '../types'
+import { FELD_NACHTRAEGE, GRADING_DEFAULTS } from './gradingDefaults'
 import { IMPRINT_DE, IMPRINT_EN } from './imprintDefaults'
 
 const h = 3600_000
@@ -28,15 +28,17 @@ export function createSeedState(): AppState {
   // Die Seed-Formulare wurden gegen den ausgelieferten Katalog geschrieben —
   // ihr Wortlaut wird beim Aufbau eingefroren, damit spätere Katalogpflege
   // die bereits unterschriebenen Dokumente nicht rückwirkend umschreibt.
-  return {
-    ...seed,
-    gradingRecords: seed.gradingRecords.map((r) => {
-      if (r.competencies || r.trainees.length === 0) return r
-      const setKey = GRADING_DEFAULTS.formTypes.find((f) => f.id === r.formTypeId)?.competencySet
-      const set = setKey ? GRADING_DEFAULTS.competencySets.find((c) => c.key === setKey) : undefined
-      return set ? { ...r, competencies: set.competencies.map((c) => ({ code: c.code, title: c.title })) } : r
-    }),
-  }
+  return { ...seed, gradingRecords: seed.gradingRecords.map((r) => wortlautEinfrieren(r, GRADING_DEFAULTS)) }
+}
+
+/** Kompetenz-Wortlaut aus dem Katalog an das Formular heften — nur, wenn es
+ *  Piloten hat und noch keinen trägt. Ein Typ ohne (bekannten) Satz bleibt,
+ *  wie er ist: Raten wäre ein erfundener Wortlaut. */
+export function wortlautEinfrieren(r: GradingRecord, katalog: Pick<GradingSettings, 'formTypes' | 'competencySets'>): GradingRecord {
+  if (r.competencies || r.trainees.length === 0) return r
+  const setKey = katalog.formTypes.find((f) => f.id === r.formTypeId)?.competencySet
+  const set = setKey ? katalog.competencySets.find((c) => c.key === setKey) : undefined
+  return set ? { ...r, competencies: set.competencies.map((c) => ({ code: c.code, title: c.title })) } : r
 }
 
 function seedState(now: number): AppState {
@@ -60,9 +62,11 @@ function seedState(now: number): AppState {
         aircraftType: 'CL30',
         purpose: 'Austausch zum Autothrottle-Verhalten der CL30 im Simulator: Trainingsszenarien, Besonderheiten, Standardisierung.',
         adminIds: ['u-christian'],
-        memberIds: ['u-patrick', 'u-christian', 'u-michael'],
+        // Mika (nur C560 XLS+) stand hier als Mitglied, obwohl er die
+        // CL30-Gruppe nie betreten kann — die Pflicht „mindestens eine
+        // Gruppe" war damit auf dem Papier erfuellt (Audit 11/2026, KERN-07).
+        memberIds: ['u-patrick', 'u-christian'],
         retention: '30d',
-        muted: false,
       },
       {
         id: 'g-defects',
@@ -70,9 +74,9 @@ function seedState(now: number): AppState {
         aircraftType: 'C560 XLS+',
         purpose: 'Kurzfristige Meldungen zu Defekten und Einschränkungen der Simulatoren — Workarounds und Reparaturstatus.',
         adminIds: ['u-patrick'],
-        memberIds: ['u-patrick', 'u-christian', 'u-michael'],
+        // Ebenso Chris (nur CL30) in der C560-Gruppe.
+        memberIds: ['u-patrick', 'u-michael'],
         retention: '7d',
-        muted: false,
       },
       {
         id: 'g-ground',
@@ -82,13 +86,14 @@ function seedState(now: number): AppState {
         adminIds: ['u-christian'],
         memberIds: ['u-patrick', 'u-christian'],
         retention: '30d',
-        muted: false,
       },
     ],
     messages: [
       { id: 'm1', groupId: 'g-auto', authorId: 'u-christian', text: 'Beim Go-Around-Szenario in Session 3 bitte auf das Autothrottle-Verhalten nach TOGA achten — im Debriefing gestern gab es dazu mehrere Fragen.', createdAt: now - 2 * d },
-      { id: 'm2', groupId: 'g-auto', authorId: 'u-michael', text: 'Gibt es dazu eine Kurzreferenz? Auf der C560 XLS+ ist das Verfahren ja anders.', createdAt: now - 2 * d + 25 * 60_000 },
-      { id: 'm3', groupId: 'g-auto', authorId: 'u-patrick', text: 'Ja — in der Instructor Info liegt das Standard Briefing, dort ist der Unterschied beschrieben.', createdAt: now - 2 * d + 40 * 60_000 },
+      // m2 stammte von Mika — in einer Gruppe, die er selbst nicht sehen kann.
+      // Gefragt hat jetzt Alex, der beide Muster fliegt; geantwortet Chris.
+      { id: 'm2', groupId: 'g-auto', authorId: 'u-patrick', text: 'Gibt es dazu eine Kurzreferenz? Auf der C560 XLS+ ist das Verfahren ja anders.', createdAt: now - 2 * d + 25 * 60_000 },
+      { id: 'm3', groupId: 'g-auto', authorId: 'u-christian', text: 'Ja — in der Instructor Info liegt das Standard Briefing, dort ist der Unterschied beschrieben.', createdAt: now - 2 * d + 40 * 60_000 },
       { id: 'm4', groupId: 'g-defects', authorId: 'u-patrick', text: 'Challenger-350-Sim: Ruderpedale links melden sporadisch Force-Feedback-Aussetzer. Technik ist informiert, Workaround siehe Instructor Info.', createdAt: now - 26 * h },
       { id: 'm5', groupId: 'g-defects', authorId: 'u-michael', text: 'Im Citation-Sim ist der IOS-Touchscreen rechts träge — Neustart hilft kurzfristig.', createdAt: now - 5 * h, attachment: { name: 'ios-touchscreen.jpg', kind: 'image', sizeMB: 1.4 } },
       { id: 'm6', groupId: 'g-ground', authorId: 'u-christian', text: 'Ground Training „Performance & Limitations CL30“ am Donnerstag 09:00, Schulungsraum 1. Unterlagen liegen in der Instructor Info.', createdAt: now - 24 * h },
@@ -102,7 +107,7 @@ function seedState(now: number): AppState {
         question: 'Passt Mittwoch 17:00 für das Standardisierungsbriefing Autothrottle?',
         type: 'yesno',
         options: [],
-        votes: { 'u-patrick': 0, 'u-michael': 0 },
+        votes: { 'u-patrick': 0 },
         closed: false,
         // Gültigkeit ist Pflicht, seit Umfragen ein Ablaufdatum tragen —
         // die Seed-Umfragen führen sie deshalb ebenfalls.
@@ -116,7 +121,7 @@ function seedState(now: number): AppState {
         question: 'Welcher Slot passt für den Technik-Check des Challenger-Sims?',
         type: 'multi',
         options: ['Montag früh', 'Mittwoch Abend', 'Samstag'],
-        votes: { 'u-christian': 1, 'u-michael': 1 },
+        votes: { 'u-patrick': 1, 'u-michael': 1 },
         closed: false,
         validUntil: now + 5 * d,
         createdAt: now - 4 * h,
@@ -206,6 +211,8 @@ function seedState(now: number): AppState {
       },
     ],
     starredInfo: { 'u-michael': ['i2'] },
+    // Stummschalten je Nutzer (chatMute.ts) — ab Werk niemand stumm.
+    mutedGroups: {},
     contacts: [
       { id: 'c1', department: 'Simulator-Technik', position: 'FSTD-Technik', name: 'Daniel Düsentrieb', phone: '+43 1 5550 200', email: 'daniel.duesentrieb@aviationacademy.at' },
       { id: 'c2', department: 'Training', position: 'Training Admin', name: 'Sam Beispiel', phone: '+43 1 5550 300', email: 'training.admin@aviationacademy.at' },
@@ -252,6 +259,10 @@ function seedState(now: number): AppState {
     // stellte sie beim nächsten Laden wieder her.
     seedHistoryMigrated: true,
     aircraftBackfilled: true,
+    // Der Seed-Katalog führt die nachgetragenen Felder schon selbst.
+    formularNachtraege: FELD_NACHTRAEGE.map((n) => n.marke),
+    // Gruppen ohne altes `muted` — der Verwurf in migrateState ist erledigt.
+    stummJeNutzer: true,
     timeOffsetMs: 0,
     seen: {},
     contactsChangedAt: now - 2 * d,
@@ -300,7 +311,10 @@ function seedState(now: number): AppState {
       { id: 'lp1', title: 'CL30 — Lesson Plan TR Session 1-4', description: 'Grundlagen Type Rating: Systeme, Normalverfahren, erste FFS-Sessions.', aircraftType: 'CL30', category: 'Type Rating', fileName: 'cl350-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 20 * d },
       { id: 'lp2', title: 'CL30 — Lesson Plan Recurrent OPC', description: 'Ablauf und Schwerpunkte der jährlichen OPC-Session im Simulator.', aircraftType: 'CL30', category: 'Recurrent', fileName: 'cl350-recurrent-opc.pdf', uploadedBy: 'u-christian', createdAt: now - 12 * d },
       { id: 'lp3', title: 'C560 XLS+ — Lesson Plan TR Session 1-4', description: 'Type Rating C560 XLS+: Systeme, SOPs, FFS-Einführung.', aircraftType: 'C560 XLS+', category: 'Type Rating', fileName: 'xls-tr-session-1-4.pdf', uploadedBy: 'u-patrick', createdAt: now - 18 * d },
-      { id: 'lp4', title: 'C560 XLS+ — Lesson Plan LVO / CAT II', description: 'Schulung für Allwetterflugbetrieb im Simulator.', aircraftType: 'C560 XLS+', category: 'Difference Training', fileName: 'xls-lvo.pdf', uploadedBy: 'u-christian', createdAt: now - 6 * d },
+      // Hochgeladen von Alex: Chris fliegt nur CL30 und könnte einen
+      // C560-Plan weder anlegen noch danach sehen (musterZurAuswahl,
+      // src/sandbox/seed.test.ts).
+      { id: 'lp4', title: 'C560 XLS+ — Lesson Plan LVO / CAT II', description: 'Schulung für Allwetterflugbetrieb im Simulator.', aircraftType: 'C560 XLS+', category: 'Difference Training', fileName: 'xls-lvo.pdf', uploadedBy: 'u-patrick', createdAt: now - 6 * d },
     ],
     gradingRecords: [
       /* Drei frühere Sessions von Sophie Berger — sie machen den Verlauf je
@@ -458,7 +472,10 @@ function seedState(now: number): AppState {
         id: 'gr4',
         formTypeId: '308G',
         instructorId: 'u-patrick',
-        header: { aircraftType: 'CL30', trainingDevice: 'FFS', event: 'TRI Standardisierung', date: iso(now - 2 * d), operation: 'MPO', program: 'PRG 1*', candidateQual: 'TRI Candidate', candidateSeat: 'RH Seat', coiSeat: 'IOS' },
+        // Ohne trainingDevice und event: 308G kennt beide Felder nicht, und die
+        // Forms-CSV zeigte „Device FFS" samt deutschem Event bei einem
+        // Instruktorenblatt (Audit 11/2026, L-FORMTYP#3).
+        header: { aircraftType: 'CL30', date: iso(now - 2 * d), operation: 'MPO', program: 'PRG 1*', candidateQual: 'TRI Candidate', candidateSeat: 'RH Seat', coiSeat: 'IOS', sessionTime: '04:00' },
         trainees: [
           {
             traineeId: '', traineeName: 'Chris Beispiel', position: '', seat: '',

@@ -1,27 +1,12 @@
 import { Lock, Plane } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Button, Card, inputCls, ThemeToggle } from '../components/ui'
+import { Avatar, Button, Card, inputCls, LanguageToggle, ThemeToggle } from '../components/ui'
+import { useDokumentTitel } from '../dokumentTitel'
+import { seitenUeberschriftFokussieren } from '../fokus'
 import { SANDBOX } from '../sandbox/flag'
 import { useStore } from '../store'
 import { APP_VERSION } from '../types'
-
-function LanguageToggle() {
-  const { i18n } = useTranslation()
-  return (
-    <div className="flex overflow-hidden rounded-lg border border-line/15 text-micro">
-      {(['de', 'en'] as const).map((lng) => (
-        <button
-          key={lng}
-          onClick={() => i18n.changeLanguage(lng)}
-          className={`min-h-11 px-2.5 py-1 font-medium uppercase transition ${i18n.language === lng ? 'bg-accent text-bg' : 'text-dim hover:text-ink'}`}
-        >
-          {lng}
-        </button>
-      ))}
-    </div>
-  )
-}
 
 export function Login() {
   const { t } = useTranslation()
@@ -42,14 +27,32 @@ export function Login() {
     }
   }
 
+  // Nach der Anmeldung verschwindet das Codefeld samt Fokus, und die
+  // Startseite erschien ohne ihn: Er stand auf <body>, die Sprachausgabe
+  // meldete nichts, Tastaturnutzer begannen vor der Kopfleiste (Audit
+  // 11/2026, A11Y-17). Die Überschrift der neuen Seite ist der Einstieg —
+  // wie nach jedem Seitenwechsel. Ein Bild später, weil die Seite erst
+  // gezeichnet sein muss.
+  const angemeldet = () => requestAnimationFrame(() => seitenUeberschriftFokussieren())
+
   const confirm = () => {
     if (!verifyLoginCode(code)) setError('code')
-    else setError('')
+    else {
+      setError('')
+      angemeldet()
+    }
   }
 
+  // Fenstertitel „Anmelden – Instructor Connect" wie jede andere Ansicht (A11Y-13).
+  useDokumentTitel(t('login.button'))
+
+  // <main>: Die Anmeldeseite hatte keine Hauptlandmarke — wer per
+  // Landmarke springt, fand das Formular nicht (Audit 11/2026, A11Y-14).
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6 py-10">
-      <div className="absolute right-4 flex items-center gap-1.5" style={{ top: 'calc(1rem + env(safe-area-inset-top, 0px))' }}>
+    <main className="flex flex-1 flex-col items-center justify-center px-6 py-10">
+      {/* Rechts im Querformat mit Sicherheitsbereich: Die Kappe lag sonst
+          über DE/EN (MOB-07). */}
+      <div className="absolute flex items-center gap-1.5" style={{ top: 'calc(1rem + env(safe-area-inset-top, 0px))', right: 'max(1rem, env(safe-area-inset-right, 0px))' }}>
         <ThemeToggle />
         <LanguageToggle />
       </div>
@@ -151,7 +154,8 @@ export function Login() {
                 setStep('email')
                 setError('')
               }}
-              className="mx-auto block text-micro text-dim underline underline-offset-2 hover:text-ink"
+              // 44 px Trefferfläche wie jeder Knopf der App — die Zeile war 18 px hoch (KERN-20)
+              className="mx-auto block min-h-11 px-2 text-micro text-dim underline underline-offset-2 hover:text-ink"
             >
               {t('login.changeEmail')}
             </button>
@@ -173,7 +177,9 @@ export function Login() {
               .map((u) => (
                 <button
                   key={u.id}
-                  onClick={() => login(u.email)}
+                  onClick={() => {
+                    if (login(u.email)) angemeldet()
+                  }}
                   className="min-h-11 flex w-full items-center gap-2.5 rounded-xl px-2 py-1.5 text-left transition hover:bg-line/5"
                 >
                   <Avatar name={u.name} size={30} />
@@ -200,6 +206,6 @@ export function Login() {
           <p className="pt-1 text-dim">v{APP_VERSION}</p>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

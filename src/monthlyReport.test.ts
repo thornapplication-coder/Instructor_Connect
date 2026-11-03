@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { monthOf, monthRange, monthlyReport, monthsWithData, sameMonth } from './monthlyReport'
+import { formatDateTime } from './datum'
+import forms from './i18n/forms.json'
+import {
+  monatsBeschriftung,
+  monatsKennung,
+  monthlyCsv,
+  monthlyCsvName,
+  monthOf,
+  monthRange,
+  monthlyReport,
+  monthsWithData,
+  sameMonth,
+  type MonatsCsvKontext,
+  type MonatsSchluessel,
+} from './monthlyReport'
 import type { CompetencyGrade, Grade, GradingRecord, OverallResult, TraineeGrading } from './types'
 
 /**
@@ -233,5 +247,261 @@ describe('Kompetenzsätze werden nicht vermischt', () => {
     const r = monthlyReport([rec({ id: 'a', date: '2026-08-05' })], 'u1', AUG)
     expect(r.competencySet).toBe('pilot')
     expect(r.own.sessions).toBe(1)
+  })
+})
+
+/**
+ * Audit 11/2026, GRD-12 und GTY-02 (Teil Monatsbericht): Die Kachel sagte
+ * „Only your own sheets in this group — no comparison possible", die
+ * Kompetenztabelle darunter neunmal „0.00 vs your types". Und ein eigenes
+ * Blatt ohne Muster (308C/308D) fiel aus der Vergleichsgruppe — der Bericht
+ * wies bei lauter eigenen Blaettern „+0.25 vs your types" aus.
+ */
+describe('Vergleich nur, wo jemand anderes verglichen werden kann', () => {
+  const blatt = (id: string, note: Grade, over: Partial<GradingRecord> = {}) =>
+    rec({ id, date: '2026-08-05', batchId: id, trainees: [trainee([g('KNO', note), g('PRO', note)])], ...over })
+
+  it('nur eigene Blaetter in der Flotte: deltaFleet je Zeile null, deltaAll eine Zahl bei fremder Flotte', () => {
+    const eigen = blatt('a', 4)
+    const fremdeFlotte = blatt('b', 2, { instructorId: 'u2', header: { date: '2026-08-05', aircraftType: 'CL30' } })
+    const r = monthlyReport([eigen, fremdeFlotte], 'u1', AUG)
+    expect(r.fleetHasOthers).toBe(false)
+    expect(r.competencies.map((c) => c.deltaFleet)).toEqual([null, null])
+    expect(r.competencies.map((c) => c.deltaAll)).toEqual([1, 1])
+  })
+
+  it('ein eigenes Blatt ohne Muster gehoert zur eigenen Vergleichsgruppe', () => {
+    const mitMuster = blatt('a', 4)
+    const ohneMuster = blatt('b', 2, { formTypeId: '308C', header: { date: '2026-08-06' } })
+    const r = monthlyReport([mitMuster, ohneMuster], 'u1', AUG)
+    expect(r.fleet.sessions).toBe(r.own.sessions)
+    expect(r.fleet.mean).toBe(r.own.mean)
+    expect(r.deltaFleet).toBe(0)
+    expect(r.competencies.every((c) => c.deltaFleet === null && c.deltaAll === null)).toBe(true)
+  })
+
+  it('ohne jedes Muster vergleicht die Flottengruppe mit den eigenen Blaettern, nicht mit nichts', () => {
+    const r = monthlyReport([blatt('a', 3, { header: { date: '2026-08-05' } })], 'u1', AUG)
+    expect(r.fleets).toEqual([])
+    expect(r.fleet.sessions).toBe(1)
+  })
+
+  it('je Kompetenz: ein Kollege, der sie nicht (oder nur mit „NO") bewertet hat, liefert keinen Vergleich', () => {
+    const eigen = blatt('a', 4)
+    const kollege = rec({
+      id: 'k', date: '2026-08-06', instructorId: 'u2', batchId: 'k',
+      trainees: [trainee([g('KNO', 2), g('PRO', 'NO')])],
+    })
+    const r = monthlyReport([eigen, kollege], 'u1', AUG)
+    expect(r.fleetHasOthers).toBe(true)
+    const zeile = (code: string) => r.competencies.find((c) => c.code === code)!
+    expect(zeile('KNO').deltaFleet).toBe(1)
+    expect(zeile('PRO').deltaFleet).toBeNull()
+    expect(zeile('PRO').deltaAll).toBeNull()
+  })
+})
+
+/**
+ * Audit 11/2026, GRD-21/GTY-08: Der Bericht zeigt einen Kompetenzsatz und
+ * liess die eigenen Blaetter des anderen ohne Hinweis weg.
+ */
+describe('Der Bericht nennt, was er weglaesst', () => {
+  const setOf = (r: GradingRecord) => (r.formTypeId === '308G' ? ('instructor' as const) : ('pilot' as const))
+
+  it('2 Pilotenblaetter und 1 Instruktorblatt: Satz „pilot", ein Durchgang ausgelassen', () => {
+    const p1 = rec({ id: 'p1', date: '2026-08-04', batchId: 'p1', trainees: [trainee([g('KNO', 3), g('PRO', 3)])] })
+    const p2 = rec({ id: 'p2', date: '2026-08-05', batchId: 'p2', trainees: [trainee([g('KNO', 3), g('PRO', 3)])] })
+    const instr = rec({ id: 'i1', date: '2026-08-06', formTypeId: '308G', trainees: [trainee([g('PRE', 4), g('CLI', 'NO'), g('PRK', 5)])] })
+    // Ein fremdes 308G zaehlt nicht als eigene ausgelassene Arbeit.
+    const fremd = rec({ id: 'i2', date: '2026-08-06', instructorId: 'u2', formTypeId: '308G' })
+    const r = monthlyReport([p1, p2, instr, fremd], 'u1', AUG, setOf)
+    expect(r.competencySet).toBe('pilot')
+    expect(r.own.sessions).toBe(2)
+    expect(r.ausgelassen).toEqual({ set: 'instructor', sessions: 1, grades: 2 })
+  })
+
+  it('meldet umgekehrt die Pilotenblaetter, wenn der Instruktorensatz ueberwiegt', () => {
+    const instr = rec({ id: 'i1', date: '2026-08-06', formTypeId: '308G', trainees: [trainee([g('PRE', 4), g('CLI', 4)])] })
+    const pilot = rec({ id: 'p1', date: '2026-08-04' })
+    const r = monthlyReport([instr, pilot], 'u1', AUG, setOf)
+    expect(r.competencySet).toBe('instructor')
+    expect(r.ausgelassen).toEqual({ set: 'pilot', sessions: 1, grades: 1 })
+  })
+
+  it('ohne Blaetter des anderen Satzes ist nichts ausgelassen', () => {
+    expect(monthlyReport([rec({ id: 'a', date: '2026-08-05' })], 'u1', AUG, setOf).ausgelassen).toEqual({
+      set: 'instructor',
+      sessions: 0,
+      grades: 0,
+    })
+  })
+})
+
+/**
+ * Audit 11/2026, RPT-01: Die Monats-CSV trug nur Zahlen — keine ATO, kein
+ * „Generated/By", keine Abweichung samt Einstufung, Prozentspalten ohne
+ * Einheit, und „You" auch, wenn jemand anderes exportierte.
+ */
+describe('monthlyCsv — die Datei trägt die Aussage', () => {
+  /** Die echten Wörter aus forms.json — die Datei soll sagen, was der
+   *  Bildschirm sagt, und ein fehlender Schlüssel fiele hier auf. */
+  const beschriftung = (k: MonatsSchluessel, werte?: { name: string }): string => {
+    const wert = k
+      .replace(/^forms:/, '')
+      .split('.')
+      .reduce<unknown>((o, teil) => (o as Record<string, unknown>)[teil], forms)
+    if (typeof wert !== 'string') throw new Error(`fehlt: ${k}`)
+    // Platzhalter wie i18next — ein Text mit „{{name}}" ohne Wert fiele auf.
+    return wert.replace(/\{\{name\}\}/g, () => {
+      if (!werte) throw new Error(`Platzhalter ohne Wert: ${k}`)
+      return werte.name
+    })
+  }
+  const JETZT = new Date(2026, 8, 2, 14, 5).getTime()
+  const ctx = (u: Partial<MonatsCsvKontext> = {}): MonatsCsvKontext => ({
+    atoName: 'Aviation Academy Austria',
+    zulassung: 'AT.ATO.106',
+    instruktor: 'Mika Beispiel',
+    satzName: (k) => (k === 'pilot' ? 'Pilot competencies' : 'Instructor competencies'),
+    exportiertAm: JETZT,
+    exportiertVon: 'Mika Beispiel',
+    fremd: false,
+    beschriftung,
+    ...u,
+  })
+  const setOf = (r: GradingRecord) => (r.formTypeId === '308G' ? ('instructor' as const) : ('pilot' as const))
+  const blatt = (id: string, note: Grade, over: Partial<GradingRecord> = {}) =>
+    rec({ id, date: '2026-08-05', batchId: id, trainees: [trainee([g('KNO', note), g('PRO', note)])], ...over })
+  const zeilen = (csv: string) => csv.trimEnd().split('\n')
+
+  const bericht = () =>
+    monthlyReport(
+      [
+        blatt('a', 4),
+        blatt('b', 2, { instructorId: 'u2' }),
+        rec({ id: 'i1', date: '2026-08-06', formTypeId: '308G', trainees: [trainee([g('PRE', 4)])] }),
+      ],
+      'u1',
+      AUG,
+      setOf,
+    )
+
+  it('Kopf: Bericht, ATO und Zulassung, Monat, Instruktor, Satz, Ausgelassenes, Stempel', () => {
+    const z = zeilen(monthlyCsv(bericht(), ctx()))
+    expect(z.slice(0, 7)).toEqual([
+      'Instructor Connect — Monthly report',
+      'Aviation Academy Austria;AT.ATO.106',
+      'Month;August 2026',
+      'Instructor;Mika Beispiel',
+      'Competency set;Pilot competencies',
+      'Not included;Instructor competencies;Sessions;1;Grades given;1',
+      `Generated;${formatDateTime(JETZT)};Generated by;Mika Beispiel`,
+    ])
+  })
+
+  it('nennt die Abweichung samt Einstufung — die Aussage, nicht nur die Zahlen', () => {
+    const csv = monthlyCsv(bericht(), ctx())
+    expect(csv).toContain('Comparison;Deviation;Assessment')
+    // eigenes Mittel 4, Gruppe 3 → +1,00 bei zu wenig Daten: „insufficient"
+    expect(csv).toContain('vs your types;1,00;Too little data for a statement')
+    expect(csv).toContain('vs all;1,00;Too little data for a statement')
+    expect(csv).toContain('A positive value means you grade more leniently')
+  })
+
+  it('ohne fremde Blätter in der Gruppe steht der Grund, keine Zahl', () => {
+    const r = monthlyReport([blatt('a', 4)], 'u1', AUG, setOf)
+    const csv = monthlyCsv(r, ctx())
+    expect(csv).toContain('vs your types;;Only your own sheets in this group — no comparison possible.')
+    expect(csv).toContain('vs all;;Only your own sheets')
+  })
+
+  it('Anteile tragen ihre Einheit', () => {
+    const csv = monthlyCsv(bericht(), ctx())
+    expect(csv).toContain('Share 1–2 (%);0;50;50')
+    expect(csv).toContain('Share 4–5 (%);100;50;50')
+    expect(csv).toContain('Not competent (%);0;0;0')
+    expect(csv).not.toMatch(/^Share 1–2;/m)
+  })
+
+  /*
+   * Erwartung bewusst geändert (Audit 11/2026, R3-MONATSBERICHT): Statt
+   * „Instructor" steht der Name — dieselbe Regel wie auf dem Bildschirm
+   * (monatsBeschriftung). Die Zusage aus RPT-01 bleibt: Beim fremden Bericht
+   * steht nirgends „You" oder „your".
+   */
+  it('aus Sicht des Lesers: der Name statt „You", wenn jemand anderes exportiert', () => {
+    const eigen = monthlyCsv(bericht(), ctx())
+    expect(eigen).toContain(';You;Your aircraft types;All gradings')
+    const fremd = monthlyCsv(bericht(), ctx({ fremd: true, exportiertVon: 'Tom Admin' }))
+    expect(fremd).toContain(";Mika Beispiel;Mika Beispiel's aircraft types;All gradings")
+    expect(fremd).toContain("Per competency;Mika Beispiel;Mika Beispiel's aircraft types;All gradings;vs Mika Beispiel's types;vs all")
+    expect(fremd).toContain("vs Mika Beispiel's types;1,00;")
+    expect(fremd).toContain('A positive value means Mika Beispiel is more lenient')
+    expect(fremd).not.toMatch(/;You;|vs your types|you grade|\byour\b/i)
+    expect(fremd).toContain('Generated by;Tom Admin')
+    const ohneAndere = monthlyCsv(monthlyReport([blatt('a', 4)], 'u1', AUG, setOf), ctx({ fremd: true }))
+    expect(ohneAndere).toContain("Only Mika Beispiel's own sheets in this group")
+  })
+
+  it('ohne ausgelassene Blätter keine „Not included"-Zeile; Kompetenzzeilen mit Code und Wortlaut', () => {
+    const r = monthlyReport([blatt('a', 4), blatt('b', 2, { instructorId: 'u2' })], 'u1', AUG, setOf)
+    const csv = monthlyCsv(r, ctx())
+    expect(csv).not.toContain('Not included')
+    expect(csv).toContain('KNO Application of knowledge;4,00;3,00;3,00;1,00;1,00')
+  })
+
+  it('Dateiname nach dem gemeinsamen Schema: Bericht, Instruktor, Monat, Exporttag', () => {
+    expect(monatsKennung({ year: 2026, month: 9 })).toBe('2026-10')
+    expect(monthlyCsvName({ month: AUG }, 'Jürgen Müller', JETZT)).toBe('monthly-report_Jürgen-Müller_2026-08_2026-09-02.csv')
+  })
+
+  it('Zeichen, die ein Dateiname nicht tragen darf, fallen aus dem Instruktornamen (Nachtrag Exporte Kern-App #5)', () => {
+    // Vorher ersetzte die Ansicht nur Leerraum — „Ops/Training: Lead" ergab
+    // einen Namen mit „/" und „:", den der Browser kürzt oder verwirft.
+    const name = monthlyCsvName({ month: AUG }, 'Ops/Training: Lead*', JETZT)
+    expect(name).toBe('monthly-report_Ops-Training-Lead_2026-08_2026-09-02.csv')
+    expect(name).not.toMatch(/[\\/:*?"<>|]/)
+  })
+})
+
+/**
+ * Audit 11/2026, R3-MONATSBERICHT: Der Bildschirm zeigte beim Bericht eines
+ * anderen Instruktors „You" und „vs your types" — behoben war nur die CSV.
+ * Bildschirm, Ausdruck und CSV fragen jetzt dieselbe Funktion; hier steht,
+ * was sie für beide Leser liefert. Gegenprobe: MonthlyReport.tsx wieder mit
+ * `t('forms:admin.yours')` statt `wort.eigen` → die Ansicht zeigt „You";
+ * die Funktion selbst mit fester „You"-Spalte → dieser Test rot.
+ */
+describe('monatsBeschriftung — eine Regel für Bildschirm und CSV', () => {
+  const b = (k: MonatsSchluessel, werte?: { name: string }): string => {
+    const wert = (forms.admin as Record<string, string>)[k.replace(/^forms:admin\./, '')]
+    if (typeof wert !== 'string') throw new Error(`fehlt: ${k}`)
+    return wert.replace(/\{\{name\}\}/g, () => werte?.name ?? '{{name}}')
+  }
+
+  it('eigener Bericht: „You" und „your", wie bisher', () => {
+    const w = monatsBeschriftung({ fremd: false, instruktor: 'Mika Beispiel' }, b)
+    expect(w.eigen).toBe('You')
+    expect(w.flotte).toBe('Your aircraft types')
+    expect(w.gegenFlotte).toBe('vs your types')
+    expect(w.nurEigene).toMatch(/^Only your own sheets/)
+    expect(w.deltaHinweis).toMatch(/means you grade/)
+    expect(w.hinweis).toMatch(/^Your own gradings/)
+    expect(Object.values(w).join(' ')).not.toContain('Mika')
+  })
+
+  it('Bericht eines anderen: überall sein Name, nirgends „you/your", kein offener Platzhalter', () => {
+    const w = monatsBeschriftung({ fremd: true, instruktor: 'Chris Beispiel' }, b)
+    expect(w.eigen).toBe('Chris Beispiel')
+    expect(w.flotte).toBe("Chris Beispiel's aircraft types")
+    expect(w.gegenFlotte).toBe("vs Chris Beispiel's types")
+    expect(w.nurEigene).toBe("Only Chris Beispiel's own sheets in this group — no comparison possible.")
+    expect(w.deltaHinweis).toMatch(/^A positive value means Chris Beispiel is more lenient/)
+    expect(w.hinweis).toMatch(/^Chris Beispiel's gradings for the month/)
+    expect(w.zahlenTitel).toMatch(/^Chris Beispiel's figures/)
+    expect(w.herkunft).toMatch(/^Chris Beispiel's figures come from their own sheets/)
+    const alles = Object.values(w).join(' ')
+    expect(alles).not.toMatch(/\byou(r)?\b/i)
+    expect(alles).not.toContain('{{')
   })
 })

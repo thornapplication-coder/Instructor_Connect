@@ -5,13 +5,14 @@ import { xlsxTabellen } from '../parse/xlsx'
 import { befundeLesen, kopfzeileFinden, zielVorschlagen, zuordnungVorschlagen } from '../recheck/fremdliste'
 import { remark } from '../recheck/pruefen'
 import { dokumentPruefen } from '../pruefung/pruefen'
+import { tabellen } from '../pruefung/rechnen'
 import { gruppenVorschlagen, vorbelegen } from '../paket/struktur'
 import { Kern } from '../kern'
 import { docxLesen } from '../parse/docx'
 import { dateiLesen } from '../parse/lesen'
 import type { PdfJs } from '../parse/pdf'
 import { pdfBauen } from '../parse/pdfBauen'
-import { absatz, lauf, SBX_CALC_01_FEHLER, SBX_CALC_01_NAME, SBX_EAR_01_NAME, SBX_EAR_01_VERWEISE, sbxEar01, sbxEar01Pruefdokument, SBX_FL_01, SBX_FL_01_KOPF, SBX_PKG_01_FEHLER, sbxCalc01, SBX_WORD_01_NAME, sbxFl01, sbxPage01, sbxPkg01, sbxWord01, umbrechen } from './sbx'
+import { absatz, lauf, SBX_CALC_01_FEHLER, SBX_CALC_01_NAME, SBX_CALC_01_XLSX_FEHLER, SBX_CALC_01_XLSX_NAME, sbxCalc01Xlsx, SBX_EAR_01_NAME, SBX_EAR_01_VERWEISE, sbxEar01, sbxEar01Pruefdokument, SBX_FL_01, SBX_FL_01_KOPF, SBX_PKG_01_FEHLER, sbxCalc01, sbxCalc01Pdf, SBX_PDF_02_ABKUERZUNGEN, SBX_PDF_02_NAME, SBX_WORD_01_NAME, SBX_WORD_02_NAME, sbxFl01, sbxPage01, sbxPdf02, sbxPkg01, sbxWord01, sbxWord02, umbrechen } from './sbx'
 
 const standardFontDataUrl = fileURLToPath(new URL('../../../../node_modules/pdfjs-dist/standard_fonts/', import.meta.url))
 const kern = () => new Kern({ pdfjs: async () => pdfjs as unknown as PdfJs, standardFontDataUrl })
@@ -49,6 +50,8 @@ describe('Abnahme Phase 2 (Nachtrag Kap. 19): Run-Eigenschaften von SBX-WORD-01 
     const tf = w.laeufe.filter((l) => l.text.includes('Doc No.'))
     expect(tf).toHaveLength(1)
     expect(tf[0].hintergrund).toBe('002060')
+    // Rahmen in Schriftfarbe ist NICHT der Hintergrund (Audit 11/2026, FRD-04)
+    expect([lauf('CONTROLLED COPY').hintergrund, lauf('UNCONTROLLED WHEN PRINTED').hintergrund]).toEqual(['F2F2F2', '1F3864'])
     expect(w.absaetze.find((a) => a.text.includes('Doc No.'))?.ort).toBe('textfeld')
   })
 
@@ -77,6 +80,58 @@ describe('Abnahme Phase 2 (Nachtrag Kap. 19): Run-Eigenschaften von SBX-WORD-01 
   })
 })
 
+describe('Abnahme FRD-13/FRD-15 (Audit 11/2026): SBX-WORD-01 — sichtbarer Text vollständig, Verschiebung und Formatänderung offen', () => {
+  it('geschützter Bindestrich, °, Fußnote, innere Tabelle und Textfelder im Seitentext und in der Suche; verschobener Satz einmal; offene Änderungen High', async () => {
+    const k = kern()
+    const z = await k.lesen({ id: 'w', name: SBX_WORD_01_NAME, daten: await sbxWord01(), pruefen: { formal: true, word: true } })
+    const text = Array.from({ length: z.seiten }, (_, i) => k.seitenText('w', i + 1)).join('\n')
+    for (const t of ['under Part-FCL; every approach ends in a landing or a go-around.', 'at least 5 °C¹.', '¹ Measured at the aerodrome reference point.', 'Pre-flight figures | Fuel on board | 120 litres', 'CONTROLLED COPY', 'UNCONTROLLED WHEN PRINTED']) expect(text).toContain(t)
+    expect(text.split('Check the fuel quantity visually').length - 1).toBe(1)
+    expect(k.suchen('CONTROLLED COPY').length).toBeGreaterThan(0)
+    expect(k.suchen('aerodrome reference point').length).toBe(1)
+    const reste = z.pruefung!.befunde.find((b) => b.pruefpunkt === 'reste' && b.prioritaet === 'High')!
+    expect(reste.fundstellen.map((f) => f.auszug)).toEqual([
+      'Moved away by Document Control: Check the fuel quantity visually before every flight.',
+      'Moved here by Document Control: Check the fuel quantity visually before every flight.',
+      'Formatting changed by Document Control: Solo flights require the approval of the head of training.',
+    ])
+    expect(z.pruefung!.befunde.find((b) => b.pruefpunkt === 'unsichtbar')!.fundstellen.some((f) => /Solo flights/.test(f.auszug))).toBe(false)
+    expect(z.lenkung.aenderungen).toBe(3)
+  })
+})
+
+describe('Abnahme FRD-01 (Audit 11/2026): SBX-WORD-02 — Kapitelnummern aus der Liste der Formatvorlage', () => {
+  it('Nummern in Text, Gliederung und Pfad; Verzeichnis verankert auf JEDEM Kapitel; nur der tote Verweis wird gemeldet', async () => {
+    const k = kern()
+    const z = await k.lesen({ id: 'w2', name: SBX_WORD_02_NAME, daten: await sbxWord02(), pruefen: { formal: true, word: true } })
+    expect(z.seitenQuelle).toBe('toc_mapping')
+    const roh = (k as unknown as { docs: Map<string, { roh: { outline: { titel: string; vonSeite: number }[]; word: { toc: { titel: string; seite: number | null }[] } } }> }).docs.get('w2')!.roh
+    // Jede Überschrift steht auf der Seite, die Words Verzeichnis nennt — also hat jede einen Anker
+    expect(roh.outline.map((o) => [o.titel, o.vonSeite])).toEqual(roh.word.toc.map((t) => [t.titel, t.seite]))
+    expect(roh.outline.map((o) => o.titel)).toEqual(['Foreword', '1 General', '1.1 Purpose', '1.2 Scope', '2 Course Structure', '2.1 Theoretical Phase', '2.1.1 Self-Study', '3 Weather Minima'])
+    expect(k.seitenText('w2', 4)).toContain('(a) flights below 500 ft above ground are not permitted;\n(b) the ground visibility')
+    expect(z.pruefung!.befunde.map((b) => [b.pruefpunkt, b.fundstellen.map((f) => f.auszug)])).toEqual([['querverweise', ['see Section 9.9 — target not found']]])
+    expect(z.pruefung!.ampel.formal).toMatchObject({ inhalt: 'ok', nummerierung: 'ok', querverweise: 'wait' })
+  })
+})
+
+describe('Abnahme FRD-05 (Audit 11/2026): SBX-PDF-02 — Lesereihenfolge im PDF', () => {
+  it('Abkürzungstabelle zeilenweise, Kopf/Fuß ganz (Seitenbezeichnung), Zweispalter Spalte für Spalte; nur „QRH" fehlt in der Liste', async () => {
+    const k = kern()
+    const z = await k.lesen({ id: 'p2', name: SBX_PDF_02_NAME, daten: sbxPdf02(), pruefen: { formal: true, word: false } })
+    expect(z.labels).toEqual(['Page 1 of 4', 'Page 2 of 4', 'Page 3 of 4', 'Page 4 of 4'])
+    expect(k.seitenText('p2', 2)).toContain('ATO | Approved Training Organisation\nCFI | Chief Flight Instructor')
+    expect(k.seitenText('p2', 3)).toBe('1 General\nThis manual applies to all courses of the school.')
+    const s4 = k.seitenText('p2', 4)!.split('\n')
+    // Linke Spalte vollständig vor der rechten
+    expect(s4.indexOf('3 Weather')).toBeGreaterThan(s4.findIndex((x) => x.includes('the QRH')))
+    expect(s4[0]).toBe('2 Training')
+    expect(z.pruefung!.befunde.map((b) => [b.pruefpunkt, b.fundstellen.map((f) => f.auszug)])).toEqual([['abkuerzungen', ['Used but not in the list: QRH']]])
+    expect(z.pruefung!.ampel.formal).toMatchObject({ seiten: 'ok', revisionsstand: 'ok', abkuerzungen: 'wait' })
+    expect(SBX_PDF_02_ABKUERZUNGEN.every(([a]) => k.seitenText('p2', 4)!.includes(a))).toBe(true)
+  })
+})
+
 describe('Abnahme N5.3: SBX-PAGE-01 — Seitenangaben bei DOCX', async () => {
   const sbx = await sbxPage01()
   const seiteVon = (pages: { index: number; text: string }[], text: string) => pages.find((p) => p.text.replace(/\s+/g, ' ').includes(text))?.index
@@ -100,9 +155,20 @@ describe('Abnahme N5.3: SBX-PAGE-01 — Seitenangaben bei DOCX', async () => {
     const z = await k.paaren('p', sbx.pdf)
     expect(z).toMatchObject({ seitenQuelle: 'pdf_pair', pdfPaar: { abweichung: expect.any(Number) } })
     expect(z!.pdfPaar!.abweichung).toBeLessThanOrEqual(0.02)
+    // Abkürzungstabelle und Fußnotenziffer kosten nichts (Audit 11/2026, FRD-05/FRD-06):
+    // Spaltenweise gelesen fehlte die Tabelle im PDF (gut 1 %), am Fußnotensatz brach der Vergleich ab.
+    expect(z!.pdfPaar!.abweichung).toBeLessThan(0.005)
     expect(z!.seiten).toBe(sbx.seiten)
-    const roh = (k as unknown as { docs: Map<string, { roh: { pages: { index: number; text: string }[] } }> }).docs.get('p')!.roh
+    const roh = (k as unknown as { docs: Map<string, { roh: { pages: { index: number; text: string }[]; outline: { titel: string; vonSeite: number }[] } }> }).docs.get('p')!.roh
     for (const s of sbx.stichproben) expect([s.text, seiteVon(roh.pages, s.text)]).toEqual([s.text, s.seite])
+    expect([seiteVon(roh.pages, 'ATO | Approved Training Organisation'), seiteVon(roh.pages, 'FI certificate¹ and have completed')]).toEqual([2, 2])
+    // Jede Überschrift auf ihrer PDF-Seite — auch „2 Systems" direkt hinter
+    // der Fußnote: Die steht im PDF am Seitenfuß und schob den Lesezeiger
+    // hinter die Überschrift, die dann nur noch im Verzeichnis auf S. 1 zu
+    // finden war (Gegenprüfung Audit 11/2026, FREMD-TM-FI „2.2 Course Phases").
+    expect(sbx.kapitel[1].seite).toBe(sbx.fussnotenSeite)
+    expect(roh.outline.filter((o) => /^\d+ /.test(o.titel)).map((o) => [o.titel, o.vonSeite])).toEqual(sbx.kapitel.map((c) => [c.titel, c.seite]))
+    expect(seiteVon(roh.pages, '¹ Issued by the competent authority')).toBe(sbx.fussnotenSeite)
     // Und die Suche liefert die PDF-Seite als Bezeichnung.
     expect(k.suchen(sbx.stichproben[0].text).map((t) => t.label)).toContain(`S. ${sbx.stichproben[0].seite}`)
   })
@@ -131,6 +197,26 @@ describe('Abnahme N5.3: SBX-PAGE-01 — Seitenangaben bei DOCX', async () => {
     expect(await k.paaren('q', sbx.pdf)).toBeNull()
     expect(await k.paaren('fehlt', sbx.pdf)).toBeNull()
   })
+
+  it('nur die jüngste Paarung zählt; ein entferntes Dokument kommt nicht zurück (Gegenprüfung Audit 11/2026, Runde 3)', async () => {
+    // Nach der Zeitgrenze darf der Nutzer erneut ein PDF dazulegen, während das erste noch gelesen
+    // wird. Vorher gewann, wer zuletzt fertig wurde — auch das alte PDF neben dem neuen im Viewer.
+    const k = kern()
+    await k.lesen({ id: 'p', name: 'x.docx', daten: sbx.docx })
+    const fremd = pdfBauen([{ texte: umbrechen('Something entirely different that is not in the document at all').map((t, i) => ({ text: t, x: 50, y: 800 - i * 18 })) }])
+    const [alt, neu] = await Promise.all([k.paaren('p', sbx.pdf), k.paaren('p', fremd)])
+    expect(alt).toBeNull()
+    expect(neu).toMatchObject({ seitenQuelle: 'toc_mapping', pdfPaar: { warnung: 'abweichung' } })
+    // Auch ein kaputtes PDF meldet als überholter Lauf nichts mehr
+    const [kaputt, gut] = await Promise.all([k.paaren('p', new TextEncoder().encode('%PDF-1.4 kaputt')), k.paaren('p', sbx.pdf)])
+    expect(kaputt).toBeNull()
+    expect(gut).toMatchObject({ seitenQuelle: 'pdf_pair' })
+    // Entfernt, während das PDF gelesen wird: keine Antwort, und die Suche findet es nicht wieder
+    const lauf = k.paaren('p', sbx.pdf)
+    k.entfernen('p')
+    expect(await lauf).toBeNull()
+    expect(k.suchen(sbx.stichproben[0].text)).toEqual([])
+  })
 })
 
 describe('Bausteine der Testdateien', () => {
@@ -151,6 +237,20 @@ describe('Metadaten von SBX-WORD-01: Titel neben dem Textfeld des Deckblatts', (
   it('Titel, Nummer aus dem Textfeld, Revision und Typ', async () => {
     const g = await dateiLesen({ name: SBX_WORD_01_NAME, daten: await sbxWord01() }, { pdfjs: async () => pdfjs as unknown as PdfJs })
     expect(g.meta).toMatchObject({ titel: 'Training Manual (synthetic)', nummer: 'SBX-WORD-01', revision: 'Edition 1 Revision 0.0', typ: 'TM' })
+  })
+
+  // Nachtrag EXPDC#1/#2 (Audit 11/2026): Beide Werte standen als „erkannt" in
+  // allen Exporten — Document No. „list", Dokumenttitel „Contents". Ohne
+  // Titel nennen Oberfläche und Export den Dateinamen (titel || name).
+  it('kein Verzeichniskopf als Titel, keine Dokumentnummer aus „Exercise reference list:"', async () => {
+    const ohnePdf = { pdfjs: async () => { throw new Error('kein PDF') } }
+    const seite = await dateiLesen({ name: 'SBX-PAGE-01.docx', daten: (await sbxPage01()).docx }, ohnePdf)
+    expect(seite.meta.titel).toBeUndefined()
+    const apx5 = (await sbxPkg01()).find((d) => d.kuerzel === 'APX 5')!
+    expect(apx5.titel).toMatch(/Appendix 5/)
+    const g = await dateiLesen({ name: apx5.name, daten: apx5.daten }, ohnePdf)
+    expect(g.roh.pages.some((p) => /reference list:/i.test(p.text))).toBe(true)
+    expect(g.meta.nummer).toBeUndefined()
   })
 })
 
@@ -267,6 +367,39 @@ describe('Abnahme N6: SBX-CALC-01 (Rechen- und Plausibilitätsprüfung)', () => 
     expect(text('doppelt')).toEqual(['Repeated word or waypoint: "RUPET RUPET" (1×).'])
     expect(p.ampel.rechnen).toEqual({ summen: 'bad', kumuliert: 'wait', session: 'wait', einheiten: 'wait', metar: 'wait', doppelt: 'wait' })
   })
+
+  it('Kapitel 7: lange Tabelle über die Seitengrenze (Inhaltsverzeichnis) und zweizeiliger verbundener Kopf — keine Meldung (Audit 11/2026, FRD-02/FRD-03)', async () => {
+    const g = await dateiLesen({ name: SBX_CALC_01_NAME, daten: await sbxCalc01() }, { pdfjs: async () => { throw new Error('kein PDF') } }, {})
+    // Der Fall muss wirklich auf der Grenze liegen — sonst prüft er nichts
+    expect(g.roh.seitenQuelle).toBe('toc_mapping')
+    const lang = tabellen(g.roh).find((t) => t.zeilen[0].join('|') === 'Lesson|Dual|Mutual')!
+    expect(new Set(lang.seiten).size).toBe(2)
+    const verbunden = tabellen(g.roh).find((t) => t.zeilen[0][0] === 'Phase' && t.zeilen[0].length === 5)!
+    expect(verbunden.zeilen).toHaveLength(7)
+    const p = dokumentPruefen({ dokId: 'c', dokName: 'SBX-CALC-01', dateiname: SBX_CALC_01_NAME, roh: g.roh, meta: g.meta }, { formal: false, word: false, rechnen: true })
+    expect(p.befunde.filter((b) => /^(Total|FI-|\d \| FI-)/.test(b.fundstellen[0].auszug))).toEqual([])
+  })
+
+  it('mit Word-PDF: Seiten aus dem PDF, die Tabelle bricht anders um — dieselben Befunde (Audit 11/2026, FRD-02)', async () => {
+    const k = kern()
+    await k.lesen({ id: 'c', name: SBX_CALC_01_NAME, daten: await sbxCalc01(), pruefen: { formal: false, word: false, rechnen: true } })
+    const z = (await k.paaren('c', sbxCalc01Pdf()))!
+    expect(z.seitenQuelle).toBe('pdf_pair')
+    const r = z.pruefung!.befunde.filter((b) => b.quelle === 'rechnen')
+    expect(r.map((b) => [b.pruefpunkt, b.fundstellen[0].auszug]).sort()).toEqual(SBX_CALC_01_FEHLER.map((f) => [f.punkt, f.auszug]).sort())
+  })
+})
+
+describe('Abnahme FRD-11 (Audit 11/2026): SBX-CALC-01 als Excel-Liste', () => {
+  it('Werte wie angezeigt, Leerzellen an ihrem Platz; beide falschen Summen gefunden, das korrekte Gegenstück still', async () => {
+    const g = await dateiLesen({ name: SBX_CALC_01_XLSX_NAME, daten: await sbxCalc01Xlsx() }, { pdfjs: async () => { throw new Error('kein PDF') } }, {})
+    expect(g.roh.pages[0].text.split('\n')[1]).toBe('Module A | 02.03.2026 | 8:00 | ')
+    const p = dokumentPruefen({ dokId: 'cx', dokName: 'SBX-CALC-01', dateiname: SBX_CALC_01_XLSX_NAME, roh: g.roh, meta: g.meta }, { formal: true, word: false, rechnen: true })
+    const r = p.befunde.filter((b) => b.quelle === 'rechnen')
+    expect(r.map((b) => [b.pruefpunkt, b.fundstellen[0].auszug])).toEqual(SBX_CALC_01_XLSX_FEHLER.map((f) => [f.punkt, f.auszug]))
+    expect(r.map((b) => b.text)).toEqual(['Table total does not match: sum of rows 24:00, stated 16:00.', 'Table total does not match: sum of rows 20:55, stated 20:45.'])
+    expect(p.ampel.formal.seiten).toBe('na')
+  })
 })
 
 describe('Abnahme N8: Regelwerksverweise gegen SBX-EAR-01', () => {
@@ -284,10 +417,13 @@ describe('Abnahme N8: Regelwerksverweise gegen SBX-EAR-01', () => {
     const r = neu.pruefung!.befunde.filter((b) => b.quelle === 'regelwerk')
     expect(r.map((b) => [b.pruefpunkt, b.verifizierung, b.text])).toEqual([
       ['absaetze', 'To verify', 'Rule reference ORA.ATO.230(d) — paragraph not found. ORA.ATO.230 has (a), (b).'],
+      // Part-FCL Subpart J: vorher als „AMC1 FCL.930" bzw. „FCL.930" gelesen und verifiziert (Audit 11/2026, FRD-12)
+      ['absaetze', 'To verify', 'Rule reference AMC1 FCL.930.FI(c) — paragraph not found. AMC1 FCL.930.FI has (a), (b).'],
       ['regelids', 'To verify', 'Rule reference ORA.ATO.127 not found in the loaded regulation (Easy Access Rules Part-ORA (synthetic extract SBX-EAR-01)). Nearest existing: ORA.ATO.125.'],
-      ['quelle', 'To verify – source not in library', '1 rule reference to FCL cannot be verified: source not in library.'],
+      ['regelids', 'To verify', 'Rule reference FCL.930.IRI not found in the loaded regulation (Easy Access Rules Part-ORA (synthetic extract SBX-EAR-01)). Nearest existing: FCL.930.FI.'],
+      ['quelle', 'To verify – source not in library', '1 rule reference to MED.A cannot be verified: source not in library.'],
     ])
-    expect(neu.pruefung!.regelwerk).toMatchObject({ verweise: 8, verifiziert: SBX_EAR_01_VERWEISE.verifiziert.length, zuPruefen: 2, ohneQuelle: 1 })
+    expect(neu.pruefung!.regelwerk).toMatchObject({ verweise: 12, verifiziert: SBX_EAR_01_VERWEISE.verifiziert.length, zuPruefen: 4, ohneQuelle: 1 })
     expect(neu.pruefung!.ampel.regelwerk).toEqual({ regelids: 'wait', absaetze: 'wait', quelle: 'wait' })
 
     // Regelwerk entfernt → wieder nicht anwendbar
@@ -297,7 +433,7 @@ describe('Abnahme N8: Regelwerksverweise gegen SBX-EAR-01', () => {
     const k2 = kern()
     await k2.lesen({ id: 'ear', name: SBX_EAR_01_NAME, daten: sbxEar01() })
     const nurN8 = await k2.lesen({ id: 'p', name: 'review.docx', daten: await sbxEar01Pruefdokument(), pruefen: { formal: false, word: false } })
-    expect(nurN8.pruefung!.befunde.map((b) => b.quelle)).toEqual(['regelwerk', 'regelwerk', 'regelwerk'])
+    expect(nurN8.pruefung!.befunde.map((b) => b.quelle)).toEqual(['regelwerk', 'regelwerk', 'regelwerk', 'regelwerk', 'regelwerk'])
     expect(k2.nachLesen('p')).toEqual([])
     expect(k.entfernen('p')).toEqual([])
   })

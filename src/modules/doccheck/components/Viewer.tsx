@@ -1,7 +1,8 @@
 import { ChevronLeft, ChevronRight, Minus, Plus, X } from 'lucide-react'
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { pdfjsLaden } from '../pdfjsLaden'
+import { ablageParameter, type AblageParameter } from '../parse/pdfAblage'
+import { pdfAblage, pdfjsLaden } from '../pdfjsLaden'
 import { datei, useSitzung } from '../sitzung'
 import { standardVerbindung } from '../verbindung'
 import { istGesperrteTaste } from '../viewerTasten'
@@ -23,6 +24,8 @@ export interface ViewerZiel {
   seite: number
   q?: string
   gesperrt?: boolean
+  /** Export-ID des Befunds, von dem aus der Viewer geöffnet wurde („TM-003") — dieselbe wie im Bericht (DC-10) */
+  befund?: string
 }
 
 const Ctx = createContext<(z: ViewerZiel) => void>(() => {})
@@ -40,7 +43,7 @@ export function ViewerProvider({ children }: { children: ReactNode }) {
 }
 
 type PdfAnzeige = {
-  getDocument(src: { data: Uint8Array }): { promise: Promise<PdfDokAnzeige>; destroy(): Promise<void> }
+  getDocument(src: { data: Uint8Array } & AblageParameter): { promise: Promise<PdfDokAnzeige>; destroy(): Promise<void> }
   Util: { transform(a: number[], b: number[]): number[] }
 }
 type PdfDokAnzeige = { numPages: number; getPage(n: number): Promise<PdfSeiteAnzeige> }
@@ -107,7 +110,9 @@ function Viewer({ ziel, onClose }: { ziel: ViewerZiel; onClose: () => void }) {
     }
     let aufgabe: ReturnType<PdfAnzeige['getDocument']> | null = null
     const dok = (pdfjsLaden() as unknown as Promise<PdfAnzeige>).then((lib) => {
-      aufgabe = lib.getDocument({ data: daten.slice() })
+      // Nicht eingebettete Schriften und Bilddecoder aus derselben Ablage wie
+      // beim Lesen (Audit 11/2026, TEC-20)
+      aufgabe = lib.getDocument({ data: daten.slice(), ...ablageParameter(pdfAblage(new URL('doccheck/', document.baseURI).href)) })
       return aufgabe.promise
     })
     dokRef.current = { dok, destroy: async () => void (await aufgabe?.destroy()) }
@@ -159,10 +164,14 @@ function Viewer({ ziel, onClose }: { ziel: ViewerZiel; onClose: () => void }) {
     return teile.map((x, i) => (i % 2 ? <mark key={i} className="rounded bg-wait/30 text-ink">{x}</mark> : x))
   }
 
+  // `safe-rundum`: Vollbild bis unter die Systemleisten — Titel und
+  // Schließen-Knopf lagen im Standalone-Betrieb unter der Statusleiste bzw.
+  // im Querformat unter der Sensorkappe (Audit 11/2026, MOB-07).
   return (
-    <div ref={dialog} tabIndex={-1} className="fixed inset-0 z-50 flex flex-col bg-bg/95 backdrop-blur" role="dialog" aria-modal="true" aria-label={t('viewer.titel')}>
+    <div ref={dialog} tabIndex={-1} className="safe-rundum fixed inset-0 z-50 flex flex-col bg-bg/95 backdrop-blur" role="dialog" aria-modal="true" aria-label={t('viewer.titel')}>
       <div className="flex flex-wrap items-center gap-2 border-b border-line/10 px-4 py-2">
         <p className="min-w-0 flex-1 truncate text-small font-semibold">
+          {ziel.befund && <span className="mr-2 font-mono text-micro">{t('viewer.befund', { id: ziel.befund })}</span>}
           {d?.felder.titel || d?.name}
           {label && <span className="ml-2 font-normal text-dim">· {label}</span>}
         </p>

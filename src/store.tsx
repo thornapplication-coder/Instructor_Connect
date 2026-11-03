@@ -1,19 +1,32 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { gradingListComparator, isComplete, isFollowUpType } from './gradingRules'
+import { formularTypEntfernen, formularTypInGebrauch, gradingListComparator, isComplete, isFollowUpType, type FormularTypLoeschung } from './gradingRules'
 import { networkReachable } from './net'
 import { createSeedState } from './sandbox/seed'
 import { migrateState } from './migrateState'
 import { SANDBOX } from './sandbox/flag'
-import { musterFehlt, musterPflicht, nachMuster, sichtbarFuer } from './aircraftScope'
-import { adminTabsFor, hatAdminPanel } from './adminAccess'
-import { infoEntryAppliesTo } from './infoAcks'
-import { darf, docCheckRolle, kachelZahl, rechteAudit, rechteSetzen } from './modules/doccheck/access'
+import { gruppenPflicht, gruppenTauglich, musterBelegt, musterFehlt, musterInVerwendung, musterListeBehalten, musterPflicht, nachMuster, sichtbarFuer, verliertLetzteGruppe } from './aircraftScope'
+import { userHasPerm, userMayModule } from './adminAccess'
+import { darfAbstimmen, darfFeedbackBearbeiten, darfGradingKonfigurieren, darfGruppeAnlegen, darfInfoVerwalten, darfKontakteVerwalten, darfLessonPlansVerwalten, darfSchreiben, darfStummschalten, darfUmfrageSchliessen, darfVerwaltung, feedbackFuer } from './storeRechte'
+import { kontaktFehler, kontaktNormalisieren } from './contacts'
+import { feedbackFehlt } from './feedbackPruefung'
+import { gueltigkeitFehler, infoEntryAppliesTo, infoGesehenBis, infoIsExpired, infoIsPublished, neuesteFremdeVeroeffentlichung } from './infoAcks'
+import { adminKandidaten, gruppenAenderungFehler, gruppenName, gruppenNameFehler } from './gruppen'
+import { nachrichtAbgewiesen, umfrageAbgewiesen } from './chatRules'
+import { schalteStumm } from './chatMute'
+import { einzelAenderung } from './benutzerRegeln'
+import { domainErlaubt, domainListe, domainSperre } from './domains'
+import { importPlanen, type ImportEingabe } from './userImport'
+import { darf, docCheckRolle, kachelZahl, recheckAudit, rechteAudit, rechteSetzen, rollenAudit, type RecheckEintrag } from './modules/doccheck/access'
 import { einstellungen as docCheckEinstellungen } from './modules/doccheck/settings'
 import { faelligeErinnerungen, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EMPFEHLUNGEN } from './modules/doccheck/library'
 import type { DocCheckAuditEintrag, DocCheckFlags, DocCheckRolle, DocCheckSettings, DocCheckState } from './modules/doccheck/types'
-import type { LogbookManuell, LogbookOverride, LogbookStand } from './logbook'
+import { overrideSetzen, type LogbookManuell, type LogbookOverride, type LogbookStand } from './logbook'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type Note, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
-import { backupPersistedState, clearPersistedState, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
+import { clearPersistedState, ladeStand, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
+import { hasUnsavedWork } from './editGuard'
+import { sitzungsSchritt, type SitzungsSchritt } from './sitzungsablauf'
+import { naechsteZeitgrenze } from './zeitTakt'
+import { basisWaehlen, kopfAus, kopfLesen, standNachricht, standZusammenfuehren, type Stammstand } from './zusammenfuehren'
 import type { FeedbackEntry, InfoEntry } from './types'
 
 const EMPTY_SEEN: SeenState = { chat: {}, info: 0, contacts: 0 }
@@ -39,18 +52,36 @@ export interface Store {
   markContactsSeen: () => void
   login: (identifier: string) => boolean
   logout: () => void
+  /** Sitzung abgelaufen, aber Arbeit offen — Warnstreifen statt Abmeldung
+   *  (sitzungsablauf.ts). Abgemeldet wird, sobald die Arbeit gesichert oder
+   *  verworfen ist, spaetestens nach der Nachfrist. */
+  sessionExpired: boolean
+  /** Wartet, bis der aktuelle Stand geschrieben ist: `true` gesichert,
+   *  `false` gescheitert. Grundlage der Quittungen (quittung.ts,
+   *  R3-SPEICHERQUITTUNG) — gruen erst NACH dem Schreiben. */
+  gesichert: () => Promise<boolean>
   switchUser: (userId: string) => void
   advanceTime: (ms: number) => void
   resetSandbox: () => void
-  sendMessage: (groupId: string, text: string, attachment?: Attachment) => void
+  /** `false`, wenn die Nachricht abgewiesen wurde (chatRules.ts) — die
+   *  Ansicht leert die Eingabe nur bei `true`, sonst war der Text weg
+   *  (Audit 11/2026, KERN-08). */
+  sendMessage: (groupId: string, text: string, attachment?: Attachment) => boolean
   deleteMessage: (id: string) => void
-  createPoll: (groupId: string, question: string, type: PollType, options: string[], validUntil?: number) => void
+  /** `false`, wenn die Umfrage abgewiesen wurde — der Dialog bleibt dann offen. */
+  createPoll: (groupId: string, question: string, type: PollType, options: string[], validUntil?: number) => boolean
   vote: (pollId: string, optionIndex: number) => void
   closePoll: (pollId: string) => void
+  /** Stummschalten fuer den AKTUELLEN Nutzer umschalten (chatMute.ts, KERN-06). */
   toggleMute: (groupId: string) => void
   setGroupRetention: (groupId: string, retention: RetentionKey | null) => void
-  setGroupMembers: (groupId: string, memberIds: string[]) => void
-  addInfoEntry: (entry: Omit<InfoEntry, 'id' | 'authorId' | 'createdAt'>) => void
+  /** `false`, wenn die Aenderung abgewiesen wurde (Rechte, Zugang, letzte Gruppe). */
+  setGroupMembers: (groupId: string, memberIds: string[]) => boolean
+  /** `false`, wenn abgewiesen (Recht, Muster, Gültigkeit) — der Dialog bleibt
+   *  dann offen und sagt es (R3-DIALOGMELDUNG). Ebenso die übrigen
+   *  Speicheraktionen mit Dialog: saveContact, saveNote, addLessonPlan,
+   *  logbookOverride, logbookAddManual, logbookUpdateManual. */
+  addInfoEntry: (entry: Omit<InfoEntry, 'id' | 'authorId' | 'createdAt'>) => boolean
   deleteInfoEntry: (id: string) => void
   /** Stern-Markierung des aktuellen Nutzers für einen Info-Eintrag umschalten */
   toggleStarInfo: (id: string) => void
@@ -63,7 +94,7 @@ export interface Store {
   /** Feedback als bearbeitet markieren (mit optionaler Notiz) bzw. wieder öffnen */
   resolveFeedback: (id: string, note: string) => void
   reopenFeedback: (id: string) => void
-  saveContact: (contact: { id?: string; department: string; position: string; name: string; phone: string; email: string }) => void
+  saveContact: (contact: { id?: string; department: string; position: string; name: string; phone: string; email: string }) => boolean
   deleteContact: (id: string) => void
   /** Nutzer anlegen — die Zuweisung zu mindestens einer Gruppe ist Pflicht */
   /** Legt den Nutzer an; `false`, wenn eine Invariante ihn abgewiesen hat.
@@ -77,7 +108,8 @@ export interface Store {
   /** Rueckmeldungen, die der aktuelle Nutzer im Panel sehen darf (Gruppe UND Muster). */
   visibleFeedback: FeedbackEntry[]
   updateUser: (id: string, patch: Partial<User>) => void
-  addGroup: (name: string, purpose: string, aircraftType?: string) => void
+  /** `false`, wenn die Gruppe nicht angelegt wurde (Rechte, Name leer oder vergeben). */
+  addGroup: (name: string, purpose: string, aircraftType?: string) => boolean
   setGroupAircraft: (id: string, aircraftType: string) => void
   renameGroup: (id: string, name: string) => void
   deleteGroup: (id: string) => void
@@ -103,23 +135,30 @@ export interface Store {
   /** Ausgangskorb senden; liefert, ob der Origin tatsächlich erreichbar war */
   flushOutbox: () => Promise<boolean>
   updateGrading: (patch: Partial<GradingSettings>) => void
+  /** Formulartyp aus dem Katalog nehmen; liefert den Ausgang samt Grund
+   *  (gradingRules.formularTypEntfernen, R3-FORMULARTYP). */
+  /** 'keinRecht': Die Konfiguration gehört dem Superadmin (storeRechte). */
+  removeFormType: (id: string) => FormularTypLoeschung | 'keinRecht'
   /** Lesson Plans, die der aktuelle Nutzer sehen darf */
   visibleLessonPlans: LessonPlan[]
-  /** Nutzer aus einer Tabelle anlegen. Liefert die Anzahl der angelegten. */
-  importUsers: (rows: { name: string; email: string; phone: string; role: Role; aircraftTypes: string[]; canGrade: boolean; isTrainee: boolean; canEditDirectory: boolean; active: boolean }[]) => number
+  /** Nutzer aus einer Tabelle anlegen, jeweils in die gewaehlten Gruppen,
+   *  die sie betreten koennen. Liefert die Anzahl der angelegten. */
+  importUsers: (rows: ImportEingabe[], groupIds: string[]) => number
   /** Eigene Notizen — fremde sind in dieser Liste gar nicht erst enthalten. */
   visibleNotes: Note[]
   /** Anlegen ODER aendern: ohne `id` entsteht eine neue Notiz. */
-  saveNote: (n: { id?: string; title: string; body: string }) => void
+  saveNote: (n: { id?: string; title: string; body: string }) => boolean
   deleteNote: (id: string) => void
   /** my AAA Logbook: Korrektur an einem abgeleiteten Eintrag des EIGENEN
-   *  Logbuchs. `null` setzt die Korrektur zurueck auf die Ableitung. */
-  logbookOverride: (recordId: string, ov: LogbookOverride | null) => void
-  logbookAddManual: (e: Omit<LogbookManuell, 'id'>) => void
-  logbookUpdateManual: (id: string, patch: Partial<Omit<LogbookManuell, 'id'>>) => void
+   *  Logbuchs. `null` setzt die Korrektur zurueck auf die Ableitung. Sie
+   *  gilt für den ganzen Durchgang (`blattIds`, src/logbook.ts
+   *  `overrideSetzen`). */
+  logbookOverride: (eintrag: { id: string; blattIds?: string[] }, ov: LogbookOverride | null) => boolean
+  logbookAddManual: (e: Omit<LogbookManuell, 'id'>) => boolean
+  logbookUpdateManual: (id: string, patch: Partial<Omit<LogbookManuell, 'id'>>) => boolean
   logbookDeleteManual: (id: string) => void
   toggleNotePin: (id: string) => void
-  addLessonPlan: (plan: { title: string; description: string; aircraftType: string; category: string; fileName: string }) => void
+  addLessonPlan: (plan: { title: string; description: string; aircraftType: string; category: string; fileName: string }) => boolean
   deleteLessonPlan: (id: string) => void
   /** Rechte-Matrix: darf der aktuelle Nutzer diese Fähigkeit nutzen? */
   can: (key: PermKey) => boolean
@@ -143,7 +182,7 @@ export interface Store {
   docCheckConfirmRevision: (docId: string) => void
   /** Re-Check-Vorschläge bestätigt (Nachtrag N3/N11) — eine Audit-Zeile je
    *  Bestätigung, mit Listennummern und Status, ohne Befundtext. */
-  docCheckRecheckConfirm: (liste: string, eintraege: { ref: string; status: string }[]) => void
+  docCheckRecheckConfirm: (liste: string, eintraege: RecheckEintrag[]) => void
 }
 
 const DC_LEER: DocCheckState = { audit: [], bestaetigt: {} }
@@ -157,25 +196,10 @@ const SESSION_EXP_KEY = 'aaa-session-exp'
 const STATE_VERSION = 2
 
 /** Gespeicherten Anwendungszustand lesen (aus IndexedDB vorgeladen, siehe
- *  persist.ts). Ein unlesbarer oder veralteter Stand wird verworfen, die
- *  App startet dann auf den Seed-Daten. */
+ *  persist.ts). Ein unlesbarer oder veralteter Stand wird beiseitegelegt
+ *  (ladeStand), die App startet dann auf den Seed-Daten. */
 function loadPersistedState(): AppState | null {
-  try {
-    const raw = readPreloadedState()
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as { v?: number; state?: AppState }
-    if (parsed.v !== STATE_VERSION || !parsed.state?.users?.length) {
-      // NICHT mehr löschen: Ein Sprung der STATE_VERSION verwarf bisher den
-      // gesamten Bestand — unterschriebene Formulare eingeschlossen — und
-      // zwar wortlos. Der alte Stand wird jetzt beiseitegelegt und bleibt
-      // auslesbar; die App startet daneben auf den Seed-Daten.
-      backupPersistedState(raw, parsed.v)
-      return null
-    }
-    return parsed.state
-  } catch {
-    return null
-  }
+  return ladeStand(readPreloadedState(), STATE_VERSION)
 }
 
 /** Sitzungen gelten bis Mitternacht (lokal) — außer man meldet sich ab. */
@@ -235,19 +259,56 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    * Zaehler echter Aenderungen. Nur er loest das Sichern aus.
    *
    * Vorher hing der Sicherungs-Effekt am gesamten Zustand — und der
-   * 5-Sekunden-Takt unten erzeugt alle fuenf Sekunden eine neue Referenz.
+   * 5-Sekunden-Takt erzeugte alle fuenf Sekunden eine neue Referenz.
    * Die Folge war eine vollstaendige Serialisierung des Bestands samt
    * Unterschriftsbildern (gemessen bis 14 MB) alle fuenf Sekunden, nur um
    * per Volltextvergleich festzustellen, dass sich nichts geaendert hat —
-   * mitten in eine laufende Unterschriftsgeste hinein.
+   * mitten in eine laufende Unterschriftsgeste hinein. (Der Takt erzeugt
+   * inzwischen gar keine neue Referenz mehr, TEC-10; der Zaehler bleibt die
+   * Regel: gesichert wird, was sich geaendert HAT.)
    */
   const [rev, setRev] = useState(0)
-  /** Zeitpunkt der letzten EIGENEN Aenderung — entscheidet beim Tab-Abgleich. */
+  /**
+   * Zeitpunkt der letzten EIGENEN Aenderung, als `at` im gesicherten Stand.
+   * Beim Tab-Abgleich entscheidet er nichts mehr (TEC-13: zusammengefuehrt
+   * statt verworfen) — ein waehrend eines Updates noch offener Tab der
+   * Vorversion liest ihn aber weiterhin.
+   */
   const lastChangeAt = useRef(0)
 
-  // Automatische Aktualisierung alle 5 Sekunden: neue Nachrichten erscheinen
-  // ohne manuelles Neuladen, abgelaufene werden ausgeblendet. In der
-  // Produktivversion übernimmt das eine Supabase-Realtime-Subscription.
+  /** Sitzung abgelaufen, aber Arbeit offen: Warnstreifen statt Abmeldung (TEC-04). */
+  const [sessionExpired, setSessionExpired] = useState(false)
+
+  /*
+   * Zeitstand: zaehlt hoch, sobald die Zeit etwas am Bestand aendert — eine
+   * Nachricht laeuft ab, eine Umfrage schliesst, der Tag wechselt
+   * (naechsteZeitgrenze). Die zeitabhaengigen Sichten unten haengen daran.
+   *
+   * Vorher erledigte das der 5-Sekunden-Takt nebenbei: Er gab bei JEDEM
+   * Schlag `{ ...s }` zurueck, der ganze Kontext bekam eine neue Referenz,
+   * und jede Ansicht zeichnete neu — im Chat mit einem Jahr Nachrichten ein
+   * Long Task von bis zu 270 ms alle fuenf Sekunden, mitten ins Tippen
+   * (Audit 11/2026, TEC-10). Jetzt wird genau dann neu gerechnet, wenn sich
+   * durch Zeitablauf etwas aendert, und sonst nie. Neue Nachrichten anderer
+   * Tabs kommen ohnehin ueber den Tab-Abgleich (setState), in der
+   * Produktivversion ueber eine Realtime-Subscription.
+   */
+  const [zeitStand, setZeitStand] = useState(0)
+  useEffect(() => {
+    const jetzt = Date.now() + state.timeOffsetMs
+    const grenze = naechsteZeitgrenze(
+      { messages: state.messages, polls: state.polls, groups: state.groups, defaultRetention: state.settings.defaultRetention },
+      jetzt,
+    )
+    // +1 ms: Die Sichten pruefen „jetzt − createdAt < Frist" — genau AUF
+    // der Grenze ist die Nachricht schon weg, eine Millisekunde davor nicht.
+    const tm = setTimeout(() => setZeitStand((z) => z + 1), grenze - jetzt + 1)
+    return () => clearTimeout(tm)
+  }, [state.messages, state.polls, state.groups, state.settings.defaultRetention, state.timeOffsetMs, zeitStand])
+
+  // Sitzungspruefung alle 5 Sekunden (Ablauf um Mitternacht, Deaktivierung,
+  // Abmelden in einem anderen Tab). Sie aendert den Zustand NUR, wenn sie
+  // abmeldet — sonst bleibt die Referenz, und niemand zeichnet neu (TEC-10).
   useEffect(() => {
     const iv = setInterval(() => {
       /*
@@ -258,41 +319,141 @@ export function StoreProvider({ children }: { children: ReactNode }) {
        * angemeldet, und wer im Admin-Panel (auch in einem anderen Tab)
        * deaktiviert wurde, arbeitete unbegrenzt weiter — bis er zufaellig
        * neu lud. Beides ist eine Zusage der Anmeldung, keine Kosmetik.
+       *
+       * Die Entscheidung trifft `sitzungsSchritt` (Audit 11/2026, TEC-04):
+       * Mit offener Arbeit wird beim Ablauf erst gewarnt — vorher warf der
+       * Takt um Mitternacht mitten aus einem Formular, und die geleisteten
+       * Unterschriften waren weg. Entschieden wird VOR dem Zustandswechsel,
+       * aus dem aktuellen Stand: hasUnsavedWork() fragt das DOM, und das
+       * gehoert nicht in eine Aktualisierungsfunktion von React.
        */
-      setState((s) => {
-        if (!s.currentUserId) return { ...s }
-        let abgelaufen = false
+      const s = stateRef.current
+      const angemeldet = s.currentUserId
+      let schritt: SitzungsSchritt = 'bleiben'
+      let gesperrt = false
+      if (angemeldet) {
+        let ablauf = Infinity
         try {
-          abgelaufen = Number(localStorage.getItem(SESSION_EXP_KEY) ?? 0) <= Date.now()
+          ablauf = Number(localStorage.getItem(SESSION_EXP_KEY) ?? 0)
         } catch {
           /* ohne localStorage bleibt es bei der Sitzung dieses Tabs */
         }
-        const gesperrt = !s.users.some((u) => u.id === s.currentUserId && u.active)
-        if (!abgelaufen && !gesperrt) return { ...s }
-        persistUser(null)
-        return { ...s, currentUserId: null }
-      })
+        gesperrt = !s.users.some((u) => u.id === angemeldet && u.active)
+        schritt = sitzungsSchritt({ ablauf, jetzt: Date.now(), gesperrt, offeneArbeit: hasUnsavedWork() })
+      }
+      // Gleicher Wert → React zeichnet nicht neu.
+      setSessionExpired(schritt === 'warnen')
+      if (schritt !== 'abmelden') return
+      // Beim Ablauf bleibt der (abgelaufene) Eintrag stehen: Ihn zu loeschen
+      // hiesse fuer einen zweiten Tab „ausdruecklich abgemeldet" — und der
+      // wuerde dort ein offenes Formular trotz Nachfrist schliessen. Beim
+      // naechsten Start raeumt initialState ihn ohnehin weg.
+      if (gesperrt) persistUser(null)
+      setState((st) => (st.currentUserId === angemeldet ? { ...st, currentUserId: null } : st))
     }, 5000)
     return () => clearInterval(iv)
   }, [])
 
-  // Zustand sichern. Der 5-Sekunden-Takt oben erzeugt bei gleichem Inhalt eine
-  // neue Referenz — deshalb wird nur geschrieben, wenn sich der serialisierte
-  // Stand tatsächlich geändert hat.
+  /*
+   * Jedes Abmelden verwirft die DocCheck-Sitzung (Spez. DocCheck 5.4,
+   * CLAUDE.md „Abmelden sendet ic-abmelden").
+   *
+   * Das Ereignis kam nur aus logout() — Sitzungsablauf, Deaktivierung und das
+   * Abmelden in einem anderen Tab liessen Dokumente im Speicher und den
+   * Worker am Leben (Audit 11/2026, TEC-14). Jetzt haengt es am Uebergang
+   * selbst: angemeldet → abgemeldet, egal auf welchem Weg, genau einmal.
+   */
+  const zuletztAngemeldet = useRef(state.currentUserId)
+  useEffect(() => {
+    const vorher = zuletztAngemeldet.current
+    zuletztAngemeldet.current = state.currentUserId
+    // Ein Ereignis statt eines Imports: Der Store soll das nachgeladene
+    // Modul nicht mitziehen.
+    if (vorher && !state.currentUserId) window.dispatchEvent(new Event('ic-abmelden'))
+  }, [state.currentUserId])
+
+  /*
+   * Abstammung fuer den Tab-Abgleich (Audit 11/2026, TEC-13, siehe
+   * basisWaehlen in zusammenfuehren.ts): Jeder ausgerufene Stand nennt
+   * seinen Tab, seine id und je Tab den zuletzt uebernommenen Stand.
+   */
+  const tabId = useRef(`tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`).current
+  /** Der Stand, mit dem dieser Tab begann — Basis, solange er keine bessere kennt. */
+  const startStand = useRef(state)
+  /** Je Tab die id des zuletzt uebernommenen Stands. Beim Start: was der
+   *  geladene Stand von sich sagt — ein frisch geladener Tab baut darauf auf. */
+  const uebernommen = useRef<Record<string, string> | null>(null)
+  if (uebernommen.current === null) {
+    const kopf = kopfLesen(readPreloadedState())
+    uebernommen.current = { ...kopf.basen, ...(kopf.von && kopf.id ? { [kopf.von]: kopf.id } : {}) }
+  }
+  /** Die zuletzt selbst geschriebenen Staende (Basis-Kandidaten). */
+  const geschrieben = useRef(new Map<string, Stammstand<AppState>>())
+  /** Je Absender-Tab sein zuletzt empfangener Stand (Basis-Kandidat). */
+  const vorherVon = useRef(new Map<string, Stammstand<AppState>>())
+
+  // Zustand sichern — nur, wenn sich der serialisierte Stand tatsächlich
+  // geändert hat (ein Tab-Abgleich etwa bringt denselben Stand zurück).
   const lastPersisted = useRef<string>('')
-  const schreiben = useCallback(() => {
-    const json = JSON.stringify({ v: STATE_VERSION, state: stateRef.current, at: lastChangeAt.current })
-    if (json === lastPersisted.current) return
-    lastPersisted.current = json
-    void persistState(json).then((ok) => {
+  /** Der Schreibvorgang für `lastPersisted` — wer auf denselben Stand
+   *  wartet, bekommt dessen Ausgang statt eines zweiten Schreibens. */
+  const letzterVorgang = useRef<Promise<boolean>>(Promise.resolve(true))
+  const schreiben = useCallback((): Promise<boolean> => {
+    const stand = stateRef.current
+    const kern = JSON.stringify(stand)
+    if (kern === lastPersisted.current) return letzterVorgang.current
+    lastPersisted.current = kern
+    const id = uid('stand')
+    const basen = { ...uebernommen.current }
+    geschrieben.current.set(id, { stand, basen })
+    // Die juengsten acht genuegen: Ein anderer Tab baut auf einem der
+    // letzten auf, sonst faellt die Wahl auf seinen vorigen Stand zurueck.
+    if (geschrieben.current.size > 8) geschrieben.current.delete(geschrieben.current.keys().next().value!)
+    const vorgang = persistState(standNachricht(STATE_VERSION, lastChangeAt.current, { von: tabId, id, basen }, kern)).then((ok) => {
       // Fehlgeschlagen (Ablage voll, Speicherfehler): Merker zuruecksetzen,
       // damit der naechste Lauf es erneut versucht. Vorher galt der Stand
       // als gesichert, lag aber nirgends — und niemand versuchte es wieder.
-      if (!ok) lastPersisted.current = ''
+      if (!ok) {
+        lastPersisted.current = ''
+        geschrieben.current.delete(id)
+      }
+      return ok
     })
-  }, [])
+    letzterVorgang.current = vorgang
+    return vorgang
+  }, [tabId])
+  /*
+   * „Ist das eben Getane gespeichert?" — fuer Quittungen (quittung.ts).
+   *
+   * Der gruene Streifen kam sofort nach dem Klick, das Schreiben 400 ms
+   * spaeter und konnte scheitern: „Gespeichert" stand dann neben dem roten
+   * Speicherstreifen (Audit 11/2026, R3-SPEICHERQUITTUNG, TEC-12 Teil 2).
+   * Geschrieben wird hier SOFORT statt nach dem Zeitgeber, damit die
+   * Quittung nicht spuerbar wartet — aber erst nach dem naechsten Zeichnen:
+   * Die Aktion davor hat nur `setState` gerufen, `stateRef` zeigt den neuen
+   * Stand erst danach. Ein eigener Anstoss (`setAnstoss`) reiht sich HINTER
+   * die Aenderung der Aktion; der Effekt laeuft also auf ihrem Stand — auch
+   * nach einem `await` (Absenden des Formulars), wo ein blosser Zeitgeber
+   * dem Zeichnen zuvorkommen koennte. Ist nichts Neues zu schreiben, zaehlt
+   * der Ausgang des letzten Schreibens.
+   */
+  const [anstoss, setAnstoss] = useState(0)
+  const wartende = useRef<((ok: boolean) => void)[]>([])
   useEffect(() => {
-    const tm = setTimeout(schreiben, 400)
+    if (wartende.current.length === 0) return
+    const jetzt = wartende.current.splice(0)
+    void schreiben().then((ok) => jetzt.forEach((fertig) => fertig(ok)))
+  }, [anstoss, schreiben])
+  const gesichert = useCallback(
+    (): Promise<boolean> =>
+      new Promise((resolve) => {
+        wartende.current.push(resolve)
+        setAnstoss((a) => a + 1)
+      }),
+    [],
+  )
+  useEffect(() => {
+    const tm = setTimeout(() => void schreiben(), 400)
     return () => clearTimeout(tm)
   }, [rev, schreiben])
 
@@ -306,8 +467,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    * ist; `beforeunload` feuert am iPhone nicht.
    */
   useEffect(() => {
-    const sofort = () => schreiben()
-    const beiVerdeckt = () => document.visibilityState === 'hidden' && schreiben()
+    const sofort = () => void schreiben()
+    const beiVerdeckt = () => document.visibilityState === 'hidden' && void schreiben()
     window.addEventListener('pagehide', sofort)
     document.addEventListener('visibilitychange', beiVerdeckt)
     return () => {
@@ -328,23 +489,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     () =>
       subscribeToOtherTabs((raw) => {
         try {
-          const parsed = JSON.parse(raw) as { v?: number; at?: number; state?: AppState }
+          const parsed = JSON.parse(raw) as { v?: number; state?: AppState }
           if (parsed.v !== STATE_VERSION || !parsed.state?.users?.length) return
+          const fremd = parsed.state
+          const kopf = kopfAus(parsed as Record<string, unknown>)
+          const basis = basisWaehlen(tabId, kopf.basen, geschrieben.current, kopf.von ? vorherVon.current.get(kopf.von) : undefined, startStand.current)
+          if (kopf.von) {
+            vorherVon.current.set(kopf.von, { stand: fremd, basen: kopf.basen })
+            if (kopf.id) uebernommen.current = { ...uebernommen.current, [kopf.von]: kopf.id }
+          }
           /*
-           * Nur einen JUENGEREN Stand uebernehmen.
+           * Zusammenführen statt ersetzen (Audit 11/2026, TEC-13).
            *
-           * Bisher ersetzte der Empfaenger seinen gesamten Zustand, ohne zu
-           * fragen, wie alt der fremde ist. Ablauf: Tab A ruft seinen Stand
-           * aus; unmittelbar danach unterschreibt jemand in Tab B (die
-           * Sicherung steht noch im 400-ms-Zeitgeber); dann trifft A's Ruf
-           * ein — und B's Unterschrift ist aus dem Speicher UND aus dem
-           * Schreibpfad verschwunden, lautlos. Ein fremder Stand, der aelter
-           * ist als die eigene letzte Aenderung, wird deshalb verworfen; die
-           * eigene Sicherung laeuft ohnehin gleich und ruft ihn dann aus.
+           * Erst ersetzte der Empfänger seinen ganzen Stand — eine eigene
+           * Änderung, deren Sicherung noch im 400-ms-Zeitgeber stand, war
+           * weg. Dann wurde ein fremder Stand verworfen, wenn er älter war
+           * als die eigene letzte Änderung — damit verschwand die Änderung
+           * des ANDEREN Tabs: Er übernahm kurz darauf den Stand dieses Tabs,
+           * in dem sie fehlte. Jetzt bleiben beide (standZusammenfuehren),
+           * und wer Eigenes beizutragen hat, schreibt den gemeinsamen Stand.
            */
-          if ((parsed.at ?? 0) < lastChangeAt.current) return
-          lastPersisted.current = raw
-          setState((s) => ({ ...parsed.state!, currentUserId: s.currentUserId, timeOffsetMs: s.timeOffsetMs }))
+          setState((s) => {
+            const { stand, mitEigenem } = standZusammenfuehren(basis, s, fremd, ['currentUserId', 'timeOffsetMs'])
+            if (mitEigenem) {
+              // Wie bei einer eigenen Änderung: Sonst läge im Speicher der
+              // fremde Stand ohne sie, und ein Neuladen verlöre sie doch.
+              lastChangeAt.current = Date.now()
+              setRev((r) => r + 1)
+            }
+            return stand
+          })
         } catch {
           /* unlesbare Nachricht eines anderen Tabs wird ignoriert */
         }
@@ -371,7 +545,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .filter((m) => m.groupId === groupId && now() - m.createdAt < ttl)
         .sort((a, b) => a.createdAt - b.createdAt)
     },
-    [state, effectiveRetention, now],
+    // zeitStand: neu rechnen, sobald eine Nachricht ablaeuft (TEC-10)
+    [state, effectiveRetention, now, zeitStand],
   )
 
   const visiblePolls = useCallback(
@@ -383,7 +558,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .filter((p) => p.groupId === groupId && now() - p.createdAt < ttl)
         .sort((a, b) => a.createdAt - b.createdAt)
     },
-    [state, effectiveRetention, now],
+    [state, effectiveRetention, now, zeitStand],
   )
 
   const myGroups = useMemo(
@@ -442,7 +617,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         sichtbarFuer(currentUser, e.aircraftType) &&
         (darfVerwalten || (infoEntryAppliesTo(e, currentUser.id, state.groups) && infoIsPublished(e, now()))),
     )
-  }, [state.infoEntries, state.groups, state.settings, currentUser, now])
+    // zeitStand: ein geplanter Eintrag erscheint um Mitternacht seines
+    // validFrom — vorher erst bei der naechsten zufaelligen Aenderung.
+  }, [state.infoEntries, state.groups, state.settings, currentUser, now, zeitStand])
 
   /*
    * Rueckmeldungen, die diese Person im Panel sehen darf.
@@ -457,21 +634,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    * Gruppenadmin mehr, als hinter dem Sprung steht — derselbe Fehler, den
    * die Statuszeile beim Training Admin schon einmal hatte.
    */
-  const visibleFeedback = useMemo(() => {
-    if (!currentUser) return []
-    const meineLeute = new Set(
-      state.groups.filter((g) => g.adminIds.includes(currentUser.id)).flatMap((g) => g.memberIds),
-    )
-    return nachMuster(currentUser, state.feedbackEntries, (f) => f.aircraftType).filter(
-      (f) => currentUser.role === 'superadmin' || meineLeute.has(f.authorId),
-    )
-  }, [state.feedbackEntries, state.groups, currentUser])
-
-  const latestForeignInfo = visibleInfoEntries.reduce(
-    (max, e) => (e.authorId !== state.currentUserId ? Math.max(max, infoPublishedAt(e)) : max),
-    0,
+  // Die Rechnung steht in storeRechte.ts (feedbackFuer): Dieselbe Antwort
+  // gilt fuer das Erledigen und Loeschen — sonst erledigt jemand per
+  // Kennung, was er gar nicht sieht (KERN-19).
+  const visibleFeedback = useMemo(
+    () => feedbackFuer(currentUser, state.feedbackEntries, state.groups),
+    [state.feedbackEntries, state.groups, currentUser],
   )
-  const hasNewInfo = !!state.currentUserId && latestForeignInfo > seenOfCurrent.info
+
+  /* Nur VEROEFFENTLICHTE fremde Eintraege zaehlen (infoAcks.ts). Verwalter
+     sehen in `visibleInfoEntries` auch Geplantes; dessen Veroeffentlichung
+     liegt in der Zukunft, und markInfoSeen schrieb diesen Zeitpunkt als
+     „gesehen" — bis zum Startdatum blieb jede Neu-Marke aus, auch fuer
+     sofort gueltige Eintraege (Audit 11/2026, KERN-11). */
+  const latestForeignInfo = neuesteFremdeVeroeffentlichung(visibleInfoEntries, state.currentUserId, now())
+  const hasNewInfo = !!state.currentUserId && latestForeignInfo > infoGesehenBis(seenOfCurrent.info, now())
   /**
    * Offene Lese-Bestaetigungen des aktuellen Nutzers.
    *
@@ -491,7 +668,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         infoEntryAppliesTo(e, state.currentUserId!, state.groups) &&
         !state.infoAcks[e.id]?.[state.currentUserId!],
     ).length
-  }, [visibleInfoEntries, state.infoAcks, state.currentUserId, state.groups, now])
+  }, [visibleInfoEntries, state.infoAcks, state.currentUserId, state.groups, now, zeitStand])
   const hasNewContacts = !!state.currentUserId && state.contactsChangedAt > seenOfCurrent.contacts
 
   // Instruktoren sehen ihre eigenen Formulare eine Woche lang, Admins alles
@@ -526,7 +703,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         r.instructorId === currentUser.id &&
         (!isComplete(r, state.gradingRecords) || now() - doneAt(r) < weekMs),
     )
-  }, [state.gradingRecords, state.settings, currentUser, now])
+    // zeitStand: Die Wochenfrist wird mindestens beim Tageswechsel neu
+    // geprueft (TEC-10) — vorher gar nicht, solange sich nichts aenderte.
+  }, [state.gradingRecords, state.settings, currentUser, now, zeitStand])
 
   // Instruktoren sehen nur Lesson Plans ihrer zugewiesenen Muster;
   // Admins und Superadmin sehen alle.
@@ -559,12 +738,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const p = fn(s)
         if (!p) return s
         // Echte Aenderung: Sicherung anstossen und den Zeitpunkt merken.
-        // Der Zeitpunkt entscheidet, ob der Stand eines anderen Tabs
-        // uebernommen werden darf (siehe Abgleich unten).
         lastChangeAt.current = Date.now()
         setRev((r) => r + 1)
         return { ...s, ...p }
       })
+
+    /**
+     * Aendern und sagen, ob es gewirkt hat. Gefragt wird dieselbe Funktion
+     * auf dem zuletzt gezeichneten Stand — wie bei addUser, nicht ueber eine
+     * Variable, die der Updater setzt (React ruft ihn nicht zwingend sofort).
+     * Vorher gaben die Speicheraktionen der Dialoge nichts zurueck: Ein
+     * abgewiesener Eintrag schloss den Dialog und quittierte „gespeichert"
+     * (Audit 11/2026, R3-DIALOGMELDUNG).
+     */
+    const patchMitAntwort = (fn: (s: AppState) => Partial<AppState> | null): boolean => {
+      const ok = fn(stateRef.current) !== null
+      patch(fn)
+      return ok
+    }
 
     const seenOf = (s: AppState) => (s.currentUserId && s.seen[s.currentUserId]) || EMPTY_SEEN
 
@@ -593,13 +784,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     /** E-Mail ist die einzige Anmeldekennung und muss eindeutig bleiben. */
     const emailTaken = (s: AppState, email: string, exceptId?: string) =>
       s.users.some((u) => u.id !== exceptId && u.email.trim().toLowerCase() === email.trim().toLowerCase())
-    /** Gruppen eines Nutzers — für die Pflicht „mindestens eine Gruppe" */
-    const groupsOf = (s: AppState, userId: string) => s.groups.filter((g) => g.memberIds.includes(userId))
+    /** Verliert jemand mit dieser Gruppenliste seine letzte ERREICHBARE
+     *  Gruppe? Gezaehlt wurde vorher jede Mitgliedschaft, auch in Gruppen
+     *  fremden Musters, die der Nutzer nie betreten kann (KERN-07/VERW-16). */
+    const verliertGruppe = (s: AppState, userId: string, nachher: Group[]) => {
+      const u = s.users.find((x) => x.id === userId)
+      return !!u && verliertLetzteGruppe(s.settings, u, s.groups, nachher)
+    }
+    /** Darf der Handelnde diese Rueckmeldung erledigen, oeffnen, loeschen?
+     *  Nur, wenn er sie im Panel auch sieht (feedbackFuer). */
+    const feedbackBearbeitbar = (s: AppState, id: string) => {
+      const f = s.feedbackEntries.find((x) => x.id === id)
+      return !!f && darfFeedbackBearbeiten(s.settings, actorOf(s), f, s.groups)
+    }
 
     return {
       state,
       now,
       currentUser,
+      sessionExpired,
       effectiveRetention,
       visibleMessages,
       visiblePolls,
@@ -625,7 +828,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         patch((s) => {
           if (!s.currentUserId) return null
           const prev = seenOf(s)
-          if (latestForeignInfo <= prev.info) return null
+          // Ein Gesehen-Zeitpunkt in der Zukunft (Altfehler KERN-11) gilt
+          // nicht und wird ersetzt, auch durch einen kleineren.
+          const gueltig = infoGesehenBis(prev.info, Date.now() + s.timeOffsetMs)
+          if (gueltig === prev.info && latestForeignInfo <= gueltig) return null
           return { seen: { ...s.seen, [s.currentUserId]: { ...prev, info: latestForeignInfo } } }
         }),
       markContactsSeen: () =>
@@ -644,8 +850,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // Anmeldung ausschließlich per E-Mail — die Adressen legt der
         // Admin/Superadmin im Admin Panel an
         const needle = identifier.trim().toLowerCase()
-        const domains = state.settings.allowedDomains
-        if (domains.length > 0 && !domains.some((d) => needle.endsWith(`@${d.toLowerCase()}`))) return false
+        // Eine Domainregel fuer alle Wege (domains.ts) — der Vergleich von
+        // Hand scheiterte an einem gespeicherten „@Example.Test" (VERW-05).
+        if (!domainErlaubt(needle, state.settings.allowedDomains)) return false
         const user = state.users.find((u) => u.active && u.email.toLowerCase() === needle)
         if (!user) return false
         persistUser(user.id)
@@ -659,8 +866,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const user = state.users.find((u) => u.active && u.email.toLowerCase() === needle)
         // Die erlaubten Domains aus den Einstellungen gelten hier tatsächlich —
         // vorher war die Liste im Admin-Panel ohne jede Wirkung.
-        const domains = state.settings.allowedDomains
-        if (domains.length > 0 && !domains.some((d) => needle.endsWith(`@${d.toLowerCase()}`))) return false
+        if (!domainErlaubt(needle, state.settings.allowedDomains)) return false
         if (!user) return false
         const code = String(Math.floor(100000 + Math.random() * 900000))
         patch(() => ({ pendingLogin: { email: user.email, code, expiresAt: endOfDay(), attempts: 0 } }))
@@ -751,13 +957,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             },
           }
         }),
+      // Dieselbe Regel wie doccheck.log_recheck (recheckAudit): Nummer und
+      // Status, nie Befundtext — vorher stand hier die Nummernspalte
+      // ungeprüft, bis 300 Zeichen (Audit 11/2026, SEC-06).
       docCheckRecheckConfirm: (liste, eintraege) =>
         patch((s) => {
-          if (!eintraege.length || !darf(docCheckRolle(actorOf(s)), 'pruefen')) return null
-          const at = Date.now() + s.timeOffsetMs
+          if (!darf(docCheckRolle(actorOf(s)), 'pruefen')) return null
+          const zeilen = recheckAudit(liste, eintraege, { von: s.currentUserId!, at: Date.now() + s.timeOffsetMs, id: () => uid('dca') })
+          if (!zeilen.length) return null
           const dc = s.docCheck ?? DC_LEER
-          const wert = eintraege.map((e) => `${e.ref}: ${e.status}`).join(', ')
-          return { docCheck: { ...dc, audit: [{ id: uid('dca'), at, von: s.currentUserId!, aktion: 'recheckBestaetigt', ziel: liste, wert: wert.length > 300 ? `${wert.slice(0, 297)}…` : wert }, ...dc.audit] } }
+          return { docCheck: { ...dc, audit: [...zeilen, ...dc.audit] } }
         }),
       // Die Rechtematrix aendert ausschliesslich der Superadmin. Die Sperre
       // lag bisher allein in der Oberflaeche (Reiterliste im Admin-Panel) —
@@ -771,11 +980,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         })),
       logout: () => {
         persistUser(null)
+        // Das Verwerfen der DocCheck-Sitzung („ic-abmelden") loest der
+        // Effekt am Uebergang zu „abgemeldet" aus — fuer JEDEN Weg dorthin.
         patch(() => ({ currentUserId: null }))
-        // DocCheck hält Dokumente nur im Speicher des Tabs — beim Abmelden
-        // werden sie verworfen (Spez. DocCheck 5.4). Ein Ereignis statt eines
-        // Imports: Der Store soll das nachgeladene Modul nicht mitziehen.
-        window.dispatchEvent(new Event('ic-abmelden'))
       },
       // Die drei Sandbox-Werkzeuge greifen NUR im Sandbox-Betrieb. Bisher
       // hing das allein daran, dass die Leiste sie anbietet — wer sie über
@@ -797,21 +1004,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setState(() => ({ ...createSeedState(), currentUserId: state.currentUserId }))
       },
 
-      sendMessage: (groupId, text, attachment) =>
-        patch((s) => {
-          // Chat-Sperre greift auch hier, nicht nur in der Oberfläche
-          if (s.users.find((u) => u.id === s.currentUserId)?.chatBlocked) return null
-          // Nur Mitglieder der Gruppe dürfen darin schreiben.
-          if (!s.groups.find((g) => g.id === groupId)?.memberIds.includes(s.currentUserId ?? '')) return null
-          // Das Upload-Limit aus den Einstellungen gilt auch für Anhänge.
-          if (attachment && attachment.sizeMB > s.settings.maxUploadMB) return null
+      sendMessage: (groupId, text, attachment) => {
+        const id = uid('m')
+        const senden = (s: AppState): Partial<AppState> | null => {
+          // Chat-Sperre, Mitgliedschaft, leere Nachricht und Upload-Limit —
+          // dieselbe Regel, mit der die Ansicht den Grund nennt (chatRules.ts).
+          const gruppe = s.groups.find((g) => g.id === groupId)
+          if (nachrichtAbgewiesen(actorOf(s), gruppe, text, attachment, s.settings.maxUploadMB)) return null
           return {
             messages: [
               ...s.messages,
-              { id: uid('m'), groupId, authorId: s.currentUserId!, text, createdAt: Date.now() + s.timeOffsetMs, attachment },
+              { id, groupId, authorId: s.currentUserId!, text, createdAt: Date.now() + s.timeOffsetMs, attachment },
             ],
           }
-        }),
+        }
+        // Antwort aus derselben Pruefung auf dem gezeichneten Stand — wie
+        // addUser. Ohne Rueckgabe leerte die Ansicht die Eingabe auch bei
+        // Ablehnung, und der Text war weg (Audit 11/2026, KERN-08).
+        const gesendet = senden(stateRef.current) !== null
+        patch(senden)
+        return gesendet
+      },
       deleteMessage: (id) =>
         patch((s) => {
           const msg = s.messages.find((m) => m.id === id)
@@ -825,65 +1038,123 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { messages: s.messages.filter((m) => m.id !== id) }
         }),
 
-      createPoll: (groupId, question, type, options, validUntil) =>
-        patch((s) => {
-          if (s.users.find((u) => u.id === s.currentUserId)?.chatBlocked) return null
-          // Eine Umfrage, deren Gültigkeit schon abgelaufen ist, käme
-          // geschlossen zur Welt — niemand könnte je abstimmen.
-          if (validUntil !== undefined && validUntil <= Date.now() + s.timeOffsetMs) return null
+      createPoll: (groupId, question, type, options, validUntil) => {
+        const id = uid('p')
+        const anlegen = (s: AppState): Partial<AppState> | null => {
+          // Wie eine Nachricht: nur Mitglieder ohne Chat-Sperre. Vorher pruefte
+          // die Aktion allein die Sperre — angelegt werden konnte in jeder
+          // Gruppe (KERN-19).
+          const gruppe = s.groups.find((g) => g.id === groupId)
+          if (!gruppe || !darfSchreiben(actorOf(s), gruppe)) return null
+          // Ablauf in der Zukunft UND innerhalb der Aufbewahrung der Gruppe:
+          // Sonst loeschte die Aufbewahrung die Umfrage samt Stimmen, solange
+          // sie laut Anzeige noch lief (Audit 11/2026, KERN-09).
+          const jetzt = Date.now() + s.timeOffsetMs
+          if (umfrageAbgewiesen({ question, type, options, validUntil }, jetzt, gruppe.retention ?? s.settings.defaultRetention)) return null
           return {
             polls: [
               ...s.polls,
-              { id: uid('p'), groupId, authorId: s.currentUserId!, question, type, options, votes: {}, closed: false, validUntil, createdAt: Date.now() + s.timeOffsetMs },
+              { id, groupId, authorId: s.currentUserId!, question, type, options, votes: {}, closed: false, validUntil, createdAt: jetzt },
             ],
           }
-        }),
+        }
+        // Der Dialog bleibt bei Ablehnung offen — er schloss vorher immer,
+        // und die Umfrage gab es nicht (KERN-08).
+        const angelegt = anlegen(stateRef.current) !== null
+        patch(anlegen)
+        return angelegt
+      },
       vote: (pollId, optionIndex) =>
-        patch((s) => ({
-          polls: s.polls.map((p) =>
-            // Abstimmen nur solange offen und nicht abgelaufen (Gültigkeit in UTC)
-            p.id === pollId && !p.closed && !(p.validUntil && p.validUntil <= Date.now() + s.timeOffsetMs)
-              ? { ...p, votes: { ...p.votes, [s.currentUserId!]: optionIndex } }
-              : p,
-          ),
-        })),
+        patch((s) => {
+          const poll = s.polls.find((p) => p.id === pollId)
+          const gruppe = poll && s.groups.find((g) => g.id === poll.groupId)
+          // Abstimmen nur als Mitglied — ein Superadmin ohne Mitgliedschaft
+          // stimmte vorher mit ab (KERN-19) — und nur solange offen und nicht
+          // abgelaufen (Gültigkeit in UTC).
+          if (!poll || !gruppe || !darfAbstimmen(actorOf(s), gruppe)) return null
+          if (poll.closed || (poll.validUntil && poll.validUntil <= Date.now() + s.timeOffsetMs)) return null
+          return { polls: s.polls.map((p) => (p.id === pollId ? { ...p, votes: { ...p.votes, [s.currentUserId!]: optionIndex } } : p)) }
+        }),
       closePoll: (pollId) =>
-        patch((s) => ({ polls: s.polls.map((p) => (p.id === pollId ? { ...p, closed: true } : p)) })),
+        patch((s) => {
+          // Autor oder Admin der Gruppe — die Regel, nach der die Karte den
+          // Knopf zeigt, galt bisher nur dort.
+          const poll = s.polls.find((p) => p.id === pollId)
+          const gruppe = poll && s.groups.find((g) => g.id === poll.groupId)
+          if (!poll || !gruppe || !darfUmfrageSchliessen(actorOf(s), poll, gruppe)) return null
+          return { polls: s.polls.map((p) => (p.id === pollId ? { ...p, closed: true } : p)) }
+        }),
 
       toggleMute: (groupId) =>
-        patch((s) => ({ groups: s.groups.map((g) => (g.id === groupId ? { ...g, muted: !g.muted } : g)) })),
+        patch((s) => {
+          const gruppe = s.groups.find((g) => g.id === groupId)
+          if (!gruppe || !s.currentUserId || !darfStummschalten(actorOf(s), gruppe)) return null
+          // Nur fuer den Handelnden selbst: `muted` an der Gruppe schaltete
+          // sie fuer ALLE Mitglieder stumm (Audit 11/2026, KERN-06).
+          return { mutedGroups: schalteStumm(s.mutedGroups, s.currentUserId, groupId) }
+        }),
       setGroupRetention: (groupId, retention) =>
         patch((s) =>
           maySeeGroup(s, groupId) ? { groups: s.groups.map((g) => (g.id === groupId ? { ...g, retention } : g)) } : null,
         ),
-      setGroupMembers: (groupId, memberIds) =>
-        patch((s) => {
+      setGroupMembers: (groupId, memberIds) => {
+        const aendern = (s: AppState): Partial<AppState> | null => {
           if (!maySeeGroup(s, groupId)) return null
           const group = s.groups.find((g) => g.id === groupId)
           if (!group) return null
-          // „Mindestens eine Gruppe" gilt auch hier: wer sonst nirgends
-          // Mitglied ist, kann nicht aus seiner letzten Gruppe fallen.
+          // Neu hinein nur, wer die Gruppe auch betreten kann — sonst zaehlte
+          // eine Mitgliedschaft, die nie zu einem Chat fuehrt, und die
+          // Mitgliederliste zeigte Leute ohne Zugang (KERN-07).
+          const added = memberIds.filter((m) => !group.memberIds.includes(m))
+          if (added.some((m) => {
+            const u = s.users.find((x) => x.id === m)
+            return !u || !gruppenTauglich(s.settings, u, group)
+          })) return null
+          // Sich selbst herausnehmen kann ein Gruppenadmin nicht — dieselbe
+          // Regel wie in der Oberflaeche (gruppen.ts). Im Admin-Panel genuegte
+          // ein Fehlklick, und die Gruppe stand ohne Admin da (VERW-09).
+          if (gruppenAenderungFehler(actorOf(s), group, memberIds, group.adminIds) === 'selbstEntfernt') return null
+          const groups = s.groups.map((g) =>
+            g.id === groupId
+              ? // Wer die Gruppe verlässt, verliert auch seine Adminrechte
+                // darin — sonst verwaltet ein Außenstehender weiter mit.
+                { ...g, memberIds, adminIds: g.adminIds.filter((a) => memberIds.includes(a)) }
+              : g,
+          )
+          // „Mindestens eine Gruppe" gilt auch hier — gezaehlt werden die
+          // Gruppen, die der Nutzer betreten kann.
           const dropped = group.memberIds.filter((m) => !memberIds.includes(m))
-          if (dropped.some((m) => groupsOf(s, m).length <= 1)) return null
+          if (dropped.some((m) => verliertGruppe(s, m, groups))) return null
+          return { groups }
+        }
+        // „Entfernen" in der Chat-Info tat bei Ablehnung nichts und meldete
+        // nichts (KERN-08) — die Antwort sagt der Ansicht, ob es gewirkt hat.
+        const geaendert = aendern(stateRef.current) !== null
+        patch(aendern)
+        return geaendert
+      },
+
+      // Info, Kontakte, Lesson Plans, Feedback, Gruppen, Nutzer, Einstellungen:
+      // jede schreibende Aktion fragt den Handelnden (storeRechte.ts). Vorher
+      // verliess sich die Haelfte allein auf die Oberflaeche (KERN-19/VERW-23).
+      addInfoEntry: (entry) =>
+        patchMitAntwort((s) => {
+          if (!darfInfoVerwalten(s.settings, actorOf(s), entry.aircraftType)) return null
+          // Dieselbe Regel wie im Dialog: „bis" vor „ab" erschiene nie (KERN-12).
+          if (gueltigkeitFehler(entry.validFrom, entry.validUntil)) return null
           return {
-            groups: s.groups.map((g) =>
-              g.id === groupId
-                ? // Wer die Gruppe verlässt, verliert auch seine Adminrechte
-                  // darin — sonst verwaltet ein Außenstehender weiter mit.
-                  { ...g, memberIds, adminIds: g.adminIds.filter((a) => memberIds.includes(a)) }
-                : g,
-            ),
+            infoEntries: [
+              ...s.infoEntries,
+              { ...entry, id: uid('i'), authorId: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs },
+            ],
           }
         }),
-
-      addInfoEntry: (entry) =>
-        patch((s) => ({
-          infoEntries: [
-            ...s.infoEntries,
-            { ...entry, id: uid('i'), authorId: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs },
-          ],
-        })),
-      deleteInfoEntry: (id) => patch((s) => ({ infoEntries: s.infoEntries.filter((e) => e.id !== id) })),
+      deleteInfoEntry: (id) =>
+        patch((s) => {
+          const eintrag = s.infoEntries.find((e) => e.id === id)
+          if (!eintrag || !darfInfoVerwalten(s.settings, actorOf(s), eintrag.aircraftType)) return null
+          return { infoEntries: s.infoEntries.filter((e) => e.id !== id) }
+        }),
       toggleStarInfo: (id) =>
         patch((s) => {
           if (!s.currentUserId) return null
@@ -908,53 +1179,93 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
 
       submitFeedback: (entry) =>
-        patch((s) => ({
-          feedbackEntries: [
-            ...s.feedbackEntries,
-            { ...entry, id: uid('fb'), authorId: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs },
-          ],
-        })),
-      deleteFeedback: (id) => patch((s) => ({ feedbackEntries: s.feedbackEntries.filter((f) => f.id !== id) })),
+        patch((s) => {
+          // Dieselben Pflichtfelder wie im Formular (feedbackPruefung.ts,
+          // A11Y-16) — ein Musterbezug kommt hier als gesetztes Muster an.
+          const fehlt = feedbackFehlt({
+            recipient: entry.recipient,
+            category: entry.category,
+            scope: entry.aircraftType !== undefined ? 'aircraft' : 'general',
+            aircraftType: entry.aircraftType ?? '',
+            message: entry.message,
+          })
+          if (!s.currentUserId || fehlt.length > 0) return null
+          return {
+            feedbackEntries: [
+              ...s.feedbackEntries,
+              { ...entry, id: uid('fb'), authorId: s.currentUserId, createdAt: Date.now() + s.timeOffsetMs },
+            ],
+          }
+        }),
+      deleteFeedback: (id) =>
+        patch((s) => {
+          if (!feedbackBearbeitbar(s, id)) return null
+          return { feedbackEntries: s.feedbackEntries.filter((f) => f.id !== id) }
+        }),
       // Bearbeitet: wer und wann werden festgehalten; die Rückmeldung bleibt
       // erhalten und wandert in der Ansicht unter die offenen.
       resolveFeedback: (id, note) =>
-        patch((s) => ({
-          feedbackEntries: s.feedbackEntries.map((f) =>
-            f.id === id
-              ? { ...f, resolvedBy: s.currentUserId!, resolvedAt: Date.now() + s.timeOffsetMs, resolutionNote: note.trim() || undefined }
-              : f,
-          ),
-        })),
+        patch((s) => {
+          if (!feedbackBearbeitbar(s, id)) return null
+          return {
+            feedbackEntries: s.feedbackEntries.map((f) =>
+              f.id === id
+                ? { ...f, resolvedBy: s.currentUserId!, resolvedAt: Date.now() + s.timeOffsetMs, resolutionNote: note.trim() || undefined }
+                : f,
+            ),
+          }
+        }),
       reopenFeedback: (id) =>
-        patch((s) => ({
-          feedbackEntries: s.feedbackEntries.map((f) =>
-            f.id === id ? { ...f, resolvedBy: undefined, resolvedAt: undefined, resolutionNote: undefined } : f,
-          ),
-        })),
+        patch((s) => {
+          if (!feedbackBearbeitbar(s, id)) return null
+          return {
+            feedbackEntries: s.feedbackEntries.map((f) =>
+              f.id === id ? { ...f, resolvedBy: undefined, resolvedAt: undefined, resolutionNote: undefined } : f,
+            ),
+          }
+        }),
 
-      saveContact: (contact) =>
-        patch((s) => ({
-          contacts: contact.id
-            ? s.contacts.map((c) => (c.id === contact.id ? { ...c, ...contact, id: contact.id } : c))
-            : [...s.contacts, { ...contact, id: uid('c') }],
-          contactsChangedAt: Date.now() + s.timeOffsetMs,
-        })),
+      saveContact: (eingabe) =>
+        patchMitAntwort((s) => {
+          if (!darfKontakteVerwalten(s.settings, actorOf(s))) return null
+          // Getrimmt und grob geprueft wie im Dialog (contacts.ts): „Training "
+          // ergab sonst eine zweite Abteilung (Audit 11/2026, KERN-16).
+          const contact = kontaktNormalisieren(eingabe)
+          if (kontaktFehler(contact).length > 0) return null
+          return {
+            contacts: contact.id
+              ? s.contacts.map((c) => (c.id === contact.id ? { ...c, ...contact, id: contact.id } : c))
+              : [...s.contacts, { ...contact, id: uid('c') }],
+            contactsChangedAt: Date.now() + s.timeOffsetMs,
+          }
+        }),
       deleteContact: (id) =>
-        patch((s) => ({
-          contacts: s.contacts.filter((c) => c.id !== id),
-          contactsChangedAt: Date.now() + s.timeOffsetMs,
-        })),
+        patch((s) => {
+          if (!darfKontakteVerwalten(s.settings, actorOf(s))) return null
+          return {
+            contacts: s.contacts.filter((c) => c.id !== id),
+            contactsChangedAt: Date.now() + s.timeOffsetMs,
+          }
+        }),
 
       addUser: ({ groupIds, ...user }) => {
-        let angelegt = false
-        patch((s) => {
+        const id = uid('u')
+        const anlegen = (s: AppState): Partial<AppState> | null => {
+          // Konten legt nur an, wer die Benutzerverwaltung hat. Die Rolle des
+          // neuen Kontos reicht bis zum Superadmin — dieselbe Ausweitung, die
+          // updateUser und importUsers schon sperrten (VERW-23).
+          if (!darfVerwaltung(s.settings, actorOf(s), 'nutzerAnlegen')) return null
           /* Invarianten auch im Store, nicht nur im Dialog: ohne Gruppe, ohne
              Muster und ohne E-Mail kein neuer Nutzer. Die E-Mail ist die
              einzige Anmeldekennung; die Gruppe steuert Chat und Instructor
              Info; das Muster steuert, welche Lesson Plans jemand ueberhaupt
              sieht. Ein Konto ohne Muster ist fuer nichts zustaendig — und das
              gilt fuer den Admin genauso wie fuer den Instruktor. */
-          if (groupIds.length === 0 || !user.email.trim()) return null
+          if (!user.email.trim()) return null
+          // Nur mit freigegebener Domain: Ein Konto, das sich nie anmelden
+          // kann, entstand ueber diesen Weg, waehrend der Import es abwies
+          // (Audit 11/2026, VERW-12).
+          if (!domainErlaubt(user.email, s.settings.allowedDomains)) return null
           // Musterpflicht nur fuer die Rollen, deren Sicht daran haengt —
           // und ueber `musterFehlt`, nicht von Hand: Die Bedingung stand hier
           // ausgeschrieben, waehrend vier andere Schreibwege sie nicht kannten.
@@ -962,20 +1273,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // Doppelte Adresse hieße: zwei Konten, ein Login — der zweite
           // Nutzer könnte die Identität des ersten übernehmen.
           if (emailTaken(s, user.email)) return null
-          const id = uid('u')
-          angelegt = true
+          const neu = { ...user, canEditDirectory: false, canGrade: false, isTrainee: false, active: true }
+          // Pflicht-Gruppenzuweisung: nur Gruppen, die die Person betreten
+          // kann, und mindestens eine davon — sofern sie den Chat hat. Der
+          // Training Admin hat keinen; fuer ihn war die Pflicht unerfuellbar
+          // (KERN-07/VERW-07, Widerspruch 11 in den Audit-Notizen).
+          const ziele = s.groups.filter((g) => groupIds.includes(g.id))
+          if (ziele.some((g) => !gruppenTauglich(s.settings, neu, g))) return null
+          if (gruppenPflicht(s.settings, neu) && ziele.length === 0) return null
+          // Ein neues Superadmin-Konto ist zugleich DocCheck-Superadmin — eine
+          // Rechtevergabe wie der Rollenwechsel (VERW-15).
+          const zeilen = rollenAudit(null, neu, { von: s.currentUserId ?? '', ziel: id, at: Date.now() + s.timeOffsetMs, id: () => uid('dca') })
+          const dc = s.docCheck ?? DC_LEER
           return {
-            users: [...s.users, { ...user, id, canEditDirectory: false, canGrade: false, isTrainee: false, active: true }],
-            // Pflicht-Gruppenzuweisung: neue Nutzer landen sofort in ihren Gruppen
+            users: [...s.users, { ...neu, id }],
             groups: s.groups.map((g) => (groupIds.includes(g.id) ? { ...g, memberIds: [...g.memberIds, id] } : g)),
+            ...(zeilen.length ? { docCheck: { ...dc, audit: [...zeilen, ...dc.audit] } } : {}),
           }
-        })
+        }
+        // Die Antwort kommt aus derselben Pruefung, angewandt auf den zuletzt
+        // gezeichneten Stand — nicht aus einer Variablen, die der Updater
+        // setzt: React ruft ihn nicht zwingend sofort auf. Nachgemessen: Ein
+        // zweites Anlegen kurz nach dem ersten meldete „nicht angelegt",
+        // und das Konto stand trotzdem da (Audit 11/2026, Ebene-2-Test).
+        const angelegt = anlegen(stateRef.current) !== null
+        patch(anlegen)
         return angelegt
       },
       updateUser: (id, p) =>
         patch((s) => {
           const target = s.users.find((u) => u.id === id)
           if (!target) return null
+          // Aendern darf nur, wer die Benutzerverwaltung oder die
+          // Rechteseite hat. Eigene „harmlose" Felder gibt es heute keine —
+          // kein Weg ausserhalb des Panels ruft updateUser; kommt einer
+          // dazu, bekommt er seine eigene Aktion (VERW-23).
+          if (!darfVerwaltung(s.settings, actorOf(s), 'nutzerAendern')) return null
           // Die Rolle vergibt ausschließlich der Superadmin. Sonst könnte sich
           // ein group_admin über eine offen gebliebene Ansicht selbst befördern.
           const safe: Partial<User> = isSuper(s) ? { ...p } : { ...p, role: undefined }
@@ -985,67 +1318,78 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           delete safe.docCheckAdmin
           // E-Mail bleibt eindeutig — sie ist die einzige Anmeldekennung.
           if (safe.email !== undefined && (!safe.email.trim() || emailTaken(s, safe.email, id))) delete safe.email
-          // Die Organisation braucht immer mindestens einen Superadmin.
-          const lastSuper =
-            target.role === 'superadmin' && s.users.filter((u) => u.role === 'superadmin' && u.active).length <= 1
-          if (lastSuper && (safe.role !== undefined && safe.role !== 'superadmin')) delete safe.role
-          if (lastSuper && safe.active === false) delete safe.active
-          // Sich selbst stillzulegen sperrt einen aus der laufenden Sitzung aus.
-          if (id === s.currentUserId && safe.active === false) delete safe.active
-          // Niemand wird blind geschaltet. Zwei Wege fuehrten hier hinein:
-          // die Muster einzeln abwaehlen, oder einen Superadmin (der ohne
-          // Muster entstehen darf) zum Mitglied herabstufen. Beide erzeugten
-          // ein Konto, das der Anlege-Dialog ausdruecklich verweigert.
-          //
-          // Geprueft wird das ERGEBNIS, nicht der Patch: Ob die Rolle oder
-          // die Musterliste den Ausschlag gibt, ist gleichgueltig — blind ist
-          // blind. Ein bereits so entstandenes Altkonto bleibt aenderbar,
-          // solange die Aenderung es nicht schlechter macht.
-          const ziel = { ...target, ...safe }
-          if (musterFehlt(ziel) && !musterFehlt(target)) {
-            delete safe.role
-            delete safe.aircraftTypes
-          }
-          const users = s.users.map((u) => (u.id === id ? { ...u, ...safe } : u))
+          // Eigene Rolle, eigenes Konto, letzter Superadmin, letztes Muster,
+          // letzte erreichbare Gruppe: dieselbe Funktion, die der
+          // Nutzerzeile den Grund nennt (benutzerRegeln.ts). Vorher standen
+          // die Regeln nur hier und verwarfen still — und die eigene Rolle
+          // fehlte ganz, anders als in profiles_guard (VERW-01/VERW-10).
+          const { patch: erlaubt } = einzelAenderung(s.users, target, safe, s.currentUserId, { groups: s.groups, settings: s.settings })
+          if (Object.keys(erlaubt).length === 0) return null
+          const users = s.users.map((u) => (u.id === id ? { ...u, ...erlaubt } : u))
+          // Rolle oder Status koennen die DocCheck-Rolle aendern (Superadmin =
+          // DocCheck-Superadmin, deaktiviert = keine). Das ist eine
+          // Rechteaenderung und gehoert ins DocCheck-Protokoll — vorher stand
+          // sie nirgends (Audit 11/2026, VERW-15).
+          const zeilen = rollenAudit(target, { ...target, ...erlaubt }, { von: s.currentUserId ?? '', ziel: id, at: Date.now() + s.timeOffsetMs, id: () => uid('dca') })
+          const dc = s.docCheck ?? DC_LEER
+          const protokoll = zeilen.length ? { docCheck: { ...dc, audit: [...zeilen, ...dc.audit] } } : {}
           // Wer deaktiviert wird, verliert seine Sitzung — in der Sandbox ist
-          // das die aktuell angemeldete Identität.
-          if (safe.active === false && s.currentUserId === id) {
+          // das die aktuell angemeldete Identität. (Das eigene Konto weist
+          // einzelAenderung inzwischen ab; der Riegel bleibt fuer den Fall,
+          // dass sich diese Regel einmal aendert.)
+          if (erlaubt.active === false && s.currentUserId === id) {
             persistUser(null)
-            return { users, currentUserId: null }
+            return { users, currentUserId: null, ...protokoll }
           }
-          return { users }
+          return { users, ...protokoll }
         }),
 
-      addGroup: (name, purpose, aircraftType) =>
-        patch((s) => {
-          // Leere oder doppelte Namen wären im Chat nicht unterscheidbar.
-          if (!name.trim() || s.groups.some((g) => g.name.trim().toLowerCase() === name.trim().toLowerCase())) return null
+      addGroup: (name, purpose, aircraftType) => {
+        const id = uid('g')
+        const anlegen = (s: AppState): Partial<AppState> | null => {
+          // Superadmin und Gruppenadmin, und nur mit einem Muster, das der
+          // Anleger selbst sieht — er wird Mitglied (KERN-19).
+          if (!darfGruppeAnlegen(s.settings, actorOf(s), aircraftType)) return null
+          // Leere oder doppelte Namen wären im Chat nicht unterscheidbar —
+          // dieselbe Regel wie im Dialog und beim Umbenennen (gruppen.ts).
+          if (gruppenNameFehler(s.groups, null, name)) return null
           // Wer die Gruppe anlegt (Admin/Superadmin), verwaltet sie auch
           // und ist sofort Mitglied.
           const creator = s.currentUserId ? [s.currentUserId] : []
           return {
             groups: [
               ...s.groups,
-              { id: uid('g'), name, purpose, aircraftType, adminIds: creator, memberIds: creator, retention: null, muted: false },
+              { id, name: gruppenName(name), purpose, aircraftType, adminIds: creator, memberIds: creator, retention: null },
             ],
           }
-        }),
+        }
+        // Der Dialog in der Chatliste schloss auch bei einem vergebenen Namen
+        // und meldete nichts (KERN-08).
+        const angelegt = anlegen(stateRef.current) !== null
+        patch(anlegen)
+        return angelegt
+      },
       setGroupAircraft: (id, aircraftType) =>
         patch((s) => (maySeeGroup(s, id) ? { groups: s.groups.map((g) => (g.id === id ? { ...g, aircraftType } : g)) } : null)),
       renameGroup: (id, name) =>
         patch((s) => {
-          if (!maySeeGroup(s, id) || !name.trim()) return null
-          // Doppelte Gruppennamen sind im Chat nicht auseinanderzuhalten.
-          if (s.groups.some((g) => g.id !== id && g.name.trim().toLowerCase() === name.trim().toLowerCase())) return null
-          return { groups: s.groups.map((g) => (g.id === id ? { ...g, name: name.trim() } : g)) }
+          // Leer oder doppelt geht nicht. Aufgerufen wird erst am Ende der
+          // Eingabe (GroupNameField) — vorher lief das bei jedem Tastendruck,
+          // und ein Leerzeichen am Wortende verschwand, bevor das naechste
+          // Wort kam (Audit 11/2026, VERW-04).
+          if (!maySeeGroup(s, id) || gruppenNameFehler(s.groups, id, name)) return null
+          const neu = gruppenName(name)
+          if (s.groups.find((g) => g.id === id)?.name === neu) return null
+          return { groups: s.groups.map((g) => (g.id === id ? { ...g, name: neu } : g)) }
         }),
       // Gleiche Regel wie in deleteGroup — die Oberfläche muss den Grund
       // NENNEN können, statt den Klick wirkungslos verpuffen zu lassen.
       groupDeleteBlockers: (id) => {
         const group = state.groups.find((g) => g.id === id)
         if (!group) return []
+        const ohne = state.groups.filter((g) => g.id !== id)
         return group.memberIds
-          .filter((m) => groupsOf(state, m).length <= 1)
+          .filter((m) => verliertGruppe(state, m, ohne))
           .map((m) => state.users.find((u) => u.id === m))
           .filter((u): u is User => !!u)
       },
@@ -1054,7 +1398,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           if (!maySeeGroup(s, id)) return null
           // Niemand darf ohne Gruppe zurückbleiben — sonst verliert er
           // Chat-Zugang und Instructor-Info-Sichtbarkeit.
-          const orphan = s.groups.find((g) => g.id === id)?.memberIds.some((m) => groupsOf(s, m).length <= 1)
+          const ohne = s.groups.filter((g) => g.id !== id)
+          const orphan = s.groups.find((g) => g.id === id)?.memberIds.some((m) => verliertGruppe(s, m, ohne))
           if (orphan) return null
           return {
           groups: s.groups.filter((g) => g.id !== id),
@@ -1068,32 +1413,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }),
       setGroupAdmins: (id, adminIds) =>
-        patch((s) =>
-          maySeeGroup(s, id)
-            ? // Adminrechte nur für Mitglieder der Gruppe — wer nicht drin ist,
-              // kann sie auch nicht verwalten.
-              { groups: s.groups.map((g) => (g.id === id ? { ...g, adminIds: adminIds.filter((a) => g.memberIds.includes(a)) } : g)) }
-            : null,
-        ),
+        patch((s) => {
+          const group = s.groups.find((g) => g.id === id)
+          if (!group || !maySeeGroup(s, id)) return null
+          // Adminrechte nur für Mitglieder der Gruppe — wer nicht drin ist,
+          // kann sie auch nicht verwalten. Neu ernannt wird nur, wen auch die
+          // Oberflaeche anbietet: aktive Mitglieder (VERW-11).
+          const kandidaten = new Set(adminKandidaten(group, s.users).map((u) => u.id))
+          const neu = adminIds.filter((a) => group.memberIds.includes(a) && (group.adminIds.includes(a) || kandidaten.has(a)))
+          if (gruppenAenderungFehler(actorOf(s), group, group.memberIds, neu) === 'selbstEntfernt') return null
+          return { groups: s.groups.map((g) => (g.id === id ? { ...g, adminIds: neu } : g)) }
+        }),
 
       updateSettings: (p) =>
         patch((s) => {
+          // Einstellungen und Impressum nur mit dem Bereich dazu (VERW-23).
+          if (!darfVerwaltung(s.settings, actorOf(s), 'einstellungen')) return null
           const next = { ...p }
+          // Login-Domains: gespeichert wird nur die normalisierte Form, und
+          // nie eine Liste, mit der der Handelnde selbst oder kein aktiver
+          // Superadmin mehr hineinkaeme — wer sollte sie dann zuruecknehmen?
+          // Ein Tippfehler oder ein Klick aufs × sperrte vorher die ganze ATO
+          // aus (Audit 11/2026, VERW-05).
+          if (next.allowedDomains) {
+            const liste = domainListe(next.allowedDomains)
+            const unbrauchbar = next.allowedDomains.length > 0 && liste.length === 0
+            if (unbrauchbar || domainSperre(s.users, liste, actorOf(s)?.email)) delete next.allowedDomains
+            else next.allowedDomains = liste
+          }
           // Ein Muster, das noch an Gruppen, Nutzern, Lesson Plans oder
           // Formularen hängt, darf nicht verschwinden — sonst zeigen diese
-          // Verweise ins Leere.
+          // Verweise ins Leere. Es bleibt an SEINER Stelle: Angehaengt
+          // sprang der Chip ans Listenende, als sei etwas geschehen
+          // (VERW-18). Den Grund nennt die Oberflaeche vorher, mit derselben
+          // Zaehlung (musterInVerwendung).
           if (next.aircraftTypes) {
-            const removed = s.settings.aircraftTypes.filter((a) => !next.aircraftTypes!.includes(a))
-            const stillUsed = removed.filter(
-              (a) =>
-                s.groups.some((g) => g.aircraftType === a) ||
-                s.users.some((u) => u.aircraftTypes.includes(a)) ||
-                s.lessonPlans.some((l) => l.aircraftType === a) ||
-                s.gradingRecords.some((r) => r.header.aircraftType === a) ||
-                s.infoEntries.some((e) => e.aircraftType === a),
+            next.aircraftTypes = musterListeBehalten(s.settings.aircraftTypes, next.aircraftTypes, (a) =>
+              musterBelegt(musterInVerwendung(s, a)),
             )
-            if (stillUsed.length > 0) next.aircraftTypes = [...next.aircraftTypes!, ...stillUsed]
           }
+          if (Object.keys(next).length === 0) return null
           return { settings: { ...s.settings, ...next } }
         }),
 
@@ -1256,81 +1615,93 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       updateGrading: (p) =>
         patch((s) => {
+          if (!darfGradingKonfigurieren(actorOf(s))) return null
           const next = { ...p }
           // Ein Formulartyp, zu dem es Datensätze gibt, bleibt im Katalog —
           // sonst verliert ein unterschriebenes Dokument seine Struktur.
           if (next.formTypes) {
             const removed = s.settings.grading.formTypes.filter((f) => !next.formTypes!.some((n) => n.id === f.id))
-            // 306 und 310 sind Pflicht-Folgeformulare: Die Regeln verlangen sie
-            // bei „Not Competent" bzw. „Session not completed". Ohne sie im
-            // Katalog ließe sich ein solcher Durchgang gar nicht abschließen —
-            // sie bleiben deshalb unabhängig davon, ob schon Datensätze
-            // existieren.
-            const stillUsed = removed.filter(
-              (f) => f.id === '306' || f.id === '310' || s.gradingRecords.some((r) => r.formTypeId === f.id),
-            )
-            if (stillUsed.length > 0) next.formTypes = [...next.formTypes!, ...stillUsed]
+            // Pflicht-Folgeformulare (306/310) und Typen mit Datensätzen
+            // bleiben — dieselbe Regel, die den Löschknopf der Konfiguration
+            // sperrt (gradingRules.formularTypInGebrauch, Audit 11/2026, GRD-18).
+            const stillUsed = removed.filter((f) => formularTypInGebrauch(f.id, s.gradingRecords) !== null)
+            // Behaltene Typen an ihrer Stelle, nicht angehaengt (VERW-18).
+            if (stillUsed.length > 0) {
+              const neu = next.formTypes
+              next.formTypes = [
+                ...s.settings.grading.formTypes.flatMap((f) => neu.find((n) => n.id === f.id) ?? (stillUsed.includes(f) ? f : [])),
+                ...neu.filter((n) => !s.settings.grading.formTypes.some((f) => f.id === n.id)),
+              ]
+            }
           }
           return { settings: { ...s.settings, grading: { ...s.settings.grading, ...next } } }
         }),
+      removeFormType: (id) => {
+        const entfernen = (s: AppState) => formularTypEntfernen(s.settings.grading.formTypes, id, s.gradingRecords)
+        // Der Ausgang kommt aus derselben Pruefung auf dem zuletzt
+        // gezeichneten Stand — wie bei addUser, nicht aus dem Updater.
+        if (!darfGradingKonfigurieren(actorOf(stateRef.current))) return 'keinRecht'
+        const ausgang = entfernen(stateRef.current).ausgang
+        patch((s) => {
+          if (!darfGradingKonfigurieren(actorOf(s))) return null
+          const e = entfernen(s)
+          return e.ausgang === 'geloescht' ? { settings: { ...s.settings, grading: { ...s.settings.grading, formTypes: e.formTypes } } } : null
+        })
+        return ausgang
+      },
 
       visibleLessonPlans,
       addLessonPlan: (plan) =>
-        patch((s) => ({
-          lessonPlans: [...s.lessonPlans, { ...plan, id: uid('lp'), uploadedBy: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs }],
-        })),
-      deleteLessonPlan: (id) => patch((s) => ({ lessonPlans: s.lessonPlans.filter((p) => p.id !== id) })),
-      importUsers: (rows) => {
-        // Doppelte Adressen werden hier NOCH einmal abgewiesen: Die Vorschau
-        // prueft gegen den Bestand, aber zwischen Vorschau und Klick kann in
-        // einem zweiten Tab jemand denselben Nutzer angelegt haben.
-        let angelegt = 0
+        patchMitAntwort((s) => {
+          if (!darfLessonPlansVerwalten(s.settings, actorOf(s), plan.aircraftType)) return null
+          return {
+            lessonPlans: [...s.lessonPlans, { ...plan, id: uid('lp'), uploadedBy: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs }],
+          }
+        }),
+      deleteLessonPlan: (id) =>
         patch((s) => {
+          const plan = s.lessonPlans.find((p) => p.id === id)
+          if (!plan || !darfLessonPlansVerwalten(s.settings, actorOf(s), plan.aircraftType)) return null
+          return { lessonPlans: s.lessonPlans.filter((p) => p.id !== id) }
+        }),
+      importUsers: (rows, groupIds) => {
+        // Doppelte Adressen, Domain, Muster und Gruppe werden hier NOCH
+        // einmal geprueft (importPlanen): Die Vorschau prueft gegen den
+        // Bestand, aber zwischen Vorschau und Klick kann in einem zweiten Tab
+        // jemand denselben Nutzer angelegt haben.
+        const planen = (s: AppState) => {
           // Der Import vergibt Rollen — bis hin zum Superadmin. `updateUser`
           // schuetzt die Rolle ausdruecklich („sonst koennte sich ein
           // group_admin selbst befoerdern"); derselbe Riegel gehoert hierher,
           // sonst fuehrt die Tabelle am Schutz vorbei.
           if (!isSuper(s)) return null
-          const vergeben = new Set(s.users.map((u) => u.email.trim().toLowerCase()))
-          const erlaubt = s.settings.allowedDomains.map((d) => d.toLowerCase())
-          const neue = rows
-            .filter((r) => {
-              const mail = r.email.trim().toLowerCase()
-              if (!mail || vergeben.has(mail)) return false
-              // Auch im Store gegen die Domainliste pruefen, nicht nur in der
-              // Vorschau: Wer sich nie anmelden kann, soll gar nicht erst
-              // entstehen — die Liste kann sich zwischen Vorschau und Klick
-              // geaendert haben.
-              if (erlaubt.length > 0 && !erlaubt.some((d) => mail.endsWith(`@${d}`))) return false
-              // Und gegen die Musterpflicht — der Dialog verweigert genau
-              // dieses Konto, der Import legte es reihenweise an. Die
-              // Vorschau meldet die Zeile schon vorher (`aircraftMissing`);
-              // hier steht der Riegel fuer den Fall, dass sich die
-              // Musterliste zwischen Vorschau und Klick geaendert hat.
-              if (musterFehlt(r)) return false
-              vergeben.add(mail)
-              return true
-            })
-            .map((r) => ({
-              id: uid('u'),
-              name: r.name.trim(),
-              email: r.email.trim().toLowerCase(),
-              phone: r.phone.trim(),
-              role: r.role,
-              canEditDirectory: r.canEditDirectory,
-              canGrade: r.canGrade,
-              isTrainee: r.isTrainee,
-              aircraftTypes: r.aircraftTypes,
-              active: r.active,
-            }))
-          angelegt = neue.length
-          return neue.length > 0 ? { users: [...s.users, ...neue] } : null
+          // Gruppen wie beim Anlegen im Dialog: Der Import legte Konten ganz
+          // ohne Gruppe an, in einem Zustand, den jeder andere Schreibweg
+          // verbietet (Audit 11/2026, VERW-07).
+          return importPlanen(s, rows, groupIds, () => uid('u'))
+        }
+        // Gemeldet wird, was dieselbe Rechnung am zuletzt gezeichneten Stand
+        // ergibt — der Updater laeuft nicht zwingend sofort (siehe addUser).
+        const angelegt = planen(stateRef.current)?.neue.length ?? 0
+        patch((s) => {
+          const plan = planen(s)
+          if (!plan || plan.neue.length === 0) return null
+          // Wie beim Anlegen im Dialog: Ein importierter Superadmin ist
+          // zugleich DocCheck-Superadmin und steht im Protokoll (VERW-15).
+          const at = Date.now() + s.timeOffsetMs
+          const zeilen = plan.neue.flatMap((u) => rollenAudit(null, u, { von: s.currentUserId ?? '', ziel: u.id, at, id: () => uid('dca') }))
+          const dc = s.docCheck ?? DC_LEER
+          return {
+            users: [...s.users, ...plan.neue],
+            groups: plan.groups,
+            ...(zeilen.length ? { docCheck: { ...dc, audit: [...zeilen, ...dc.audit] } } : {}),
+          }
         })
         return angelegt
       },
       visibleNotes,
       saveNote: (n) =>
-        patch((s) => {
+        patchMitAntwort((s) => {
           const jetzt = Date.now() + s.timeOffsetMs
           const alle = s.notes ?? []
           // Aendern nur an EIGENEN Notizen: Die ID kommt aus der Oberflaeche,
@@ -1360,25 +1731,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       /* Logbuch-Korrekturen: IMMER nur am eigenen Logbuch. Fremde Logbuecher
          sind je nach Rolle sichtbar, aber nie schreibbar — ein
          Taetigkeitsnachweis, den ein anderer nachbessern kann, ist keiner. */
-      logbookOverride: (recordId, ov) =>
-        patch((s) => {
+      logbookOverride: (eintrag, ov) =>
+        patchMitAntwort((s) => {
           if (!s.currentUserId) return null
           const alle = s.logbook ?? {}
           const eigenes: LogbookStand = alle[s.currentUserId] ?? { overrides: {}, manuell: [] }
-          const overrides = { ...eigenes.overrides }
-          if (ov === null) delete overrides[recordId]
-          else overrides[recordId] = ov
+          // Je Durchgang, nicht je Blatt (Audit 11/2026, LOG-01): Eine
+          // Altkorrektur eines anderen Blatts tauchte sonst nach dem
+          // Zurücksetzen wieder auf.
+          const overrides = overrideSetzen(eigenes.overrides, eintrag, ov)
           return { logbook: { ...alle, [s.currentUserId]: { ...eigenes, overrides } } }
         }),
       logbookAddManual: (e) =>
-        patch((s) => {
+        patchMitAntwort((s) => {
           if (!s.currentUserId) return null
           const alle = s.logbook ?? {}
           const eigenes: LogbookStand = alle[s.currentUserId] ?? { overrides: {}, manuell: [] }
           return { logbook: { ...alle, [s.currentUserId]: { ...eigenes, manuell: [...eigenes.manuell, { ...e, id: uid('lb') }] } } }
         }),
       logbookUpdateManual: (id, p) =>
-        patch((s) => {
+        patchMitAntwort((s) => {
           if (!s.currentUserId) return null
           const alle = s.logbook ?? {}
           const eigenes = alle[s.currentUserId]
@@ -1410,8 +1782,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ),
           }
         }),
+      gesichert,
     }
-  }, [state, now, currentUser, effectiveRetention, visibleMessages, visiblePolls, myGroups, unreadGroups, hasNewInfo, hasNewContacts, latestForeignContent, latestForeignInfo, visibleGradingRecords, visibleLessonPlans, visibleInfoEntries])
+  }, [gesichert, state, now, currentUser, sessionExpired, effectiveRetention, visibleMessages, visiblePolls, myGroups, unreadGroups, hasNewInfo, hasNewContacts, latestForeignContent, latestForeignInfo, visibleGradingRecords, visibleLessonPlans, visibleInfoEntries])
 
   return <StoreCtx.Provider value={store}>{children}</StoreCtx.Provider>
 }
@@ -1422,85 +1795,15 @@ export function useStore(): Store {
   return ctx
 }
 
-/** Darf der Nutzer in dieser Gruppe administrieren? */
-/** Admin-Rechte: Superadmin und Admin — NICHT der nur-lesende Training Admin */
-/**
- * Hat dieser Nutzer ein Admin-Panel? Die Antwort kommt aus adminAccess.ts —
- * dort steht auch, WELCHE Bereiche. Zwei Aufzaehlungen derselben Freigabe
- * hatten sich schon einmal widersprochen.
- */
-export { adminTabsFor }
+/* Rechtefragen (userHasPerm, userMayModule, isAdminUser, isGroupAdmin) liegen
+   in src/adminAccess.ts — dort erreichen sie beide Testwachen. Sie standen
+   hier, in einer .tsx-Datei, und jede Rechtefrage der App war ungetestet
+   (Audit 11/2026, VERW-02). */
 
-export function isAdminUser(user: { role: Role } | null | undefined): boolean {
-  return hatAdminPanel(user?.role)
-}
-
-
-/**
- * Rechte-Matrix: Superadmin darf immer alles; Mitglieder werden über die
- * Flags am Nutzer gesteuert (canGrade, canEditDirectory); Admin und
- * Training Admin folgen der im Superadmin-Panel gepflegten Matrix.
- */
-/**
- * Darf dieser Nutzer das Modul überhaupt betreten? Der Training Admin ist auf
- * die Formularablage begrenzt; weitere Module öffnen sich nur, wenn die
- * Rechte-Matrix sie ihm freischaltet. Alle anderen Rollen sehen alles —
- * die Feinsteuerung passiert innerhalb der Module.
- */
-export function userMayModule(settings: Settings, user: User | null | undefined, module: ModuleKey): boolean {
-  if (!user) return false
-  if (module === 'grading') return userHasPerm(settings, user, 'grading_create') || userHasPerm(settings, user, 'grading_view_all')
-  if (user.role !== 'training_admin') return true
-  if (module === 'info') return userHasPerm(settings, user, 'info_manage')
-  if (module === 'lessons') return userHasPerm(settings, user, 'lessons_manage')
-  if (module === 'contacts') return userHasPerm(settings, user, 'contacts_manage')
-  // Notizen bekommt der Training Admin bewusst nicht: Seine Rolle ist die
-  // lesende Sicht auf die Formularablage, keine Instruktorentaetigkeit — er
-  // hat nichts, wofuer er sich etwas fuer die naechste Session merken muesste.
-  return false
-}
-
-export function userHasPerm(settings: Settings, user: User | null | undefined, key: PermKey): boolean {
-  if (!user) return false
-  if (user.role === 'superadmin') return true
-  if (user.role === 'member') {
-    if (key === 'grading_create') return user.canGrade
-    if (key === 'contacts_manage') return user.canEditDirectory
-    return false
-  }
-  return settings.permissions[user.role]?.[key] ?? false
-}
-
-export function isGroupAdmin(user: User | null, group: Group): boolean {
-  if (!user) return false
-  return user.role === 'superadmin' || group.adminIds.includes(user.id)
-}
-
-/** Ist der Eintrag schon veröffentlicht? „Gültig ab“ in der Zukunft heißt:
- *  noch nicht sichtbar und nicht bestätigbar (nur Verwalter sehen ihn). */
-export function infoIsPublished(entry: { validFrom?: string }, ts: number): boolean {
-  if (!entry.validFrom) return true
-  const from = new Date(`${entry.validFrom}T00:00:00`).getTime()
-  return Number.isNaN(from) || from <= ts
-}
-
-/** Abgelaufen? Nach dem Gültigkeitsende ist der Eintrag nicht mehr
- *  bestätigungspflichtig — eine Bestätigung auf ein überholtes Dokument
- *  landete sonst als „gelesen" in der Kontrollliste. */
-export function infoIsExpired(entry: { validUntil?: string }, ts: number): boolean {
-  if (!entry.validUntil) return false
-  const until = new Date(`${entry.validUntil}T23:59:59`).getTime()
-  return !Number.isNaN(until) && until < ts
-}
-
-/** Ab wann der Eintrag für die Leser sichtbar wurde — maßgeblich für die
- *  „Neu"-Markierung. Ein vorbereiteter Eintrag ging bisher ohne Markierung
- *  online, weil ab seiner Erstellung gerechnet wurde. */
-export function infoPublishedAt(entry: { validFrom?: string; createdAt: number }): number {
-  if (!entry.validFrom) return entry.createdAt
-  const from = new Date(`${entry.validFrom}T00:00:00`).getTime()
-  return Number.isNaN(from) ? entry.createdAt : Math.max(entry.createdAt, from)
-}
+/* `infoIsPublished`, `infoIsExpired` und `infoPublishedAt` liegen in
+   src/infoAcks.ts — hier, in einer .tsx-Datei, erreichte sie keine der
+   beiden Testwachen, und die Neu-Marke rechnete an zwei Stellen mit ihnen
+   verschieden (Audit 11/2026, KERN-11). */
 
 /* `infoEntryAppliesTo` liegt jetzt in src/infoAcks.ts — zusammen mit der
    Frage, wer bestaetigen muss, und damit dort, wo beide Testwachen sie
@@ -1508,13 +1811,7 @@ export function infoPublishedAt(entry: { validFrom?: string; createdAt: number }
    bleiben und es nicht zwei Fassungen gibt. */
 export { infoEntryAppliesTo } from './infoAcks'
 
-/** Darf der Nutzer diesen Chat betreten? Mitglieder, Gruppen-Admins, Superadmin. */
-export function mayAccessGroup(user: User | null, group: Group): boolean {
-  if (!user) return false
-  /* Der Musterbereich gilt auch hier, nicht nur in der Liste. Sonst waere die
-     Filterung reine Kosmetik: Die Chatliste zeigte die Gruppe nicht, wer die
-     Adresse kannte, war trotzdem drin. Dieselbe Luecke gab es schon einmal
-     bei den Formularen (#29). */
-  if (!sichtbarFuer(user, group.aircraftType)) return false
-  return group.memberIds.includes(user.id) || isGroupAdmin(user, group)
-}
+/* `mayAccessGroup` liegt in src/gruppen.ts — dort erreichen sie beide
+   Testwachen, und die Rechteregeln des Stores (storeRechte.ts) bauen darauf
+   auf (Audit 11/2026, KERN-19). Hier nur durchgereicht. */
+export { mayAccessGroup } from './gruppen'

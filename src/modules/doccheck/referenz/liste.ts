@@ -77,16 +77,48 @@ export function kopfzeile(zeilen: string[][]): number {
   return i < 0 ? 0 : i
 }
 
-const teilen = (s?: string) => (s ?? '').split(/[;,/\n]|\s+\|\s+/).map((x) => x.trim()).filter(Boolean)
+/** Kopfzeile und ihre Zellen, aufgefüllt auf die breiteste Zeile — Beschriftung der Spaltenwahl. */
+export function kopfSpalten(zeilen: string[][]): { zeile: number; koepfe: string[] } {
+  const zeile = kopfzeile(zeilen)
+  const breite = Math.max(0, ...zeilen.map((z) => z.length))
+  return { zeile, koepfe: Array.from({ length: breite }, (_, i) => (zeilen[zeile]?.[i] ?? '').trim()) }
+}
 
-export function listeAusTabelle(name: string, zeilen: string[][], vorgabe?: ListenArt, blatt?: string): ReferenzListe | null {
-  const k = kopfzeile(zeilen)
+/**
+ * Spalten, die der Nutzer selbst zugeordnet hat, weil die Köpfe nicht
+ * erkannt wurden. Vorher führte „Art bitte wählen" in eine Sackgasse: Die
+ * Wahl lief wieder durch die Kopferkennung, fand nichts, und die Auswahl
+ * sprang zurück (Audit 11/2026, DC-13). Übernommen wird nur, was eindeutig
+ * ist — Rollen der Art, jede Spalte einmal, innerhalb der Tabelle; ohne die
+ * Pflichtrolle keine Liste. Geraten wird nichts.
+ */
+export function spaltenPruefen(art: ListenArt, spalten: Record<string, number>, breite: number): Record<string, number> | null {
+  const out: Record<string, number> = {}
+  for (const rolle of Object.keys(SPALTEN[art])) {
+    const i = spalten[rolle]
+    if (Number.isInteger(i) && i >= 0 && i < breite && !Object.values(out).includes(i)) out[rolle] = i
+  }
+  return Object.keys(SPALTEN[art])[0] in out ? out : null
+}
+
+// „|" trennt nur mit Leerraum davor und danach — als Umgebung je EIN
+// Zeichen geprüft: „\s+\|\s+" lief an langen Leerzeichenfolgen quadratisch
+// (Audit 11/2026, SEC-01); den übrigen Leerraum entfernt trim().
+const teilen = (s?: string) => (s ?? '').split(/[;,/\n]|(?<=\s)\|(?=\s)/).map((x) => x.trim()).filter(Boolean)
+
+/**
+ * Liste aus einer Tabelle. `spalten` ist die ausdrückliche Zuordnung des
+ * Nutzers (nur mit `vorgabe`) und geht der Kopferkennung vor.
+ */
+export function listeAusTabelle(name: string, zeilen: string[][], vorgabe?: ListenArt, blatt?: string, spalten?: Record<string, number>): ReferenzListe | null {
+  const { zeile: k, koepfe } = kopfSpalten(zeilen)
   const kopf = zeilen[k] ?? []
-  const erkannt = vorgabe ? { art: vorgabe, spalten: zuordnen(kopf, vorgabe) } : artErkennen(kopf)
+  const erkannt = vorgabe ? { art: vorgabe, spalten: spalten ? spaltenPruefen(vorgabe, spalten, koepfe.length) : zuordnen(kopf, vorgabe) } : artErkennen(kopf)
   if (!erkannt?.spalten) return null
-  const { art, spalten } = erkannt
+  const { art } = erkannt
+  const sp = erkannt.spalten
   const daten = zeilen.slice(k + 1).filter((z) => z.some((x) => x?.trim()))
-  const zelle = (z: string[], rolle: string) => (spalten[rolle] !== undefined ? (z[spalten[rolle]] ?? '').trim() : '')
+  const zelle = (z: string[], rolle: string) => (sp[rolle] !== undefined ? (z[sp[rolle]] ?? '').trim() : '')
   const id = `ref-${vergleichsform(name)}-${blatt ? vergleichsform(blatt) : ''}`
   const basis = { id, name, ...(blatt ? { blatt } : {}) }
   switch (art) {
@@ -99,6 +131,16 @@ export function listeAusTabelle(name: string, zeilen: string[][], vorgabe?: List
     case 'kennungen':
       return { ...basis, art, eintraege: daten.map((z) => ({ kennung: zelle(z, 'kennung'), ...(zelle(z, 'bezeichnung') ? { bezeichnung: zelle(z, 'bezeichnung') } : {}) })).filter((e) => e.kennung) }
   }
+}
+
+/** Größte Liste, die gelesen wird (Referenz- und Fremdlisten). Echte Listen
+ *  haben wenige hundert KB; die Grenze hält eine präparierte Datei vom
+ *  Hauptfenster fern, das diese Listen liest (Audit 11/2026, SEC-01). */
+export const LISTE_MAX_MB = 20
+
+/** Vor dem Lesen (Größe in Byte, am File schon vor dem Einlesen bekannt): zu groß → DC-LISTE-GROSS. */
+export function listeGroessePruefen(bytes: number): void {
+  if (bytes > LISTE_MAX_MB * 1024 * 1024) throw new Error('DC-LISTE-GROSS')
 }
 
 /** CSV mit Komma, Semikolon oder Tab; Anführungszeichen nach RFC 4180. */
@@ -136,6 +178,9 @@ export function mdTabelle(text: string): string[][] {
   return text
     .split(/\r?\n/)
     .filter((z) => z.trim().startsWith('|'))
-    .filter((z) => !/^\s*\|?[\s:|-]+\|?\s*$/.test(z))
+    // Trennzeile: nur |, :, - und Leerraum. Dieselbe Menge wie vorher
+    // „^\s*\|?[\s:|-]+\|?\s*$", aber ohne überlappende Wiederholungen — die
+    // brauchten für zehn präparierte Zeilen Sekunden (SEC-01).
+    .filter((z) => !/^[\s:|-]+$/.test(z))
     .map((z) => z.trim().replace(/^\||\|$/g, '').split('|').map((x) => x.trim()))
 }

@@ -1,35 +1,23 @@
-import { AlertTriangle, CheckCircle2, Clock, Download, FileDown, FilePen, HelpCircle, Plus, Search, Trash2, XCircle } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Clock, Download, FileDown, FilePen, HelpCircle, Search, Trash2, XCircle } from 'lucide-react'
 import { formatDate, formatDateTime } from '../datum'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, inputCls, Page, SectionHeading, TopBar } from '../components/ui'
+import { Badge, Button, Card, FilterAuswahl, inputCls, Page, SectionHeading, TopBar, TopBarAktion } from '../components/ui'
 import { downloadCsv } from '../csv'
-import { readDrafts } from '../drafts'
+import { fortsetzenAdresse, readDrafts } from '../drafts'
 import { toast } from '../components/Toast'
 import { buildGradingCsv, gradingCsvName, type ExportScope } from '../gradingExport'
 import { navigate } from '../router'
 import { gradingListComparator } from '../gradingRules'
-import { trainingDate } from '../gradingStats'
+import { imZeitraum, LISTEN_ZEITRAEUME, zeitraumTage } from '../gradingStats'
 import { useStore } from '../store'
 import { TraineeHistory } from './admin/TraineeHistory'
 import { MonthlyReport } from './admin/MonthlyReport'
-import { followUpStarted, gradingDayKey, gradingListDate, isComplete, missingFollowUps, traineesOf, trafficLight, type TrafficColor } from '../gradingRules'
+import { followUpStarted, gradingDayKey, gradingListDate, isComplete, missingFollowUps, personenKurz, personenSuche, traineesOf, trafficLight, type TrafficColor } from '../gradingRules'
 import type { GradingRecord } from '../types'
 
 // Weiterreichen, damit die Ansichten weiterhin aus einer Datei importieren
 export { followUpStarted, isComplete, missingFollowUps, traineesOf, trafficLight, type TrafficColor }
-
-/** Farbcodierung laut Spez. 5.3: 5/4 grün, 3 dunkelgrün, 2 orange, 1 rot, NO grau.
- *  Kräftige Vollfarben mit weißem/schwarzem Text — in Hell- UND Dunkelmodus lesbar. */
-export function gradeColor(g: number | 'NO' | null): string {
-  // Textfarbe je Fläche so gewählt, dass jede Note mindestens 4,5:1 erreicht:
-  // Weiß auf emerald-600 lag bei 3,77:1 und war zu blass.
-  if (g === 'NO' || g === null) return 'bg-line/10 text-dim'
-  if (g >= 4) return 'bg-emerald-700 text-white'
-  if (g === 3) return 'bg-emerald-800 text-white'
-  if (g === 2) return 'bg-amber-500 text-black'
-  return 'bg-red-700 text-white'
-}
 
 /**
  * Liste nach Schulungstag gruppieren — die Reihenfolge der bereits
@@ -130,18 +118,14 @@ function TrainingAdminGrading() {
   // abgeschlossen = unterschrieben, versendet und ohne offenes Pflicht-Folgeformular
   const isCompleted = (r: GradingRecord) => trafficLight(r, state.gradingRecords) === 'green'
 
-  const PERIODS: Array<{ key: string; days: number | null }> = [
-    { key: 'all', days: null },
-    { key: 'day', days: 1 },
-    { key: 'week', days: 7 },
-    { key: 'month', days: 31 },
-    { key: 'year', days: 365 },
-  ]
-  const periodDays = PERIODS.find((x) => x.key === period)?.days ?? null
+  // Zeitraumtabelle und -regel teilt diese Liste mit der Ablage des
+  // Superadmins (gradingStats, Audit 11/2026, GRD-09).
+  const periodDays = zeitraumTage(period)
 
-  // Folgeformulare tragen ihren Piloten in den Kopfdaten — über traineesOf
-  // erscheinen sie im Filter, statt unsichtbar zu bleiben.
-  const traineeOptions = [...new Set(all.flatMap((r) => traineesOf(r, all).map(traineeLabel)))].filter((n) => n !== '—').sort()
+  // Folgeformulare tragen ihren Piloten in den Kopfdaten, Anwesenheitslisten
+  // ihre Teilnehmer — über personenSuche erscheinen beide im Filter, statt
+  // unsichtbar zu bleiben.
+  const traineeOptions = [...new Set(all.flatMap((r) => personenSuche(r, all, traineeLabel)))].filter((n) => n !== '—').sort()
   // Wie bei den Mustern: alle, die Formulare führen dürfen, plus die aus
   // Altdaten — nicht nur die, von denen bereits etwas vorliegt.
   const instructorOptions = [
@@ -166,8 +150,8 @@ function TrainingAdminGrading() {
     // Zeitraum über den Schulungstag, nicht den Erfassungszeitpunkt — die
     // gleiche Regel wie in der Statistik (gradingStats.trainingDate): ein
     // nachgetragenes Formular gehört in die Periode, in der geschult wurde.
-    if (periodDays && now() - trainingDate(r) > periodDays * 24 * 3600_000) return false
-    if (fTrainee && !traineesOf(r, all).some((tr) => traineeLabel(tr) === fTrainee)) return false
+    if (!imZeitraum(r, periodDays, now())) return false
+    if (fTrainee && !personenSuche(r, all, traineeLabel).includes(fTrainee)) return false
     if (fAircraft && r.header.aircraftType !== fAircraft) return false
     if (fInstructor && r.instructorId !== fInstructor) return false
     if (fType && r.formTypeId !== fType) return false
@@ -178,7 +162,7 @@ function TrainingAdminGrading() {
       r.formTypeId,
       formTitle(r.formTypeId),
       userName(r.instructorId),
-      ...traineesOf(r, all).map(traineeLabel),
+      ...personenSuche(r, all, traineeLabel),
       ...Object.values(r.header),
       formatDate(gradingListDate(r)),
     ]
@@ -234,18 +218,19 @@ function TrainingAdminGrading() {
         return eltern ? `${eltern.formTypeId} · ${formatDate(gradingListDate(eltern))}` : ''
       },
       formatDateTime,
+      formTypes: state.settings.grading.formTypes,
+      beschriftung: (schluessel) => t(schluessel),
     })
     downloadCsv(gradingCsvName(scope, jetzt), csv)
     toast(t('forms:toast.exported'))
   }
 
-  const selCls = 'rounded-xl border border-field bg-bg/60 px-3 py-2 text-small'
   return (
     <>
       {/* Filterergebnis für Sprachausgaben — die Liste ändert sich sonst lautlos */}
-      <p role="status" className="sr-only">{t('forms:admin.resultCount', { shown: list.length, total: all.length })}</p>
-      <TopBar title="Grading Tool" back="/" />
-      <Page wide className="space-y-stack">
+      <p role="status" lang="en" className="sr-only">{t('forms:admin.resultCount', { shown: list.length, count: all.length })}</p>
+      <TopBar title="Grading Tool" back="/" lang="en" />
+      <Page wide lang="en" className="space-y-stack">
         <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small text-dim">{t('forms:trainingAdminNote')}</p>
 
         {/* Reiter: Abgeschlossen / Zu bearbeiten / Verlauf je Pilot.
@@ -297,46 +282,49 @@ function TrainingAdminGrading() {
           />
         </div>
 
+        {/* Dieselbe Filterzeile wie in der Grading-Verwaltung (FilterAuswahl,
+            UID-17/A11Y-07) — hier stand eine eigene Klassenliste mit kleinerer
+            Schrift und ohne Fokusring (Gegenprüfung P9). */}
         <div className="flex flex-wrap gap-2">
-          <select value={fType} onChange={(e) => setFType(e.target.value)} aria-label={t('forms:admin.allTypes')} className={selCls}>
+          <FilterAuswahl label={t('forms:admin.allTypes')} value={fType} onChange={setFType}>
             <option value="">{t('forms:admin.allTypes')}</option>
             {formTypeOptions.map((id) => (
               <option key={id} value={id}>
                 {id}
               </option>
             ))}
-          </select>
-          <select value={period} onChange={(e) => setPeriod(e.target.value)} aria-label={t('forms:ta.periodLabel')} className={selCls}>
-            {PERIODS.map((x) => (
+          </FilterAuswahl>
+          <FilterAuswahl label={t('forms:ta.periodLabel')} value={period} onChange={setPeriod}>
+            {LISTEN_ZEITRAEUME.map((x) => (
               <option key={x.key} value={x.key}>
                 {t(`forms:ta.period.${x.key}`)}
               </option>
             ))}
-          </select>
-          <select value={fTrainee} onChange={(e) => setFTrainee(e.target.value)} aria-label={t('forms:admin.allTrainees')} className={selCls}>
+          </FilterAuswahl>
+          <FilterAuswahl label={t('forms:admin.allTrainees')} value={fTrainee} onChange={setFTrainee}>
             <option value="">{t('forms:admin.allTrainees')}</option>
             {traineeOptions.map((n) => (
               <option key={n} value={n}>
                 {n}
               </option>
             ))}
-          </select>
-          <select value={fAircraft} onChange={(e) => setFAircraft(e.target.value)} aria-label={t('forms:admin.allAircraft')} className={selCls}>
+          </FilterAuswahl>
+          <FilterAuswahl label={t('forms:admin.allAircraft')} value={fAircraft} onChange={setFAircraft}>
             <option value="">{t('forms:admin.allAircraft')}</option>
             {aircraftOptions.map((a) => (
               <option key={a} value={a}>
                 {a}
               </option>
             ))}
-          </select>
-          <select value={fInstructor} onChange={(e) => setFInstructor(e.target.value)} aria-label={t('forms:admin.allInstructors')} className={selCls}>
+          </FilterAuswahl>
+          <FilterAuswahl label={t('forms:admin.allInstructors')} value={fInstructor} onChange={setFInstructor}>
             <option value="">{t('forms:admin.allInstructors')}</option>
             {instructorOptions.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}
               </option>
             ))}
-          </select>
+          </FilterAuswahl>
         </div>
 
         {/* Der Auszug folgt der Liste — was oben gefiltert ist, steht in der
@@ -392,7 +380,7 @@ function TrainingAdminGrading() {
             <Card
               key={r.id}
               onClick={() => navigate(`/grading/${r.id}`)}
-              label={`${r.formTypeId} · ${traineesOf(r, all).map(traineeLabel).join(', ') || t('forms:openForm')} · ${formatDate(gradingListDate(r))}`}
+              label={`${r.formTypeId} · ${personenKurz(r, all, traineeLabel) || t('forms:openForm')} · ${formatDate(gradingListDate(r))}`}
               className="flex items-center gap-3 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none transition hover:bg-line/5"
             >
               <TrafficIcon color={trafficLight(r, state.gradingRecords)} />
@@ -402,13 +390,19 @@ function TrainingAdminGrading() {
                 </p>
                 <p className="flex flex-wrap items-baseline gap-x-1.5 text-micro text-dim">
                   <span className="min-w-0 max-w-full truncate">
-                    {traineesOf(r, all).map(traineeLabel).join(', ') || t('forms:noTrainee')}
+                    {personenKurz(r, all, traineeLabel) || t('forms:noTrainee')}
                   </span>
                   <span className="shrink-0">· {userName(r.instructorId)}</span>
                   <span className="shrink-0">· {r.header.aircraftType || '—'}</span>
                 </p>
               </div>
-              {/* PDF-Download/Druck (öffnet die Ein-Seiten-Druckansicht) */}
+              {/* PDF-Download/Druck (öffnet die Ein-Seiten-Druckansicht).
+                  `pointer-events-auto` holt den Klick zurueck, den `Card` dem
+                  Inhalt nimmt (Audit 11/2026, TA-01): Ohne die Klasse fiel
+                  jeder Maus- und Fingertipp auf die Zeile darunter, und der
+                  Training Admin bekam statt PDF nur die Formularansicht —
+                  per Tastatur ging es, deshalb fiel es lange nicht auf.
+                  kartenBedienung.test.ts bewacht das fuer jede Karte. */}
               {r.status === 'signed' && (
                 <button
                   onClick={(e) => {
@@ -417,7 +411,7 @@ function TrainingAdminGrading() {
                   }}
                   title={t('forms:downloadPdf')}
                   aria-label={t('forms:downloadPdf')}
-                  className="relative z-10 flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-accent/10 hover:text-accent"
+                  className="pointer-events-auto relative z-10 flex h-11 w-11 items-center justify-center rounded-lg text-dim transition hover:bg-accent/10 hover:text-accent"
                 >
                   <FileDown size={16} />
                 </button>
@@ -441,7 +435,10 @@ export function Grading() {
   // Das Grading-Modul ist immer vollständig englisch
   const { t } = useTranslation()
   const { state, currentUser, visibleGradingRecords, hideGradingRecord, can } = useStore()
-  const [drafts, setDrafts] = useState(() => readDrafts(currentUser!.id))
+  // Alle Kennungen: Nur mit ihnen lassen sich Entwürfe im alten Schlüssel
+  // ihrem Nutzer zuordnen (R3-ENTWURFSPRAEFIX, drafts.ts).
+  const nutzerIds = state.users.map((u) => u.id)
+  const [drafts, setDrafts] = useState(() => readDrafts(currentUser!.id, nutzerIds))
 
   const formTitle = (id: string) => state.settings.grading.formTypes.find((f) => f.id === id)?.title ?? id
   const traineeLabel = (tr: { traineeName?: string; traineeId: string }) =>
@@ -450,7 +447,12 @@ export function Grading() {
   // nur-lesender Zugriff (Training Admin bzw. per Matrix eingeschränkt)
   const isTrainingAdmin = !mayGrade && can('grading_view_all')
 
-  const isMember = currentUser!.role === 'member'
+  // Der Aufbewahrungshinweis gilt genau dort, wo der Store die Wochenfrist
+  // anwendet (visibleGradingRecords): ohne grading_view_all. Vorher hing er
+  // an der Rolle „member" — ein Gruppenadmin, dem die Matrix den vollen
+  // Archivzugriff nimmt, verlor Blätter ohne jeden Hinweis (Audit 11/2026,
+  // GRD-20).
+  const mitWochenfrist = !can('grading_view_all')
   // Filter über die Ampel-Legende (antippen zum Filtern)
   const [trafficFilter, setTrafficFilter] = useState<TrafficColor | ''>('')
   // Verlauf je Pilot: nur mit vollem Archivzugriff sinnvoll — die
@@ -470,8 +472,8 @@ export function Grading() {
   const [adminView, setAdminView] = useState<'records' | 'trainees' | 'monthly'>('records')
   const list = visibleGradingRecords.filter((r) => !trafficFilter || trafficLight(r, state.gradingRecords) === trafficFilter)
   const filterAnsage = (
-    <p role="status" className="sr-only">
-      {t('forms:admin.resultCount', { shown: list.length, total: visibleGradingRecords.length })}
+    <p role="status" lang="en" className="sr-only">
+      {t('forms:admin.resultCount', { shown: list.length, count: visibleGradingRecords.length })}
     </p>
   )
 
@@ -485,18 +487,12 @@ export function Grading() {
       <TopBar
         title="Grading Tool"
         back="/"
+        lang="en"
         right={
-          mayGrade ? (
-            <button
-              onClick={() => navigate('/grading/new')}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
-            >
-              <Plus size={15} /> {t('forms:newForm')}
-            </button>
-          ) : undefined
+          mayGrade ? <TopBarAktion label={t('forms:newForm')} onClick={() => navigate('/grading/new')} lang="en" /> : undefined
         }
       />
-      <Page className="space-y-stack">
+      <Page lang="en" className="space-y-stack">
         {!mayGrade && !isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small text-dim">{t('forms:noPermission')}</p>}
         {/* Training Admin: reiner Lese-/Download-Zugriff auf alle Formulare */}
         {isTrainingAdmin && <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small text-dim">{t('forms:trainingAdminNote')}</p>}
@@ -547,7 +543,9 @@ export function Grading() {
               )}
             </div>
             <button
-              onClick={() => navigate(`/grading/new?type=${d.formTypeId}`)}
+              // Mit Elternblatt und Kette — sonst oeffnete ein 306/310 leer
+              // und hing danach an keinem Blatt (GRD-01).
+              onClick={() => navigate(fortsetzenAdresse(d))}
               className="min-h-11 shrink-0 rounded-xl border border-accent/40 px-3 text-small font-semibold text-accent transition hover:bg-accent/10"
             >
               {t('forms:draftContinue')}
@@ -556,7 +554,7 @@ export function Grading() {
               onClick={() => {
                 if (!window.confirm(t('forms:draftDiscardConfirm'))) return
                 localStorage.removeItem(d.key)
-                setDrafts(readDrafts(currentUser!.id))
+                setDrafts(readDrafts(currentUser!.id, nutzerIds))
               }}
               aria-label={t('forms:draftDiscard')}
               title={t('forms:draftDiscard')}
@@ -595,8 +593,9 @@ export function Grading() {
           ))}
         </div>
 
-        {/* Aufbewahrung in der Instruktoren-Ansicht: 1 Woche */}
-        {isMember && <p className="px-1 text-micro leading-relaxed text-dim">{t('forms:retentionHint')}</p>}
+        {/* Aufbewahrung in der eigenen Ansicht: eine Woche ab Erledigung,
+            Offenes bleibt (GRD-20) */}
+        {mitWochenfrist && <p className="px-1 text-micro leading-relaxed text-dim">{t('forms:retentionHint')}</p>}
 
         {list.length === 0 &&
           (trafficFilter ? (
@@ -635,7 +634,7 @@ export function Grading() {
             <Card
               key={r.id}
               onClick={() => navigate(`/grading/${r.id}`)}
-              label={`${r.formTypeId} · ${traineesOf(r, state.gradingRecords).map((tr) => tr.traineeName).filter(Boolean).join(', ') || t('forms:openForm')} · ${formatDate(r.header.date || r.createdAt)}`}
+              label={`${r.formTypeId} · ${personenKurz(r, state.gradingRecords, traineeLabel) || t('forms:openForm')} · ${formatDate(r.header.date || r.createdAt)}`}
               className="p-4"
             >
               <div className="flex items-start gap-3">
@@ -657,11 +656,16 @@ export function Grading() {
                   </p>
                   <p className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 text-small text-dim">
                     <span className="min-w-0 max-w-full truncate">
-                      {traineesOf(r, state.gradingRecords).map(traineeLabel).join(', ') || t('forms:noTrainee')}
+                      {personenKurz(r, state.gradingRecords, traineeLabel) || t('forms:noTrainee')}
                     </span>
                     {/* schrumpfbar: ein langer Mustername drängte sonst den
-                        Pilotennamen vollständig aus der Zeile */}
-                    <span className="min-w-0 max-w-[40%] shrink truncate">· {r.header.aircraftType}</span>
+                        Pilotennamen vollständig aus der Zeile. Ohne Muster
+                        (Anwesenheitslisten, Altbestand 308C/308D) kein Punkt —
+                        „Carl Diff ·" hing sonst ins Leere (Audit 11/2026,
+                        GTY-02). */}
+                    {r.header.aircraftType && (
+                      <span className="min-w-0 max-w-[40%] shrink truncate">· {r.header.aircraftType}</span>
+                    )}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-1.5">
                     {r.status === 'signed' ? (

@@ -32,8 +32,10 @@ jobs:
           cache-dependency-path: package-lock.json
 
       # npm ci statt npm install: installiert exakt den Stand aus dem
-      # package-lock.json. „npm run build" ist „tsc -b && vite build" — die
-      # Typprüfung bricht den Lauf also mit ab.
+      # package-lock.json. „npm run build" prüft erst die Typen — von src/
+      # (tsconfig.json) UND von Konfiguration und e2e/ (tsconfig.node.json),
+      # die vorher niemand prüfte — und baut dann; ein Typfehler bricht den
+      # Lauf also mit ab.
       # Die Tests laufen VOR dem Build: Eine gebrochene Regel soll den Lauf
       # beenden, bevor irgendetwas gebaut wird.
       #
@@ -48,6 +50,15 @@ jobs:
           npm ci
           npm test
 
+      # Mechanische Wache für das, was ausgeliefert wird (Audit 11/2026,
+      # SEC-10): Eine bekannte Schwachstelle der Stufe high in einer
+      # Laufzeit-Abhängigkeit hält den Lauf an. Entwicklungswerkzeuge sind
+      # bewusst ausgenommen — sie laufen nicht auf den Geräten, und eine neue
+      # Meldung dort soll nicht jeden Pull Request rot machen; sie werden mit
+      # `npm audit fix` gepflegt.
+      - name: Bekannte Schwachstellen (Laufzeit-Abhängigkeiten)
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Typen prüfen und bauen
         run: npm run build
 
@@ -61,3 +72,37 @@ jobs:
           npm run build
           find dist -type f | sort | xargs md5sum > /tmp/build2.txt
           diff /tmp/build1.txt /tmp/build2.txt && echo "Build ist reproduzierbar"
+
+  # Ebene 3 (CLAUDE.md): wenige Wege durch die ganze App im echten Browser —
+  # Worker, Downloads, Fokus, Tastatur, Telefon-Ansicht, Offline-Start. Eigener
+  # Job, damit ein roter Browser-Test die schnellen Prüfungen nicht verdeckt.
+  # Der Offline-Test fand am 01.11.2026 einen echten Fehler: Mit „Vary:
+  # Origin" startete die App ohne Netz weiß, obwohl alles im Cache lag.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Abhängigkeiten und Browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Ebene 3 (Playwright)
+        run: npm run e2e
+
+      - name: Bericht bei Fehlern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

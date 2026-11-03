@@ -1,5 +1,6 @@
-import { musterFehlt } from './aircraftScope'
-import type { Role, User } from './types'
+import { personenRechtWirkt } from './adminAccess'
+import { musterFehlt, verliertGruppeDurch } from './aircraftScope'
+import type { Group, Role, Settings, User } from './types'
 
 /**
  * Sammelbearbeitung von Benutzern.
@@ -38,7 +39,7 @@ export type BulkAktion =
   | { art: 'aircraft'; wert: 'add' | 'remove'; typ: string }
 
 /** Warum ein Nutzer aus einer Sammelaktion herausfaellt. */
-export type Uebersprungen = 'selbst' | 'letzterSuperadmin' | 'nichtSichtbar' | 'letztesMuster'
+export type Uebersprungen = 'selbst' | 'letzterSuperadmin' | 'nichtSichtbar' | 'letztesMuster' | 'ueberRolle' | 'letzteGruppe'
 
 export type BulkPlan = {
   /** Je Nutzer nur die Felder, die sich tatsaechlich aendern. */
@@ -49,8 +50,10 @@ export type BulkPlan = {
 
 const SUPERADMIN: Role = 'superadmin'
 
-/** Ist dieser Nutzer der letzte, der die Verwaltung noch oeffnen kann? */
-function letzterAktiverSuperadmin(users: User[], u: User): boolean {
+/** Ist dieser Nutzer der letzte, der die Verwaltung noch oeffnen kann?
+ *  Exportiert, weil die Einzelaenderung (benutzerRegeln.ts) dieselbe Frage
+ *  stellt — zwei Fassungen derselben Regel liefen schon einmal auseinander. */
+export function letzterAktiverSuperadmin(users: User[], u: User): boolean {
   if (u.role !== SUPERADMIN || !u.active) return false
   return users.filter((x) => x.role === SUPERADMIN && x.active).length <= 1
 }
@@ -70,7 +73,16 @@ function letzterAktiverSuperadmin(users: User[], u: User): boolean {
  * faellt hier alles heraus, was nicht auf dem Bildschirm steht, und wird als
  * `nichtSichtbar` benannt statt still ausgefuehrt.
  */
-export function planBulk(alle: User[], sichtbar: User[], ids: string[], aktion: BulkAktion, eigeneId: string): BulkPlan {
+export function planBulk(
+  alle: User[],
+  sichtbar: User[],
+  ids: string[],
+  aktion: BulkAktion,
+  eigeneId: string,
+  /** Gruppen und Einstellungen: Ohne sie entfaellt die Pruefung auf die
+   *  letzte erreichbare Gruppe (siehe unten). */
+  kontext?: { groups: Pick<Group, 'aircraftType' | 'memberIds'>[]; settings: Settings },
+): BulkPlan {
   const plan: BulkPlan = { patches: [], uebersprungen: [] }
   const sichtbareIds = new Set(sichtbar.map((u) => u.id))
   ids.filter((id) => !sichtbareIds.has(id)).forEach((id) => plan.uebersprungen.push({ id, grund: 'nichtSichtbar' }))
@@ -108,11 +120,25 @@ export function planBulk(alle: User[], sichtbar: User[], ids: string[], aktion: 
         plan.uebersprungen.push({ id: u.id, grund: 'letztesMuster' })
         continue
       }
+      // Mit dem Muster gehen dessen Gruppen: Wer nur in CL30-Gruppen ist,
+      // stuende ohne erreichbaren Chat da. Der Store weist das ab
+      // (einzelAenderung) — eingeplant waere es eine Luege im Zaehler.
+      if (kontext && verliertGruppeDurch(kontext.settings, u, { ...u, aircraftTypes: neu }, kontext.groups)) {
+        plan.uebersprungen.push({ id: u.id, grund: 'letzteGruppe' })
+        continue
+      }
       plan.patches.push({ id: u.id, patch: { aircraftTypes: neu } })
       continue
     }
 
     const feld = aktion.art
+    // „Bewerten entziehen" bei einem Admin aenderte ein Flag, das bei seiner
+    // Rolle nichts bewirkt (dort entscheidet die Matrix) — und der Zaehler
+    // meldete es als Aenderung (Audit 11/2026, VERW-02).
+    if (feld !== 'active' && !personenRechtWirkt(u.role, feld)) {
+      plan.uebersprungen.push({ id: u.id, grund: 'ueberRolle' })
+      continue
+    }
     const alt = feld === 'chatBlocked' ? !!u.chatBlocked : u[feld]
     if (alt === aktion.wert) continue
     plan.patches.push({ id: u.id, patch: { [feld]: aktion.wert } as Partial<User> })

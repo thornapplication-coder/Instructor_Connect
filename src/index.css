@@ -35,9 +35,13 @@
   --c-sand: 146 95 22;     /* Sandbox-Hinweistext              */
   /* Ampel- und Statusfarben. Im Hellmodus deutlich dunkler als die früheren
      400er-Töne: die Punkte lagen bei 1,5:1 und waren praktisch unsichtbar.
-     Alle Werte erreichen mindestens 3:1 auf Hintergrund, Karte und Fläche. */
-  --c-ok: 4 120 87;        /* #047857 */
-  --c-wait: 180 83 9;      /* #B45309 */
+     Sie stehen auch als SCHRIFT da („16 items open", „bestätigt von …") und
+     brauchen deshalb 4,5:1 auf Hintergrund, Karte und erhabener Fläche —
+     3:1 reichte nur für die Punkte. wait lag mit #B45309 bei 4,05:1 auf dem
+     Hintergrund, ok mit #047857 bei 4,32:1 auf der erhabenen Fläche (Audit
+     11/2026, A11Y-05). Geprüft in src/themeTokens.test.ts. */
+  --c-ok: 4 108 78;        /* #046C4E */
+  --c-wait: 154 64 6;      /* #9A4006 */
   --c-bad: 185 28 28;      /* #B91C1C */
   --c-focus: 37 99 190;    /* Tastaturfokus, >=3:1 gegen die Feldfläche */
   /* Textfarbe AUF den Ampelflächen — im Hellmodus sind sie dunkel, im
@@ -53,6 +57,12 @@
   --c-prio-high: 190 18 60;   /* #BE123C */
   --c-prio-med: 154 52 18;    /* #9A3412 */
   --c-prio-low: 71 85 105;    /* #475569 */
+  /* Flottenmatrix der Statistik: Fläche je Notenstufe (matrixTon,
+     gradingStats.ts) aus den Status-Tokens — ab 4, ab 3, ab 2, darunter. */
+  --matrix-hoch: rgb(var(--c-ok) / 0.25);
+  --matrix-gut: rgb(var(--c-ok) / 0.1);
+  --matrix-niedrig: rgb(var(--c-wait) / 0.22);
+  --matrix-schwach: rgb(var(--c-bad) / 0.2);
   --sh-soft: 0 6px 18px rgba(22, 37, 61, 0.10);
   --sh-tile: 0 10px 26px rgba(22, 37, 61, 0.14);
   --grad-a: rgb(var(--c-accent) / 0.07);
@@ -73,7 +83,7 @@
   --c-sand: 252 211 77;    /* Sandbox-Hinweistext              */
   --c-ok: 52 211 153;      /* #34D399 */
   --c-wait: 251 191 36;    /* #FBBF24 */
-  --c-bad: 248 113 113;    /* #F87171 */
+  --c-bad: 252 135 135;    /* #FC8787 — #F87171 lag auf raised bei 4,14:1 (A11Y-05) */
   --c-focus: 191 216 255;  /* heller Ring — der Akzent lag im Dunkelmodus bei 2,38:1 */
   --c-ok-ink: 6 26 20;
   --c-wait-ink: 32 22 2;
@@ -81,6 +91,15 @@
   --c-prio-high: 253 164 175; /* #FDA4AF */
   --c-prio-med: 253 186 116;  /* #FDBA74 */
   --c-prio-low: 203 213 225;  /* #CBD5E1 */
+  /* Eigene, deckende Werte: Durchscheinend mischte sich das Amber mit dem
+     Dunkelblau der Karte zu Grau-Oliv, und die 2er-Zellen sahen aus wie
+     die 3er (Audit 11/2026, UID-19). Je Stufe der Dunkelmodus-Token mit
+     Schwarz gemischt (ok 42 % / 26 %, wait 42 %, bad 42 %); Schrift ink
+     erreicht darauf mindestens 6,7:1. */
+  --matrix-hoch: rgb(22 89 64);
+  --matrix-gut: rgb(14 55 40);
+  --matrix-niedrig: rgb(105 80 15);
+  --matrix-schwach: rgb(104 47 47);
   --sh-soft: 0 8px 24px rgba(3, 10, 22, 0.35);
   --sh-tile: 0 10px 30px rgba(3, 10, 22, 0.45);
   --grad-a: rgb(var(--c-raised) / 0.35);
@@ -91,6 +110,28 @@ html,
 body,
 #root {
   height: 100%;
+}
+
+/*
+ * Fokus nie hinter einer Leiste (WCAG 2.4.11, Audit 11/2026 A11Y-01/MOB-03).
+ *
+ * Der Browser scrollte ein per Tab erreichtes Element nur bis an den
+ * Fensterrand — und dort stehen Kopfleiste (oben, 3.5rem), Sandbox-Leiste
+ * (unten, 2.75rem) und im Grading-Formular die Abschlussleiste. Gemessen
+ * waren auf dem iPad 34 von 196 Fokuszielen ganz oder teilweise verdeckt,
+ * darunter Noten-Knöpfe, die sich per Leertaste setzen ließen, ohne dass man
+ * sie sah. `scroll-padding` hält die Ränder frei; die Höhe der
+ * Abschlussleiste misst das Formular selbst (`--formularleiste-h`, sie
+ * wächst mit der aufgeklappten Liste), ohne Leiste zählt sie 0.
+ */
+html {
+  scroll-padding-top: calc(3.5rem + env(safe-area-inset-top, 0px) + 8px);
+  scroll-padding-bottom: calc(2.75rem + var(--formularleiste-h, 0px) + env(safe-area-inset-bottom, 0px) + 8px);
+}
+/* Klebt unter der Kopfleiste noch etwas (Tagesüberschrift der Grading-Liste,
+   Gruppenleiste des Chats, höchstens 3.75rem), braucht der Rand oben mehr. */
+html:has(.below-topbar.sticky) {
+  scroll-padding-top: calc(3.5rem + 3.75rem + env(safe-area-inset-top, 0px) + 8px);
 }
 
 body {
@@ -142,6 +183,41 @@ input[type='date'] {
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
+  /*
+   * Seitlicher Rand mit Sicherheitsbereich.
+   *
+   * Audit 11/2026, MOB-07: Es gab nur oben und unten einen Einzug. Im
+   * Querformat lagen Karten bei 16 px und ihr Text bei 31 px — unter der
+   * Sensorkappe, die 47 px einnimmt. Der Rand ist der größere von beiden:
+   * der eigene (`--rand-x`, je Stufe setzbar, etwa `xl:[--rand-x:2rem]`)
+   * oder der Sicherheitsbereich. Wer `safe-x` trägt, setzt kein `px-*`
+   * daneben — zwei Regeln für dieselbe Eigenschaft entscheidet sonst die
+   * Reihenfolge im erzeugten CSS.
+   */
+  .safe-x {
+    padding-left: max(var(--rand-x, 1rem), env(safe-area-inset-left, 0px));
+    padding-right: max(var(--rand-x, 1rem), env(safe-area-inset-right, 0px));
+  }
+  /* Vollbildflächen (Unterschrift, DocCheck-Viewer): alle vier Seiten. */
+  .safe-rundum {
+    padding: max(var(--rand, 0px), env(safe-area-inset-top, 0px)) max(var(--rand, 0px), env(safe-area-inset-right, 0px))
+      max(var(--rand, 0px), env(safe-area-inset-bottom, 0px)) max(var(--rand, 0px), env(safe-area-inset-left, 0px));
+  }
+  /*
+   * Dialog als Bottom-Sheet (Telefon hochkant): Der Innenabstand unten
+   * wächst um den Home-Indikator — „Abbrechen" und „Speichern" lagen mit
+   * 21 px Abstand zur Kante darin (MOB-07). Die Höhe folgt dem SICHTBAREN
+   * Fenster (dvh): 90vh rechnet in Safari mit eingeklappter Leiste, und der
+   * Dialog lief unter die Werkzeugleiste. 90vh bleibt Rückfall für Browser
+   * ohne dvh.
+   */
+  .pb-safe-5 {
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
+  .max-h-dialog {
+    max-height: 90vh;
+    max-height: 90dvh;
+  }
   /* sitzt direkt über der Sandbox-Leiste (h-11) inkl. Home-Indikator */
   .above-sandbox {
     bottom: calc(2.75rem + env(safe-area-inset-bottom, 0px));
@@ -165,12 +241,61 @@ input[type='date'] {
    * Senden-Knopf, und zwar unbemerkt (der Knopf war da, nur nicht klickbar).
    * Solange die Formularleiste steht, ruecken die uebrigen Streifen darueber.
    */
+  /* Mit der gemessenen Höhe (siehe scroll-padding oben): Bei aufgeklappter
+     Liste der offenen Punkte lag eine Bestätigung sonst über der Liste. */
   body.hat-formularleiste .above-sandbox:not(.formularleiste) {
-    bottom: calc(2.75rem + 5.25rem + env(safe-area-inset-bottom, 0px));
+    bottom: calc(2.75rem + var(--formularleiste-h, 5.25rem) + env(safe-area-inset-bottom, 0px));
+  }
+
+  /*
+   * Schatten am Rand einer Scrollliste, solange dort noch etwas steht.
+   *
+   * Audit 11/2026, MOB-11: Die offenen Punkte der Formularleiste zeigten auf
+   * dem Telefon 3 von 6 Einträgen; nichts wies auf die übrigen hin, nur der
+   * Zähler. Ohne Skript: Die beiden Deckflächen wandern mit dem Inhalt
+   * (`local`) und verdecken den Schatten erst, wenn der Rand erreicht ist;
+   * die Schatten selbst stehen fest am Kasten (`scroll`).
+   */
+  .scroll-schatten {
+    background:
+      linear-gradient(rgb(var(--c-surface)) 30%, rgb(var(--c-surface) / 0)) top / 100% 2.5rem no-repeat local,
+      linear-gradient(rgb(var(--c-surface) / 0), rgb(var(--c-surface)) 70%) bottom / 100% 2.5rem no-repeat local,
+      radial-gradient(farthest-side at 50% 0, rgb(var(--c-line) / 0.22), transparent) top / 100% 0.875rem no-repeat scroll,
+      radial-gradient(farthest-side at 50% 100%, rgb(var(--c-line) / 0.22), transparent) bottom / 100% 0.875rem no-repeat scroll,
+      rgb(var(--c-surface));
+  }
+
+  /*
+   * Dasselbe waagerecht, für breite Tabellen am Telefon (Audit 11/2026,
+   * MOB-06): Die Kompetenztabelle des Monatsberichts zeigte 294 von 520 px,
+   * und nichts wies auf den Rest hin. Steht die erste Spalte fest (sticky),
+   * verdeckt sie den linken Schatten — der rechte sagt „hier geht es weiter".
+   */
+  .scroll-schatten-x {
+    background:
+      linear-gradient(to right, rgb(var(--c-surface)) 30%, rgb(var(--c-surface) / 0)) left / 2.5rem 100% no-repeat local,
+      linear-gradient(to right, rgb(var(--c-surface) / 0), rgb(var(--c-surface)) 70%) right / 2.5rem 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%, rgb(var(--c-line) / 0.22), transparent) left / 0.875rem 100% no-repeat scroll,
+      radial-gradient(farthest-side at 100% 50%, rgb(var(--c-line) / 0.22), transparent) right / 0.875rem 100% no-repeat scroll,
+      rgb(var(--c-surface));
   }
 
   .above-sandbox-sticky {
     bottom: calc(2.75rem + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* Zellen der Flottenmatrix, Stufe aus matrixTon (gradingStats.ts) */
+  .matrix-ton-hoch {
+    background-color: var(--matrix-hoch);
+  }
+  .matrix-ton-gut {
+    background-color: var(--matrix-gut);
+  }
+  .matrix-ton-niedrig {
+    background-color: var(--matrix-niedrig);
+  }
+  .matrix-ton-schwach {
+    background-color: var(--matrix-schwach);
   }
 }
 
@@ -211,6 +336,21 @@ button {
 input,
 select,
 textarea {
+  overflow-wrap: normal;
+}
+
+/*
+ * Tabellenköpfe brechen nur an Wortgrenzen — die oben genannte Ausnahme
+ * „Tabellen mit eigenem Scrollbereich", die bisher nur im Kommentar stand.
+ *
+ * Audit 11/2026, GRD-13/MOB-06/UID-02/A11Y-18: Mit `anywhere` fiel die
+ * Mindestbreite eines Kopfes auf einen Buchstaben; die Tabelle schrumpfte,
+ * statt in ihrem `overflow-x-auto` zu scrollen, und es stand „Fle/et",
+ * „Deviatio/n", „Not competen/t" da. Jede Tabelle mit Kopfzeile steht in
+ * einem Scrollbereich oder hat kurze Köpfe; Werte- und Namenszellen regeln
+ * die Berichte selbst (`whitespace-nowrap`, `break-normal`, `.zusammen`).
+ */
+th {
   overflow-wrap: normal;
 }
 
@@ -256,6 +396,32 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
 :focus-visible {
   outline: 2px solid rgb(var(--c-focus));
   outline-offset: 2px;
+}
+/* Die Seitenüberschrift nimmt den Fokus nur programmatisch (Seitenwechsel,
+   Anmeldung, Dialog ohne Auslöser) — als Einstieg für Sprachausgabe und
+   Tabulator, nicht als Bedienelement. Nach einem Seitenwechsel per Tastatur
+   zog die Regel oben einen 792 px breiten Rahmen um den Titel, als wäre er
+   ein Eingabefeld: Sie steht nach den Utilities und schlug das
+   `outline-none` der h1 (Audit 11/2026, UID-10). */
+[data-page-heading]:focus-visible {
+  outline: none;
+}
+
+/* „Bewegung reduzieren" (Systemeinstellung): Übergänge, Kachelhub,
+   Pulsieren und Kreisel laufen nicht mehr — vorher liefen sie unabhängig
+   davon (Audit 11/2026, A11Y-15, WCAG 2.3.3). Auf 0,01 ms statt `none`,
+   damit `transitionend`/`animationend` weiter feuern und nichts auf ein
+   Ende wartet, das nie kommt. Sprünge aus dem Code (`scrollIntoView`)
+   sieht CSS nicht — die fragen `scrollVerhalten()` in src/bewegung.ts. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Admin-Panel: die Entscheidung Hinweis-oder-Inhalt fällt in CSS, damit der
@@ -303,8 +469,8 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
     --c-danger: 185 28 28;
     --c-line: 15 23 42;
     --c-sand: 146 95 22;
-    --c-ok: 4 120 87;
-    --c-wait: 180 83 9;
+    --c-ok: 4 108 78;
+    --c-wait: 154 64 6;
     --c-bad: 185 28 28;
     --c-focus: 37 99 190;
     --c-ok-ink: 255 255 255;
@@ -313,6 +479,11 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
     --c-prio-high: 190 18 60;
     --c-prio-med: 154 52 18;
     --c-prio-low: 71 85 105;
+    /* Papier ist hell — die Dunkelwerte der Matrix gelten hier nicht */
+    --matrix-hoch: rgb(var(--c-ok) / 0.25);
+    --matrix-gut: rgb(var(--c-ok) / 0.1);
+    --matrix-niedrig: rgb(var(--c-wait) / 0.22);
+    --matrix-schwach: rgb(var(--c-bad) / 0.2);
     --sh-soft: none;
     --sh-tile: none;
     --grad-a: transparent;
@@ -326,12 +497,31 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
      Ohne Rand gibt es keinen Platz dafür, in keinem Browser.
 
      Der Preis: keine Rand-Seitenzahlen mehr (Firefox/Safari setzten sie
-     dort) und auf Folgeseiten kein oberer Papierrand — der Inhalt bringt
-     seinen Abstand deshalb selbst mit (padding am main). Ohne die
-     Größenangabe druckt Chrome im US-Letter-Format. */
+     dort) und kein oberer/unterer Papierrand — der Inhalt bringt seinen
+     Abstand deshalb selbst mit, und zwar auf JEDEM Blatt (siehe
+     `--druck-rand` unten). Ohne die Größenangabe druckt Chrome im
+     US-Letter-Format. */
   @page {
     size: A4 portrait;
     margin: 0 6mm;
+  }
+
+  /*
+   * Abstand oben und unten auf dem Papier, rundum gleich dem seitlichen
+   * Seitenrand. Gaengige Drucker bedrucken die aeusseren 3–5 mm nicht.
+   *
+   * Audit 11/2026, GRD-15/PRT-01: Der Abstand sass nur als padding am main —
+   * und das wirkt genau zweimal: oben auf Blatt 1 und unten auf dem letzten.
+   * Der wiederholte Kopf eines zweiseitigen 307A stand auf Blatt 2 0,3 mm
+   * unter der Papierkante, der Fuss auf Blatt 1 0,9 mm darueber; ein Drucker
+   * schnitt genau die Zeilen ab, die das Blatt der ATO und dem Nachweis
+   * zuordnen. Ausserdem schrumpfte der Zoom des main die 6 mm auf 4,5 mm.
+   * Deshalb hier als Variablen: Der Rand wird durch den Zoom geteilt und
+   * steht damit unverkleinert auf dem Papier.
+   */
+  :root {
+    --druck-rand: 6mm;
+    --druck-zoom: 0.75;
   }
 
   /*
@@ -361,6 +551,21 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
   .print-foot {
     display: table-footer-group;
   }
+  /* Der Blattrand gehoert IN Kopf- und Fussgruppe, weil nur die sich je
+     Blatt wiederholen. An der Zeilengruppe selbst wirkt padding nicht
+     (Tabellenlayout) — deshalb am ersten bzw. letzten Kind. Das main
+     verzichtet hier auf seinen eigenen Abstand, sonst stuende er auf
+     Blatt 1 doppelt. */
+  .print-head > :first-child {
+    padding-top: calc(var(--druck-rand) / var(--druck-zoom));
+  }
+  .print-foot > :last-child {
+    padding-bottom: calc(var(--druck-rand) / var(--druck-zoom));
+  }
+  main.print-doc {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
 
   /* Breite Tabellen (Flottenmatrix, Formularlisten) im Querformat, damit
      sie in der Breite auf ein Blatt passen. */
@@ -380,9 +585,14 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
     background: #fff !important;
     background-image: none !important;
   }
+  /* Klebende LEISTEN fehlen im Druck — eine klebende Tabellenzelle nicht:
+     Die erste Spalte der Kompetenztabelle im Monatsbericht steht fest
+     (`sticky left-0`, MOB-06) und fiel mit dieser Regel aus dem Ausdruck.
+     Übrig blieben Zahlen ohne Kompetenz — gefunden bei der Gegenprüfung zu
+     R3-MONATSBERICHT (Bildschirm UND Druck). */
   header,
   nav,
-  .sticky {
+  .sticky:not(th):not(td) {
     display: none !important;
   }
   /* Im Druck zählt nicht die Fensterbreite: der Inhalt wird gedruckt. */
@@ -394,12 +604,18 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
   }
   main {
     max-width: 100% !important;
-    /* Ersatz für den entfallenen oberen/unteren Seitenrand (siehe @page) */
-    padding: 6mm 0 !important;
+    /* Ersatz für den entfallenen oberen/unteren Seitenrand (siehe @page) —
+       fuer Seiten ohne Druck-Kopf und -Fuss (Auswertungen, Listen). */
+    padding: calc(var(--druck-rand) / var(--druck-zoom)) 0 !important;
+    /* Auch auf Folgeblaettern: `clone` wiederholt den Abstand an jedem
+       Seitenumbruch. Chrome kann das; wer es nicht kann, druckt wie vorher
+       (oben auf Blatt 1, unten auf dem letzten). */
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
     /* Am schlechtesten Fall kalibriert: ein Grading Sheet mit neun
        kommentierten Kompetenzen und langen Zusammenfassungen passt damit
        noch auf eine A4-Seite, ein übliches füllt sie zu rund 90 %. */
-    zoom: 0.75;
+    zoom: var(--druck-zoom);
   }
   main > * {
     break-inside: avoid;

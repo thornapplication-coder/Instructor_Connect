@@ -62,10 +62,17 @@
   "pruefung": {
     "regel": {
       "titel": "Rule-based check – runs automatically on reading",
-      "stand_one": "1 document under review checked: {{befunde}} findings, {{hoch}} high.",
-      "stand_other": "{{count}} documents under review checked: {{befunde}} findings, {{hoch}} high.",
+      "stand_one": "1 document under review checked: {{befundeText}}, {{hoch}} high.",
+      "stand_other": "{{count}} documents under review checked: {{befundeText}}, {{hoch}} high.",
       "leer": "Load documents under review in the left column – formal check, Word check, language, calculations and references then run by themselves.",
-      "zuFindings": "Go to findings"
+      "abgeschaltet": "The rule-based checks have been switched off by the superadmin – loaded documents under review are not checked.",
+      "zuFindings": "Go to findings",
+      "nichtBewertbar": {
+        "ocr_one": "1 document under review is not assessable – text recognition pending.",
+        "ocr_other": "{{count}} documents under review are not assessable – text recognition pending.",
+        "ohneText_one": "1 document under review is not assessable – no readable text.",
+        "ohneText_other": "{{count}} documents under review are not assessable – no readable text."
+      }
     },
     "ki": "AI review",
     "arten": "Checks",
@@ -108,6 +115,7 @@
       "verification": "Verification"
     },
     "empty": "No findings yet. Upload a review document — the formal check and Word check run automatically.",
+    "abgeschaltet": "No findings: the rule-based checks have been switched off by the superadmin – loaded documents under review are not checked.",
     "filter": {
       "dok": "Document",
       "alleDok": "All documents",
@@ -134,7 +142,7 @@
   },
   "rev": {
     "staende": "Library versions",
-    "empfehlungen": "Open re-check recommendations ({{n}})",
+    "empfehlungen": "Open follow-up recommendations ({{n}})",
     "keine": "No open recommendations.",
     "dokumente": "The revision history of reviewed documents appears here once a review state is loaded."
   },
@@ -151,7 +159,39 @@
     "zip": "All formats (ZIP)",
     "save": "Save review state",
     "load": "Load review state",
-    "language": "Exports are always labelled in English; quotations stay in the original."
+    "language": "Exports are always labelled in English; quotations stay in the original.",
+    "laeuft": "Generating …",
+    "fertig": "{{name}} created.",
+    "fehler": "The export could not be created.",
+    "netz": "Excel, Word and PowerPoint load their library from the network on first export – there is no connection right now. CSV and review state also work offline.",
+    "neuLaden": {
+      "sitzung": "Excel, Word and PowerPoint only work again after reloading the page. Use “Save review state” first – the session documents are lost on reload, the review state is not.",
+      "pruefstand": "Excel, Word and PowerPoint only work again after reloading the page; then open the review state again."
+    },
+    "pflicht": {
+      "revision_one": "Revision missing for {{namen}} – the report leaves it blank.",
+      "revision_other": "Revision missing for {{count}} documents under review ({{namen}}) – the report leaves it blank.",
+      "dateiname": "The file name then reads “RevNA”.",
+      "abhilfe": "Enter it in the document card; you can export without it."
+    },
+    "stand_one": "{{count}} finding from {{dokumenteText}} – each export freezes the current state with its own export ID.",
+    "stand_other": "{{count}} findings from {{dokumenteText}} – each export freezes the current state with its own export ID.",
+    "dokumente_one": "{{count}} document under review",
+    "dokumente_other": "{{count}} documents under review",
+    "keineDokumente": "No checked documents under review yet. Load documents on the left – or open a saved review state.",
+    "ladenHinweis": "A review state contains only metadata, findings and short excerpts – no document content.",
+    "geladen_one": "{{name}} opened: 1 finding.",
+    "geladen_other": "{{name}} opened: {{count}} findings.",
+    "geladenTitel": "Opened review state",
+    "schliessen": "Close review state",
+    "hashOk": "loaded, hash matches",
+    "hashFehlt": "not loaded",
+    "ladefehler": {
+      "DC-STATE-SIZE": "The file is too large for a review state.",
+      "DC-STATE-JSON": "The file is not valid JSON.",
+      "DC-STATE-VERSION": "The review state comes from a newer DocCheck version.",
+      "DC-STATE-FORMAT": "The file is not a DocCheck review state or is incomplete."
+    }
   },
   "verwalten": {
     "neu": "Publish a new document",
@@ -188,7 +228,7 @@
     "proxyStart": "Start test call",
     "proxyRunning": "Streaming …",
     "cancel": "Cancel",
-    "usage": "Model {{model}} · input {{input}} · output {{output}} tokens · stop: {{stop}}",
+    "usage": "Model {{model}} · input tokens {{input}} · output tokens {{output}} · stop: {{stop}}",
     "error": "Error: {{code}}",
     "audit": "Audit log",
     "auditEmpty": "No entries yet. Every change to a DocCheck permission or setting is logged here.",
@@ -204,8 +244,14 @@
     "errorProbe": "Error probe (sandbox only)",
     "errorProbeHint": "Deliberately triggers an error in the DocCheck module. Expected: a message with an error code, all other tiles keep working.",
     "errorProbeBtn": "Trigger error",
+    "organisation": "Organisation in exports",
+    "organisationPh": "e.g. name of the ATO – leave empty to set no name",
     "gateSperrt": "Block export “ready for submission” while a high finding is open",
-    "gateSperrtHint": "Off by default: only a warning is shown (addendum N4.3)."
+    "gateSperrtHint": "Off by default: only a warning is shown (addendum N4.3).",
+    "csvTrenner": "Separator in CSV exports",
+    "csvTrennerHint": "Applies to the findings list and the re-check. Semicolon opens directly in Excel with German regional settings.",
+    "csvSemikolon": "Semicolon (;)",
+    "csvKomma": "Comma (,)"
   },
   "feature": {
     "doccheck": "DocCheck overall",
@@ -226,6 +272,7 @@
   "auditAction": {
     "zugang": "DocCheck access",
     "admin": "DocCheck admin",
+    "rolle": "Role (via Instructor Connect)",
     "feature": "Feature switch",
     "einstellung": "Setting",
     "standBestaetigt": "Status confirmed",
@@ -234,12 +281,12 @@
   "mobile": {
     "desktopOnly": "Reviews and library maintenance on desktop or laptop",
     "bibliothek": "Library",
-    "nachpruefungen": "Re-checks",
+    "nachpruefungen": "Follow-ups",
     "befunde": "Findings",
     "recheck": "Re-check",
     "chat": "Chat",
-    "startOnDesktop": "Start the re-check on a desktop",
-    "openState": "Not available yet. With phase 6 you open a review state saved on the desktop (.doccheck.json) here, view the findings and export them. Until then: findings on the desktop in the “Findings” tab.",
+    "startOnDesktop": "Start the follow-up review on a desktop",
+    "openState": "Open a review state file (.doccheck.json) – view and export its findings. It is saved on the desktop in the “Export” tab.",
     "chatLimit": "Q&A chat against selected library documents, at most 3,000 pages at a time."
   },
   "upload": {
@@ -253,6 +300,13 @@
     "entfernenFrage": "Really remove?",
     "gelesen_one": "{{name}} read and checked – 1 finding.",
     "gelesen_other": "{{name}} read and checked – {{count}} findings.",
+    "gelesenOcr_one": "{{name}} read – 1 page without a text layer: text recognition pending, not assessable yet.",
+    "gelesenOcr_other": "{{name}} read – {{count}} pages without a text layer: text recognition pending, not assessable yet.",
+    "gelesenOhneText": "{{name}} read – no readable text found, not assessable.",
+    "gelesenUngeprueft": "{{name}} read.",
+    "gelesenOcrUngeprueft_one": "{{name}} read – 1 page without a text layer: text recognition pending.",
+    "gelesenOcrUngeprueft_other": "{{name}} read – {{count}} pages without a text layer: text recognition pending.",
+    "gelesenOhnePruefung": "{{name}} read – checks switched off, not checked.",
     "nichtGelesen": "{{name}} could not be read.",
     "entfernt": "{{name}} removed.",
     "angabenBearbeiten": "Details",
@@ -260,6 +314,7 @@
     "seiteVon": "Page {{seite}} of {{gesamt}}",
     "startet": "reading …",
     "abbrechen": "Cancel",
+    "bricht": "cancelling …",
     "lenkung": "Changes: {{aenderungen}} · comments: {{kommentare}} · revision bars: {{revisionsbalken}}",
     "duplikat": {
       "identisch": "Identical to {{mit}} ({{wo}})",
@@ -309,10 +364,14 @@
     "DC-PDF-PASSWORD": "The PDF is password-protected.",
     "DC-PDF-INVALID": "The PDF is damaged or incomplete.",
     "DC-DOCX-INVALID": "The Word file is incomplete.",
-    "DC-XLSX-INVALID": "The Excel file is incomplete."
+    "DC-XLSX-INVALID": "The Excel file is incomplete.",
+    "DC-LISTE-GROSS": "List too large – {{mb}} MB at most.",
+    "DC-ZIP-GROSS": "The file is too large when unpacked or has too many parts – not opened, for safety.",
+    "DC-EMPTY": "The file is empty (0 bytes)."
   },
   "ocr": {
-    "laeuft": "Text recognition: {{fertig}} of {{gesamt}} pages …",
+    "laeuft_one": "Text recognition: {{fertig}} of 1 page …",
+    "laeuft_other": "Text recognition: {{fertig}} of {{count}} pages …",
     "starten": "Start text recognition",
     "fehler": "Text recognition failed.",
     "frage_one": "1 page has no text layer (scan). Start text recognition? Takes a few seconds.",
@@ -329,7 +388,8 @@
     "groesser": "Zoom in",
     "schliessen": "Close",
     "fehler": "The page could not be displayed.",
-    "leer": "(page without text)"
+    "leer": "(page without text)",
+    "befund": "Finding {{id}}"
   },
   "suche": {
     "titel": "Search loaded documents",
@@ -358,6 +418,7 @@
     "laeuft": "Matching …",
     "ok": "Word PDF applied: page numbers are now exact",
     "nichtUebernommen": "Word PDF not applied — see note",
+    "zeit": "No response to the Word PDF matching for “{{name}}” — page numbers stay estimated. You can add the PDF again.",
     "warnung": {
       "abweichung": "PDF differs from the DOCX by {{prozent}} % — page numbers unchanged",
       "aelter": "PDF is older than the DOCX — page numbers unchanged",
@@ -437,7 +498,31 @@
     "glossar": "Replace the variant with the preferred spelling (Word: Ctrl+H, enable “Match case” and “Find whole words only”).",
     "abkuerzungsliste": "Add the abbreviation to the reference list or spell it out in the text.",
     "register": "Correct revision/date in the document or in the document register — one of them is outdated.",
-    "kennungen": "Check the identifier against the reference list (typo or missing entry)."
+    "registerFehlt": "Add the document to the document register or check the document number/title in the document and in the register.",
+    "kennungen": "Check the identifier against the reference list (typo or missing entry).",
+    "summen": "Recalculate the total and correct either the total row or the incorrect row. Use a formula (Word: =SUM(ABOVE) field, Excel: SUM) so the total follows later changes.",
+    "kumuliert": "Recalculate the cumulative time from the first deviating row onwards — the following rows build on it and are usually affected too.",
+    "session": "Adjust the time blocks or the stated session duration until both match (count briefing and debriefing if the duration includes them).",
+    "einheiten": "Recalculate the converted value with the exact factor and correct it (1 ft = 0.3048 m, 1 lb = 0.4536 kg, 1 NM = 1.852 km, 1 kt = 1.852 km/h, °F = °C × 1.8 + 32).",
+    "metar": "Make the weather report of the scenario internally consistent: choose visibility, present weather, temperature/dew point and vertical visibility to match each other. The finding names the contradiction.",
+    "doppelt": "Delete the repeated word or waypoint.",
+    "uebung": "Correct the exercise number in the reference or add the missing exercise to the exercise list.",
+    "zirkel": "Write out the content in one of the sections and refer to it only from the others.",
+    "regelids": "Check the rule reference against the loaded regulation and correct the identifier — if the finding names a nearest existing rule, check that one first.",
+    "absaetze": "Check the paragraph against the regulation and correct it — the finding lists the existing paragraphs.",
+    "regelQuelle": "Load the regulation into the library so the references can be verified, or verify them manually against the version in force.",
+    "listeFehlt": "Submit the appendix/annex with the package or mark the list entry as “Reserved”.",
+    "listeTitel": "Align the title in the document and in the list of appendices and annexes of the main document.",
+    "listeNachtragen": "Add the document to the list of appendices and annexes of the main document.",
+    "paketStand": "Align revision or date with the main document, or confirm that the package is intentionally submitted with different revisions or dates.",
+    "hierarchie": "If both documents refer to the same scope, align the value in the lower-level document with the higher-level document; otherwise state the scope explicitly.",
+    "geschwisterSchreibweise": "Use one spelling in all sibling documents — the one used elsewhere in the package, where the finding names it.",
+    "geschwisterAbsatz": "Align the paragraphs or confirm that the difference between the versions is intended.",
+    "gegenfassung": "Replace the term with the one of this version or delete the sentence — it is left over from the other version.",
+    "propagation": "Apply the correction confirmed in the sibling document here as well.",
+    "paketVerweisArt": "Correct the reference so that it names the document contained in the package (Annex or Appendix).",
+    "paketVerweisZiel": "Correct the chapter or exercise number in the reference or add the target to the referenced document.",
+    "paketVerweisFehlt": "Add the referenced document to the package or the library so the reference can be verified, or verify it manually."
   },
   "gate": {
     "titel": "Submission gate",
@@ -447,6 +532,16 @@
     "nichtOk_other": "{{count}} high findings open",
     "warnung": "Not ready for submission while high findings are open. Export remains possible (setting: warn).",
     "gesperrt": "Export as “ready for submission” is blocked while high findings are open.",
+    "nichtBewertbar": {
+      "ocr": "not assessable – text recognition pending",
+      "ohneText": "not assessable – no readable text"
+    },
+    "hinweis": {
+      "ocr_one": "1 page of a document under review has no text layer (scan). No text check could run there – assessable only after text recognition in the document card.",
+      "ocr_other": "{{count}} pages of documents under review have no text layer (scan). No text check could run there – assessable only after text recognition in the document card.",
+      "ohneText_one": "1 document under review contains no readable text. The text checks could not run there – the result is not assessable.",
+      "ohneText_other": "{{count}} documents under review contain no readable text. The text checks could not run there – the result is not assessable."
+    },
     "formal": "Formal check",
     "word": "Word check",
     "sprache": "Language and placeholders",
@@ -463,7 +558,8 @@
     "rechnen": "Calculation check",
     "verweis": "References",
     "regelwerk": "Rule references",
-    "regelwerkStand": "Regulation: {{quellen}} · {{verweise}} references, {{verifiziert}} verified, {{nichtWiderlegbar}} paragraph not captured, {{zuPruefen}} to verify, {{ohneQuelle}} without source"
+    "regelwerkStand_one": "Regulation: {{quellen}} · 1 reference, {{verifiziert}} verified, {{nichtWiderlegbar}} paragraph not captured, {{zuPruefen}} to verify, {{ohneQuelle}} without source",
+    "regelwerkStand_other": "Regulation: {{quellen}} · {{count}} references, {{verifiziert}} verified, {{nichtWiderlegbar}} paragraph not captured, {{zuPruefen}} to verify, {{ohneQuelle}} without source"
   },
   "prio": {
     "High": "High",
@@ -497,17 +593,21 @@
   "pruefungKurz": {
     "titel": "Check",
     "ohne": "no findings",
+    "ocrAusstehend": "OCR pending",
+    "ohneText": "no readable text",
     "befunde_one": "1 finding",
     "befunde_other": "{{count}} findings",
     "hoch_one": "1 high",
-    "hoch_other": "{{count}} high"
+    "hoch_other": "{{count}} high",
+    "paket_one": "1 package finding",
+    "paket_other": "{{count}} package findings"
   },
   "referenz": {
     "titel": "Reference lists",
     "hinweis": "Excel, CSV or Markdown with a header row: glossary, abbreviations, document register (revision/date) or identifiers. Every review document is checked against them; nothing is stored.",
     "drop": "Add list",
     "format": "{{name}}: Excel, CSV or Markdown only",
-    "unbekannt": "{{name}}: columns not recognised — please choose the type",
+    "unbekannt": "{{name}}: columns not recognised – choose the type and assign the columns",
     "entfernen": "Remove {{name}}",
     "art": "List type",
     "nichtErkannt": "— not recognised —",
@@ -519,7 +619,24 @@
     },
     "eintraege_one": "1 entry",
     "eintraege_other": "{{count}} entries",
-    "spaltenFehlen": "matching columns missing"
+    "spaltenFehlen": "matching columns missing",
+    "zuordnen": "Assign columns (header: row {{zeile}})",
+    "spalte": "Column {{n}}: {{kopf}}",
+    "spalteLeer": "Column {{n}} (no header)",
+    "pflichtspalte": "Required column (*) missing",
+    "rollen": {
+      "soll": "Preferred spelling",
+      "varianten": "Variants to avoid",
+      "hinweis": "Note",
+      "quelle": "Source",
+      "abk": "Abbreviation",
+      "bedeutung": "Meaning",
+      "dokument": "Document",
+      "revision": "Revision",
+      "datum": "Date",
+      "kennung": "Identifier",
+      "bezeichnung": "Designation"
+    }
   },
   "recheck": {
     "einleitung": "Re-check an external finding list (Excel or CSV from the team, an authority or an audit) against the current review package. The search covers the whole package, not just the page given — page numbers in the list refer to the previous revision. Like all documents, the list stays in this tab only.",
@@ -531,6 +648,10 @@
     "profilGeladen": "Column mapping taken from the saved list profile",
     "befunde_one": "{{count}} finding · header in row {{zeile}}",
     "befunde_other": "{{count}} findings · header in row {{zeile}}",
+    "befundeOhneKopf_one": "{{count}} finding · no header row found",
+    "befundeOhneKopf_other": "{{count}} findings · no header row found",
+    "ohneKopf": "No header row found: the list is read from the first row. Please map the columns – the options show examples from the first row. Without a header row no list profile is saved, and writing back into the file is not possible.",
+    "spalteBeispiel": "e.g. {{wert}}",
     "blatt": "Sheet",
     "ausProfil": "List profile",
     "schritt2": "Map columns",
@@ -556,6 +677,7 @@
     "ohneWert": "(empty)",
     "paketweit": "Whole package",
     "quelleFehlt": "Source missing",
+    "mehrere": "Several: {{namen}}",
     "sprache": "Remark language",
     "spracheDe": "German (correction in the manual's language)",
     "spracheEn": "English",
@@ -570,7 +692,9 @@
     "aufgehoben_one": "1 confirmation withdrawn – the proposal has changed.",
     "aufgehoben_other": "{{count}} confirmations withdrawn – the proposal has changed.",
     "schritt4": "Review and confirm proposals",
-    "veraltet": "The review package has changed since the check — please check again.",
+    "veraltet": "The package or the mapping has changed since the check — please check again. Confirmations stay as long as the proposal for their row stays the same.",
+    "verlustFrage_one": "This discards {{count}} confirmation. Continue anyway?",
+    "verlustFrage_other": "This discards {{count}} confirmations. Continue anyway?",
     "status": {
       "resolved": "Resolved",
       "partial": "Partially resolved",
@@ -614,6 +738,7 @@
     "remark": "Remark",
     "bestaetigen": "Confirm “{{status}}”",
     "zuruecknehmen": "Withdraw confirmation",
+    "aufklappen": "Expand finding {{nr}}: locations and confirmation",
     "bestaetigtToast_one": "{{count}} proposal confirmed",
     "bestaetigtToast_other": "{{count}} proposals confirmed",
     "folgt": "Next: AI check of content findings.",
@@ -626,12 +751,14 @@
       "zeilen_one": "{{count}} confirmed row will be written.",
       "zeilen_other": "{{count}} confirmed rows will be written.",
       "nurBestaetigt": "Unconfirmed proposals are left out — in the original a proposal would look like a decision.",
+      "veraltet": "Check again first: the proposals predate the last change to the package, mapping or targets – only a current state is written back.",
       "start": "Create new Excel file",
       "fertig": "{{name}} created",
       "fehler": "The file could not be written — the original is unchanged.",
       "neu_one": "Append 1 new finding as sheet “{{blatt}}”",
       "neu_other": "Append {{count}} new findings as sheet “{{blatt}}”",
-      "neuNummern": "Numbers {{von}} to {{bis}}, following the highest number in the list. In the list’s style: header, drop-downs, colours, filter, A4 landscape.",
+      "neuNummern_one": "Number {{von}}, following the highest number in the list. In the list’s style: header, drop-downs, colours, filter, A4 landscape.",
+      "neuNummern_other": "Numbers {{von}} to {{bis}}, following the highest number in the list. In the list’s style: header, drop-downs, colours, filter, A4 landscape.",
       "neuKeine": "DocCheck found nothing in the package that is not already in the list.",
       "neuAusgenommen_one": "1 finding left out: it is a remaining occurrence of an old finding and is listed in its remark.",
       "neuAusgenommen_other": "{{count}} findings left out: they are remaining occurrences of old findings and are listed in their remarks."

@@ -1,4 +1,4 @@
-import { CheckCircle2, FileSpreadsheet, FileText, MessageSquareText, Presentation, Sheet, Archive, Save, FolderOpen } from 'lucide-react'
+import { CheckCircle2, CircleSlash, MessageSquareText } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatDate } from '../../../datum'
@@ -10,7 +10,8 @@ import { erinnerungAb, faelligeErinnerungen, offeneEmpfehlungen, SANDBOX_DOKUMEN
 import { aktiv, preiseVollstaendig } from '../settings'
 import { Dropzone, Phase } from './Panels'
 import { Suche } from './Suche'
-import { useSitzung } from '../sitzung'
+import { leerGrund, useSitzung } from '../sitzung'
+import { regelStand } from '../pruefung/befund'
 import { PaketPanel, PaketUmschalter } from './Paket'
 
 /* ------------------------------ Prüfung ------------------------------ */
@@ -23,32 +24,38 @@ import { PaketPanel, PaketUmschalter } from './Paket'
  */
 function RegelStand({ zuFindings }: { zuFindings: () => void }) {
   const { t } = useTranslation('doccheck')
-  const geprueft = useSitzung().docs.filter((d) => d.rolle === 'review' && d.z?.pruefung)
-  const befunde = geprueft.flatMap((d) => d.z!.pruefung!.befunde)
-  const hoch = befunde.filter((b) => b.prioritaet === 'High').length
+  const alle = useSitzung().docs
+  const docs = alle.filter((d) => d.rolle === 'review' && d.z?.pruefung)
+  // „1 Prüfdokument geprüft: 0 Befunde" stand auch bei einem Scan ohne Textebene (Audit 11/2026, DC-03, DCF#5)
+  const s = regelStand(docs.map((d) => d.z!))
+  // Geladen, aber alle Schalter aus: nicht zum Hochladen auffordern (Audit 11/2026, DC-12) — und kein
+  // grüner Haken über „abgeschaltet" (Gegenprüfung)
+  const aus = !docs.length && leerGrund(alle) === 'abgeschaltet'
   return (
     <div className="flex flex-wrap items-center justify-between gap-stack rounded-2xl border border-accent/30 bg-accent/5 p-4">
       <div className="min-w-0 text-small">
         <p className="flex items-center gap-1.5 font-semibold">
-          <CheckCircle2 size={16} className="text-ok" aria-hidden /> {t('pruefung.regel.titel')}
+          {aus ? <CircleSlash size={16} className="text-dim" aria-hidden /> : <CheckCircle2 size={16} className="text-ok" aria-hidden />} {t('pruefung.regel.titel')}
         </p>
-        <p className="text-dim">
-          {geprueft.length ? t('pruefung.regel.stand', { count: geprueft.length, befunde: befunde.length, hoch }) : t('pruefung.regel.leer')}
-        </p>
+        {!docs.length && <p className="text-dim">{aus ? t('pruefung.regel.abgeschaltet') : t('pruefung.regel.leer')}</p>}
+        {/* Die Zahl der Befunde braucht ihre eigene Ein-/Mehrzahl — gewählt wurde nach den Dokumenten, und es stand „1 Befunde" (Audit 11/2026, TXT-08) */}
+        {s.geprueft > 0 && <p className="text-dim">{t('pruefung.regel.stand', { count: s.geprueft, befundeText: t('pruefungKurz.befunde', { count: s.befunde }), hoch: s.hoch })}</p>}
+        {s.ocr > 0 && <p className="text-ink">{t('pruefung.regel.nichtBewertbar.ocr', { count: s.ocr })}</p>}
+        {s.ohneText > 0 && <p className="text-ink">{t('pruefung.regel.nichtBewertbar.ohneText', { count: s.ohneText })}</p>}
       </div>
-      {geprueft.length > 0 && <Button onClick={zuFindings}>{t('pruefung.regel.zuFindings')}</Button>}
+      {docs.length > 0 && <Button onClick={zuFindings}>{t('pruefung.regel.zuFindings')}</Button>}
     </div>
   )
 }
 
 export function PruefungTab({ modell, zuFindings }: { modell: string; zuFindings: () => void }) {
   const { t } = useTranslation('doccheck')
-  const { t: tApp } = useTranslation()
   const { currentUser, docCheckSettings } = useStore()
   const [arten, setArten] = useState({ technik: true, regulatorik: true, redaktion: true, konsistenz: true })
   const pruefDocs = useSitzung().docs.filter((d) => d.rolle === 'review' && d.status === 'fertig').length
   const [art, setArt] = useState<'erst' | 'revision'>('erst')
-  const [funktion, setFunktion] = useState(() => tApp(`roles.${currentUser!.role}`))
+  // Funktion in der ATO, nicht die App-Rolle — ein Vorschlag aus der Rolle landete sonst mit Phase 4 im Export (EXP-13)
+  const [funktion, setFunktion] = useState('')
   const m = docCheckSettings.modelle.find((x) => x.id === modell)
   const { paketModus } = useSitzung()
   return (
@@ -110,7 +117,7 @@ export function PruefungTab({ modell, zuFindings }: { modell: string; zuFindings
         <Field label={t('pruefung.geprueftVon')} group>
           <div className="grid grid-cols-2 gap-2">
             <input className={inputCls} value={currentUser!.name} readOnly aria-label={t('pruefung.name')} />
-            <input className={inputCls} value={funktion} onChange={(e) => setFunktion(e.target.value)} aria-label={t('pruefung.funktion')} />
+            <input className={inputCls} value={funktion} onChange={(e) => setFunktion(e.target.value)} placeholder={t('pruefung.funktion')} aria-label={t('pruefung.funktion')} />
           </div>
         </Field>
       </div>
@@ -196,49 +203,6 @@ export function RevisionenTab() {
 }
 
 /* -------------------------------- Export ----------------------------- */
-
-export function ExportTab() {
-  const { t } = useTranslation('doccheck')
-  const { docCheckSettings } = useStore()
-  const formate = [
-    ['exportExcel', 'excel', FileSpreadsheet],
-    ['exportWord', 'word', FileText],
-    ['exportCsv', 'csv', Sheet],
-    ['exportPptx', 'pptx', Presentation],
-  ] as const
-  return (
-    <div className="space-y-section">
-      <div className="grid gap-stack sm:grid-cols-2">
-        {formate.map(([feat, k, Icon]) => {
-          const an = aktiv(docCheckSettings, feat)
-          return (
-            // Abgeschaltet: gestrichelt und Symbol gedämpft — nicht per Deckkraft, die drückte den Hinweistext unter 3:1
-            <div key={k} className={`flex items-center gap-3 rounded-2xl border p-4 ${an ? 'border-line/10' : 'border-dashed border-line/25'}`}>
-              <Icon size={22} className={`shrink-0 ${an ? 'text-accent' : 'text-dim'}`} aria-hidden />
-              <div className="min-w-0 flex-1">
-                <p className="text-small font-semibold">{t(`export.${k}`)}</p>
-                <p className="text-micro text-dim">{an ? t(`export.${k}Hint`) : t('export.off')}</p>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <Button variant="ghost" disabled>
-          <span className="flex items-center gap-1.5"><Archive size={16} /> {t('export.zip')}</span>
-        </Button>
-        <Button variant="ghost" disabled>
-          <span className="flex items-center gap-1.5"><Save size={16} /> {t('export.save')}</span>
-        </Button>
-        <Button variant="ghost" disabled>
-          <span className="flex items-center gap-1.5"><FolderOpen size={16} /> {t('export.load')}</span>
-        </Button>
-        <Phase n={6} />
-      </div>
-      <p className="text-micro text-dim">{t('export.language')}</p>
-    </div>
-  )
-}
 
 /* -------------------------- Bibliothek verwalten --------------------- */
 

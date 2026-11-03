@@ -1,7 +1,7 @@
 import { datumFinden } from '../parse/meta'
 import { vergleichsform } from '../parse/seitenzuordnung'
 import type { ReferenzListe } from '../referenz/liste'
-import { ampelAus, type Befund, type Fundstelle } from './befund'
+import { ampelAus, anzahl, type Befund, type Fundstelle } from './befund'
 import { absaetze, befund, fundstelle, verwendeteAbkuerzungen, type PruefKontext } from './kontext'
 
 /**
@@ -58,7 +58,7 @@ export function referenzCheck(k: PruefKontext, listen: ReferenzListe[], dateinam
         fs.push(fundstelle(a, `${m[1]} — ${a.text}`))
       }
       if (fs.length) {
-        out.push(befund(k, { quelle: 'referenz', pruefpunkt: 'glossar', kategorie: 'Editorial', prioritaet: 'Low', text: `Use "${e.soll}" instead of ${[...gefunden].map((g) => `"${g}"`).join(', ')} (${fs.length} occurrence(s); glossary ${quelle(l)}${e.quelle ? `, source: ${e.quelle}` : ''}).`, fundstellen: fs, anleitung: 'glossar' }))
+        out.push(befund(k, { quelle: 'referenz', pruefpunkt: 'glossar', kategorie: 'Editorial', prioritaet: 'Low', text: `Use "${e.soll}" instead of ${[...gefunden].map((g) => `"${g}"`).join(', ')} (${anzahl(fs.length, 'occurrence')}; glossary ${quelle(l)}${e.quelle ? `, source: ${e.quelle}` : ''}).`, fundstellen: fs, anleitung: 'glossar' }))
       }
     }
   }
@@ -68,7 +68,7 @@ export function referenzCheck(k: PruefKontext, listen: ReferenzListe[], dateinam
   if (abkListen.length) {
     const bekannt = new Set(abkListen.flatMap((l) => l.eintraege.map((e) => e.abk.trim())))
     const fehlt = [...verwendeteAbkuerzungen(k.roh)].filter(([a]) => !bekannt.has(a))
-    if (fehlt.length) out.push(befund(k, { quelle: 'referenz', pruefpunkt: 'abkuerzungsliste', kategorie: 'Editorial', prioritaet: 'Low', text: `${fehlt.length} abbreviation(s) used that are not in the reference list (${abkListen.map(quelle).join(', ')}).`, fundstellen: fehlt.map(([a, s]) => ({ seite: s, auszug: a })), anleitung: 'abkuerzungsliste' }))
+    if (fehlt.length) out.push(befund(k, { quelle: 'referenz', pruefpunkt: 'abkuerzungsliste', kategorie: 'Editorial', prioritaet: 'Low', text: `${anzahl(fehlt.length, 'abbreviation')} used that ${fehlt.length === 1 ? 'is' : 'are'} not in the reference list (${abkListen.map(quelle).join(', ')}).`, fundstellen: fehlt.map(([a, s]) => ({ seite: s, auszug: a })), anleitung: 'abkuerzungsliste' }))
   }
 
   /* Dokumentregister — erwartete Revision und erwartetes Datum */
@@ -80,7 +80,9 @@ export function referenzCheck(k: PruefKontext, listen: ReferenzListe[], dateinam
       return f.length >= 3 && kennzeichen.some((x) => x === f || x.includes(f))
     })
     if (!treffer) {
-      out.push(befund(k, { quelle: 'referenz', pruefpunkt: 'register', kategorie: 'Document Control', prioritaet: 'Low', text: `Document not found in the document register ${quelle(l)}.`, fundstellen: [{ ort: quelle(l), auszug: [k.meta.nummer, k.meta.titel].filter(Boolean).join(' · ') || dateiname }], anleitung: 'register' }))
+      // Eigene Anweisung: „Revision/Datum korrigieren" passt nicht, wenn der
+      // Eintrag ganz fehlt (Audit 11/2026, DC-16)
+      out.push(befund(k, { quelle: 'referenz', pruefpunkt: 'register', kategorie: 'Document Control', prioritaet: 'Low', text: `Document not found in the document register ${quelle(l)}.`, fundstellen: [{ ort: quelle(l), auszug: [k.meta.nummer, k.meta.titel].filter(Boolean).join(' · ') || dateiname }], anleitung: 'registerFehlt' }))
       continue
     }
     const fs: Fundstelle[] = []
@@ -101,7 +103,7 @@ export function referenzCheck(k: PruefKontext, listen: ReferenzListe[], dateinam
       const re = bauartRegex(b)
       for (const a of alle) for (const m of a.text.matchAll(re)) if (!bekannt.has(m[0])) fs.push(fundstelle(a, `${m[0]} — ${a.text}`))
     }
-    if (fs.length) out.push(befund(k, { quelle: 'referenz', pruefpunkt: 'kennungen', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `${fs.length} identifier(s) not found in the reference list (${kenn.map(quelle).join(', ')}).`, fundstellen: fs, anleitung: 'kennungen' }))
+    if (fs.length) out.push(befund(k, { quelle: 'referenz', pruefpunkt: 'kennungen', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `${anzahl(fs.length, 'identifier')} not found in the reference list (${kenn.map(quelle).join(', ')}).`, fundstellen: fs, anleitung: 'kennungen' }))
   }
 
   return { befunde: out, ampel: ampelAus([...REFERENZ_PUNKTE], out as Befund[], na) }

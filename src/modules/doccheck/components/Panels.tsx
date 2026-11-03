@@ -3,6 +3,7 @@ import { DokListe } from './Dokumente'
 import { useTranslation } from 'react-i18next'
 import { Badge, Card, CardHeading } from '../../../components/ui'
 import { nachSammlung, SANDBOX_DOKUMENTE, SANDBOX_SAMMLUNGEN } from '../library'
+import { zahl } from '../../../zahl'
 import type { BibliotheksDokument } from '../types'
 
 /**
@@ -34,7 +35,7 @@ export function ReviewDocsPanel() {
   const { t } = useTranslation('doccheck')
   return (
     <Card className="space-y-stack p-4">
-      <CardHeading>{t('cols.review')}</CardHeading>
+      <CardHeading level={2}>{t('cols.review')}</CardHeading>
       <DokListe rolle="review" />
       <p className="text-micro leading-relaxed text-dim">{t('review.hint')}</p>
     </Card>
@@ -42,7 +43,7 @@ export function ReviewDocsPanel() {
 }
 
 function DokZeile({ d, gewaehlt, onToggle }: { d: BibliotheksDokument; gewaehlt: boolean; onToggle: () => void }) {
-  const { t } = useTranslation('doccheck')
+  const { t, i18n } = useTranslation('doccheck')
   return (
     <li className="flex items-start gap-2.5 py-2">
       <input
@@ -62,7 +63,7 @@ function DokZeile({ d, gewaehlt, onToggle }: { d: BibliotheksDokument; gewaehlt:
           {d.titel}
         </p>
         <p className="text-micro text-dim">
-          {d.nummer} · {t('library.pages', { n: d.seiten.toLocaleString('de-AT') })} · {t(`legal.${d.rechtscharakter}`)}
+          {d.nummer} · {t('library.pages', { n: zahl(d.seiten, i18n.language) })} · {t(`legal.${d.rechtscharakter}`)}
         </p>
       </div>
     </li>
@@ -90,7 +91,7 @@ export function LibraryPanel({
   return (
     <Card className="space-y-stack p-4">
       <div className="flex items-center justify-between gap-2">
-        <CardHeading>{t('cols.library')}</CardHeading>
+        <CardHeading level={2}>{t('cols.library')}</CardHeading>
         {!darfPflegen && (
           <span className="flex items-center gap-1 text-micro text-dim" title={t('library.readonly')}>
             <Lock size={13} aria-hidden /> {t('library.readonlyShort')}
@@ -100,7 +101,8 @@ export function LibraryPanel({
       <p className="text-micro text-dim">{t('library.selectionHint', { n: auswahl.size })}</p>
       {gruppen.map((g) => (
         <section key={g.sammlung.id} aria-label={g.sammlung.name}>
-          <h4 className="border-b border-line/10 pb-1 text-micro font-bold uppercase tracking-wide text-ink">{g.sammlung.name}</h4>
+          {/* h3 unter der Spaltenüberschrift (h2) — eine Ebene tiefer, nicht zwei (A11Y-14). */}
+          <h3 className="border-b border-line/10 pb-1 text-micro font-bold uppercase tracking-wide text-ink">{g.sammlung.name}</h3>
           <ul className="divide-y divide-line/5">
             {g.docs.map((d) => (
               <DokZeile key={d.id} d={d} gewaehlt={auswahl.has(d.id)} onToggle={() => toggle(d.id)} />
@@ -117,7 +119,7 @@ export function SessionDocsPanel() {
   return (
     <Card className="space-y-stack p-4">
       <div className="space-y-tight">
-        <CardHeading>{t('cols.session')}</CardHeading>
+        <CardHeading level={2}>{t('cols.session')}</CardHeading>
         <Badge tone="wait">{t('session.badge')}</Badge>
       </div>
       <DokListe rolle="master" />

@@ -5,12 +5,13 @@ function deps(opts: { abbrechenNach?: number } = {}) {
   const render = vi.fn(() => ({ promise: Promise.resolve() }))
   const getViewport = vi.fn(({ scale }: { scale: number }) => ({ width: 595 * scale, height: 842 * scale }))
   const destroy = vi.fn(async () => {})
-  const pdf: OcrPdf = { getDocument: () => ({ promise: Promise.resolve({ getPage: async () => ({ getViewport, render, cleanup: () => {} }) }), destroy }) }
+  const getDocument = vi.fn((_src: Parameters<OcrPdf['getDocument']>[0]) => ({ promise: Promise.resolve({ getPage: async () => ({ getViewport, render, cleanup: () => {} }) }), destroy }))
+  const pdf: OcrPdf = { getDocument }
   const terminate = vi.fn(async () => {})
   const createWorker = vi.fn(async () => ({ recognize: async () => ({ data: { text: 'SCANNED TEXT' } }), terminate }))
   const tess: OcrTesseract = { createWorker }
   const leinwand = vi.fn((b: number, h: number) => ({ b, h, getContext: () => ({}) }))
-  return { d: { pdfjs: async () => pdf, tesseract: async () => tess, basis: 'https://app/doccheck/', leinwand }, render, getViewport, createWorker, terminate, destroy, leinwand }
+  return { d: { pdfjs: async () => pdf, tesseract: async () => tess, basis: 'https://app/doccheck/', leinwand }, render, getViewport, getDocument, createWorker, terminate, destroy, leinwand }
 }
 
 describe('OCR (Spez. 7.2)', () => {
@@ -31,6 +32,18 @@ describe('OCR (Spez. 7.2)', () => {
     expect(fort).toHaveBeenLastCalledWith(2, 2)
     expect(x.terminate).toHaveBeenCalled()
     expect(x.destroy).toHaveBeenCalled()
+  })
+
+  it('pdf.js bekommt Schriften, Bilddecoder und Farbprofil aus der lokalen Ablage — gescannte JBIG2-/JPEG-2000-Seiten blieben sonst leer (Audit 11/2026, DC-15)', async () => {
+    const x = deps()
+    await ocrAusfuehren(new Uint8Array([1]), [1], x.d)
+    expect(x.getDocument.mock.calls[0][0]).toEqual({
+      data: new Uint8Array([1]),
+      standardFontDataUrl: 'https://app/doccheck/pdf-fonts/',
+      wasmUrl: 'https://app/doccheck/pdf-wasm/',
+      iccUrl: 'https://app/doccheck/pdf-iccs/',
+      useWorkerFetch: true,
+    })
   })
 
   it('Abbruch: liefert das bisher Erkannte und räumt trotzdem auf', async () => {

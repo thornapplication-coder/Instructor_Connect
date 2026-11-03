@@ -1,20 +1,21 @@
-import { ChevronDown, ChevronRight, Eye, ShieldAlert, ShieldCheck } from 'lucide-react'
+import { ChevronDown, ChevronRight, Eye, ScanText, ShieldAlert, ShieldCheck } from 'lucide-react'
 import { Fragment, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Card, CardHeading, selectCls } from '../../../components/ui'
 import { TrafficIcon } from '../../../pages/Grading'
 import { useStore } from '../../../store'
-import { gate, sortieren, type Ampel, type Befund, type Prioritaet } from '../pruefung/befund'
+import { gate, lesestand, type Ampel, type Befund, type Prioritaet } from '../pruefung/befund'
 import { FORMAL_PUNKTE } from '../pruefung/formal'
 import { SPRACH_PUNKTE } from '../pruefung/sprachCheck'
 import { WORD_PUNKTE } from '../pruefung/wordCheck'
 import { REFERENZ_PUNKTE } from '../pruefung/referenzCheck'
 import { PAKET_PUNKTE } from '../paket/pruefen'
-import { RECHEN_PUNKTE } from '../pruefung/rechnen'
+import { RECHEN_PUNKTE, seitenAnfang } from '../pruefung/rechnen'
 import { VERWEIS_PUNKTE } from '../pruefung/verweise'
 import { REGELWERK_PUNKTE } from '../pruefung/regelwerk'
-import { useSitzung } from '../sitzung'
+import { leerGrund, useSitzung } from '../sitzung'
 import { aktiv } from '../settings'
+import { befundTabelle } from '../export/ausSitzung'
 import { useViewer } from './Viewer'
 
 /**
@@ -92,16 +93,19 @@ export function FindingsTab() {
   const paket = paketModus && aktiv(docCheckSettings, 'packageCheck') ? paketErgebnis?.ergebnis : undefined
   const oeffnen = useViewer()
   const geprueft = docs.filter((d) => d.rolle === 'review' && d.z?.pruefung)
-  const alle = useMemo(
-    () => sortieren([...geprueft.flatMap((d) => d.z!.pruefung!.befunde.map((b) => ({ ...b, dokName: d.felder.titel || d.name }))), ...(paket?.befunde ?? [])]),
-    [geprueft, paket],
-  )
+  // Dieselben Befunde mit denselben IDs wie im Export („TM-003" statt „F-01" je
+  // Dokument) — sonst fand niemand den Befund aus dem Bericht am Bildschirm
+  // wieder (Audit 11/2026, DC-10/UID-07/TXT-03)
+  const zeilen = useMemo(() => befundTabelle({ docs, paketModus, paketBefunde: paket?.befunde ?? [] }), [docs, paketModus, paket])
+  const alle = useMemo(() => zeilen.map((z) => z.befund), [zeilen])
   const [dok, setDok] = useState('')
   const [prio, setPrio] = useState('')
   const [quelle, setQuelle] = useState('')
   const [offen, setOffen] = useState<string | null>(null)
-  const liste = alle.filter((b) => (!dok || b.dokId === dok) && (!prio || b.prioritaet === prio) && (!quelle || b.quelle === quelle))
-  const g = gate(alle, docCheckSettings.gateSperrt)
+  const liste = zeilen.filter(({ befund: b }) => (!dok || b.dokId === dok) && (!prio || b.prioritaet === prio) && (!quelle || b.quelle === quelle))
+  // Ein Scan ohne Texterkennung ist nicht bewertbar, nicht einreichungsfähig (Audit 11/2026, DC-03)
+  const gelesen = lesestand(geprueft.map((d) => d.z!))
+  const g = gate(alle, docCheckSettings.gateSperrt, gelesen)
   const schluessel = (b: Befund) => `${b.dokId}:${b.id}`
 
   return (
@@ -111,17 +115,27 @@ export function FindingsTab() {
         <Card className="space-y-stack p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardHeading>{t('gate.titel')}</CardHeading>
-            {g.einreichungsfaehig ? (
-              <Badge tone="ok">
-                <span className="flex items-center gap-1"><ShieldCheck size={13} /> {t('gate.ok')}</span>
-              </Badge>
-            ) : (
-              <Badge tone="bad">
-                <span className="flex items-center gap-1"><ShieldAlert size={13} /> {t('gate.nichtOk', { count: g.hoch })}</span>
-              </Badge>
-            )}
+            <div className="flex flex-wrap gap-1.5">
+              {g.hoch > 0 && (
+                <Badge tone="bad">
+                  <span className="flex items-center gap-1"><ShieldAlert size={13} /> {t('gate.nichtOk', { count: g.hoch })}</span>
+                </Badge>
+              )}
+              {/* Schlüssel ausgeschrieben, nicht zusammengesetzt — so sieht sie die Textwache (i18n.test.ts) */}
+              {g.grund && (
+                <Badge tone="wait">
+                  <span className="flex items-center gap-1"><ScanText size={13} /> {g.grund === 'ocr' ? t('gate.nichtBewertbar.ocr') : t('gate.nichtBewertbar.ohneText')}</span>
+                </Badge>
+              )}
+              {g.einreichungsfaehig && (
+                <Badge tone="ok">
+                  <span className="flex items-center gap-1"><ShieldCheck size={13} /> {t('gate.ok')}</span>
+                </Badge>
+              )}
+            </div>
           </div>
-          {!g.einreichungsfaehig && <p className="rounded-xl bg-bad/10 p-3 text-small">{g.gesperrt ? t('gate.gesperrt') : t('gate.warnung')}</p>}
+          {g.grund && <p className="rounded-xl bg-wait/10 p-3 text-small">{g.grund === 'ocr' ? t('gate.hinweis.ocr', { count: gelesen.ocrSeiten }) : t('gate.hinweis.ohneText', { count: gelesen.ohneText })}</p>}
+          {g.hoch > 0 && <p className="rounded-xl bg-bad/10 p-3 text-small">{g.gesperrt ? t('gate.gesperrt') : t('gate.warnung')}</p>}
           {geprueft.map((d) => (
             <div key={d.id} className="space-y-tight border-t border-line/10 pt-3 first:border-0 first:pt-0">
               <p className="text-small font-semibold">
@@ -139,7 +153,7 @@ export function FindingsTab() {
                 ]}
               />
               {d.z!.pruefung!.regelwerk && d.z!.pruefung!.regelwerk.quellen.length > 0 && (
-                <p className="text-micro text-dim">{t('gate.regelwerkStand', { ...d.z!.pruefung!.regelwerk, quellen: d.z!.pruefung!.regelwerk.quellen.join(', ') })}</p>
+                <p className="text-micro text-dim">{t('gate.regelwerkStand', { ...d.z!.pruefung!.regelwerk, count: d.z!.pruefung!.regelwerk.verweise, quellen: d.z!.pruefung!.regelwerk.quellen.join(', ') })}</p>
               )}
             </div>
           ))}
@@ -187,10 +201,10 @@ export function FindingsTab() {
           <tbody>
             {liste.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-major text-center text-dim">{geprueft.length ? t('findings.keineTreffer') : t('findings.empty')}</td>
+                <td colSpan={7} className="px-3 py-major text-center text-dim">{geprueft.length ? t('findings.keineTreffer') : leerGrund(docs) === 'abgeschaltet' ? t('findings.abgeschaltet') : t('findings.empty')}</td>
               </tr>
             )}
-            {liste.map((b) => {
+            {liste.map(({ befund: b, id }) => {
               const auf = offen === schluessel(b)
               return (
                 <Fragment key={schluessel(b)}>
@@ -202,14 +216,14 @@ export function FindingsTab() {
                         className="-m-1 flex items-center gap-1 rounded p-1"
                         aria-expanded={auf}
                         aria-controls={`fs-${schluessel(b)}`}
-                        aria-label={t('findings.aufklappen', { id: b.id })}
+                        aria-label={t('findings.aufklappen', { id })}
                         onClick={(e) => {
                           e.stopPropagation()
                           setOffen(auf ? null : schluessel(b))
                         }}
                       >
                         {auf ? <ChevronDown size={13} aria-hidden /> : <ChevronRight size={13} aria-hidden />}
-                        {b.id}
+                        {id}
                       </button>
                     </td>
                     <td className="px-2 py-2">{b.dokName}</td>
@@ -246,8 +260,9 @@ export function FindingsTab() {
                               {f.seite && (
                                 <button className="flex shrink-0 items-center gap-1 text-micro text-accent hover:underline" onClick={() => {
                                   const d = geprueft.find((x) => x.id === b.dokId)!
-                                  const index = d.z!.labels.findIndex((l) => l === f.seite)
-                                  oeffnen({ docId: b.dokId, seite: index >= 0 ? index + 1 : Number(f.seite) || 1, q: f.auszug.split(' — ')[0].slice(0, 60) })
+                                  // Eine Tabelle über die Seitengrenze nennt die Spanne („S. 10–11") — geöffnet wird ihre erste Seite
+                                  const index = d.z!.labels.findIndex((l) => l === f.seite || l === seitenAnfang(f.seite!))
+                                  oeffnen({ docId: b.dokId, seite: index >= 0 ? index + 1 : Number(f.seite) || 1, q: f.auszug.split(' — ')[0].slice(0, 60), befund: id })
                                 }}>
                                   <Eye size={13} /> {t('findings.seiteAnzeigen')}
                                 </button>

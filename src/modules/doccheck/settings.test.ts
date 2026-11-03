@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { aktiv, ausweichFuer, einstellungen, FEATURES, preiseVollstaendig, VORGABE } from './settings'
+import { aktiv, ausweichFuer, einstellungen, FEATURES, preiseVollstaendig, pruefSchalter, VORGABE } from './settings'
 
 describe('einstellungen — Vorgaben und Zusammenführung', () => {
   it('ohne gespeicherten Stand gelten die Vorgaben, alle Funktionen an außer Re-Check (Nachtrag Kap. 17)', () => {
@@ -34,6 +34,19 @@ describe('einstellungen — Vorgaben und Zusammenführung', () => {
     expect([s.standardModell, s.ausweichModell, s.echteKiInSandbox, s.monatsbudgetUsd]).toEqual(['claude-opus-5-5', 'claude-sonnet-5-5', true, 200])
   })
 
+  it('Organisation: ab Werk leer (nie hart codiert, Spez. 10.1 Nr. 3), gespeicherter Name begrenzt, Fremdtyp verworfen', () => {
+    expect(einstellungen(undefined).organisation).toBe('')
+    expect(einstellungen({ organisation: 'Example ATO' }).organisation).toBe('Example ATO')
+    expect(einstellungen({ organisation: 'x'.repeat(200) }).organisation).toHaveLength(120)
+    expect(einstellungen({ organisation: 42 as unknown as string }).organisation).toBe('')
+  })
+
+  it('CSV-Trenner: Vorgabe Semikolon, Komma bleibt, alles andere fällt zurück (Spez. 10.6; Audit 11/2026, EXP-17)', () => {
+    expect(einstellungen(undefined).csvTrenner).toBe(';')
+    expect(einstellungen({ csvTrenner: ',' }).csvTrenner).toBe(',')
+    expect(einstellungen({ csvTrenner: '\t' as never }).csvTrenner).toBe(';')
+  })
+
   it('eine leere Modellliste zählt als nicht gepflegt', () => {
     expect(einstellungen({ modelle: [] }).modelle).toEqual(VORGABE.modelle)
   })
@@ -58,6 +71,14 @@ describe('aktiv — der Gesamtschalter schlägt jeden Einzelschalter', () => {
     const s = einstellungen({ features: { chat: false } as never })
     expect(aktiv(s, 'chat')).toBe(false)
     expect(aktiv(s, 'ocr')).toBe(true)
+  })
+})
+
+describe('pruefSchalter — eine Ableitung für Hochladen und Neuprüfen (Audit 11/2026, DC-12)', () => {
+  it('bildet formalCheck, wordCheck und calcCheck ab; der Gesamtschalter schlägt sie', () => {
+    expect(pruefSchalter(einstellungen(undefined))).toEqual({ formal: true, word: true, rechnen: true })
+    expect(pruefSchalter(einstellungen({ features: { formalCheck: false, calcCheck: false } as never }))).toEqual({ formal: false, word: true, rechnen: false })
+    expect(pruefSchalter(einstellungen({ features: { doccheck: false } as never }))).toEqual({ formal: false, word: false, rechnen: false })
   })
 })
 

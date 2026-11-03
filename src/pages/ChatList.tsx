@@ -1,11 +1,15 @@
-import { BellOff, ChevronRight, Plus } from 'lucide-react'
+import { BellOff, ChevronRight } from 'lucide-react'
 import { musterZurAuswahl } from '../aircraftScope'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Button, Card, Field, inputCls, Modal, NewDot, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { Avatar, Button, Card, DialogMeldung, Field, inputCls, Modal, NewDot, Page, SectionHeading, selectCls, TopBar, TopBarAktion } from '../components/ui'
+import { ablehnungZeigen } from '../dialogMeldung'
 import { kurzeZeit } from '../drafts'
+import { istStumm } from '../chatMute'
+import { gruppenNameFehler } from '../gruppen'
 import { navigate } from '../router'
-import { isAdminUser, useStore } from '../store'
+import { darfGruppeAnlegen } from '../storeRechte'
+import { useStore } from '../store'
 
 export function ChatList() {
   const { t, i18n } = useTranslation()
@@ -18,6 +22,16 @@ export function ChatList() {
   // Nur die eigenen Muster: Eine Gruppe fremden Musters koennte der
   // Anleger anschliessend selbst nicht betreten.
   const aircraftTypes = musterZurAuswahl(currentUser, [...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)))
+  // Dieselbe Namensregel wie Store und Admin-Panel (gruppen.ts). Hier fehlte
+  // sie: „autothrottle" liess sich anlegen, der Dialog schloss, und der Store
+  // hatte still abgewiesen (Audit 11/2026, KERN-08). Leer ist noch kein
+  // Fehler, nur ein nicht aktiver Speichern-Knopf.
+  const nameFehler = gruppenNameFehler(state.groups, null, name)
+  const nameTaken = nameFehler === 'vergeben'
+  const nameFehlerId = useId()
+  const nameId = useId()
+  /** Ablehnung beim Anlegen — im Dialog, nicht als Toast darunter (R3-DIALOGMELDUNG). */
+  const [meldung, setMeldung] = useState<string | null>(null)
 
   return (
     <>
@@ -25,13 +39,10 @@ export function ChatList() {
         title={t('chat.title')}
         back="/"
         right={
-          isAdminUser(currentUser) ? (
-            <button
-              onClick={() => setShowNew(true)}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
-            >
-              <Plus size={15} /> {t('admin.addGroup')}
-            </button>
+          // Dieselbe Regel, die der Store beim Anlegen prueft (storeRechte.ts) —
+          // „Ohne Muster" liegt in jedem Bereich, die Musterwahl folgt im Dialog.
+          darfGruppeAnlegen(state.settings, currentUser, undefined) ? (
+            <TopBarAktion label={t('admin.addGroup')} onClick={() => setShowNew(true)} />
           ) : undefined
         }
       />
@@ -71,7 +82,10 @@ export function ChatList() {
                         {g.aircraftType}
                       </span>
                     )}
-                    {g.muted && <BellOff size={13} className="shrink-0 text-dim" />}
+                    {/* Stumm je Nutzer — nicht mehr fuer alle (chatMute.ts, KERN-06) */}
+                    {istStumm(state.mutedGroups, currentUser?.id, g.id) && (
+                      <BellOff size={13} className="shrink-0 text-dim" role="img" aria-label={t('chat.muted')} />
+                    )}
                   </div>
                   <p className="truncate text-small text-dim">
                     {/* Ein gelöschter Autor ergab „undefined:", ein reiner
@@ -101,10 +115,28 @@ export function ChatList() {
           })}
         </div>
         {showNew && (
-          <Modal title={t('admin.addGroup')} onClose={() => setShowNew(false)}>
+          <Modal
+            title={t('admin.addGroup')}
+            onClose={() => {
+              setShowNew(false)
+              setMeldung(null)
+            }}
+          >
             <div className="space-y-stack">
               <Field label={t('admin.groupName')}>
-                <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+                <input
+                  id={nameId}
+                  className={`${inputCls} ${nameTaken ? 'border-danger/60' : ''}`}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  aria-invalid={nameTaken || undefined}
+                  aria-describedby={nameTaken ? nameFehlerId : undefined}
+                />
+                {nameTaken && (
+                  <p id={nameFehlerId} className="mt-1.5 text-micro leading-relaxed text-danger">
+                    {t('admin.groupNameTaken')}
+                  </p>
+                )}
               </Field>
               <Field label={t('admin.purpose')}>
                 <input className={inputCls} value={purpose} onChange={(e) => setPurpose(e.target.value)} />
@@ -123,14 +155,32 @@ export function ChatList() {
                   ))}
                 </select>
               </Field>
+              <DialogMeldung text={meldung} />
               <div className="flex justify-end gap-2">
-                <Button variant="ghost" onClick={() => setShowNew(false)}>
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setShowNew(false)
+                    setMeldung(null)
+                  }}
+                >
                   {t('common.cancel')}
                 </Button>
                 <Button
-                  disabled={!name.trim()}
+                  disabled={nameFehler !== null}
                   onClick={() => {
-                    addGroup(name.trim(), purpose.trim(), aircraft || undefined)
+                    // Bei Ablehnung bleibt der Dialog mit den Eingaben offen —
+                    // und sagt es IM Dialog: Der Toast lag darunter, am
+                    // iPhone vom Bottom-Sheet verdeckt (R3-DIALOGMELDUNG).
+                    // Ist der Name inzwischen vergeben, steht der Grund am
+                    // Namen; sonst (Recht, Muster) über den Knöpfen.
+                    setMeldung(null)
+                    if (!addGroup(name.trim(), purpose.trim(), aircraft || undefined)) {
+                      const ablehnung = ablehnungZeigen([[nameId, nameFehler !== null]], t('dialog.groupNotCreated'))
+                      if ('feld' in ablehnung) document.getElementById(ablehnung.feld)?.focus()
+                      else setMeldung(ablehnung.meldung)
+                      return
+                    }
                     setShowNew(false)
                     setName('')
                     setPurpose('')

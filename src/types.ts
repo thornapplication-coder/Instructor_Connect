@@ -36,7 +36,8 @@ export interface Group {
   memberIds: string[]
   /** null = globale Voreinstellung gilt */
   retention: RetentionKey | null
-  muted: boolean
+  /* Kein `muted` mehr: Stummschalten ist eine Einstellung je Nutzer und
+     steht in `AppState.mutedGroups` (chatMute.ts, Audit 11/2026, KERN-06). */
 }
 
 export interface Attachment {
@@ -268,6 +269,9 @@ export interface AppState {
   logbook?: Record<string, import('./logbook').LogbookStand>
   /** je Nutzer: mit Stern markierte Instructor-Info-Einträge */
   starredInfo: Record<string, string[]>
+  /** je Nutzer: stumm geschaltete Chat-Gruppen (chatMute.ts). Lag als
+   *  `muted` an der Gruppe und galt damit fuer alle Mitglieder (KERN-06). */
+  mutedGroups: Record<string, string[]>
   /** Lese-Bestätigungen: Eintrag-ID -> Nutzer-ID -> Zeitstempel */
   infoAcks: Record<string, Record<string, number>>
   /** laufender Code-Login: an diese E-Mail wurde ein Code „gesendet“.
@@ -283,6 +287,12 @@ export interface AppState {
    *  migrateState). Ohne diese Marke liefe der Nachtrag bei JEDEM Start und
    *  machte jede spaetere Entziehung wieder rueckgaengig. */
   aircraftBackfilled?: boolean
+  /** Marken der erledigten Nachträge am Formularkatalog (FELD_NACHTRAEGE,
+   *  sandbox/gradingDefaults.ts) — je Nachtrag einmal, nie wieder. */
+  formularNachtraege?: string[]
+  /** Das alte `muted` an den Gruppen wurde einmalig verworfen (migrateState,
+   *  KERN-06) — mit Marke, wie jeder Nachtrag dort. */
+  stummJeNutzer?: boolean
   /** DocCheck (Sandbox): Rechte-Protokoll und Bestätigungen „Stand
    *  bestätigt". Mit Phase 1b wandert beides in das Schema `doccheck`. */
   docCheck?: import('./modules/doccheck/types').DocCheckState
@@ -423,6 +433,12 @@ export interface GradingRecord {
   mailError?: string
   /** vom Instruktor zusätzlich angegebene Empfänger */
   extraRecipients?: string[]
+  /** Tatsächliche Empfängerliste, eingefroren beim Absenden (`empfaengerVon`).
+   *  Audit 11/2026, GTY-06: Die Ansicht rechnete sie zur Anzeigezeit aus den
+   *  Einstellungen — ein alter Nachweis nannte nach jeder Änderung Empfänger,
+   *  an die er nie ging. Ab Fassung 4 Teil des Fingerabdrucks. Fehlt sie
+   *  (Altbestand), fällt die Anzeige auf die Regel zurück. */
+  recipients?: string[]
   /** Teilnehmerliste der Formulare 307A/307B */
   attendance?: AttendanceEntry[]
   /** Nutzer, die das Formular aus ihrer Listenansicht entfernt haben —

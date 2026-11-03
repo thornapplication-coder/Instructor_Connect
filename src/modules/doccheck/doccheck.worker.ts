@@ -1,5 +1,5 @@
-import { Kern, type LeseAuftrag, type Zusammenfassung } from './kern'
-import { pdfjsLaden } from './pdfjsLaden'
+import { Kern, type LeseAuftrag, type PruefSchalter, type Zusammenfassung } from './kern'
+import { pdfAblage, pdfjsLaden } from './pdfjsLaden'
 import type { ReferenzListe } from './referenz/liste'
 import type { Treffer } from './search/suche'
 import type { FremdBefund, Ziel } from './recheck/fremdliste'
@@ -24,6 +24,7 @@ export type Anfrage =
   | { typ: 'ocr'; id: string; seiten: { n: number; text: string }[] }
   | { typ: 'paaren'; id: string; daten: Uint8Array }
   | { typ: 'referenzen'; listen: ReferenzListe[] }
+  | { typ: 'pruefenSetzen'; schalter: PruefSchalter }
   | { typ: 'nachpruefen'; nr: number; auftraege: { befund: FremdBefund; ziel: Ziel }[] }
   | { typ: 'paket'; nr: number; struktur: Omit<Mitglied, 'pages'>[]; korrekturen: Korrektur[] }
 
@@ -90,6 +91,9 @@ export function verbinden(bereich: Bereich, kernFuer: (basis: string) => Kern): 
       case 'referenzen':
         for (const z of k().referenzenSetzen(a.listen)) bereich.postMessage({ typ: 'fertig', id: z.id, z })
         return
+      case 'pruefenSetzen':
+        for (const z of k().pruefenSetzen(a.schalter)) bereich.postMessage({ typ: 'fertig', id: z.id, z })
+        return
       case 'paaren': {
         const z = await k().paaren(a.id, a.daten)
         if (z) bereich.postMessage({ typ: 'fertig', id: a.id, z })
@@ -106,5 +110,5 @@ export function verbinden(bereich: Bereich, kernFuer: (basis: string) => Kern): 
 
 declare const WorkerGlobalScope: unknown
 if (typeof WorkerGlobalScope !== 'undefined') {
-  verbinden(self as unknown as Bereich, (basis) => new Kern({ pdfjs: pdfjsLaden, standardFontDataUrl: basis ? `${basis}pdf-fonts/` : undefined }))
+  verbinden(self as unknown as Bereich, (basis) => new Kern({ pdfjs: pdfjsLaden, ...(basis ? pdfAblage(basis) : {}) }))
 }

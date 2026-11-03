@@ -1,3 +1,6 @@
+import { ablageParameter, type AblageParameter } from './parse/pdfAblage'
+import { pdfAblage } from './pdfjsLaden'
+
 /**
  * Texterkennung für Seiten ohne Textebene (Spez. 7.2): nach Rückfrage, mit
  * `tesseract.js`, englisch, 200 dpi.
@@ -18,7 +21,7 @@ export interface OcrSeite {
   cleanup(): void
 }
 export interface OcrPdf {
-  getDocument(src: { data: Uint8Array }): { promise: Promise<{ getPage(n: number): Promise<OcrSeite> }>; destroy(): Promise<void> }
+  getDocument(src: { data: Uint8Array } & AblageParameter): { promise: Promise<{ getPage(n: number): Promise<OcrSeite> }>; destroy(): Promise<void> }
 }
 export interface OcrTesseract {
   createWorker(lang: string, oem: number, opts: Record<string, unknown>): Promise<{ recognize(bild: unknown): Promise<{ data: { text: string } }>; terminate(): Promise<unknown> }>
@@ -46,7 +49,9 @@ export async function ocrAusfuehren(
   signal?: AbortSignal,
 ): Promise<{ n: number; text: string }[]> {
   const [pdfjs, tess] = await Promise.all([deps.pdfjs(), deps.tesseract()])
-  const aufgabe = pdfjs.getDocument({ data: daten.slice() })
+  // Gescannte Seiten sind oft JBIG2 oder JPEG 2000: Ohne die Decoder der
+  // Ablage bliebe die Leinwand leer und die Erkennung fände nichts (Audit 11/2026, DC-15).
+  const aufgabe = pdfjs.getDocument({ data: daten.slice(), ...ablageParameter(pdfAblage(deps.basis)) })
   const worker = await tess.createWorker('eng', OEM_LSTM, tesseractOptionen(deps.basis))
   const out: { n: number; text: string }[] = []
   try {

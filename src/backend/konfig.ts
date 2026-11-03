@@ -68,3 +68,25 @@ export function geheimeVariablen(env: Record<string, string | undefined>): strin
     .filter(([k, v]) => k.startsWith('VITE_') && v && schluesselArt(v) === 'geheim')
     .map(([k]) => k)
 }
+
+/**
+ * Für den Build: Geheimnisse im fertigen Bundle-Text (Audit 11/2026, CIG-04).
+ *
+ * `geheimeVariablen` sieht nur VITE_*-Umgebungswerte. Ein Schlüssel, der
+ * fest im Quelltext steht, kam an beiden Stufen vorbei — die zweite in
+ * deploy.yml suchte nur sb_secret_… und sk-ant-…, und ein service_role-JWT
+ * sieht aus wie der öffentliche anon-Schlüssel. Entscheidend ist die Rolle
+ * in der Nutzlast; deshalb wird jeder Kandidat mit `schluesselArt` bewertet,
+ * nicht am Muster allein.
+ *
+ * Zurück kommt eine Kennung je Treffer, NICHT der Schlüssel: Die Meldung
+ * landet im Build-Protokoll, und dort soll er nicht ein zweites Mal stehen.
+ */
+export function geheimnisseImText(text: string): string[] {
+  const treffer = new Set<string>()
+  for (const [k] of text.matchAll(/sb_secret_[A-Za-z0-9_-]{16,}|sk-ant-[A-Za-z0-9_-]{16,}|eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g)) {
+    if (schluesselArt(k) !== 'geheim') continue
+    treffer.add(k.startsWith('eyJ') ? `JWT (role: ${rolleImSchluessel(k)})` : `${k.slice(0, k.startsWith('sb_') ? 10 : 7)}…`)
+  }
+  return [...treffer]
+}

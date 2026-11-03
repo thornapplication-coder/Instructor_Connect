@@ -1,9 +1,9 @@
-import { Download, Eye, FileText, Plane, Plus, Trash2 } from 'lucide-react'
+import { Download, Eye, FileText, Plane, Trash2 } from 'lucide-react'
 import { musterZurAuswahl } from '../aircraftScope'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
-import { toast } from '../components/Toast'
+import { Button, Card, CardGrid, DialogMeldung, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar, TopBarAktion } from '../components/ui'
+import { useQuittung } from '../components/Toast'
 import { formatDate } from '../datum'
 import { useStore } from '../store'
 
@@ -12,6 +12,9 @@ const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
 function UploadModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
   const { state, currentUser, addLessonPlan } = useStore()
+  const quittieren = useQuittung()
+  /** Ablehnung des Stores — im Dialog, nicht als Toast darunter (R3-DIALOGMELDUNG). */
+  const [meldung, setMeldung] = useState<string | null>(null)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [aircraftType, setAircraftType] = useState('')
@@ -51,7 +54,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
           </select>
         </Field>
         <Field label={t('lessons.title') + ' *'}>
-          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} />
         </Field>
         <Field label={t('lessons.description')}>
           <input className={inputCls} value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -66,6 +69,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
           />
           {fileName && <p className="mt-1.5 text-micro text-dim">{fileName}</p>}
         </Field>
+        <DialogMeldung text={meldung} />
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -75,9 +79,13 @@ function UploadModal({ onClose }: { onClose: () => void }) {
             onClick={() => {
               // Ohne hochgeladene Datei wird auch keine behauptet — die Karte
               // bot sonst Ansehen und Herunterladen für ein Dokument an, das
-              // es nie gab.
-              addLessonPlan({ title: title.trim(), description: description.trim(), aircraftType, category, fileName: fileName.trim() })
-              toast(t('toast.lessonAdded'))
+              // es nie gab. Abgewiesen (Recht oder Muster entzogen): Dialog
+              // bleibt offen, mit Grund (R3-DIALOGMELDUNG).
+              if (!addLessonPlan({ title: title.trim(), description: description.trim(), aircraftType, category, fileName: fileName.trim() })) {
+                setMeldung(t('dialog.notSaved'))
+                return
+              }
+              void quittieren(t('toast.lessonAdded'))
               onClose()
             }}
           >
@@ -92,6 +100,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
 export function LessonPlans() {
   const { t, i18n } = useTranslation()
   const { state, currentUser, visibleLessonPlans, deleteLessonPlan, can } = useStore()
+  const quittieren = useQuittung()
   const [filter, setFilter] = useState('')
   const [showUpload, setShowUpload] = useState(false)
 
@@ -132,14 +141,7 @@ export function LessonPlans() {
         title="Lesson Plan"
         back="/"
         right={
-          mayEdit ? (
-            <button
-              onClick={() => setShowUpload(true)}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
-            >
-              <Plus size={15} /> {t('lessons.newPlan')}
-            </button>
-          ) : undefined
+          mayEdit ? <TopBarAktion label={t('lessons.newPlan')} onClick={() => setShowUpload(true)} /> : undefined
         }
       />
       <Page className="space-y-section">
@@ -219,7 +221,7 @@ export function LessonPlans() {
                             onClick={() => {
                               if (window.confirm(t('lessons.deleteConfirm', { title: p.title }))) {
                                 deleteLessonPlan(p.id)
-                                toast(t('toast.lessonDeleted'))
+                                void quittieren(t('toast.lessonDeleted'))
                               }
                             }}
                             className="min-h-11 flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-small text-danger hover:bg-danger/10"

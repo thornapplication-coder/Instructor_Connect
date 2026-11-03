@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { navigate } from '../router'
 import { useStore } from '../store'
 import { SANDBOX } from '../sandbox/flag'
+import { seitenBreiteCls } from './ui'
 
 const DAY = 24 * 3600_000
 
@@ -21,7 +22,12 @@ export function SandboxBar() {
 
   return (
     <div className="safe-bottom sticky bottom-0 z-30 min-h-11 border-t border-amber-400/30 bg-[#2b2410]/95 text-amber-200 backdrop-blur">
-      <div className="mx-auto flex h-full max-w-3xl xl:max-w-6xl items-center gap-3 overflow-x-auto whitespace-nowrap px-3 text-micro">
+      {/* Breite wie Kopfleiste und Seite (`seitenBreiteCls`): Mit der
+          Tablet-Schranke war die Leiste bei 1024 px nur 768 px breit, ihr
+          Inhalt 936 px — „iPhone/iPad-Vorschau" lag abgeschnitten hinter dem
+          Rand, und der Tab-Fokus scrollte ihn nicht ins Bild (Audit 11/2026,
+          UID-20). `safe-x` hält sie im Querformat aus der Sensorkappe (MOB-07). */}
+      <div className={`safe-x mx-auto flex h-full items-center gap-3 overflow-x-auto whitespace-nowrap text-micro [--rand-x:0.75rem] ${seitenBreiteCls}`}>
         <span className="flex shrink-0 items-center gap-1.5 font-semibold uppercase tracking-wide" title={t('sandbox.banner')}>
           <FlaskConical size={14} /> Sandbox
         </span>
@@ -31,7 +37,7 @@ export function SandboxBar() {
             <select
               value={currentUser.id}
               onChange={(e) => switchUser(e.target.value)}
-              className="max-w-40 rounded-md border border-amber-400/30 bg-transparent px-1.5 py-0.5 text-amber-100"
+              className="max-w-40 rounded-md border border-amber-400/30 bg-transparent px-1.5 py-0.5 text-amber-100 lg:max-w-52"
             >
               {state.users
                 .filter((u) => u.active)
@@ -52,7 +58,9 @@ export function SandboxBar() {
               onClick={() => advanceTime(days * DAY)}
               className="min-h-11 rounded-md border border-amber-400/30 px-3 py-0.5 hover:bg-amber-400/10"
             >
-              +{days}d
+              {/* „+1 T" bzw. „+1 d" — fest „+1d" stand englisch in der
+                  deutschen Leiste, obwohl der Text dafür da war (TXT-10). */}
+              {t('sandbox.offset', { days })}
             </button>
           ))}
           {offsetDays > 0 && <span className="font-semibold">({t('sandbox.offset', { days: offsetDays })})</span>}

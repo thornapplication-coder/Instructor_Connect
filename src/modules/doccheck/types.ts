@@ -78,9 +78,20 @@ export interface DocCheckSettings {
   /** Submission gate (N4.3): sperrt ein offener Hoch-Befund den Export
    *  „einreichungsfähig"? Ab Werk nein — nur Warnung. */
   gateSperrt: boolean
+  /** Organisationsname für Exporte (Spez. 10.1 Nr. 3: aus dem Branding,
+   *  nie hart codiert). Leer → kein Organisationsfeld im Export. */
+  organisation: string
+  /** Trenner JEDER DocCheck-CSV (Spez. 10.6: Semikolon, Komma im
+   *  Admin-Bereich umstellbar) — Befundliste und Re-Check gleich. */
+  csvTrenner: CsvTrenner
 }
 
-export type DocCheckAuditAktion = 'zugang' | 'admin' | 'feature' | 'einstellung' | 'standBestaetigt' | 'recheckBestaetigt'
+export type CsvTrenner = ';' | ','
+
+/** `rolle`: Die DocCheck-Rolle änderte sich durch Rolle oder Status in
+ *  Instructor Connect (Superadmin = DocCheck-Superadmin, deaktiviert =
+ *  keine), nicht durch die beiden Schalter (VERW-15). */
+export type DocCheckAuditAktion = 'zugang' | 'admin' | 'rolle' | 'feature' | 'einstellung' | 'standBestaetigt' | 'recheckBestaetigt'
 
 export interface DocCheckAuditEintrag {
   id: string

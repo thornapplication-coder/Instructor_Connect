@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { annehmbar, bibliotheksVergleich, hochladen, MAX_BYTES, MELDE_TAKT, pdfDazulegen, stamm } from './hochladen'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { annehmbar, bibliotheksVergleich, hochladen, MAX_BYTES, MELDE_TAKT, PAAR_ZEIT_JE_MB, PAAR_ZEIT_MAX, PAAR_ZEIT_SOCKEL, paarZeitgrenze, pdfDazulegen, stamm } from './hochladen'
 import type { Zusammenfassung } from './kern'
-import { datei, entfernen, fuerNutzer, lesenZustand, setzen } from './sitzung'
+import { abbruchAnfordern, aktualisiert, datei, entfernen, fuerNutzer, lesenZustand, setzen } from './sitzung'
 
 const zf = (id: string, meta: Zusammenfassung['meta'] = {}): Zusammenfassung => ({
   id, format: 'pdf', seiten: 1, zeichen: 1, ocrKandidaten: [], ocrSeiten: 0, tabellen: 0, sha256: 's' + id, meta, duplikat: null, labels: [], outline: [],
@@ -71,6 +71,23 @@ describe('hochladen', () => {
     expect(lesenZustand().docs.map((d) => d.name)).toEqual(['a.pdf', 'b.pdf'])
   })
 
+  it('Abbrechen kam erst an, als der Worker schon fertig war: Ergebnis verworfen, auch im Worker (Gegenprüfung Audit 11/2026, DC-01)', async () => {
+    const entfernenImWorker = vi.fn()
+    const titel = vi.fn()
+    // Der Klick fällt zwischen „fertig" im Worker und die Antwort im Fenster
+    const lesen = async (a: { id: string }) => {
+      setzen((z) => abbruchAnfordern(z, a.id))
+      return zf(a.id, { titel: 'Spät' })
+    }
+    await hochladen([datei_('spaet.pdf')], 'review', { lesen, titel, entfernen: entfernenImWorker } as never)
+    expect(lesenZustand().docs).toEqual([])
+    expect(entfernenImWorker).toHaveBeenCalledTimes(1)
+    expect(titel).not.toHaveBeenCalled()
+    // Abbruch durch den Worker selbst: ebenso ganz weg
+    await hochladen([datei_('c.pdf')], 'review', { lesen: async () => { throw new Error('DC-ABORTED') }, titel, entfernen: entfernenImWorker } as never)
+    expect([lesenZustand().docs.length, entfernenImWorker.mock.calls.length]).toEqual([0, 2])
+  })
+
   it('während des Lesens entfernt → wird nicht wieder aufgenommen; ohne Titel keine Meldung', async () => {
     const titel = vi.fn()
     const lesen = async (a: { id: string }) => {
@@ -113,6 +130,50 @@ describe('Word-PDF-Paar beim Hochladen (Nachtrag N5)', () => {
     expect(v.paaren).not.toHaveBeenCalled()
   })
 
+  it('DOCX nicht lesbar: das gleichnamige PDF wird ein eigenes Prüfdokument (Audit 11/2026, DC-07)', async () => {
+    const v = verbindung()
+    v.lesen.mockImplementation(async (a: { id: string; name: string }) => {
+      if (/docx$/.test(a.name)) throw new Error('DC-DOCX-INVALID')
+      return { ...zf(a.id), format: 'pdf' as const }
+    })
+    // vorher: drei lesen-Aufträge für vier Dateien, x.pdf ohne Karte und ohne Meldung
+    await hochladen([datei_('x.docx'), datei_('x.pdf')], 'review', v as never)
+    expect(v.lesen.mock.calls.map((c) => c[0].name)).toEqual(['x.docx', 'x.pdf'])
+    expect(lesenZustand().docs.map((d) => [d.name, d.status, d.fehler])).toEqual([
+      ['x.docx', 'fehler', 'DC-DOCX-INVALID'],
+      ['x.pdf', 'fertig', undefined],
+    ])
+    expect(v.paaren).not.toHaveBeenCalled()
+  })
+
+  it('DOCX zu groß: abgelehnt, das PDF wird normal gelesen — ein zu großes PDF wird nicht gepaart, sondern abgelehnt (DC-07)', async () => {
+    const v = verbindung()
+    const r = await hochladen([datei_('x.docx', MAX_BYTES + 1), datei_('x.pdf')], 'review', v as never)
+    expect(r.abgelehnt).toEqual([{ name: 'x.docx', grund: 'groesse' }])
+    expect(lesenZustand().docs.map((d) => d.name)).toEqual(['x.pdf'])
+    expect(v.paaren).not.toHaveBeenCalled()
+    fuerNutzer('u-test-gross')
+    const r2 = await hochladen([datei_('y.docx'), datei_('y.pdf', MAX_BYTES + 1)], 'review', v as never)
+    expect(r2.abgelehnt).toEqual([{ name: 'y.pdf', grund: 'groesse' }])
+    expect(lesenZustand().docs.map((d) => [d.name, d.z?.seitenQuelle])).toEqual([['y.docx', 'native']])
+    expect(v.paaren).not.toHaveBeenCalled()
+  })
+
+  it('Abbruch des DOCX nimmt das Paar ganz zurück; ein Paarling, der kein DOCX ergab, wird eigenes Dokument (DC-07)', async () => {
+    const v = verbindung()
+    v.lesen.mockImplementation(async (a: { id: string; name: string }) => {
+      if (/docx$/.test(a.name)) throw new Error('DC-ABORTED')
+      return { ...zf(a.id), format: 'pdf' as const }
+    })
+    await hochladen([datei_('a.docx'), datei_('a.pdf')], 'review', v as never)
+    expect(lesenZustand().docs).toEqual([])
+    // Der Leser meldet für die .docx-Datei ein anderes Format: keine Paarung, das PDF steht für sich
+    v.lesen.mockImplementation(async (a: { id: string }) => ({ ...zf(a.id), format: 'pdf' as const }))
+    await hochladen([datei_('b.docx'), datei_('b.pdf')], 'review', v as never)
+    expect(lesenZustand().docs.map((d) => d.name)).toEqual(['b.docx', 'b.pdf'])
+    expect(v.paaren).not.toHaveBeenCalled()
+  })
+
   it('pdfDazulegen ignoriert Meldungen zu anderen Dokumenten', async () => {
     let hoerer: ((z: Zusammenfassung) => void) | null = null
     const p = pdfDazulegen('x', datei_('x.pdf'), {
@@ -127,5 +188,129 @@ describe('Word-PDF-Paar beim Hochladen (Nachtrag N5)', () => {
 
   it('stamm', () => {
     expect(stamm(' PLM.E1R0.DOCX')).toBe('plm.e1r0')
+  })
+})
+
+/**
+ * Audit 11/2026, Runde 3: `pdfDazulegen` wartete unbegrenzt auf die
+ * Paarungsmeldung des Workers. Antwortete er nie — hängend, oder weil er
+ * das Dokument nicht mehr kennt und dann gar nichts schickt —, blieb der
+ * Knopf auf „Gleiche ab …" stehen und das Hochladen kam nie zum Ende.
+ */
+describe('Word-PDF-Paarung mit Zeitgrenze', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  /** Worker, der nie antwortet; `melden` schickt später doch noch eine Zusammenfassung */
+  const stumm = () => {
+    const hoerer = new Set<(z: Zusammenfassung) => void>()
+    return {
+      lesen: vi.fn(async (a: { id: string; name: string }) => ({ ...zf(a.id), format: /docx$/.test(a.name) ? ('docx' as const) : ('pdf' as const), seitenQuelle: 'approx' as const })),
+      titel: vi.fn(),
+      paaren: vi.fn(),
+      beiOcr: vi.fn((h: (z: Zusammenfassung) => void) => (hoerer.add(h), () => void hoerer.delete(h))),
+      melden: (z: Zusammenfassung) => hoerer.forEach((h) => h(z)),
+      hoerer,
+    }
+  }
+
+  it('Zeitgrenze wächst mit der Größe: Sockel, je angefangenem MB, höchstens 10 min', () => {
+    expect(paarZeitgrenze(0)).toBe(PAAR_ZEIT_SOCKEL)
+    expect(paarZeitgrenze(1)).toBe(PAAR_ZEIT_SOCKEL + PAAR_ZEIT_JE_MB)
+    expect(paarZeitgrenze(5 * 1_048_576)).toBe(PAAR_ZEIT_SOCKEL + 5 * PAAR_ZEIT_JE_MB)
+    expect(paarZeitgrenze(MAX_BYTES)).toBe(PAAR_ZEIT_MAX)
+    expect(paarZeitgrenze(-1)).toBe(PAAR_ZEIT_SOCKEL)
+  })
+
+  it('keine Antwort: nach der Zeitgrenze „zeit", Hörer abgemeldet, das DOCX bleibt unverändert nutzbar', async () => {
+    vi.useFakeTimers()
+    const v = stumm()
+    await hochladen([datei_('w.docx')], 'review', v as never, undefined, { paaren: false })
+    const vorher = lesenZustand().docs[0]
+    const p = pdfDazulegen(vorher.id, datei_('w.pdf', 2 * 1_048_576), v)
+    let ergebnis: unknown = 'offen'
+    void p.then((z) => (ergebnis = z))
+    await vi.advanceTimersByTimeAsync(paarZeitgrenze(2 * 1_048_576) - 1)
+    expect(ergebnis).toBe('offen')
+    await vi.advanceTimersByTimeAsync(1)
+    expect(ergebnis).toBe('zeit')
+    expect(v.hoerer.size).toBe(0)
+    expect(vi.getTimerCount()).toBe(0)
+    expect(lesenZustand().docs[0]).toEqual(vorher)
+    expect(vorher).toMatchObject({ status: 'fertig', z: { seitenQuelle: 'approx' } })
+    // Das PDF liegt für eine späte Antwort bereit
+    expect(datei(`${vorher.id}#pdf`)).toEqual(new Uint8Array([1, 2, 3]))
+  })
+
+  it('eine späte Antwort ändert hier nichts mehr; der dauerhafte Hörer der App übernimmt sie sauber', async () => {
+    vi.useFakeTimers()
+    const v = stumm()
+    await hochladen([datei_('w.docx')], 'review', v as never, undefined, { paaren: false })
+    const id = lesenZustand().docs[0].id
+    const p = pdfDazulegen(id, datei_('w.pdf'), v)
+    await vi.advanceTimersByTimeAsync(paarZeitgrenze(3))
+    await expect(p).resolves.toBe('zeit')
+    // Wie DocCheckApp: ein Hörer, der jede Aktualisierung aus dem Worker einspielt
+    const ab = v.beiOcr((z) => setzen((s) => aktualisiert(s, z)))
+    v.melden({ ...zf(id), format: 'docx', seitenQuelle: 'pdf_pair' })
+    expect(lesenZustand().docs[0]).toMatchObject({ id, status: 'fertig', z: { seitenQuelle: 'pdf_pair' } })
+    ab()
+  })
+
+  it('Antwort vor der Zeitgrenze: Ergebnis übernommen, keine Uhr läuft weiter', async () => {
+    vi.useFakeTimers()
+    const v = stumm()
+    v.paaren.mockImplementation((id: string) => setTimeout(() => v.melden({ ...zf(id), format: 'docx', seitenQuelle: 'pdf_pair' }), 5_000))
+    await hochladen([datei_('w.docx')], 'review', v as never, undefined, { paaren: false })
+    const id = lesenZustand().docs[0].id
+    const p = pdfDazulegen(id, datei_('w.pdf'), v)
+    await vi.advanceTimersByTimeAsync(5_000)
+    await expect(p).resolves.toMatchObject({ id, seitenQuelle: 'pdf_pair' })
+    expect(vi.getTimerCount()).toBe(0)
+    expect(lesenZustand().docs[0].z?.seitenQuelle).toBe('pdf_pair')
+  })
+
+  it('beim Hochladen als Paar: das DOCX ist gelesen und gemeldet, das Hochladen endet trotzdem', async () => {
+    vi.useFakeTimers()
+    const v = stumm()
+    const lauf = hochladen([datei_('p.docx'), datei_('p.pdf'), datei_('x.doc')], 'review', v as never)
+    let ende: Awaited<typeof lauf> | null = null
+    void lauf.then((r) => (ende = r))
+    await vi.advanceTimersByTimeAsync(paarZeitgrenze(3))
+    expect(ende).toEqual({ abgelehnt: [{ name: 'x.doc', grund: 'format' }], ohneAntwort: ['p.docx'] })
+    expect(v.paaren).toHaveBeenCalledTimes(1)
+    expect(lesenZustand().docs.map((d) => [d.name, d.status, d.z?.seitenQuelle])).toEqual([['p.docx', 'fertig', 'approx']])
+  })
+
+  it('Dokument entfernt oder abgemeldet, während gewartet wird: sofort „entfernt", keine Meldung nach Ablauf (Gegenprüfung Runde 3)', async () => {
+    // Sonst hätte die Uhr Minuten später „keine Antwort" zu einem Dokument gemeldet, das es nicht
+    // mehr gibt — nach dem Abmelden mit seinem Namen vor dem nächsten Nutzer.
+    vi.useFakeTimers()
+    const v = stumm()
+    await hochladen([datei_('a.docx'), datei_('b.docx')], 'review', v as never, undefined, { paaren: false })
+    const [a, b] = lesenZustand().docs.map((d) => d.id)
+    const pa = pdfDazulegen(a, datei_('a.pdf'), v)
+    const pb = pdfDazulegen(b, datei_('b.pdf'), v)
+    await vi.advanceTimersByTimeAsync(0)
+    // Eine andere Änderung der Sitzung beendet das Warten nicht
+    setzen((s) => entfernen(s, b))
+    await expect(pb).resolves.toBe('entfernt')
+    let ergebnis: unknown = 'offen'
+    void pa.then((z) => (ergebnis = z))
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(ergebnis).toBe('offen')
+    fuerNutzer('u-test-anderer')
+    await vi.advanceTimersByTimeAsync(0)
+    expect(ergebnis).toBe('entfernt')
+    expect([v.hoerer.size, vi.getTimerCount()]).toEqual([0, 0])
+
+    // Beim Hochladen als Paar: entfernt, während auf die Paarung gewartet wird → nicht „ohne Antwort"
+    v.paaren.mockClear()
+    const lauf = hochladen([datei_('p.docx'), datei_('p.pdf')], 'review', v as never)
+    await vi.advanceTimersByTimeAsync(0)
+    expect(v.paaren).toHaveBeenCalledTimes(1)
+    setzen((s) => entfernen(s, s.docs[0].id))
+    await expect(lauf).resolves.toEqual({ abgelehnt: [], ohneAntwort: [] })
   })
 })

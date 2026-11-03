@@ -1,23 +1,28 @@
-import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
+import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, ScrollText, Search, Star, Trash2 } from 'lucide-react'
 import { musterZurAuswahl, sichtbarFuer } from '../aircraftScope'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { Badge, Button, Card, DialogMeldung, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar, TopBarAktion } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
-import { toast } from '../components/Toast'
-import { ackStand, ackZiele } from '../infoAcks'
-import { infoIsExpired, infoIsPublished, infoPublishedAt, useStore, userMayModule } from '../store'
+import { toast, useQuittung } from '../components/Toast'
+import { ackListeDateiName, ackStand, ackZiele, gueltigkeitFehler, infoIsExpired, infoIsPublished, infoIstNeu } from '../infoAcks'
+import { userMayModule } from '../adminAccess'
+import { useStore } from '../store'
 import type { InfoEntry } from '../types'
 import { formatDate, formatDateTime } from '../datum'
+import { useJetzt } from '../zeitTakt'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
 
-/** „NEW“-Kennzeichnung: zwei Wochen ab Veröffentlichung */
-const NEW_MS = 14 * 24 * 3600_000
+/* „Neu“-Kennzeichnung: zwei Wochen ab Veröffentlichung — Frist und Regel
+   stehen in infoAcks.ts (INFO_NEU_MS, infoIstNeu). */
 
 function NewEntryModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
   const { state, currentUser, addInfoEntry } = useStore()
+  const quittieren = useQuittung()
+  /** Ablehnung des Stores — im Dialog, nicht als Toast darunter (R3-DIALOGMELDUNG). */
+  const [meldung, setMeldung] = useState<string | null>(null)
   const [type, setType] = useState<'text' | 'pdf'>('text')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -28,8 +33,13 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
   const [requiresAck, setRequiresAck] = useState(false)
   const [aircraftType, setAircraftType] = useState('')
   const groups = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
+  const gueltigkeitId = useId()
 
-  const valid = title.trim() && category && (type === 'pdf' || body.trim())
+  /* „Gültig bis" vor „Gültig ab" liess sich speichern — der Eintrag war
+     danach zugleich abgelaufen und geplant und erschien nie (Audit 11/2026,
+     KERN-12). Dieselbe Regel fragt der Store (infoAcks.ts). */
+  const gueltigkeit = gueltigkeitFehler(validFrom, validUntil)
+  const valid = title.trim() && category && (type === 'pdf' || body.trim()) && !gueltigkeit
 
   return (
     <Modal
@@ -55,7 +65,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
           </div>
         </Field>
         <Field label={t('info.entryTitle')}>
-          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus />
+          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} />
         </Field>
         <Field label={t('info.category')}>
           <select
@@ -89,15 +99,37 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
         <Field label={t('info.description')}>
           <input className={inputCls} value={description} onChange={(e) => setDescription(e.target.value)} />
         </Field>
-        {/* Gültigkeit: leeres Bis-Datum = UFN (until further notice) */}
+        {/* Gültigkeit: leeres Bis-Datum = UFN (until further notice).
+            min/max grenzen den Kalender ein; ein getipptes Datum davor nennt
+            die Meldung, die AUSSERHALB des <label> steht — sonst wäre sie
+            Teil des Feldnamens (KERN-20). */}
         <div className="grid grid-cols-2 gap-3">
           <Field label={t('info.validFrom')}>
-            <input type="date" className={inputCls} value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />
+            <input
+              type="date"
+              className={inputCls}
+              value={validFrom}
+              max={validUntil || undefined}
+              onChange={(e) => setValidFrom(e.target.value)}
+            />
           </Field>
           <Field label={t('info.validUntil')}>
-            <input type="date" className={inputCls} value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+            <input
+              type="date"
+              className={inputCls}
+              value={validUntil}
+              min={validFrom || undefined}
+              aria-invalid={gueltigkeit ? true : undefined}
+              aria-describedby={gueltigkeit ? gueltigkeitId : undefined}
+              onChange={(e) => setValidUntil(e.target.value)}
+            />
           </Field>
         </div>
+        {gueltigkeit && (
+          <p id={gueltigkeitId} className="-mt-2 text-micro leading-relaxed text-danger">
+            {t('info.untilBeforeFrom')}
+          </p>
+        )}
         <p className="-mt-2 text-micro leading-relaxed text-dim">{t('info.ufnHint')}</p>
         {/* Lese-Bestätigung: jeder Nutzer des Moduls muss aktiv „gelesen“ bestätigen */}
         <label className="flex items-center gap-2 text-small">
@@ -113,6 +145,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
             sample.pdf · {t('chat.attachedDemo')}
           </div>
         )}
+        <DialogMeldung text={meldung} />
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -120,8 +153,11 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
           <Button
             disabled={!valid}
             onClick={() => {
-              toast(t('toast.infoSaved'))
-              addInfoEntry({
+              // Die Quittung stand VOR dem Speichern und kam auch, wenn der
+              // Store ablehnte. Jetzt: abgewiesen → Grund im Dialog, der
+              // offen bleibt (R3-DIALOGMELDUNG); gespeichert → Quittung nach
+              // dem Schreiben (R3-SPEICHERQUITTUNG).
+              const gespeichert = addInfoEntry({
                 type,
                 title: title.trim(),
                 description: description.trim(),
@@ -133,6 +169,11 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
                 validUntil,
                 requiresAck,
               })
+              if (!gespeichert) {
+                setMeldung(t('dialog.notSaved'))
+                return
+              }
+              void quittieren(t('toast.infoSaved'))
               onClose()
             }}
           >
@@ -147,6 +188,12 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
 export function InstructorInfo() {
   const { t } = useTranslation()
   const { state, now, currentUser, deleteInfoEntry, markInfoSeen, toggleStarInfo, starredInfoIds, acknowledgeInfo, visibleInfoEntries, can } = useStore()
+  const quittieren = useQuittung()
+  // Die Seite rechnet selbst mit der Uhr („neu" für 14 Tage ab
+  // Veröffentlichung, abgelaufen, geplant). Früher zeichnete der Store-Takt
+  // dafür alle 5 s die ganze App neu; jetzt zeichnet minütlich nur diese
+  // Seite (Audit 11/2026, TEC-10).
+  useJetzt(60_000)
   const [query, setQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   /** aufgeklappte Bestätigungsliste (Admins) */
@@ -184,16 +231,19 @@ export function InstructorInfo() {
   /** Kontrollliste der Lese-Bestätigungen als CSV exportieren (Admins) */
   const exportAckList = (entry: (typeof state.infoEntries)[number]) => {
     const acks = state.infoAcks[entry.id] ?? {}
+    // EIN Zeitpunkt für Kopf und Dateiname — kurz vor Mitternacht trüge der
+    // Name sonst einen anderen Tag als der Kopf (EXM-10).
+    const jetzt = now()
     let csv = csvRow(['Instructor Connect — Read Confirmation Control List'])
     csv += csvRow(['Entry', entry.title])
-    csv += csvRow(['Exported (date/time)', formatDateTime(now()), 'Exported by', currentUser!.name])
+    csv += csvRow(['Exported (date/time)', formatDateTime(jetzt), 'Exported by', currentUser!.name])
     csv += csvRow([])
     csv += csvRow(['Name', 'Status', 'Confirmed at'])
     ackTargets(entry).forEach((u) => {
       csv += csvRow([u.name, acks[u.id] ? 'confirmed' : 'PENDING', acks[u.id] ? formatDateTime(acks[u.id]) : ''])
     })
     toast(t('toast.downloaded'))
-    downloadCsv(`read-confirmations_${entry.title.replace(/[^\w-]+/g, '-').slice(0, 40)}.csv`, csv)
+    downloadCsv(ackListeDateiName(entry.title, jetzt), csv)
   }
 
   /**
@@ -247,14 +297,7 @@ export function InstructorInfo() {
         title="Instructor Info"
         back="/"
         right={
-          mayEdit ? (
-            <button
-              onClick={() => setShowNew(true)}
-              className="min-h-11 flex items-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
-            >
-              <Plus size={15} /> {t('info.newEntry')}
-            </button>
-          ) : undefined
+          mayEdit ? <TopBarAktion label={t('info.newEntry')} onClick={() => setShowNew(true)} /> : undefined
         }
       />
       <Page className="space-y-stack">
@@ -316,8 +359,10 @@ export function InstructorInfo() {
         {entries.map((entry, i) => {
           const open = openId === entry.id
           // „Neu" zählt ab Veröffentlichung, nicht ab Erstellung: ein
-          // vorbereiteter Eintrag ging sonst ohne Markierung online.
-          const isNew = now() - infoPublishedAt(entry) < NEW_MS
+          // vorbereiteter Eintrag ging sonst ohne Markierung online. Und
+          // nur veröffentlicht — ein geplanter trug „Neu" und „Geplant"
+          // zugleich (infoAcks.ts, Audit 11/2026, KERN-11).
+          const isNew = infoIstNeu(entry, now())
           const starred = starredInfoIds.has(entry.id)
           const expired = isExpired(entry)
           const scheduled = isScheduled(entry)
@@ -330,24 +375,41 @@ export function InstructorInfo() {
             {heading && (
               <SectionHeading className="mb-2 mt-4 px-1 first:mt-0">{heading}</SectionHeading>
             )}
-            <Card className={`p-3 ${expired ? 'opacity-60' : ''}`}>
+            {/* Abgelaufen zeigt ein Badge und ein gestrichelter Rand. Die
+                Karte stand vorher auf 60 % Deckkraft — Gueltigkeit 3,1:1,
+                Kategorie 3,0:1 (Audit 11/2026, KERN-12/A11Y-06). Der Rand
+                braucht eine eigene Farbe: Der Kartenrand liegt bei 6 %
+                Deckkraft und waere gestrichelt nicht zu sehen. */}
+            <Card className={`p-3 ${expired ? 'border-dashed !border-line/30' : ''}`}>
               <div className="flex items-start gap-2.5">
-                {/* NEW gut lesbar unter dem Icon — nicht neben dem Titel */}
+                {/* „Neu“ gut lesbar unter dem Icon — nicht neben dem Titel */}
                 <div className="flex shrink-0 flex-col items-center gap-1.5">
                   <span className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl bg-raised text-accent">
                     {entry.type === 'pdf' ? <FileText size={19} /> : <ScrollText size={19} />}
                   </span>
+                  {/* Badge statt Handpille: Die Marke stand in fest
+                      codiertem Grün mit englischem „NEW“ außerhalb der
+                      Tokens (Nachtrag A11Y#5). `accent` voll wie die Zahl
+                      auf der Startkachel, die denselben Eintrag als neu
+                      meldet — `ok` heißt in der App „erledigt“. */}
                   {isNew && (
-                    <span className="rounded-md bg-emerald-700 px-1.5 py-0.5 text-micro font-bold tracking-wider text-white">NEW</span>
+                    <Badge tone="accent" strong>
+                      {t('common.new')}
+                    </Badge>
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start gap-2">
                     <p className="min-w-0 flex-1 text-lead font-semibold leading-snug">{entry.title}</p>
-                    {/* Stern: persönliche Wichtig-Markierung des Nutzers */}
+                    {/* Stern: persönliche Wichtig-Markierung des Nutzers.
+                        Name und Zustand für die Sprachausgabe: Vorher nur
+                        `title`, und ob markiert war, sagte allein die
+                        Füllung (Audit 11/2026, KERN-20). */}
                     <button
                       onClick={() => toggleStarInfo(entry.id)}
                       title={t('info.star')}
+                      aria-label={t('info.star')}
+                      aria-pressed={starred}
                       className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition ${starred ? 'text-wait' : 'text-dim hover:text-wait'}`}
                     >
                       <Star size={17} fill={starred ? 'currentColor' : 'none'} />
@@ -358,9 +420,9 @@ export function InstructorInfo() {
                   <p className="mt-1 flex flex-wrap items-center gap-1.5 text-micro text-dim">
                     <span className="rounded bg-raised px-1.5 py-0.5 font-medium text-dim">{entry.category}</span>
                   </p>
-                  <p className={`mt-1 text-micro ${expired ? 'text-danger' : 'text-dim'}`}>
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-micro text-dim">
                     {t('info.validity')}: {validityLabel(entry)}
-                    {expired && ` · ${t('info.expired')}`}
+                    {expired && <Badge tone="dim">{t('info.expired')}</Badge>}
                   </p>
                   {/* Für Verwalter sichtbar: der Eintrag gilt erst später und
                       ist für die Zielgruppen noch nicht sichtbar */}
@@ -427,7 +489,10 @@ export function InstructorInfo() {
                                     {acks[u.id] ? (
                                       <span className="text-ok">{formatDateTime(acks[u.id])}</span>
                                     ) : (
-                                      <span className="text-danger/80">{t('info.ackMissing')}</span>
+                                      /* Volle Tonfarbe: Mit /80 lag „fehlt" bei 4,4:1
+                                         (dunkel) bzw. 4,3:1 (hell) unter 4,5:1
+                                         (Audit 11/2026, UID-15). */
+                                      <span className="text-danger">{t('info.ackMissing')}</span>
                                     )}
                                   </li>
                                 ))}
@@ -471,7 +536,7 @@ export function InstructorInfo() {
                         onClick={() => {
                           if (!window.confirm(t('info.confirmDelete'))) return
                           deleteInfoEntry(entry.id)
-                          toast(t('toast.infoDeleted'))
+                          void quittieren(t('toast.infoDeleted'))
                         }}
                         className="min-h-11 flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-small text-danger hover:bg-danger/10"
                       >

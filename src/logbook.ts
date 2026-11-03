@@ -1,5 +1,9 @@
 import { giltMusterbereich, imMusterbereich } from './aircraftScope'
+import { csvNum, csvRow } from './csv'
+import { dateiName } from './dateiName'
+import { formatDate, formatDateTime, lokalerTag } from './datum'
 import type { GradingRecord, Role } from './types'
+import type { XlsxOptionen } from './xlsxExport'
 
 /**
  * my AAA Logbook — die eigene Instruktorentätigkeit, aus den Formularen
@@ -15,11 +19,16 @@ import type { GradingRecord, Role } from './types'
  *  - Nur VOLLSTÄNDIG unterschriebene Formulare (`status === 'signed'`).
  *    Ein Blatt ohne alle Unterschriften ist kein Nachweis — dieselbe Regel
  *    wie in `gradingStats`.
+ *  - Gezählt wird der DURCHGANG, nicht das Blatt (`batchId`): Zwei Piloten
+ *    in einer Session sind zwei Blätter, aber eine Instruktorstunde. Sonst
+ *    standen 5:30 als 11:00 im Nachweis (Audit 11/2026, LOG-01).
  *  - 306 und 310 zählen NIE: Folgeformulare dokumentieren die Session des
  *    Ausgangsblatts, keine eigene.
  *  - 308* ist „Simulator Training": Session aus Flight Time PF + PM des
- *    Formularkopfs, dazu pauschal 1:00 Briefing und 0:30 Debriefing als
- *    Startwerte — nachträglich je Eintrag änderbar.
+ *    Formularkopfs (führt der Typ sie nicht, wie das 308G: aus Session
+ *    Time), dazu pauschal 1:00 Briefing und 0:30 Debriefing als
+ *    Startwerte — nachträglich je Eintrag änderbar. Steht im Formular gar
+ *    keine Zeit, heißt der Eintrag `zeitFehlt` statt still 00:00 (GTY-03).
  *  - 307* ist „Ground Training": die Dauer aus dem Duration-Feld, ohne
  *    Zuschläge.
  *  - Andere (eigene) Formulartypen zählen nicht automatisch — für sie sagt
@@ -39,12 +48,42 @@ export const LOGBOOK_KATEGORIEN = ['Simulator Training', 'Ground Training', 'Oth
 export const BRIEFING_STD_MIN = 60
 export const DEBRIEFING_STD_MIN = 30
 
-/** "02:30" → 150. Tolerant: leere oder kaputte Angaben sind 0, nicht NaN. */
+/** "02:30" → 150. Tolerant: leere oder kaputte Angaben sind 0, nicht NaN.
+ *  Fuer FORMULARWERTE — die hat das Grading-Formular schon geprueft; was
+ *  der Nutzer im Logbuch tippt, liest `parseDauerEingabe`. */
 export function parseDauer(hhmm: string | undefined | null): number {
   if (!hhmm) return 0
   const m = /^(\d{1,3}):([0-5]\d)$/.exec(hhmm.trim())
   if (!m) return 0
   return Number(m[1]) * 60 + Number(m[2])
+}
+
+/**
+ * Eine EINGABE im Logbuch als Minuten — oder null, wenn sie sich nicht
+ * eindeutig lesen laesst.
+ *
+ * Audit 11/2026, KERN-02: Das Feld oeffnet am iPhone den Ziffernblock
+ * (`inputMode="numeric"`), und der hat keinen Doppelpunkt. Gelesen wurde nur
+ * „H:MM"; „130" wurde beim Verlassen still zu 00:00 — im Korrekturdialog
+ * verschwand so die Session-Zeit aus dem Taetigkeitsnachweis. Jetzt:
+ *
+ *  - „1:30" wie bisher,
+ *  - reine Ziffern als HMM bzw. HHMM („130" und „0130" = 1:30, „1230" =
+ *    12:30) — so tippt man eine Dauer auf dem Ziffernblock,
+ *  - ein oder zwei Ziffern („90") sind NICHT eindeutig (90 Minuten? 90
+ *    Stunden?) und werden gemeldet statt geraten; nur „0" ist klar,
+ *  - Minuten ab 60 („1:75", „175") und alles andere („1.30", „1,5") ebenso.
+ *
+ * Ein leeres Feld ist keine Fehleingabe, sondern „keine Zeit" (0).
+ */
+export function parseDauerEingabe(text: string): number | null {
+  const s = text.trim()
+  if (s === '' || /^0+$/.test(s)) return 0
+  const m = /^(\d{1,3}):(\d{2})$/.exec(s) ?? /^(\d{1,2})(\d{2})$/.exec(s)
+  if (!m) return null
+  const minuten = Number(m[2])
+  if (minuten >= 60) return null
+  return Number(m[1]) * 60 + minuten
 }
 
 /** 150 → "02:30". Negatives wird zu "00:00" — eine Minusdauer ist ein Fehler. */
@@ -54,10 +93,14 @@ export function formatDauer(min: number): string {
 }
 
 export type LogbookEintrag = {
-  /** Formular-ID bei abgeleiteten, eigene ID bei manuellen Einträgen. */
+  /** Bei abgeleiteten Einträgen die ID des ältesten Blatts des Durchgangs,
+   *  bei manuellen die eigene. */
   id: string
   quelle: 'formular' | 'manuell'
   formTypeId?: string
+  /** Nur abgeleitet: ALLE Blätter des Durchgangs, ältestes zuerst (= `id`).
+   *  Korrekturen werden darunter gesucht und geschrieben (LOG-01). */
+  blattIds?: string[]
   /** YYYY-MM-DD — sortier- und vergleichbar als Text. */
   datum: string
   aircraftType: string
@@ -69,6 +112,22 @@ export type LogbookEintrag = {
   gesamt: number
   piloten: string[]
   notiz: string
+  /**
+   * Nur abgeleitet und nur, wenn eine Korrektur eine Teilzeit verändert:
+   * die Werte des unterschriebenen Formulars. Audit 11/2026, KERN-04 — die
+   * Zeile trug die Formularnummer und wirkte formulargedeckt, obwohl die
+   * Zeit frei eingegeben war; wer auswertet, konnte das nicht unterscheiden.
+   * Eine Notiz allein oder dieselben Werte sind keine Abweichung.
+   */
+  korrigiert?: { briefing: number; session: number; debriefing: number; gesamt: number }
+  /**
+   * Nur abgeleitet: Das Formular nennt KEINE Sessionzeit (kein Feld
+   * ausgefüllt) und keine Korrektur ergänzt sie. Audit 11/2026, GTY-03 —
+   * ein 308G von vor dem Feld „Session Time" stand als Session 00:00 im
+   * Nachweis, als wäre das gemessen. Die Session zählt dann 0, aber
+   * Anzeige und Export sagen, dass sie fehlt.
+   */
+  zeitFehlt?: boolean
 }
 
 /** Korrektur an einem abgeleiteten Eintrag — liegt NEBEN dem Formular. */
@@ -99,19 +158,25 @@ export type LogbookStand = {
 
 export const LEERES_LOGBUCH: LogbookStand = { overrides: {}, manuell: [] }
 
+/** Gehört dieser Formulartyp überhaupt ins Logbuch (unabhängig vom Stand)? */
+function logbuchTyp(formTypeId: string): boolean {
+  return formTypeId.startsWith('307') || formTypeId.startsWith('308')
+}
+
 /** Zählt dieses Formular in irgendein Logbuch? */
 export function zaehltInsLogbuch(r: Pick<GradingRecord, 'status' | 'formTypeId'>): boolean {
-  if (r.status !== 'signed') return false
-  const typ = r.formTypeId
-  return typ.startsWith('307') || typ.startsWith('308')
+  return r.status === 'signed' && logbuchTyp(r.formTypeId)
 }
 
 /** Datum eines Formulars: der Schulungstag aus dem Kopf, sonst der Zeitpunkt
- *  der Unterschrift bzw. Erfassung — dieselbe Rangfolge wie in der Ablage. */
+ *  der Unterschrift bzw. Erfassung — dieselbe Rangfolge wie in der Ablage.
+ *  Der Ersatz ist der Kalendertag in ORTSZEIT (Audit 11/2026, EXM-01): Mit
+ *  `toISOString()` landete eine Unterschrift um 00:30 in Wien auf dem
+ *  Vortag — und damit im Logbuch womöglich im falschen Monat. */
 function formularDatum(r: GradingRecord): string {
   const kopf = (r.header.date ?? '').trim()
   if (/^\d{4}-\d{2}-\d{2}$/.test(kopf)) return kopf
-  return new Date(r.signedAt ?? r.createdAt).toISOString().slice(0, 10)
+  return lokalerTag(r.signedAt ?? r.createdAt)
 }
 
 function pilotenVon(r: GradingRecord): string[] {
@@ -121,42 +186,145 @@ function pilotenVon(r: GradingRecord): string[] {
 }
 
 /**
- * Der abgeleitete Eintrag eines Formulars — oder null, wenn es nicht zählt
- * oder bewusst entfernt wurde.
+ * Die Durchgänge einer Person: ihre Blätter der Logbuch-Typen, gruppiert
+ * nach `batchId` (ein Blatt ohne Durchgang ist sein eigener), je Durchgang
+ * ältestes Blatt zuerst. Alle Blätter eines Durchgangs entstehen im selben
+ * Augenblick (`GradingForm`, ein `createdAt`); dann entscheidet die
+ * Reihenfolge der Ablage, und die ändert sich beim Nachsignieren nicht —
+ * die ID des Eintrags bleibt damit stabil.
  */
-export function eintragAusFormular(r: GradingRecord, override?: LogbookOverride): LogbookEintrag | null {
-  if (!zaehltInsLogbuch(r)) return null
-  const ov = override ?? {}
-  if (ov.geloescht) return null
-  const sim = r.formTypeId.startsWith('308')
-  const session = ov.session ?? (sim ? parseDauer(r.header.flightTimePF) + parseDauer(r.header.flightTimePM) : parseDauer(r.header.duration))
-  const briefing = ov.briefing ?? (sim ? BRIEFING_STD_MIN : 0)
-  const debriefing = ov.debriefing ?? (sim ? DEBRIEFING_STD_MIN : 0)
+function durchgaengeVon(records: GradingRecord[], userId: string): GradingRecord[][] {
+  const gruppen = new Map<string, GradingRecord[]>()
+  for (const r of records) {
+    if (r.instructorId !== userId || !logbuchTyp(r.formTypeId)) continue
+    const k = r.batchId ?? r.id
+    const g = gruppen.get(k)
+    if (g) g.push(r)
+    else gruppen.set(k, [r])
+  }
+  // Array.prototype.sort ist stabil: gleiche createdAt behalten die Ablagefolge.
+  return [...gruppen.values()].map((g) => [...g].sort((a, b) => a.createdAt - b.createdAt))
+}
+
+/**
+ * Die Korrektur, die für einen Durchgang gilt — oder null.
+ *
+ * Seit LOG-01 schreibt die Oberfläche eine Korrektur NUR unter die ID des
+ * Eintrags und räumt die anderen Blätter dabei ab (`overrideSetzen`); eine
+ * Löschmarke steht auf JEDEM Blatt, damit sie auch ein später
+ * nachsigniertes Blatt erfasst. Vorher war jedes Blatt ein eigener Eintrag
+ * mit eigener Korrektur. Für diesen Altbestand gilt:
+ *
+ *  - eine Zeitkorrektur geht einer Löschmarke vor (die erste in der Folge
+ *    der Blätter — eine „jüngste" gibt es nicht, Korrekturen tragen keine
+ *    Zeit),
+ *  - entfernt ist der Durchgang nur, wenn JEDES unterschriebene Blatt die
+ *    Marke trägt. Wer vorher nur den doppelten Eintrag eines zweiten
+ *    Piloten löschte, hat damit die Verdopplung beseitigt, nicht die
+ *    Session.
+ */
+function korrekturFuer(blaetter: GradingRecord[], overrides: Record<string, LogbookOverride>): LogbookOverride | null {
+  const vorhanden = blaetter.map((b) => overrides[b.id]).filter((o): o is LogbookOverride => !!o)
+  const korrektur = vorhanden.find((o) => !o.geloescht)
+  if (korrektur) return korrektur
+  const signiert = blaetter.filter(zaehltInsLogbuch)
+  if (signiert.length > 0 && signiert.every((b) => overrides[b.id]?.geloescht)) return { geloescht: true }
+  return null
+}
+
+/** Ein Zeitfeld des Formulars, das ausgefüllt ist (auch „00:00" — das ist
+ *  eine Angabe; leer oder fehlend ist keine). */
+const gefuellt = (wert: string | undefined) => !!wert && wert.trim() !== ''
+
+/**
+ * Formularwerte eines Durchgangs, ohne Korrektur — und ob das Formular
+ * überhaupt eine Sessionzeit nennt.
+ *
+ * 308*: PF + PM, sobald eines davon ausgefüllt ist; sonst Session Time —
+ * das 308G führt PF/PM nicht (GTY-03). 307*: das Duration-Feld.
+ */
+function formularZeiten(r: GradingRecord): { briefing: number; session: number; debriefing: number; zeitFehlt: boolean } {
+  const h = r.header
+  if (!r.formTypeId.startsWith('308')) {
+    return { briefing: 0, session: parseDauer(h.duration), debriefing: 0, zeitFehlt: !gefuellt(h.duration) }
+  }
+  const pfPm = gefuellt(h.flightTimePF) || gefuellt(h.flightTimePM)
   return {
-    id: r.id,
-    quelle: 'formular',
-    formTypeId: r.formTypeId,
-    datum: formularDatum(r),
-    aircraftType: (r.header.aircraftType ?? '').trim(),
-    kategorie: sim ? 'Simulator Training' : 'Ground Training',
-    briefing,
-    session,
-    debriefing,
-    gesamt: briefing + session + debriefing,
-    piloten: pilotenVon(r),
-    notiz: ov.notiz ?? '',
+    briefing: BRIEFING_STD_MIN,
+    session: pfPm ? parseDauer(h.flightTimePF) + parseDauer(h.flightTimePM) : parseDauer(h.sessionTime),
+    debriefing: DEBRIEFING_STD_MIN,
+    zeitFehlt: !pfPm && !gefuellt(h.sessionTime),
   }
 }
 
 /**
- * Das vollständige Logbuch einer Person: Ableitung aus allen Formularen, auf
+ * Der Eintrag eines Durchgangs — oder null, wenn kein Blatt fertig ist oder
+ * der Durchgang bewusst entfernt wurde.
+ *
+ * Teilweise unterschrieben: Der Durchgang erscheint, sobald EIN Blatt
+ * vollständig unterschrieben ist — die Session hat stattgefunden, und
+ * dieses Blatt belegt sie. Als Piloten stehen nur die fertigen Blätter da;
+ * wer noch unterschreiben muss, kommt mit seiner Unterschrift dazu, die Zeit
+ * zählt dabei nicht noch einmal. Zeiten, Datum und Muster stammen aus dem
+ * ältesten fertigen Blatt: Der Kopf ist für alle Blätter eines Durchgangs
+ * derselbe (`GradingForm`, `buildRecords`).
+ */
+function eintragAusDurchgang(blaetter: GradingRecord[], overrides: Record<string, LogbookOverride>): LogbookEintrag | null {
+  const fertig = blaetter.filter(zaehltInsLogbuch)
+  if (fertig.length === 0) return null
+  const ov = korrekturFuer(blaetter, overrides)
+  if (ov?.geloescht) return null
+  const r = fertig[0]
+  const formular = formularZeiten(r)
+  const briefing = ov?.briefing ?? formular.briefing
+  const session = ov?.session ?? formular.session
+  const debriefing = ov?.debriefing ?? formular.debriefing
+  const abweichend = briefing !== formular.briefing || session !== formular.session || debriefing !== formular.debriefing
+  // Eine Korrektur MIT Session ergänzt die fehlende Zeit; eine Notiz allein nicht.
+  const zeitFehlt = formular.zeitFehlt && ov?.session === undefined
+  return {
+    id: blaetter[0].id,
+    quelle: 'formular',
+    formTypeId: r.formTypeId,
+    blattIds: blaetter.map((b) => b.id),
+    datum: formularDatum(r),
+    aircraftType: (r.header.aircraftType ?? '').trim(),
+    kategorie: r.formTypeId.startsWith('308') ? 'Simulator Training' : 'Ground Training',
+    briefing,
+    session,
+    debriefing,
+    gesamt: briefing + session + debriefing,
+    piloten: [...new Set(fertig.flatMap(pilotenVon))],
+    notiz: ov?.notiz ?? '',
+    ...(abweichend
+      ? { korrigiert: { briefing: formular.briefing, session: formular.session, debriefing: formular.debriefing, gesamt: formular.briefing + formular.session + formular.debriefing } }
+      : {}),
+    ...(zeitFehlt ? { zeitFehlt: true } : {}),
+  }
+}
+
+/**
+ * Der abgeleitete Eintrag EINES Formulars — oder null, wenn es nicht zählt
+ * oder bewusst entfernt wurde. Für ein Blatt ohne Geschwister; das Logbuch
+ * selbst rechnet je Durchgang (`logbuchVon`).
+ */
+export function eintragAusFormular(r: GradingRecord, override?: LogbookOverride): LogbookEintrag | null {
+  return eintragAusDurchgang([r], override ? { [r.id]: override } : {})
+}
+
+/** Neueste zuerst, bei gleichem Tag zuerst die Formulare. */
+function nachDatum(a: LogbookEintrag, b: LogbookEintrag): number {
+  return a.datum === b.datum ? (a.quelle === b.quelle ? 0 : a.quelle === 'formular' ? -1 : 1) : a.datum < b.datum ? 1 : -1
+}
+
+/**
+ * Das vollständige Logbuch einer Person: Ableitung aus allen Durchgängen, in
  * denen sie als Instruktor steht, plus die manuellen Einträge — neueste
  * zuerst, bei gleichem Tag zuerst die Formulare.
  */
 export function logbuchVon(records: GradingRecord[], userId: string, stand: LogbookStand): LogbookEintrag[] {
-  const abgeleitet = records
-    .filter((r) => r.instructorId === userId)
-    .map((r) => eintragAusFormular(r, stand.overrides[r.id]))
+  const abgeleitet = durchgaengeVon(records, userId)
+    .map((b) => eintragAusDurchgang(b, stand.overrides))
     .filter((e): e is LogbookEintrag => e !== null)
   const manuell = stand.manuell.map<LogbookEintrag>((m) => ({
     id: m.id,
@@ -171,7 +339,48 @@ export function logbuchVon(records: GradingRecord[], userId: string, stand: Logb
     piloten: [],
     notiz: m.notiz,
   }))
-  return [...abgeleitet, ...manuell].sort((a, b) => (a.datum === b.datum ? (a.quelle === b.quelle ? 0 : a.quelle === 'formular' ? -1 : 1) : a.datum < b.datum ? 1 : -1))
+  return [...abgeleitet, ...manuell].sort(nachDatum)
+}
+
+/**
+ * Die bewusst entfernten Formular-Einträge einer Person — mit den Werten des
+ * Formulars, damit man sieht, WAS man zurückholt.
+ *
+ * Audit 11/2026, KERN-05: Die Löschmarke ist gewollt (die Ableitung legt
+ * einen entfernten Eintrag nicht neu an), aber sie ließ sich nicht
+ * zurücknehmen — „Auf Formularwerte zurücksetzen" saß im Dialog eines
+ * SICHTBAREN Eintrags. Ein Fehlgriff entfernte eine Sim-Session dauerhaft
+ * aus dem Tätigkeitsnachweis.
+ */
+export function entfernteFormularEintraege(records: GradingRecord[], userId: string, stand: LogbookStand): LogbookEintrag[] {
+  return durchgaengeVon(records, userId)
+    .filter((b) => b.some(zaehltInsLogbuch) && korrekturFuer(b, stand.overrides)?.geloescht)
+    .map((b) => eintragAusDurchgang(b, {}))
+    .filter((e): e is LogbookEintrag => e !== null)
+    .sort(nachDatum)
+}
+
+/**
+ * Schreibt eine Korrektur (oder ihre Rücknahme mit `null`) für einen
+ * abgeleiteten Eintrag und gibt die neuen Overrides zurück.
+ *
+ * Die alten Korrekturen ALLER Blätter des Durchgangs fallen dabei weg —
+ * sonst tauchte nach „Zurücksetzen" eine Altkorrektur eines anderen Blatts
+ * wieder auf. Eine Zeitkorrektur steht unter der ID des Eintrags, eine
+ * Löschmarke auf jedem Blatt (siehe `korrekturFuer`).
+ */
+export function overrideSetzen(
+  overrides: Record<string, LogbookOverride>,
+  eintrag: { id: string; blattIds?: string[] },
+  ov: LogbookOverride | null,
+): Record<string, LogbookOverride> {
+  const ids = eintrag.blattIds?.length ? eintrag.blattIds : [eintrag.id]
+  const neu = { ...overrides }
+  for (const id of ids) delete neu[id]
+  if (ov === null) return neu
+  if (ov.geloescht) for (const id of ids) neu[id] = { geloescht: true }
+  else neu[eintrag.id] = ov
+  return neu
 }
 
 export type LogbookFilter = {
@@ -227,10 +436,34 @@ export function sichtbareEintraege(
   ownerId: string,
   eintraege: LogbookEintrag[],
 ): LogbookEintrag[] {
-  if (viewer.id === ownerId) return eintraege
-  if (!giltMusterbereich(viewer)) return eintraege
-  if (viewer.role === 'group_admin') return eintraege.filter((e) => imMusterbereich(viewer.aircraftTypes, e.aircraftType))
-  return []
+  return logbuchSicht(viewer, ownerId, eintraege).eintraege
+}
+
+export type LogbuchSicht = {
+  eintraege: LogbookEintrag[]
+  /** Wie viele Einträge die Musterregel ausblendet. */
+  ausgeblendet: number
+  /** Die Muster, auf die die Sicht beschränkt ist — null, wenn sie es nicht ist. */
+  bereich: string[] | null
+}
+
+/**
+ * Dieselbe Sicht wie `sichtbareEintraege`, dazu WAS sie auslässt.
+ *
+ * Audit 11/2026, KERN-03: Öffnete ein Gruppenadmin (CL30) das Logbuch einer
+ * Person, die nur C560 fliegt, stand da „Noch keine Einträge … 00:00", und
+ * die CSV behauptete „Aircraft type: all … Entries 0 of 0". Dass er nur
+ * seine Muster sieht, ist gewollt — nicht, dass Anzeige und Export das
+ * verschweigen und einen leeren Tätigkeitsnachweis behaupten.
+ */
+export function logbuchSicht(
+  viewer: { id: string; role: Role; aircraftTypes?: string[] },
+  ownerId: string,
+  eintraege: LogbookEintrag[],
+): LogbuchSicht {
+  if (viewer.id === ownerId || !giltMusterbereich(viewer)) return { eintraege, ausgeblendet: 0, bereich: null }
+  const sichtbar = viewer.role === 'group_admin' ? eintraege.filter((e) => imMusterbereich(viewer.aircraftTypes, e.aircraftType)) : []
+  return { eintraege: sichtbar, ausgeblendet: eintraege.length - sichtbar.length, bereich: viewer.role === 'group_admin' ? [...(viewer.aircraftTypes ?? [])].sort() : [] }
 }
 
 /** Darf der Betrachter dieses Logbuch überhaupt öffnen? */
@@ -404,4 +637,219 @@ export function adminTabelle(
  *  summieren und sortieren lassen. „02:30" ist dort nur Text. */
 export function dezimalStunden(min: number): number {
   return Math.round((Math.max(0, min) / 60) * 100) / 100
+}
+
+/** Eine Zelle der Logbuch-Exporte: Text, oder Zahl für Dezimalstunden und
+ *  Zähler (CSV schreibt sie mit Dezimalkomma, Excel als Zahl). */
+export type ExportZelle = string | number
+
+/** Zeilen als CSV — Dezimalzahlen mit dem Komma der Semikolon-Datei. */
+export function zeilenAlsCsv(zeilen: ExportZelle[][]): string {
+  return zeilen.map((r) => csvRow(r.map((z) => (typeof z === 'number' && !Number.isInteger(z) ? csvNum(z) : z)))).join('')
+}
+
+/** Kopf jedes Logbuch-Exports: wann und von wem — dieselbe Zeile wie im
+ *  Grading-Export. Das Impressum sagt zu, dass Ausdrucke und Exporte immer
+ *  Datum, Uhrzeit und Namen der exportierenden Person tragen. */
+function exportKopf(exportiertAm: number, exportiertVon: string): ExportZelle[] {
+  return ['Exported (date/time)', formatDateTime(exportiertAm), 'Exported by', exportiertVon]
+}
+
+function zeitraum(von?: string, bis?: string): string {
+  return von || bis ? `${von ? formatDate(von) : '…'} - ${bis ? formatDate(bis) : '…'}` : 'all'
+}
+
+const LOGBUCH_SPALTEN = [
+  'Date',
+  'Category',
+  'Aircraft',
+  'Form',
+  'Pilots',
+  'Briefing',
+  'Briefing (h)',
+  'Session',
+  'Session (h)',
+  'Debriefing',
+  'Debriefing (h)',
+  'Total',
+  'Total (h)',
+  'Adjusted (form total)',
+  'Note',
+] as const
+
+/** Je Zeit zwei Zellen: HH:MM zum Lesen, Dezimalstunden zum Rechnen. */
+function zeitZellen(b: number, s: number, d: number, g: number): ExportZelle[] {
+  return [formatDauer(b), dezimalStunden(b), formatDauer(s), dezimalStunden(s), formatDauer(d), dezimalStunden(d), formatDauer(g), dezimalStunden(g)]
+}
+
+/** Fehlt die Sessionzeit im Formular (GTY-03), steht „missing" statt
+ *  „00:00" — eine 0 saehe gemessen aus. Die Summe zaehlt sie als 0. */
+function sessionFehlt(zellen: ExportZelle[], e: LogbookEintrag): ExportZelle[] {
+  if (!e.zeitFehlt) return zellen
+  const z = [...zellen]
+  z[2] = 'missing'
+  z[3] = ''
+  return z
+}
+
+/**
+ * Die Zeilen der Logbuch-CSV einer Person.
+ *
+ * Audit 11/2026, KERN-14/LOG-02: Der Aufbau stand in `Logbook.tsx`, ausserhalb
+ * jeder Testwache — und war unvollständig. Der Kopf nannte nur das Datum,
+ * weder Uhrzeit noch Exportierenden, auch wenn ein Admin ein FREMDES Logbuch
+ * exportierte. Die Zeiten standen nur als „16:30", das Tabellenprogramme als
+ * Tageszeit lesen und über 24 h nicht summieren (der Admin-Export begründete
+ * seine „(h)"-Spalten genau damit); und die Summe stand in Spalte 2 statt
+ * unter „Total".
+ *
+ * KERN-03: Ist die Sicht auf die Muster des Betrachters beschränkt, nennt
+ * der Kopf diesen Bereich und die Zahl der nicht gezeigten Einträge — vorher
+ * stand dort „all", über einer leeren Liste.
+ */
+export function logbuchCsvZeilen(a: {
+  inhaber: string
+  sicht: LogbuchSicht
+  /** Die gezeigten, also gefilterten Einträge. */
+  eintraege: LogbookEintrag[]
+  filter: LogbookFilter
+  /** Zeitpunkt des Exports (mit Zeitversatz der Sandbox). */
+  exportiertAm: number
+  exportiertVon: string
+}): ExportZelle[][] {
+  const { sicht, eintraege, filter } = a
+  const bereich = sicht.bereich ? `${sicht.bereich.join(', ') || '—'} (scope of viewer)` : 'all'
+  const summe = (k: 'briefing' | 'session' | 'debriefing' | 'gesamt') => eintraege.reduce((n, e) => n + e[k], 0)
+  return [
+    ['my AAA Logbook', a.inhaber],
+    exportKopf(a.exportiertAm, a.exportiertVon),
+    /* Die aktiven Filter gehoeren in den Dateikopf — sonst sieht ein
+       gefilterter Auszug aus wie das vollstaendige Logbuch. */
+    ['Period', zeitraum(filter.von, filter.bis)],
+    ['Aircraft type', filter.muster || bereich],
+    ...(sicht.bereich ? [['Outside scope (not shown)', sicht.ausgeblendet]] : []),
+    ['Category', filter.kategorie || 'all'],
+    ['Form', filter.formTyp || 'all'],
+    ['Pilot', filter.pilot || 'all'],
+    ['Entries', `${eintraege.length} of ${sicht.eintraege.length}`],
+    [],
+    [...LOGBUCH_SPALTEN],
+    ...eintraege.map((e) => [
+      formatDate(e.datum),
+      e.kategorie,
+      e.aircraftType,
+      e.formTypeId ?? 'manual',
+      e.piloten.join('; '),
+      ...sessionFehlt(zeitZellen(e.briefing, e.session, e.debriefing, e.gesamt), e),
+      e.korrigiert ? formatDauer(e.korrigiert.gesamt) : '',
+      e.notiz,
+    ]),
+    [],
+    // Die Summe steht unter ihren Spalten, nicht irgendwo in Spalte 2.
+    ['Total', '', '', '', '', ...zeitZellen(summe('briefing'), summe('session'), summe('debriefing'), summe('gesamt')), '', ''],
+  ]
+}
+
+/** Titel des Admin-Exports — erste Zeile UND Dateieigenschaft der Excel-Datei. */
+export const ADMIN_EXPORT_TITEL = 'AAA Logbook — all instructors'
+
+/* Je Zeit zwei Spalten: HH:MM zum Lesen, Dezimalstunden zum Rechnen.
+   „16:30" ist in Excel Text — damit laesst sich weder summieren noch
+   sortieren, und genau dafuer nimmt jemand Excel statt CSV. */
+const ADMIN_SPALTEN = ['Instructor', 'Aircraft types', 'Entries', 'Ground', 'Ground (h)', 'Simulator', 'Simulator (h)', 'Other', 'Other (h)', 'Total', 'Total (h)'] as const
+
+type AdminExportEingabe = {
+  tabelle: Pick<AdminTabelle, 'zeilen' | 'summe'>
+  filter: Pick<LogbookFilter, 'von' | 'bis' | 'muster'>
+  ohneBriefing: boolean
+  exportiertAm: number
+  exportiertVon: string
+}
+
+function adminExport(a: AdminExportEingabe): { zeilen: ExportZelle[][]; kopfzeile: number } {
+  const { zeilen, summe } = a.tabelle
+  const zeiten = (z: { ground: number; simulator: number; other: number; gesamt: number }): ExportZelle[] => [
+    formatDauer(z.ground),
+    dezimalStunden(z.ground),
+    formatDauer(z.simulator),
+    dezimalStunden(z.simulator),
+    formatDauer(z.other),
+    dezimalStunden(z.other),
+    formatDauer(z.gesamt),
+    dezimalStunden(z.gesamt),
+  ]
+  const vorspann: ExportZelle[][] = [
+    [ADMIN_EXPORT_TITEL],
+    exportKopf(a.exportiertAm, a.exportiertVon),
+    ['Period', zeitraum(a.filter.von, a.filter.bis)],
+    ['Aircraft type', a.filter.muster || 'all'],
+    ['Counting', a.ohneBriefing ? 'without briefing' : 'with briefing'],
+    [],
+  ]
+  return {
+    zeilen: [
+      ...vorspann,
+      [...ADMIN_SPALTEN],
+      ...zeilen.map((z) => [z.name, z.muster.join(', '), z.anzahl, ...zeiten(z)]),
+      ['Total', '', summe.anzahl, ...zeiten(summe)],
+    ],
+    kopfzeile: vorspann.length + 1,
+  }
+}
+
+/**
+ * Die Zeilen des Admin-Exports (CSV und Excel aus denselben Zeilen): aktive
+ * Filter im Kopf, dann exakt die Tabelle der Ansicht. Kopf mit Uhrzeit und
+ * Exportierendem wie die Logbuch-CSV (KERN-14).
+ */
+export function adminExportZeilen(a: AdminExportEingabe): ExportZelle[][] {
+  return adminExport(a).zeilen
+}
+
+/**
+ * Dieselben Zeilen fuer Excel, dazu die Gestaltung: welche Zeile der Kopf
+ * ist, welche Spalten Dezimalstunden („0.00") tragen, Titel und Zeitpunkt
+ * fuer die Dateieigenschaften und das ZIP-Datum.
+ *
+ * Audit 11/2026, XLSX-01/EXM-09: Die Datei kam als Rohtabelle ohne
+ * Kopfformat und ohne Eigenschaften, mit Zahlen wie „2.25" neben „4". Die
+ * Angaben stehen HIER und nicht in der Seite, weil nur hier feststeht, wo
+ * die Kopfzeile liegt und welche Spalten Stunden sind — zaehlte die Seite
+ * Zeilen ab, liefe sie beim naechsten Kopffeld eine Zeile daneben.
+ */
+export function adminExcel(a: AdminExportEingabe): { zeilen: ExportZelle[][]; optionen: XlsxOptionen } {
+  const { zeilen, kopfzeile } = adminExport(a)
+  const zr = zeitraum(a.filter.von, a.filter.bis)
+  return {
+    zeilen,
+    optionen: {
+      kopfzeile,
+      dezimalSpalten: ADMIN_SPALTEN.flatMap((s, i) => (s.endsWith('(h)') ? [i] : [])),
+      // Ab „Entries" stehen Zahlen und Zeiten — alles rechts, sonst klebt
+      // „05:30" an der Zahl davor.
+      rechtsSpalten: ADMIN_SPALTEN.flatMap((_, i) => (i >= ADMIN_SPALTEN.indexOf('Entries') ? [i] : [])),
+      summenzeile: zeilen.length,
+      titel: zr === 'all' ? ADMIN_EXPORT_TITEL : `${ADMIN_EXPORT_TITEL} · ${zr}`,
+      erstellt: a.exportiertAm,
+    },
+  }
+}
+
+/**
+ * Downloadname eines Logbuch-Exports nach dem gemeinsamen Schema
+ * (dateiName.ts): Inhalt, Bezug, Stand-Datum — z. B.
+ * „aaa-logbook_Jürgen-Müller_2026-11-02.csv" bzw. fuer die Auswertung aller
+ * Instruktoren (`inhaber` null) „aaa-logbook-instructors_2026-11-02.xlsx".
+ *
+ * Audit 11/2026, EXM-10/FN-01: Die Admin-Exporte hiessen immer gleich, und
+ * der Name der Einzel-CSV ersetzte mit `/[^\w-]+/` ohne u-Flag jeden Umlaut
+ * („J-rgen-M-ller"). Ein Logbuch ist eine Momentaufnahme — ohne Datum wurde
+ * der naechste Auszug im Downloadordner zur „(1)"-Kopie, und welcher Stand
+ * der aktuelle war, liess sich nur noch am Dateikopf ablesen.
+ * `exportiertAm` ist derselbe Zeitpunkt wie im Kopf der Datei; der Tag ist
+ * der ORTSTAG (`lokalerTag`), nicht der UTC-Tag.
+ */
+export function logbuchDateiName(inhaber: string | null, exportiertAm: number, endung: 'csv' | 'xlsx'): string {
+  const teile = inhaber === null ? ['aaa-logbook-instructors'] : ['aaa-logbook', inhaber]
+  return `${dateiName(teile, lokalerTag(exportiertAm))}.${endung}`
 }

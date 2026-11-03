@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { createSeedState } from './sandbox/seed'
-import { migrateState } from './migrateState'
-import { imprintHash, IMPRINT_LEGACY_HASHES } from './sandbox/imprintDefaults'
+import { feldNachtragen, fehlendePflichtfelder, migrateState } from './migrateState'
+import { FELD_NACHTRAEGE, FORM_TYPES, SESSION_ZEIT_308G } from './sandbox/gradingDefaults'
+import type { FormType } from './types'
+import { imprintHash, IMPRINT_DE, IMPRINT_EN, IMPRINT_LEGACY_HASHES } from './sandbox/imprintDefaults'
+import vorgaenger from './sandbox/impressumVorgaenger.fixture.json'
+import startseite from './pages/Home.tsx?raw'
+import { erreichbareGruppen, gruppenPflicht, gruppenTauglich } from './aircraftScope'
+import { domainErlaubt } from './domains'
+import { kopfFuerTyp } from './gradingPrefill'
 
 /**
  * Die Migration holt Bestandsgeraete auf den aktuellen Stand, ohne dass
@@ -21,6 +28,8 @@ const bestand = (over: Partial<ReturnType<typeof createSeedState>> = {}) => {
   const st = { ...createSeedState(), ...over }
   delete (st as { seedHistoryMigrated?: boolean }).seedHistoryMigrated
   delete (st as { aircraftBackfilled?: boolean }).aircraftBackfilled
+  delete (st as { formularNachtraege?: string[] }).formularNachtraege
+  delete (st as { stummJeNutzer?: boolean }).stummJeNutzer
   return st
 }
 
@@ -218,6 +227,51 @@ describe('migrateState — fehlende Kopfdaten blockieren nichts mehr', () => {
   })
 })
 
+describe('migrateState — Pflichtfelder (Audit 11/2026, TEC-07)', () => {
+  /*
+   * Ein gespeicherter Stand ohne `lessonPlans` machte Startseite, Lesson
+   * Plans, Instructor Info und Impressum weiß — dauerhaft, weil derselbe
+   * Stand bei jedem Start wieder geladen wurde. Damit war auch die
+   * Sandbox-Leiste („Daten zurücksetzen") unerreichbar.
+   */
+  it('macht aus einem Stand ohne lessonPlans eine leere Liste', () => {
+    const alt = createSeedState()
+    delete (alt as { lessonPlans?: unknown }).lessonPlans
+    expect(migrateState(alt).lessonPlans).toEqual([])
+  })
+
+  it('ergänzt jede fehlende Pflichtliste, jedes Objekt und jede Zahl mit ihrer Vorgabe', () => {
+    const alt = createSeedState() as unknown as Record<string, unknown>
+    for (const k of ['groups', 'messages', 'polls', 'infoEntries', 'contacts', 'lessonPlans', 'feedbackEntries', 'seen', 'starredInfo', 'infoAcks', 'mutedGroups', 'timeOffsetMs', 'contactsChangedAt']) delete alt[k]
+    const neu = migrateState(alt as unknown as ReturnType<typeof createSeedState>)
+    expect(neu).toMatchObject({ groups: [], messages: [], polls: [], infoEntries: [], contacts: [], lessonPlans: [], feedbackEntries: [], seen: {}, starredInfo: {}, infoAcks: {}, mutedGroups: {}, timeOffsetMs: 0, contactsChangedAt: 0 })
+    // Und zwar beständig: Der zweite Lauf hat nichts mehr zu tun.
+    expect(migrateState(neu)).toBe(neu)
+  })
+
+  it('prüft die Form, nicht nur das Vorhandensein', () => {
+    const alt = { ...createSeedState(), lessonPlans: null, seen: [], infoAcks: 'x', timeOffsetMs: Number.NaN } as unknown as ReturnType<typeof createSeedState>
+    expect(fehlendePflichtfelder(alt)).toEqual({ lessonPlans: [], seen: {}, infoAcks: {}, timeOffsetMs: 0 })
+    expect(migrateState(alt)).toMatchObject({ lessonPlans: [], seen: {}, infoAcks: {}, timeOffsetMs: 0 })
+  })
+
+  it('richtet die Form, bevor ein Nachtrag die Liste liest — ein Objekt statt der Kontaktliste stürzt nicht ab', () => {
+    // Gegenprüfung P3: Die Prüfung stand am Ende, der Kontakt-Nachtrag
+    // (`contacts.map`) davor — „contacts is not a function" kam zuerst.
+    const alt = { ...createSeedState(), contacts: { c1: 'kaputt' } } as unknown as ReturnType<typeof createSeedState>
+    const neu = migrateState(alt)
+    expect(neu.contacts).toEqual([])
+    expect(migrateState(neu)).toBe(neu)
+  })
+
+  it('lässt einen vollständigen Stand unangetastet — Inhalte werden nie ersetzt', () => {
+    const st = migrateState(createSeedState())
+    expect(fehlendePflichtfelder(st)).toEqual({})
+    expect(migrateState(st)).toBe(st)
+    expect(st.contacts.length).toBeGreaterThan(0)
+  })
+})
+
 describe('migrateState — Impressum', () => {
   /**
    * Der Text steht in den EINSTELLUNGEN; eine geaenderte Vorgabe erreicht
@@ -256,6 +310,58 @@ describe('migrateState — Impressum', () => {
     const st = createSeedState()
     expect(st.settings.imprint.de).toContain('# 6. Datenschutz')
     expect(st.settings.imprint.en).toContain('# 6. Data protection')
+  })
+  /*
+   * Audit 11/2026, KERN-13/TXT-05/TXT-04: §8 versprach „vollständig
+   * gelöscht", waehrend §6 und die Verwaltung Konten ausdruecklich nur
+   * deaktivieren; Logbuch und DocCheck fehlten in Modulliste und
+   * Datenschutz. Die neue Fassung muss Bestandsgeraete auch erreichen.
+   */
+  it('hebt die vorige Vorgabe auf die neue — sonst saehen Bestandsgeraete den Widerspruch weiter', () => {
+    const alt = createSeedState()
+    alt.settings.imprint = { de: vorgaenger.de, en: vorgaenger.en }
+    expect(migrateState(alt).settings.imprint).toEqual({ de: IMPRINT_DE, en: IMPRINT_EN })
+  })
+
+  it('eine nur halb angepasste Fassung bleibt — ersetzt wird nur die unveraenderte Vorgabe', () => {
+    const alt = createSeedState()
+    alt.settings.imprint = { de: vorgaenger.de, en: `${vorgaenger.en}\n\nOwn addition.` }
+    expect(migrateState(alt).settings.imprint.en).toContain('Own addition.')
+  })
+
+  it('verspricht keine Kontoloeschung, die die App nicht kennt', () => {
+    expect(IMPRINT_DE).not.toMatch(/vollständig gelöscht/)
+    expect(IMPRINT_EN).not.toMatch(/completely deleted/)
+    // Die Vorgabe vorher trug den Widerspruch — sonst prueften die beiden
+    // Zeilen oben ins Leere.
+    expect(vorgaenger.de).toMatch(/vollständig gelöscht/)
+    expect(vorgaenger.en).toMatch(/completely deleted/)
+  })
+
+  it('verspricht keine Zielgruppen-Auswahl, die es nicht mehr gibt', () => {
+    expect(IMPRINT_DE).not.toMatch(/Zielgruppe/)
+    expect(IMPRINT_EN).not.toMatch(/target group/i)
+  })
+
+  it('nennt jedes Modul der Startseite — in beiden Sprachen', () => {
+    // Die Liste kommt aus der Startseite selbst: Eine neue Kachel ohne
+    // Absatz im Datenschutzhinweis faellt hier auf (Logbuch und DocCheck
+    // fehlten).
+    const module = [...startseite.matchAll(/label: '([^']+)'/g)].map((m) => m[1])
+    expect(module).toEqual(expect.arrayContaining(['my AAA Logbook', 'DocCheck']))
+    for (const m of module) {
+      expect(IMPRINT_DE, m).toContain(`- ${m}:`)
+      expect(IMPRINT_EN, m).toContain(`- ${m}:`)
+    }
+  })
+
+  it('setzt Anfuehrungszeichen typografisch und nennt das Feedback-Merkmal wie die Oberflaeche', () => {
+    // „Urgent" mit geradem Schlusszeichen — im deutschen Text, waehrend die
+    // Oberflaeche „Dringend" sagt.
+    expect(IMPRINT_DE).not.toMatch(/"/)
+    expect(IMPRINT_EN).not.toMatch(/"/)
+    expect(IMPRINT_DE).toContain('„Dringend“')
+    expect(IMPRINT_DE).toContain('Genehmigungsnummer')
   })
 })
 
@@ -345,5 +451,250 @@ describe('Musterzuordnung nachtragen', () => {
       const entzogen = { ...einmal, users: [{ ...einmal.users[0], aircraftTypes: [] }] }
       expect(migrateState(entzogen).users[0].aircraftTypes).toEqual([])
     })
+  })
+})
+
+describe('Seed ist widerspruchsfrei (Audit 11/2026, KERN-07/VERW-16/VERW-07)', () => {
+  // Der Seed fuehrte Mika (nur C560 XLS+) in der CL30-Gruppe und Chris (nur
+  // CL30) in der C560-Gruppe; Mikas Nachricht lag in einer Gruppe, die er
+  // nicht sehen kann. Genau diese Faelle verbietet der Store jetzt — der
+  // Seed darf nicht mit einem Zustand starten, den kein Schreibweg erzeugt.
+  const seed = createSeedState()
+  const person = (id: string) => seed.users.find((u) => u.id === id)!
+
+  it('jedes Gruppenmitglied kann seine Gruppe betreten', () => {
+    for (const g of seed.groups) {
+      for (const m of g.memberIds) expect(gruppenTauglich(seed.settings, person(m), g), `${m} in ${g.id}`).toBe(true)
+    }
+  })
+
+  it('jeder Seed-Nutzer mit Chat ist in mindestens einer erreichbaren Gruppe — der Training Admin braucht keine', () => {
+    for (const u of seed.users) {
+      if (gruppenPflicht(seed.settings, u)) expect(erreichbareGruppen(seed.settings, u, seed.groups).length, u.id).toBeGreaterThan(0)
+    }
+    expect(gruppenPflicht(seed.settings, person('u-max'))).toBe(false)
+  })
+
+  it('Nachrichten und Stimmen stammen von Mitgliedern der jeweiligen Gruppe', () => {
+    const gruppe = (id: string) => seed.groups.find((g) => g.id === id)!
+    for (const m of seed.messages) expect(gruppe(m.groupId).memberIds, m.id).toContain(m.authorId)
+    for (const p of seed.polls) {
+      expect(gruppe(p.groupId).memberIds, p.id).toContain(p.authorId)
+      for (const wer of Object.keys(p.votes)) expect(gruppe(p.groupId).memberIds, `${p.id}/${wer}`).toContain(wer)
+    }
+  })
+
+  it('jeder Seed-Nutzer kann sich mit den Seed-Domains anmelden', () => {
+    for (const u of seed.users) expect(domainErlaubt(u.email, seed.settings.allowedDomains), u.email).toBe(true)
+  })
+
+  it('Seed-Formulare fuehren nur Kopfwerte, die ihr Formulartyp kennt (L-FORMTYP#3)', () => {
+    // gr4 (308G) trug „Device FFS" und ein deutsches Event — 308G kennt
+    // beide Felder nicht, und die Forms-CSV zeigte sie trotzdem an.
+    // Was ein Typ fuehrt, sagt kopfFuerTyp — dieselbe Regel, die beim
+    // Wechsel des Formulartyps fremde Kopfwerte verwirft.
+    for (const r of seed.gradingRecords) {
+      const ft = seed.settings.grading.formTypes.find((f) => f.id === r.formTypeId)!
+      const kompetenzen = seed.settings.grading.competencySets.find((c) => c.key === ft.competencySet)?.competencies.length ?? 0
+      const erlaubt = Object.keys(kopfFuerTyp(r.header as Record<string, string>, ft, kompetenzen))
+      const fremd = Object.keys(r.header).filter((k) => !erlaubt.includes(k))
+      expect(fremd, `${r.id} (${r.formTypeId})`).toEqual([])
+    }
+  })
+})
+
+/**
+ * Audit 11/2026, GTY-02: 308C/308D führten kein Aircraft Type — Logbuch,
+ * Flottenmatrix, Flottenfilter, Monatsbericht und CSV verloren das Muster.
+ * Der Katalog liegt im gespeicherten Stand; ohne Nachtrag blieben laufende
+ * Geräte beim alten. Der Nachtrag braucht eine Marke (CLAUDE.md), sonst
+ * holte er ein bewusst entferntes Feld bei jedem Start zurück.
+ */
+describe('Formularkatalog nachtragen (GTY-02)', () => {
+  const ohneMuster = (ft: FormType): FormType => ({ ...ft, fields: ft.fields.filter((f) => f.key !== 'aircraftType') })
+  /** Bestand von vor dem Nachtrag: 308C/308D ohne Aircraft Type, keine Marke. */
+  const vorher = () => {
+    const st = bestand()
+    return {
+      ...st,
+      settings: {
+        ...st.settings,
+        grading: {
+          ...st.settings.grading,
+          formTypes: st.settings.grading.formTypes.map((ft) => (['308C', '308D'].includes(ft.id) ? ohneMuster(ft) : ft)),
+        },
+      },
+    }
+  }
+  const typ = (st: { settings: { grading: { formTypes: FormType[] } } }, id: string) => st.settings.grading.formTypes.find((f) => f.id === id)!
+
+  it('der Katalog ab Werk führt das Pflichtfeld bei 308C und 308D', () => {
+    for (const id of ['308C', '308D']) {
+      const feld = FORM_TYPES.find((f) => f.id === id)!.fields[0]
+      expect(feld, id).toMatchObject({ key: 'aircraftType', type: 'select', required: true })
+    }
+  })
+
+  it('trägt das Feld einmal an den Anfang nach und setzt die Marke', () => {
+    const neu = migrateState(vorher())
+    for (const id of ['308C', '308D']) {
+      expect(typ(neu, id).fields[0]).toMatchObject({ key: 'aircraftType', required: true })
+      expect(typ(neu, id).fields.filter((f) => f.key === 'aircraftType')).toHaveLength(1)
+    }
+    expect(neu.formularNachtraege).toEqual(FELD_NACHTRAEGE.map((n) => n.marke))
+    // Andere Typen bleiben dieselben Objekte.
+    expect(typ(neu, '308A')).toBe(typ(vorher(), '308A'))
+    // Zweiter Lauf: nichts mehr zu tun.
+    expect(migrateState(neu)).toBe(neu)
+  })
+
+  it('macht eine bewusste Entfernung durch den Admin NICHT rückgängig', () => {
+    const einmal = migrateState(vorher())
+    const entfernt = {
+      ...einmal,
+      settings: {
+        ...einmal.settings,
+        grading: { ...einmal.settings.grading, formTypes: einmal.settings.grading.formTypes.map((ft) => (ft.id === '308D' ? ohneMuster(ft) : ft)) },
+      },
+    }
+    expect(typ(migrateState(entfernt), '308D').fields.some((f) => f.key === 'aircraftType')).toBe(false)
+  })
+
+  it('setzt die Marke auch, wenn der Katalog das Feld schon führt', () => {
+    const st = bestand()
+    const neu = migrateState(st)
+    expect(neu.formularNachtraege).toEqual(FELD_NACHTRAEGE.map((n) => n.marke))
+    expect(neu.settings.grading.formTypes).toBe(st.settings.grading.formTypes)
+  })
+
+  it('der Seed trägt die Marken bereits — sein Katalog ist aktuell', () => {
+    expect(createSeedState().formularNachtraege).toEqual(FELD_NACHTRAEGE.map((n) => n.marke))
+  })
+
+  it('feldNachtragen doppelt nichts und lässt fremde Typen in Ruhe', () => {
+    const katalog = FORM_TYPES.map((ft) => (ft.id === '308C' ? ohneMuster(ft) : ft))
+    const neu = feldNachtragen(katalog, FELD_NACHTRAEGE)
+    expect(neu.find((f) => f.id === '308C')!.fields[0].key).toBe('aircraftType')
+    expect(neu.find((f) => f.id === '308D')).toBe(katalog.find((f) => f.id === '308D'))
+    expect(feldNachtragen(neu, FELD_NACHTRAEGE)).toBe(neu)
+  })
+
+  it('ein Bestand ohne Grading-Einstellungen bekommt nur die Marke, statt abzustürzen', () => {
+    const st = bestand()
+    const ohne = { ...st, settings: { ...st.settings, grading: undefined } } as unknown as typeof st
+    const neu = migrateState(ohne)
+    expect(neu.formularNachtraege).toEqual(FELD_NACHTRAEGE.map((n) => n.marke))
+    expect(neu.settings.grading).toBeUndefined()
+  })
+})
+
+/**
+ * Audit 11/2026, GTY-03: Das 308G bekam die Pflichtangabe Session Time —
+ * sonst stand jedes 308G mit Session 00:00 im Logbuch. Wie bei GTY-02 liegt
+ * der Katalog im gespeicherten Stand: Nachtrag EINMAL, mit Marke, und als
+ * Nachfeld ans ENDE (der Druckkopf folgt der Reihenfolge).
+ */
+describe('Formularkatalog nachtragen (GTY-03, 308G Session Time)', () => {
+  const ohneZeit = (ft: FormType): FormType => ({ ...ft, fields: ft.fields.filter((f) => f.key !== 'sessionTime') })
+  const vorher = () => {
+    const st = bestand()
+    return {
+      ...st,
+      settings: {
+        ...st.settings,
+        grading: { ...st.settings.grading, formTypes: st.settings.grading.formTypes.map((ft) => (ft.id === '308G' ? ohneZeit(ft) : ft)) },
+      },
+    }
+  }
+  const g = (st: { settings: { grading: { formTypes: FormType[] } } }) => st.settings.grading.formTypes.find((f) => f.id === '308G')!
+
+  it('der Katalog ab Werk führt Session Time beim 308G — Pflicht, Dauer, nach der Bewertung', () => {
+    const felder = FORM_TYPES.find((f) => f.id === '308G')!.fields
+    expect(felder[felder.length - 1]).toMatchObject({ key: 'sessionTime', type: 'duration', required: true, postGrading: true })
+    expect(FELD_NACHTRAEGE.find((n) => n.marke === 'gty03-sessionTime-308G')).toMatchObject({ typen: ['308G'], feld: SESSION_ZEIT_308G, ende: true })
+  })
+
+  it('308G-Feld einmal ergänzt — ans Ende, mit Marke; der zweite Lauf ändert nichts', () => {
+    const alt = vorher()
+    const neu = migrateState(alt)
+    const felder = g(neu).fields
+    expect(felder[felder.length - 1]).toMatchObject({ key: 'sessionTime', required: true })
+    expect(felder.filter((f) => f.key === 'sessionTime')).toHaveLength(1)
+    // Die übrigen Felder bleiben in ihrer Reihenfolge vorn
+    expect(felder.slice(0, -1).map((f) => f.key)).toEqual(g(alt).fields.map((f) => f.key))
+    expect(neu.formularNachtraege).toContain('gty03-sessionTime-308G')
+    expect(migrateState(neu)).toBe(neu)
+  })
+
+  it('Entfernung bleibt: ein bewusst gelöschtes Feld kommt nicht zurück', () => {
+    const einmal = migrateState(vorher())
+    const entfernt = {
+      ...einmal,
+      settings: { ...einmal.settings, grading: { ...einmal.settings.grading, formTypes: einmal.settings.grading.formTypes.map((ft) => (ft.id === '308G' ? ohneZeit(ft) : ft)) } },
+    }
+    expect(g(migrateState(entfernt)).fields.some((f) => f.key === 'sessionTime')).toBe(false)
+  })
+
+  it('feldNachtragen: Anfang und Ende in einem Lauf, jeweils als Kopie', () => {
+    const katalog = FORM_TYPES.map((ft) => (ft.id === '308G' ? ohneZeit(ft) : ft))
+    const neu = feldNachtragen(katalog, [
+      { marke: 'a', typen: ['308G'], feld: SESSION_ZEIT_308G, ende: true },
+      { marke: 'b', typen: ['308G'], feld: { key: 'vorn', label: 'Vorn', type: 'text', required: false } },
+    ])
+    const felder = neu.find((f) => f.id === '308G')!.fields
+    expect(felder[0].key).toBe('vorn')
+    expect(felder[felder.length - 1].key).toBe('sessionTime')
+    expect(felder[felder.length - 1]).not.toBe(SESSION_ZEIT_308G)
+  })
+})
+
+/**
+ * Audit 11/2026, KERN-06: Stummschalten lag als `muted` an der Gruppe und
+ * galt fuer alle Mitglieder. Es steht jetzt je Nutzer in `mutedGroups`; das
+ * alte Feld wird verworfen — mit Marke, wie jeder Nachtrag hier.
+ */
+describe('Stummschalten je Nutzer: altes group.muted verwerfen (KERN-06)', () => {
+  /** Bestand von vorher: Gruppen mit `muted`, keine Liste je Nutzer, keine Marke. */
+  const vorher = () => {
+    const st = bestand()
+    delete (st as { mutedGroups?: unknown }).mutedGroups
+    return { ...st, groups: st.groups.map((g, i) => ({ ...g, muted: i === 0 })) }
+  }
+
+  it('entfernt das alte Feld an jeder Gruppe und legt die leere Liste je Nutzer an', () => {
+    const neu = migrateState(vorher())
+    for (const g of neu.groups) expect('muted' in g, g.id).toBe(false)
+    // Nicht auf Nutzer verteilt: Wer es gesetzt hatte, steht nirgends.
+    expect(neu.mutedGroups).toEqual({})
+    expect(neu.stummJeNutzer).toBe(true)
+    // Sonst bleibt an den Gruppen alles, wie es war.
+    expect(neu.groups.map((g) => g.memberIds)).toEqual(vorher().groups.map((g) => g.memberIds))
+  })
+
+  it('ist idempotent: der zweite Lauf hat nichts mehr zu tun', () => {
+    const einmal = migrateState(vorher())
+    expect(migrateState(einmal)).toBe(einmal)
+  })
+
+  it('mit Marke bleibt eine persoenliche Stummschaltung unangetastet', () => {
+    const einmal = migrateState(vorher())
+    const persoenlich = { ...einmal, mutedGroups: { 'u-michael': ['g-defects'] } }
+    const nochmal = migrateState(persoenlich)
+    expect(nochmal).toBe(persoenlich)
+    expect(nochmal.mutedGroups).toEqual({ 'u-michael': ['g-defects'] })
+  })
+
+  it('setzt die Marke auch, wenn keine Gruppe das alte Feld hatte', () => {
+    const st = bestand()
+    const neu = migrateState(st)
+    expect(neu.stummJeNutzer).toBe(true)
+    expect(neu.groups).toBe(st.groups)
+  })
+
+  it('der Seed traegt die Marke und eine leere Liste bereits', () => {
+    const seed = createSeedState()
+    expect(seed.stummJeNutzer).toBe(true)
+    expect(seed.mutedGroups).toEqual({})
+    for (const g of seed.groups) expect('muted' in g, g.id).toBe(false)
   })
 })

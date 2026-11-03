@@ -1,6 +1,11 @@
-import { ArrowLeft, Home as HomeIcon, Moon, Sun, X } from 'lucide-react'
-import { Children, useCallback, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { AlertTriangle, ArrowLeft, Home as HomeIcon, Lock, Moon, Plus, Sun, X } from 'lucide-react'
+import { Children, createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
+import { createPortal } from 'react-dom'
+import { scrollVerhalten } from '../bewegung'
+import { knotenText, useDokumentTitel } from '../dokumentTitel'
+import { vorhandenerEintrag } from '../einstellungen'
+import { fokusZurueck } from '../fokus'
 import { navigate } from '../router'
 
 const THEME_KEY = 'aaa-theme'
@@ -46,6 +51,51 @@ export function ThemeToggle() {
   )
 }
 
+/**
+ * Sprachumschalter DE/EN — EINE Stelle für Startseite und Anmeldung.
+ *
+ * Er stand zweimal von Hand im Code und war nirgends ganz richtig
+ * (Audit 11/2026, A11Y-09/A11Y-08): Der Rahmen schnitt mit `overflow-hidden`
+ * den Fokusring ab — auf „EN" war im Hellmodus gar kein Fokus zu sehen —,
+ * und auf der Anmeldeseite fehlte `aria-pressed`, die Sprachausgabe sagte
+ * also nicht, welche Sprache gilt. Die Rundung sitzt deshalb an den Knöpfen,
+ * nicht am Rahmen, und der fokussierte Knopf liegt über seinem Nachbarn.
+ */
+export function LanguageToggle() {
+  const { t, i18n } = useTranslation()
+  return (
+    <div role="group" aria-label={t('common.language')} className="flex shrink-0 rounded-lg border border-line/15 text-micro">
+      {(['de', 'en'] as const).map((lng) => {
+        const aktiv = i18n.language === lng
+        return (
+          <button
+            key={lng}
+            onClick={() => i18n.changeLanguage(lng)}
+            aria-pressed={aktiv}
+            className={`relative min-h-11 whitespace-nowrap px-3.5 py-1 font-medium uppercase transition first:rounded-l-md last:rounded-r-md focus-visible:z-10 ${aktiv ? 'bg-accent text-bg' : 'text-dim hover:text-ink'}`}
+          >
+            {lng}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+/*
+ * Breite von Kopfleiste, Seitenrahmen und Sandbox-Leiste — an EINER Stelle,
+ * weil die drei untereinander fluchten müssen.
+ *
+ * Zwischen 1024 und 1279 px galt die Telefon-Tablet-Schranke von 768 px:
+ * Das Admin-Panel, das ab 1024 px aufgeht, sah aus wie eine Tablet-Spalte,
+ * Filter und Statuschips brachen auf zwei Zeilen um, und die Sandbox-Leiste
+ * schnitt „iPhone/iPad-Vorschau" ab (Audit 11/2026, UID-16/UID-20). Die
+ * lg-Stufe gibt dort 1024 px frei; breite Seiten haben sie schon.
+ */
+export const seitenBreiteCls = 'max-w-3xl lg:max-w-5xl xl:max-w-6xl'
+const seitenBreiteWideCls = 'max-w-5xl xl:max-w-7xl'
+const seitenBreite = (wide: boolean) => (wide ? seitenBreiteWideCls : seitenBreiteCls)
+
 /** home=false unterdrückt den Home-Button — genutzt in den Grading-Forms,
  *  damit man dort nicht versehentlich aus dem Formular springt.
  *  wide=true nutzt am Desktop die volle Breite (Grading-Formulare). */
@@ -56,6 +106,7 @@ export function TopBar({
   home = true,
   wide = false,
   onBack,
+  lang,
 }: {
   title: ReactNode
   back?: string
@@ -64,11 +115,19 @@ export function TopBar({
   wide?: boolean
   /** Rückfrage vor dem Verlassen; false verhindert die Navigation */
   onBack?: () => boolean
+  /** Sprache des Titels, wenn sie von der Oberfläche abweicht (Grading:
+   *  immer `en`, A11Y-12). Nur am Titel — „Zurück" bleibt in der Sprache
+   *  der Oberfläche. */
+  lang?: string
 }) {
   const { t } = useTranslation()
+  // Fenstertitel aus dem Seitentitel: Vorher hieß jede Ansicht „Instructor
+  // Connect" — im Tab und in der Ansage beim Seitenwechsel (Audit 11/2026,
+  // A11Y-13). Auch ein Titel, der ein Knopf ist (Chat), hat einen Text.
+  useDokumentTitel(knotenText(title).trim() || null)
   return (
     <header className="safe-top sticky top-0 z-20 border-b border-line/10 bg-bg/85 backdrop-blur">
-      <div className={`mx-auto flex h-14 items-center gap-2 px-3 xl:px-8 ${wide ? 'max-w-5xl xl:max-w-7xl' : 'max-w-3xl xl:max-w-6xl'}`}>
+      <div className={`safe-x mx-auto flex h-14 items-center gap-2 [--rand-x:0.75rem] xl:[--rand-x:2rem] ${seitenBreite(wide)}`}>
         {back !== undefined && (
           <button
             onClick={() => {
@@ -86,7 +145,7 @@ export function TopBar({
             auf <body> — Tastaturnutzer fingen wieder ganz oben an, und
             Sprachausgaben meldeten den Wechsel gar nicht. In der
             Tab-Reihenfolge taucht die Ueberschrift dadurch nicht auf. */}
-        <h1 data-page-heading tabIndex={-1} className="min-w-0 flex-1 truncate text-head font-semibold tracking-tight outline-none">
+        <h1 data-page-heading tabIndex={-1} lang={lang} className="min-w-0 flex-1 truncate text-head font-semibold tracking-tight outline-none">
           {title}
         </h1>
         {/* Der Titel gibt nach, die Aktion rechts nicht: Ein langer Titel
@@ -109,6 +168,35 @@ export function TopBar({
 }
 
 /**
+ * Aktionsknopf rechts in der Kopfleiste („+ Neuer Eintrag").
+ *
+ * Die Kopfleiste lässt den Titel nachgeben, die Aktion nicht (siehe TopBar).
+ * Am Telefon hieß das: Neben „+ Eintrag hinzufügen" blieb vom Titel „my A…",
+ * neben „+ Lehrplan hochladen" nur „Le…" — die Seite verlor ihre Überschrift
+ * (Audit 11/2026, MOB-02/KERN-17). Unter `sm` steht deshalb nur das Plus;
+ * die Beschriftung bleibt der Name des Knopfs, und die Trefferfläche bleibt
+ * 44 × 44 px. Die Entscheidung „Aktion bricht nicht um" gilt weiter.
+ *
+ * JEDE Kopfleiste nimmt diesen Knopf, auch wo die Beschriftung heute kurz
+ * genug wäre: Mit einer Handvoll eigener Pillen zeigte das Telefon auf der
+ * einen Seite „+", auf der nächsten „+ Neue Notiz" — derselbe Knopf in zwei
+ * Gestalten (Gegenprüfung P12).
+ */
+export function TopBarAktion({ label, onClick, lang }: { label: string; onClick: () => void; lang?: string }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label={label}
+      lang={lang}
+      className="flex min-h-11 min-w-11 items-center justify-center gap-1 rounded-full bg-accent px-3 py-1.5 text-small font-semibold text-bg hover:brightness-110"
+    >
+      <Plus size={15} aria-hidden className="shrink-0" />
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  )
+}
+
+/**
  * Seitenrahmen.
  *
  * Am Desktop lief der Inhalt vorher bis an beide Fensterraender
@@ -118,9 +206,24 @@ export function TopBar({
  * aufgespannt. Jetzt begrenzt der Rahmen auf 1152 px (breite Seiten:
  * 1280 px) — und die Breite wird dort, wo sie etwas traegt, ueber
  * `CardGrid` in zwei Spalten ausgefuellt statt in eine lange Zeile gezogen.
+ * Zwischen 1024 und 1279 px sind es 1024 px (`seitenBreiteCls`, UID-16).
+ *
+ * Seitlicher Rand über `safe-x` (index.css): mindestens 1rem bzw. ab xl
+ * 2rem, im Querformat am Telefon aber der Sicherheitsbereich — sonst lagen
+ * Karten unter der Sensorkappe (Audit 11/2026, MOB-07).
+ *
+ * `lang`: Sprache des Inhalts, wenn sie von der Oberfläche abweicht. Die
+ * Grading-Formulare sind bewusst immer englisch; ohne Auszeichnung las die
+ * Sprachausgabe „Competent" und „Overall Result" mit deutscher Aussprache
+ * (WCAG 3.1.2, Audit 11/2026, A11Y-12). Einzelne Bedienelemente in der
+ * Sprache der Oberfläche tragen darin ihr eigenes `lang`.
  */
-export function Page({ children, className = '', wide = false }: { children: ReactNode; className?: string; wide?: boolean }) {
-  return <main className={`mx-auto w-full flex-1 px-4 pb-24 pt-4 xl:px-8 ${wide ? 'max-w-5xl xl:max-w-7xl' : 'max-w-3xl xl:max-w-6xl'} ${className}`}>{children}</main>
+export function Page({ children, className = '', wide = false, lang }: { children: ReactNode; className?: string; wide?: boolean; lang?: string }) {
+  return (
+    <main lang={lang} className={`safe-x mx-auto w-full flex-1 pb-24 pt-4 xl:[--rand-x:2rem] ${seitenBreite(wide)} ${className}`}>
+      {children}
+    </main>
+  )
 }
 
 /**
@@ -195,8 +298,17 @@ export function SectionHeading({
   )
 }
 
-export function CardHeading({ children, className = '' }: { children: ReactNode; className?: string }) {
-  return <h3 className={`text-micro font-bold uppercase tracking-[0.08em] text-ink ${className}`}>{children}</h3>
+/**
+ * `level`: Ebene in der Gliederung. Standard h3 — unter einer
+ * `SectionHeading` (h2). Steht die Karte direkt unter der Seitenüberschrift,
+ * ist sie h2: Sonst sprang die Gliederung von h1 auf h3, und wer per
+ * Überschrift navigiert, suchte die fehlende Ebene (axe heading-order auf
+ * Statistik, Einstellungen, Logbuch, DocCheck und im Formular; Audit
+ * 11/2026, A11Y-14). Das Aussehen bleibt gleich — die Ebene ist Struktur.
+ */
+export function CardHeading({ children, className = '', level = 3 }: { children: ReactNode; className?: string; level?: 2 | 3 }) {
+  const Tag = level === 2 ? 'h2' : 'h3'
+  return <Tag className={`text-micro font-bold uppercase tracking-[0.08em] text-ink ${className}`}>{children}</Tag>
 }
 
 /**
@@ -251,7 +363,9 @@ export function Card({
         />
         {/* Der Inhalt selbst nimmt keine Klicks an — sie fallen auf den Knopf
             darunter. Einzelne Bedienelemente holen sich das mit
-            `pointer-events-auto relative z-10` zurück. */}
+            `pointer-events-auto relative z-10` zurück; kartenBedienung.test.ts
+            prüft das für jede Karte (TA-01: ohne die Klasse öffnete das
+            PDF-Symbol nur die Zeile). */}
         <div className={`pointer-events-none ${className}`}>{children}</div>
       </div>
     )
@@ -288,6 +402,8 @@ export function Button({
   type = 'button',
   disabled,
   className = '',
+  label,
+  lang,
 }: {
   children: ReactNode
   onClick?: () => void
@@ -295,6 +411,12 @@ export function Button({
   type?: 'button' | 'submit'
   disabled?: boolean
   className?: string
+  /** Name eines Knopfs, der nur ein Symbol zeigt — sonst sagt die
+   *  Sprachausgabe bloß „Schaltfläche" (Audit 11/2026, A11Y-07). */
+  label?: string
+  /** Sprache des Knopfs, wenn sie von seiner Umgebung abweicht — etwa
+   *  „Abbrechen" mitten im englischen Grading-Bereich (A11Y-12). */
+  lang?: string
 }) {
   const styles = {
     primary: 'bg-accent text-bg font-semibold hover:brightness-110',
@@ -306,6 +428,9 @@ export function Button({
       type={type}
       disabled={disabled}
       onClick={onClick}
+      aria-label={label}
+      title={label}
+      lang={lang}
       className={`min-h-11 rounded-xl px-4 py-2.5 text-body transition disabled:opacity-40 ${styles} ${className}`}
     >
       {children}
@@ -315,12 +440,88 @@ export function Button({
 
 /** Auswahlfelder tragen dieselbe Optik wie Eingabefelder — vorher stand die
  *  Klassenliste an vierzehn Stellen wortgleich im Code und wich an zwei
- *  Stellen davon ab. */
-export const selectCls =
-  'w-full rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-body text-ink outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+ *  Stellen davon ab.
+ *
+ *  `aria-[invalid=true]:border-danger`: Ein beanstandetes Feld trug zwar
+ *  aria-invalid, sah aber aus wie jedes andere — wer die Meldung nicht
+ *  vorgelesen bekommt, suchte das Feld (Audit 11/2026, A11Y-16). Der rote
+ *  Rand bleibt auch im Fokus stehen (die aria-Variante steht im CSS hinter
+ *  `focus:`) — der Akzent-Ring daneben sagt „hier bist du", der Rand weiter
+ *  „hier fehlt etwas". */
+const auswahlBasis =
+  'rounded-xl border border-field bg-bg/60 px-3 py-2.5 text-body text-ink outline-none transition aria-[invalid=true]:border-danger focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
 
-export const inputCls =
-  'w-full rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-lead text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+const eingabeBasis =
+  'rounded-xl border border-field bg-bg/60 px-3.5 py-2.5 text-lead text-ink placeholder:text-dim outline-none transition aria-[invalid=true]:border-danger focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+
+export const selectCls = `w-full ${auswahlBasis}`
+
+export const inputCls = `w-full ${eingabeBasis}`
+
+/**
+ * Dieselben Felder OHNE volle Breite — für Filterzeilen und schmale Felder
+ * (Kürzel, Formularnummer); die Breite setzt die Aufrufstelle.
+ *
+ * Audit 11/2026, UID-17: `${selectCls} w-auto` und `${inputCls} w-24` taten
+ * nichts. Im gebauten CSS steht `.w-full` HINTER `.w-auto`, `.w-24` und
+ * `.w-28` und gewinnt immer — der Standardisierungsbericht zeigte drei
+ * 1088 px breite Auswahlfelder untereinander statt einer Filterzeile.
+ * designScale.test.ts meldet die Kombination.
+ */
+export const selectInlineCls = auswahlBasis
+
+export const inputInlineCls = eingabeBasis
+
+/* Filterleisten-Optik des Logbuchs und seiner Admin-Auswertung: kompakte
+   Felder, die sich nebeneinander legen — nicht die w-full-Felder der
+   Formulare. Die Datumsfelder brauchen zusaetzlich eine feste Breite: WebKit
+   gibt einem leeren <input type="date"> sonst fast keine Eigenbreite, und am
+   iPad standen zwei winzige Pillen da, die erst beim Antippen aufgingen.
+   Vorher stand die Klassenliste in der Admin-Auswertung als Kopie, und
+   beiden fehlte `placeholder:text-dim`: Der Platzhalter „Pilot" lag im
+   Browser-Grau bei 2,05:1 (Audit 11/2026, UID-11/A11Y-10). Sie stand dann
+   als Export in src/pages/Logbook.tsx, und die Admin-Auswertung zog sie von
+   Seite zu Seite — ein Baustein gehoert hierher (Gegenpruefung P10). */
+export const filterCls =
+  'min-h-11 rounded-xl border border-field bg-bg/60 px-3 py-2 text-small text-ink placeholder:text-dim outline-none transition focus:border-accent/60 focus:ring-2 focus:ring-accent/20'
+
+/**
+ * Auswahlfeld einer Filterzeile, immer mit Namen.
+ *
+ * Audit 11/2026, A11Y-07: Die Filter der Grading-Verwaltung wurden als
+ * „Kombinationsfeld" ohne Namen angesagt; die Statistik hatte sichtbare
+ * Beschriftungen, die mit keinem Feld verbunden waren. Das <label> umschließt
+ * hier genau das eine Feld. `sichtbar = false` nur, wo die erste Option die
+ * Dimension schon nennt („All trainees") — vorgelesen wird der Name trotzdem.
+ */
+export function FilterAuswahl({
+  label,
+  value,
+  onChange,
+  children,
+  sichtbar = false,
+  symbol,
+}: {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  children: ReactNode
+  sichtbar?: boolean
+  /** Sinnbild vor der sichtbaren Beschriftung (schmückend) */
+  symbol?: ReactNode
+}) {
+  return (
+    <label className="inline-flex items-center gap-1.5">
+      <span className={sichtbar ? 'inline-flex items-center gap-1.5 whitespace-nowrap text-small font-medium text-dim' : 'sr-only'}>
+        {symbol}
+        {label}
+      </span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={selectInlineCls}>
+        {children}
+      </select>
+    </label>
+  )
+}
 
 /**
  * Beschriftetes Feld.
@@ -334,24 +535,47 @@ export const inputCls =
  *
  * Für Gruppen daher `group` setzen: dann beschriftet die Überschrift die
  * Gruppe als Ganzes, und jeder Knopf behält seinen eigenen Namen.
+ *
+ * Audit 11/2026, GTY-12: Eine beanstandete Gruppe (Entweder-oder auf 308F,
+ * Training Device, Event) war nicht zu finden — ohne `id` lief der Sprung
+ * ins Leere, und ohne `aria-invalid` sagte auch die Gruppe nichts. Bei
+ * Gruppen hängen Beanstandung und Meldung deshalb HIER, an der Gruppe;
+ * `tabIndex -1` macht sie zum Sprungziel, auch wenn kein Knopf darin ist.
+ * Ein einzelnes Feld trägt beides selbst (das <label> ist kein Bedienelement).
  */
 export function Field({
   label,
   children,
   group = false,
   id: anchorId,
+  invalid = false,
+  describedBy,
 }: {
   label: string
   children: ReactNode
   group?: boolean
   /** Sprungziel — die Abschlussleiste des Formulars scrollt hierher. */
   id?: string
+  /** nur bei `group`: die Gruppe ist beanstandet */
+  invalid?: boolean
+  /** nur bei `group`: id der Meldung bzw. des Hinweises zur Gruppe */
+  describedBy?: string
 }) {
   const id = useId()
   if (group) {
     return (
-      <div id={anchorId} className="block scroll-mt-24" role="group" aria-labelledby={id}>
-        <span id={id} className="mb-1.5 block text-small font-medium text-dim">
+      <div
+        id={anchorId}
+        tabIndex={anchorId ? -1 : undefined}
+        className="block scroll-mt-24"
+        role="group"
+        aria-labelledby={id}
+        aria-invalid={invalid || undefined}
+        aria-describedby={describedBy}
+      >
+        {/* Eine Knopfgruppe hat keinen Rand, der rot werden könnte — sichtbar
+            wird die Beanstandung an ihrer Beschriftung. */}
+        <span id={id} className={`mb-1.5 block text-small font-medium ${invalid ? 'text-danger' : 'text-dim'}`}>
           {label}
         </span>
         {children}
@@ -363,6 +587,43 @@ export function Field({
       <span className="mb-1.5 block text-small font-medium text-dim">{label}</span>
       {children}
     </label>
+  )
+}
+
+/**
+ * Ankreuzfeld des Originalformulars als Umschaltknopf (☐/☒ wie auf Papier).
+ *
+ * Audit 11/2026, A11Y-08: Sechs Stellen im Grading-Formular schrieben diesen
+ * Knopf von Hand, vier davon (CDR/FO, Left/Right, TKI/SFI/TRI, Left/Right/
+ * Rear) ohne `aria-pressed`. Der Zustand steckte dort allein in Farbe und
+ * Glyphe, und die Glyphe stand im Namen: Vorgelesen wurde „☐ Left" zweimal
+ * hintereinander, ohne zu sagen, wessen Sitz und was gewählt ist. Jetzt
+ * trägt der Knopf seinen Zustand als `aria-pressed`, die Glyphe ist
+ * Schmuck. Den Namen der Gruppe gibt der Aufrufer (`role="group"`).
+ */
+export function Ankreuzknopf({
+  an,
+  onClick,
+  children,
+  klein = false,
+}: {
+  an: boolean
+  onClick: () => void
+  children: ReactNode
+  /** kleinere Schrift für lange Ankreuzreihen (ATA-Kapitel, Events) */
+  klein?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={an}
+      onClick={onClick}
+      className={`min-h-11 rounded-lg border py-1.5 transition ${klein ? 'px-2.5 text-micro' : 'px-3 text-small'} ${
+        an ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
+      }`}
+    >
+      <span aria-hidden>{an ? '☒' : '☐'}</span> {children}
+    </button>
   )
 }
 
@@ -422,7 +683,11 @@ export function NewDot({ className = '', size = 12 }: { className?: string; size
 
 /** Mehrfachauswahl als Chip-Reihe — überall gleiches Verhalten und Styling */
 export function ChipMultiSelect({ options, selected, onChange }: {
-  options: { id: string; label: string }[]
+  /** `fest`: Der Chip zeigt seinen Zustand, laesst sich aber nicht
+   *  umschalten — etwa die eigene Person in der Mitgliederliste einer
+   *  Gruppe, die man verwaltet (VERW-09). Bleibt per Tab erreichbar
+   *  (aria-disabled statt disabled), damit die Sprachausgabe ihn mitliest. */
+  options: { id: string; label: string; fest?: boolean }[]
   selected: string[]
   onChange: (ids: string[]) => void
 }) {
@@ -439,16 +704,214 @@ export function ChipMultiSelect({ options, selected, onChange }: {
             // Schaltflaeche" — man konnte nicht feststellen, ob die
             // Pflichtangabe schon erfuellt ist.
             aria-pressed={on}
-            onClick={() => onChange(on ? selected.filter((x) => x !== o.id) : [...selected, o.id])}
+            aria-disabled={o.fest || undefined}
+            onClick={() => {
+              if (o.fest) return
+              onChange(on ? selected.filter((x) => x !== o.id) : [...selected, o.id])
+            }}
+            // Fest heisst gestrichelter Rand, nicht gedaempfte Deckkraft —
+            // die drueckte den Kontrast unter 3:1 (VERW-17).
             className={`min-h-11 rounded-full border px-3 py-1.5 text-micro transition ${
               on ? 'border-accent bg-accent/15 font-semibold text-ink' : 'border-line/15 text-dim'
-            }`}
+            } ${o.fest ? 'cursor-default border-dashed' : ''}`}
           >
             {o.label}
           </button>
         )
       })}
     </div>
+  )
+}
+
+/**
+ * Bearbeitbare Liste als Chip-Reihe — Muster, Kategorien, Empfaenger,
+ * Login-Domains, Grading-Verteiler.
+ *
+ * Stand vorher zweimal da (StringListEditor im Admin-Panel, StringList im
+ * Grading-Bereich), verschieden gebaut: Der Loeschknopf war 13 px gross, im
+ * Grading ein nacktes „×", das „+" hatte keinen Namen. Ein Fehltipper auf dem
+ * Tablet loeschte Stammdaten, und nach dem Loeschen stand der Fokus auf
+ * <body> — wer per Tastatur weiterwollte, begann oben auf der Seite
+ * (Audit 11/2026, MOB-05, A11Y-04, A11Y-07).
+ *
+ * Jetzt: Loeschflaeche 44 px mit Namen „Loeschen: <Wert>", nach dem Loeschen
+ * Fokus auf den Nachbarn (sonst ins Eingabefeld). `fest` nennt Eintraege,
+ * die bleiben muessen — ohne Loeschknopf statt eines Loeschens, das der
+ * naechste Start still rueckgaengig macht (TEC-09). `pruefeEntfernen` nennt
+ * den Grund, warum etwas nicht geht, statt still nichts zu tun (VERW-18).
+ */
+export function ChipListe({
+  label,
+  values,
+  onChange,
+  normalisiere,
+  ungueltig,
+  vorAenderung,
+  pruefeEntfernen,
+  fest = [],
+  festHinweis,
+  formularTexte = false,
+}: {
+  label: string
+  values: string[]
+  onChange: (v: string[]) => void
+  /** Eingabe in die gespeicherte Form bringen; `null` = ungueltig. */
+  normalisiere?: (roh: string) => string | null
+  /** Meldung, wenn `normalisiere` ablehnt. */
+  ungueltig?: string
+  /** Letzte Pruefung vor dem Speichern (Rueckfrage); `false` bricht ab. */
+  vorAenderung?: (neu: string[], entfernt?: string) => boolean
+  /** Grund, warum ein Eintrag nicht entfernt werden kann — oder `null`. */
+  pruefeEntfernen?: (wert: string) => string | null
+  /** Eintraege ohne Loeschknopf (Pflichteintraege). */
+  fest?: string[]
+  /** Warum die festen Eintraege bleiben — steht unter der Liste. */
+  festHinweis?: string
+  /**
+   * Eigene Texte der Liste (Platzhalter, Knopfnamen, Doppelt-Meldung) aus
+   * dem Namensraum `forms`, also immer englisch — fuer den Grading-Bereich,
+   * dessen Bedienleisten bewusst englisch sind. Ohne das stand bei deutscher
+   * Oberflaeche „Hinzufügen …" in den englischen Verteilerlisten
+   * (Audit 11/2026, UID-18).
+   */
+  formularTexte?: boolean
+}) {
+  const { t } = useTranslation()
+  const texte = formularTexte
+    ? {
+        platzhalter: t('forms:admin.addValue'),
+        hinzufuegen: t('forms:admin.addOption', { field: label }),
+        loeschen: (v: string) => t('forms:admin.deleteOption', { value: v }),
+        vergeben: (v: string) => t('forms:admin.optionTaken', { value: v }),
+      }
+    : {
+        platzhalter: t('admin.addValue'),
+        hinzufuegen: `${t('common.add')}: ${label}`,
+        loeschen: (v: string) => `${t('common.delete')}: ${v}`,
+        vergeben: (v: string) => t('admin.valueTaken', { value: v }),
+      }
+  const [draft, setDraft] = useState('')
+  // Meldung unter der Liste; `feld` heisst: Sie gilt der Eingabe (ungueltig),
+  // nicht einem abgelehnten Loeschen — nur dann ist das Feld beanstandet.
+  const [meldung, setMeldung] = useState<{ text: string; feld: boolean } | null>(null)
+  const meldungId = useId()
+  const eingabe = useRef<HTMLInputElement>(null)
+  const knoepfe = useRef(new Map<string, HTMLButtonElement>())
+  // Stelle des zuletzt geloeschten Eintrags: Nach dem Neuzeichnen bekommt
+  // der Nachbar den Fokus.
+  const geloeschtAn = useRef<number | null>(null)
+
+  useEffect(() => {
+    const i = geloeschtAn.current
+    if (i === null) return
+    geloeschtAn.current = null
+    // Nur retten, was verloren ging. Steht der Fokus noch irgendwo (etwa im
+    // Eingabefeld), bleibt er dort.
+    if (document.activeElement && document.activeElement !== document.body) return
+    const loeschbar = (v: string | undefined) => v !== undefined && !fest.includes(v)
+    let ziel: string | undefined
+    for (let j = i; j < values.length && !ziel; j++) if (loeschbar(values[j])) ziel = values[j]
+    for (let j = Math.min(i, values.length) - 1; j >= 0 && !ziel; j--) if (loeschbar(values[j])) ziel = values[j]
+    ;(ziel ? knoepfe.current.get(ziel) : eingabe.current)?.focus()
+    // Ausloeser ist allein die neue Liste; `fest` kommt im selben Zeichnen.
+  }, [values])
+
+  const aendern = (neu: string[], entfernt?: string) => {
+    if (vorAenderung && !vorAenderung(neu, entfernt)) return false
+    onChange(neu)
+    return true
+  }
+  const entfernen = (v: string, i: number) => {
+    const grund = pruefeEntfernen?.(v) ?? null
+    setMeldung(grund ? { text: grund, feld: false } : null)
+    if (grund) return
+    if (aendern(values.filter((x) => x !== v), v)) geloeschtAn.current = i
+  }
+  const add = () => {
+    const roh = draft.trim()
+    if (!roh) return
+    // Ungueltiges bleibt im Feld stehen, damit man es korrigieren kann —
+    // eine Login-Domain „@Example.Test" wurde vorher gespeichert, wie sie
+    // getippt war, und sperrte die ATO aus (VERW-05).
+    const v = normalisiere ? normalisiere(roh) : roh
+    if (v === null) {
+      setMeldung({ text: ungueltig ?? '', feld: true })
+      return
+    }
+    // Schon da, wenn auch anders geschrieben („cl30" bei „CL30")? Dann nicht
+    // anfuegen, sondern den vorhandenen Eintrag nennen. Vorher ging die
+    // zweite Schreibweise durch, und eine exakte Dublette verschwand still
+    // aus dem Feld (Nachtrag VERW#3).
+    const vorhanden = vorhandenerEintrag(values, v)
+    if (vorhanden !== undefined) {
+      setMeldung({ text: texte.vergeben(vorhanden), feld: true })
+      return
+    }
+    setMeldung(null)
+    if (!aendern([...values, v])) return
+    setDraft('')
+  }
+  const festeDa = values.some((v) => fest.includes(v))
+  return (
+    // Gruppe statt <label>: die Beschriftung gehoert zur Liste, nicht zum
+    // ersten Loeschknopf darin.
+    <Field label={label} group>
+      <div className="mb-2 flex flex-wrap gap-2">
+        {values.map((v, i) =>
+          fest.includes(v) ? (
+            // Fest: gestrichelter Rand und Schloss statt Loeschknopf — nicht
+            // gedaempft, der Wert bleibt voll lesbar (VERW-17).
+            <span key={v} className="flex items-center gap-1.5 rounded-full border border-dashed border-line/25 px-3 py-1.5 text-small">
+              <Lock size={12} aria-hidden className="shrink-0 text-dim" />
+              {v}
+            </span>
+          ) : (
+            <span key={v} className="flex items-center gap-0.5 rounded-full bg-raised px-3 py-1.5 text-small">
+              {v}
+              {/* 44 px Trefferflaeche, die per negativem Rand in die Pille
+                  hineinragt — die Pille selbst bleibt so hoch wie Text. */}
+              <button
+                type="button"
+                ref={(el) => {
+                  if (el) knoepfe.current.set(v, el)
+                  else knoepfe.current.delete(v)
+                }}
+                onClick={() => entfernen(v, i)}
+                aria-label={texte.loeschen(v)}
+                className="-my-2 -mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dim transition hover:text-danger"
+              >
+                <X size={15} aria-hidden />
+              </button>
+            </span>
+          ),
+        )}
+      </div>
+      {festeDa && festHinweis && <p className="mb-2 text-micro leading-relaxed text-dim">{festHinweis}</p>}
+      <div className="flex gap-2">
+        <input
+          ref={eingabe}
+          className={`${inputCls} ${meldung?.feld ? 'border-danger/60' : ''}`}
+          value={draft}
+          aria-label={label}
+          aria-invalid={meldung?.feld || undefined}
+          aria-describedby={meldung ? meldungId : undefined}
+          placeholder={texte.platzhalter}
+          onChange={(e) => {
+            setDraft(e.target.value)
+            setMeldung(null)
+          }}
+          onKeyDown={(e) => e.key === 'Enter' && add()}
+        />
+        <Button variant="ghost" onClick={add} label={texte.hinzufuegen}>
+          <Plus size={16} aria-hidden />
+        </Button>
+      </div>
+      {meldung?.text && (
+        <p id={meldungId} role="alert" className="mt-1.5 text-micro leading-relaxed text-danger">
+          {meldung.text}
+        </p>
+      )}
+    </Field>
   )
 }
 
@@ -531,13 +994,18 @@ export function useDialogFokus(panelRef: RefObject<HTMLElement>, onEscape: () =>
   const escRef = useRef(onEscape)
   escRef.current = onEscape
 
+  // Den Auslöser beim ERSTEN Rendern merken, nicht im Effekt: React setzt
+  // `autoFocus` schon beim Einhängen, also vor jedem Effekt. Gemerkt wurde
+  // so das Dialogfeld selbst, und nach dem Schließen fiel der Fokus auf
+  // <body> — in sechs von acht Dialogen (Audit 11/2026, A11Y-03).
+  const [opener] = useState(() => document.activeElement)
+
   // Fokus genau einmal setzen: beim Öffnen in den Dialog, beim Schließen
   // zurück auf das auslösende Element. Hing das früher an close, sprang der
   // Fokus bei jedem getippten Zeichen zwischen Feld und Dialog hin und her —
   // die Seite ruckelte und es kam nur der erste Buchstabe an.
   useEffect(() => {
     const panel = panelRef.current
-    const opener = document.activeElement
     // Das erste Eingabefeld ist der sinnvolle Startpunkt; erst wenn der
     // Dialog keines hat, zählt das erste bedienbare Element. Der
     // Schließen-Knopf steht im Quelltext vorne, ist als Startpunkt aber
@@ -547,9 +1015,10 @@ export function useDialogFokus(panelRef: RefObject<HTMLElement>, onEscape: () =>
     const target = field ?? items[0]
     if (target) target.focus()
     else panel?.focus()
-    return () => {
-      ;(opener as HTMLElement | null)?.focus?.()
-    }
+    // Ist der Auslöser weg oder war es <body> (Dialog beim Laden geöffnet,
+    // etwa der DocCheck-Hinweis), weicht der Fokus auf die Seitenüberschrift
+    // aus, statt auf <body> zu fallen (A11Y-17).
+    return () => fokusZurueck(opener)
   }, [])
 
   useEffect(() => {
@@ -578,20 +1047,79 @@ export function useDialogFokus(panelRef: RefObject<HTMLElement>, onEscape: () =>
   }, [panelRef])
 }
 
+/**
+ * Verbindung zwischen einem Dialog und seiner Meldezeile: Steht dort eine
+ * Ablehnung, beschreibt sie den Dialog (aria-describedby).
+ */
+const DialogKontext = createContext<{ meldungId: string; meldungZeigen: (da: boolean) => void } | null>(null)
+
+/**
+ * Die Meldezeile eines Dialogs — für Ablehnungen, solange er offen ist.
+ *
+ * Audit 11/2026, R3-DIALOGMELDUNG: Abgewiesenes („Benutzer anlegen", „Gruppe
+ * anlegen", Umfrage, Import) kam als Toast. Der Streifen liegt im unteren
+ * Stapel UNTER dem Dialog — am iPhone deckte ihn das Bottom-Sheet ganz zu,
+ * und der Klick auf „Speichern" schien nichts zu bewirken. Den Stapel höher
+ * zu legen hätte den Offline-Streifen dauerhaft über „Speichern" gelegt.
+ * Entscheidung: Die Meldung steht IM Dialog — am Feld, wenn sie zu einem
+ * gehört (`dialogMeldung.ts`), sonst hier, direkt über den Dialogknöpfen,
+ * also dort, wo der Blick nach dem Tippen ist. Der Dialog bleibt offen, die
+ * Eingaben bleiben stehen. Toasts bleiben Quittungen NACH dem Schließen.
+ *
+ *  - `role="alert"` an der Meldung: Sprachausgaben lesen sie sofort vor.
+ *    Die umgebende Live-Region (`aria-live="assertive"`) steht IMMER im
+ *    Baum, leer, bis etwas kommt — eine Region, die mit ihrem Text
+ *    erscheint, wird nicht zuverlässig vorgelesen (wie beim ToastHost).
+ *    Die Rolle sitzt erst an der Meldung, damit ein leerer Dialog keinen
+ *    stummen „Alarm" führt.
+ *  - `aria-describedby` am Dialog zeigt auf die Meldung, solange sie steht.
+ *  - Erscheint sie, rollt das Bottom-Sheet sie in den sichtbaren Bereich.
+ */
+export function DialogMeldung({ text }: { text?: string | null }) {
+  const kontext = useContext(DialogKontext)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    kontext?.meldungZeigen(!!text)
+    // jsdom kennt scrollIntoView nicht — daher der optionale Aufruf.
+    if (text) ref.current?.scrollIntoView?.({ block: 'nearest', behavior: scrollVerhalten() })
+  }, [text, kontext])
+  useEffect(() => () => kontext?.meldungZeigen(false), [kontext])
+  return (
+    <div ref={ref} id={kontext?.meldungId} aria-live="assertive" className="empty:hidden">
+      {text && (
+        // Getönte Fläche mit Rand trägt die Farbe, die Schrift bleibt ink —
+        // farbige Schrift auf eigener Fläche lag unter 4,5:1 (A11Y-05).
+        <p role="alert" className="flex items-start gap-2 rounded-xl border border-bad/40 bg-bad/10 p-3 text-small leading-relaxed">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-bad" aria-hidden />
+          <span className="min-w-0 flex-1">{text}</span>
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function Modal({
   title,
   onClose,
   children,
   confirmDiscard,
+  lang,
 }: {
   title: string
   onClose: () => void
   children: ReactNode
   /** Rückfrage vor dem Verwerfen (Text); ohne Angabe schließt der Dialog sofort */
   confirmDiscard?: string
+  /** Sprache des Inhalts, wenn sie von der Oberfläche abweicht (Grading: immer
+   *  `en`). Der Dialog hängt am <body> und erbt sie nicht von seiner Seite. */
+  lang?: string
 }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const panelRef = useRef<HTMLDivElement>(null)
+  // Meldezeile (DialogMeldung): Steht eine Ablehnung, beschreibt sie den Dialog.
+  const meldungId = useId()
+  const [meldungDa, setMeldungDa] = useState(false)
+  const kontext = useMemo(() => ({ meldungId, meldungZeigen: setMeldungDa }), [meldungId])
 
   const close = useCallback(() => {
     if (confirmDiscard && !window.confirm(confirmDiscard)) return
@@ -609,7 +1137,12 @@ export function Modal({
     }
   }, [])
 
-  return (
+  // Direkt unter <body>, nicht an Ort und Stelle: In einem `space-y-*`-Stapel
+  // bekam die feste Abdunklung den Zeilenabstand als margin-top. Oben blieb
+  // ein heller Streifen von 12 px, und ein Klick dorthin traf den
+  // Zurück-Knopf der Kopfleiste — die App sprang auf die Startseite, die
+  // Eingaben im Dialog waren ohne Rückfrage weg (Audit 11/2026, UID-04).
+  return createPortal(
     <div
       className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 p-0 sm:items-center sm:p-6"
       onClick={close}
@@ -620,23 +1153,32 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        aria-describedby={meldungDa ? meldungId : undefined}
+        lang={lang}
         tabIndex={-1}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-line/10 bg-surface p-5 shadow-tile sm:rounded-3xl"
+        // Unten Platz für den Home-Indikator, solange der Dialog am Rand
+        // sitzt (Bottom-Sheet); mittig ab sm genügt der normale Abstand (MOB-07).
+        className="max-h-dialog w-full max-w-lg overflow-y-auto rounded-t-3xl border border-line/10 bg-surface px-5 pb-safe-5 pt-5 shadow-tile sm:rounded-3xl sm:pb-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start gap-3">
           <h2 className="min-w-0 flex-1 text-head font-semibold">{title}</h2>
+          {/* „Schließen" kommt aus `common`, also in der Sprache der
+              Oberfläche — in einem englischen Dialog sagt der Knopf das
+              selbst, wie die übrigen Bedienknöpfe dort (A11Y-12). */}
           <button
             onClick={close}
             aria-label={t('common.close')}
             title={t('common.close')}
+            lang={lang ? i18n.language : undefined}
             className="-mr-1 -mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-ink"
           >
             <X size={18} />
           </button>
         </div>
-        {children}
+        <DialogKontext.Provider value={kontext}>{children}</DialogKontext.Provider>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

@@ -1,9 +1,10 @@
 import { teilLesen as zipTeilLesen, zipOeffnen } from './zip'
 import { LEERE_LENKUNG, type Lenkung, type Rechtscharakter, type Rohdokument, type WordExtrakt, type WortAbschnitt } from './model'
+import { nummerierungLesen, zaehlerAnlegen } from './nummerierung'
 import { seitenAusEinheiten, tocEintrag, tocZuordnung } from './seitenzuordnung'
 import { stileLesen } from './wordStile'
 import { teilLesen } from './wordTeil'
-import { entitaeten, xmlEreignisse } from './xml'
+import { xmlEreignisse, type XmlEreignis } from './xml'
 
 /**
  * DOCX lesen — ein Leseweg über jszip und die XML-Teile (Entscheidung
@@ -23,28 +24,49 @@ export function ueberschriftStile(stylesXml: string): Map<string, number> {
   return out
 }
 
+/**
+ * Ereignisse eines Nebenteils (Eigenschaften, Einstellungen). Kaputt heißt
+ * hier „keine Angaben", nicht „Dokument unlesbar" — die Teile sind optional.
+ */
+function nebenteil(xml?: string): XmlEreignis[] {
+  try {
+    return xml ? [...xmlEreignisse(xml)] : []
+  } catch {
+    return []
+  }
+}
+
+/** Erster nicht leerer Text je Element — der Kern und app.xml sind flach. */
+function flacheFelder(xml: string | undefined, tags: Map<string, string>): Record<string, string> {
+  const out: Record<string, string> = {}
+  let offen: string | null = null
+  let wert = ''
+  for (const e of nebenteil(xml)) {
+    if (e.typ === 'auf' && tags.has(e.name) && !(tags.get(e.name)! in out)) {
+      offen = e.name
+      wert = ''
+    } else if (e.typ === 'text' && offen) wert += e.text
+    else if (e.typ === 'zu' && e.name === offen) {
+      if (wert.trim()) out[tags.get(offen)!] = wert.trim()
+      offen = null
+    }
+  }
+  return out
+}
+
 /** Eigenschaften aus docProps/core.xml, docProps/custom.xml und docProps/app.xml. */
 export function eigenschaftenLesen(coreXml?: string, customXml?: string, appXml?: string): Record<string, string> {
-  const out: Record<string, string> = {}
-  const feld = (xml: string, tag: string) => xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`))?.[1]
-  if (coreXml) {
-    // Direkt per Muster: Der Kern ist flach, und Element- und Textknoten
-    // heißen hier gleich (dc:title enthält unmittelbar Text).
-    for (const [tag, k] of [['dc:title', 'title'], ['dc:subject', 'subject'], ['dc:creator', 'creator'], ['cp:lastModifiedBy', 'lastModifiedBy'], ['dcterms:modified', 'modified']] as const) {
-      const v = feld(coreXml, tag)
-      if (v?.trim()) out[k] = entitaeten(v).trim()
-    }
-    // cp:revision ist der Speicherzähler von Word, NICHT die Dokumentrevision
-    // — bewusst ignoriert.
-  }
-  if (appXml) {
-    const p = feld(appXml, 'Pages')
-    if (p && /^\d+$/.test(p.trim())) out.pages = p.trim()
-  }
+  // Über den Ereignisstrom statt per Muster: „<dc:title[^>]*>([\s\S]*?)</…>"
+  // lief bei vielen unbeendeten Tags quadratisch (Audit 11/2026, SEC-01).
+  // cp:revision ist der Speicherzähler von Word, NICHT die Dokumentrevision
+  // — bewusst ignoriert.
+  const out = flacheFelder(coreXml, new Map([['dc:title', 'title'], ['dc:subject', 'subject'], ['dc:creator', 'creator'], ['cp:lastModifiedBy', 'lastModifiedBy'], ['dcterms:modified', 'modified']]))
+  const p = flacheFelder(appXml, new Map([['Pages', 'pages']])).pages
+  if (p && /^\d+$/.test(p)) out.pages = p
   if (customXml) {
     let name: string | null = null
     let wert = ''
-    for (const e of xmlEreignisse(customXml)) {
+    for (const e of nebenteil(customXml)) {
       if (e.typ === 'auf' && e.name === 'property') {
         name = e.attr.name ?? null
         wert = ''
@@ -60,14 +82,39 @@ export function eigenschaftenLesen(coreXml?: string, customXml?: string, appXml?
   return out
 }
 
-export async function docxLesen(daten: Uint8Array | ArrayBuffer, vorgabe?: Rechtscharakter): Promise<Rohdokument> {
+export async function docxLesen(daten: Uint8Array | ArrayBuffer, vorgabe?: Rechtscharakter, signal?: AbortSignal): Promise<Rohdokument> {
   const zip = await zipOeffnen(daten)
-  const lies = (pfad: string) => zipTeilLesen(zip, pfad)
+  // Abbrechen (DC-01): Das Entpacken jedes Teils gibt die Ereignisschleife
+  // frei — danach wird nachgesehen, statt das ganze Dokument fertig zu lesen.
+  const lies = async (pfad: string) => {
+    const xml = await zipTeilLesen(zip, pfad)
+    if (signal?.aborted) throw new Error('DC-ABORTED')
+    return xml
+  }
   const doc = await lies('word/document.xml')
   if (!doc) throw new Error('DC-DOCX-INVALID')
   const stile = stileLesen((await lies('word/styles.xml')) ?? '')
+  // Automatische Nummerierung (FRD-01): ohne sie heißt „1 General" nur „General".
+  const nummern = zaehlerAnlegen(nummerierungLesen((await lies('word/numbering.xml')) ?? ''), (id) => stile.stile.get(id)?.numId)
 
-  const haupt = teilLesen(doc, { teil: 'word/document.xml', ort: 'body', stile, startNr: 0 })
+  // Fuß- und Endnoten VOR dem Haupttext: Er braucht ihren Text an der
+  // Verweisstelle (Audit 11/2026, FRD-13 — vorher wurden sie nie gelesen).
+  // Ohne Nummernzähler: Eine Liste in einer Fußnote zählte sonst vor den
+  // Kapiteln des Haupttexts mit.
+  const notenTeile = await Promise.all((['word/footnotes.xml', 'word/endnotes.xml'] as const).map(async (pfad) => {
+    const xml = await lies(pfad)
+    return xml ? teilLesen(xml, { teil: pfad, ort: 'fussnote', stile, startNr: 0 }) : null
+  }))
+  const [fuss, end] = notenTeile.map((teil) => {
+    const texte = new Map<string, string>()
+    for (const a of teil?.absaetze ?? []) {
+      const t = a.text.replace(/\s+/g, ' ').trim()
+      if (a.notiz !== undefined && t) texte.set(a.notiz, texte.has(a.notiz) ? `${texte.get(a.notiz)} ${t}` : t)
+    }
+    return texte
+  })
+
+  const haupt = teilLesen(doc, { teil: 'word/document.xml', ort: 'body', stile, startNr: 0, nummern, noten: { fuss, end } })
   const absaetze = [...haupt.absaetze]
   const laeufe = [...haupt.laeufe]
 
@@ -90,6 +137,14 @@ export async function docxLesen(daten: Uint8Array | ArrayBuffer, vorgabe?: Recht
     const text = teil.absaetze.map((a) => a.text.replace(/\s+/g, ' ').trim()).filter(Boolean).join(' | ')
     kopfFussText.set(pfad, text)
     if (text) (m[1] === 'header' ? lenkung.kopfzeilen : lenkung.fusszeilen).push(text)
+  }
+  // Notenabsätze gehören zum Word-Extrakt (Word-Check, Sprache); ihre
+  // Nummern schließen an, damit jede Absatznummer eindeutig bleibt.
+  for (const teil of notenTeile) {
+    if (!teil) continue
+    const versatz = absaetze.length
+    absaetze.push(...teil.absaetze.map((a) => ({ ...a, nr: a.nr + versatz })))
+    laeufe.push(...teil.laeufe.map((l) => ({ ...l, absatz: l.absatz + versatz })))
   }
   const verwendet = new Set<string>()
   const abschnitte: WortAbschnitt[] = haupt.sektionen.map((s, i) => {
@@ -118,9 +173,11 @@ export async function docxLesen(daten: Uint8Array | ArrayBuffer, vorgabe?: Recht
   const eig = eigenschaftenLesen(await lies('docProps/core.xml'), await lies('docProps/custom.xml'), await lies('docProps/app.xml'))
   lenkung.eigenschaften = Object.fromEntries(Object.entries(eig).filter(([k]) => ['title', 'subject', 'revision', 'docNumber'].includes(k)))
 
-  const einstellungen = (await lies('word/settings.xml')) ?? ''
-  const kompat = einstellungen.match(/w:name="compatibilityMode"[^>]*w:val="(\d+)"/) ?? einstellungen.match(/w:val="(\d+)"[^>]*w:name="compatibilityMode"/)
-  const hintergrund = doc.match(/<w:background[^>]*w:color="([0-9A-Fa-f]{6})"/)?.[1]?.toUpperCase()
+  // Kompatibilitätsmodus über den Ereignisstrom — die Muster mit „[^>]*" liefen
+  // bei vielen unbeendeten Tags quadratisch (SEC-01).
+  const kompatWert = nebenteil(await lies('word/settings.xml')).find((e) => e.typ === 'auf' && e.name === 'w:compatSetting' && e.attr['w:name'] === 'compatibilityMode')
+  const kompat = kompatWert?.typ === 'auf' && /^\d+$/.test(kompatWert.attr['w:val'] ?? '') ? Number(kompatWert.attr['w:val']) : undefined
+  const hintergrund = haupt.seitenhintergrund
 
   const toc = absaetze.filter((a) => a.ort === 'body' && a.toc).map((a) => ({ ...tocEintrag(a.text), ebene: a.toc! }))
   const word: WordExtrakt = {
@@ -129,7 +186,7 @@ export async function docxLesen(daten: Uint8Array | ArrayBuffer, vorgabe?: Recht
     abschnitte,
     verwaisteKopfFuss: [...kopfFussText.keys()].filter((k) => !verwendet.has(k)),
     standard: stile.standard,
-    ...(kompat ? { kompatibilitaet: Number(kompat[1]) } : {}),
+    ...(kompat ? { kompatibilitaet: kompat } : {}),
     ...(hintergrund ? { seitenhintergrund: hintergrund } : {}),
     eigenschaften: {
       title: eig.title,

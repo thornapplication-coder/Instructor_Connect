@@ -5,6 +5,7 @@ import { Badge, Button, Card, CardHeading } from '../../../components/ui'
 import { formatDate } from '../../../datum'
 import { korrekturen, paketStand } from '../recheck/ablauf'
 import { paketBestaetigen, paketSetzen, paketStruktur, setzen, useSitzung, type SitzungsDok } from '../sitzung'
+import { paketVergleich } from '../paket/struktur'
 import { standardVerbindung } from '../verbindung'
 import { useStore } from '../../../store'
 import { aktiv } from '../settings'
@@ -45,14 +46,15 @@ export function PaketUmschalter() {
   const { t } = useTranslation('doccheck')
   const { paketModus } = useSitzung()
   return (
-    <div className="flex gap-2" role="radiogroup" aria-label={t('paket.modus')}>
+    // Umbrechen je Knopf, nie im Wort: Bei 320 px brach „Einzeldokumente" mitten im Wort (Audit 11/2026, A11Y-11)
+    <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('paket.modus')}>
       {([false, true] as const).map((p) => (
         <button
           key={String(p)}
           role="radio"
           aria-checked={!!paketModus === p}
           onClick={() => setzen((s) => ({ ...s, paketModus: p }))}
-          className={`min-h-11 flex-1 rounded-xl border px-3 text-small transition ${!!paketModus === p ? 'border-accent/60 bg-accent/15 font-semibold' : 'border-line/15 hover:bg-line/5'}`}
+          className={`min-h-11 flex-1 whitespace-nowrap rounded-xl border px-3 text-small transition ${!!paketModus === p ? 'border-accent/60 bg-accent/15 font-semibold' : 'border-line/15 hover:bg-line/5'}`}
         >
           {t(p ? 'paket.paket' : 'paket.einzeln')}
         </button>
@@ -88,7 +90,7 @@ function Zeile({ d }: { d: SitzungsDok }) {
 export function PaketPanel() {
   const { t } = useTranslation('doccheck')
   const z = useSitzung()
-  const docs = z.docs.filter((d) => d.rolle === 'review' && d.status === 'fertig' && d.paket).sort((a, b) => a.paket!.ebene - b.paket!.ebene || a.paket!.kuerzel.localeCompare(b.paket!.kuerzel, 'de', { numeric: true }))
+  const docs = z.docs.filter((d) => d.rolle === 'review' && d.status === 'fertig' && d.paket).sort((a, b) => paketVergleich(a.paket!, b.paket!))
   const e = z.paketErgebnis?.ergebnis
   const erkannt = docs.some((d) => d.paket!.erkannt)
   if (!docs.length) {

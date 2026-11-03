@@ -2,42 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { Card, Page, TopBar } from '../components/ui'
 import { useStore } from '../store'
 import { APP_VERSION } from '../types'
-
-type Block = { type: 'p'; text: string } | { type: 'ul'; items: string[] }
-
-interface Section {
-  title: string | null
-  blocks: Block[]
-}
-
-/**
- * Wandelt den im Admin Panel gepflegten Klartext in Abschnitte um:
- * "# " beginnt einen Abschnitt mit Überschrift, "- " eine Aufzählungszeile,
- * Leerzeilen trennen Absätze. Text vor der ersten Überschrift wird als
- * Einleitung gerendert.
- */
-export function parseImprint(text: string): Section[] {
-  const sections: Section[] = []
-  let current: Section = { title: null, blocks: [] }
-  const pushSection = () => {
-    if (current.title !== null || current.blocks.length > 0) sections.push(current)
-  }
-  for (const rawLine of text.split('\n')) {
-    const line = rawLine.trim()
-    if (line.startsWith('# ')) {
-      pushSection()
-      current = { title: line.slice(2).trim(), blocks: [] }
-    } else if (line.startsWith('- ')) {
-      const last = current.blocks[current.blocks.length - 1]
-      if (last && last.type === 'ul') last.items.push(line.slice(2).trim())
-      else current.blocks.push({ type: 'ul', items: [line.slice(2).trim()] })
-    } else if (line.length > 0) {
-      current.blocks.push({ type: 'p', text: line })
-    }
-  }
-  pushSection()
-  return sections
-}
+import { parseImprint } from '../imprint'
 
 export function Imprint() {
   const { t, i18n } = useTranslation()

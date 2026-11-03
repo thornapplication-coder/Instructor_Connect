@@ -28,6 +28,12 @@ describe('Regel-IDs (Spez. 7.5)', () => {
     expect(regelIds('see FCL.740. A pilot shall FCL.740.Additional')).toEqual(['FCL.740'])
   })
 
+  it('Part-FCL Subpart J: mehrbuchstabige Endung samt Absatz (Audit 11/2026, FRD-12)', () => {
+    expect(regelIds('FCL.930.FI(b)(3), FCL.915.CRI, GM1 FCL.930.FI, FCL.905.TRI(b), AMC1 FCL.930.FI(c)')).toEqual(['FCL.930.FI(b)(3)', 'FCL.915.CRI', 'GM1 FCL.930.FI', 'FCL.905.TRI(b)', 'AMC1 FCL.930.FI(c)'])
+    // Unverändert: ein Buchstabe, zwei Mittelglieder, vierstellig; Folgewort und Satzpunkt sind kein Suffix
+    expect(regelIds('FCL.740.A, ORA.ATO.230, FCL.1015, FCL.930.FIRST, FCL.930.Flight')).toEqual(['FCL.740.A', 'ORA.ATO.230', 'FCL.1015', 'FCL.930'])
+  })
+
   it('CS-Artikel mit Bindestrich oder Leerzeichen, einheitlich geschrieben', () => {
     expect(regelIds('CS FCD.420 and CS-25.1309, AMC1 CS FCD.420')).toEqual(['CS-FCD.420', 'CS-25.1309', 'AMC1 CS-FCD.420'])
     expect(normalisieren('AMC1   CS FCD.420')).toBe('AMC1 CS-FCD.420')

@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
+import { registrierteArbeitOffen } from '../../editGuard'
 import type { Zusammenfassung } from './kern'
+import type { ReCheckSitzung } from './recheck/ablauf'
 import {
-  abonnieren, aktualisiert, bestaetigen, paketBestaetigen, paketSetzen, paketStruktur, paketVorbelegen, datei, dateiAblegen, dateiEntfernen, duplikatFuer, entfernen, fehler, feldSetzen, fertig, fortschritt, fuerNutzer, LEER, lesenZustand, neu, offenePflichtfelder, setzen,
+  abbruchAnfordern, abonnieren, befundZahl, offeneArbeit, referenzenSetzen, aktualisiert, bestaetigen, paketBestaetigen, paketSetzen, paketStruktur, paketVorbelegen, datei, dateiAblegen, dateiEntfernen, duplikatFuer, entfernen, fehler, feldSetzen, fertig, fortschritt, fuerNutzer, LEER, leerGrund, lesenZustand, neu, offenePflichtfelder, setzen,
 } from './sitzung'
 
 const zf = (id: string, meta: Partial<Zusammenfassung['meta']> = {}, sha = 'h' + id): Zusammenfassung => ({
@@ -52,6 +54,41 @@ describe('Sitzungsübergänge', () => {
     expect(entfernen(z, 'a').docs.map((d) => d.id)).toEqual(['b'])
   })
 
+  it('Abbrechen angefordert: nur während des Lesens gemerkt (DC-01)', () => {
+    let z = neu(neu(LEER, { id: 'a', rolle: 'review', name: 'a', groesse: 1 }), { id: 'b', rolle: 'review', name: 'b', groesse: 1 })
+    z = fertig(z, 'b', zf('b'))
+    z = abbruchAnfordern(abbruchAnfordern(z, 'a'), 'b')
+    expect(z.docs.map((d) => d.abbruch)).toEqual([true, undefined])
+  })
+
+  it('leerGrund: geladenes Prüfdokument ohne Prüfung heißt „abgeschaltet", nicht „hochladen" (Audit 11/2026, DC-12)', () => {
+    let z = neu(LEER, { id: 'm', rolle: 'master', name: 'm', groesse: 1 })
+    z = fertig(z, 'm', zf('m'))
+    // Nur ein Master, und ein Prüfdokument liest noch: es gibt noch nichts Geprüftes
+    z = neu(z, { id: 'a', rolle: 'review', name: 'a', groesse: 1 })
+    expect(leerGrund(z.docs)).toBe('keineDokumente')
+    z = fertig(z, 'a', zf('a'))
+    expect(leerGrund(z.docs)).toBe('abgeschaltet')
+    z = aktualisiert(z, { ...zf('a'), pruefung: { befunde: [], ampel: {} } as never })
+    expect(leerGrund(z.docs)).toBeNull()
+  })
+
+  it('befundZahl: Paketbefunde beim Dokument zählen mit, nur im Paketmodus (Audit 11/2026, DC-14)', () => {
+    const b = (dokId: string, prioritaet: 'High' | 'Medium' = 'Medium') => ({ dokId, prioritaet }) as never
+    let z = neu(neu(LEER, { id: 'a', rolle: 'review', name: 'a', groesse: 1 }), { id: 'b', rolle: 'review', name: 'b', groesse: 1 })
+    z = fertig(z, 'a', { ...zf('a'), pruefung: { befunde: [], ampel: {} } as never })
+    z = fertig(z, 'b', { ...zf('b'), pruefung: { befunde: [b('b', 'High')], ampel: {} } as never })
+    const paket = { befunde: [b('a'), b('a'), b('a', 'High'), b('a'), b('b')], uebersicht: [], ampel: {} }
+    // Ohne eigene, aber mit vier Paketbefunden: nie „ohne Befund"
+    expect(befundZahl(z.docs[0], paket, true)).toEqual({ eigen: 0, paket: 4, hoch: 1, paketHoch: 1 })
+    expect(befundZahl(z.docs[1], paket, true)).toEqual({ eigen: 1, paket: 1, hoch: 1, paketHoch: 0 })
+    // Paketmodus aus oder noch kein Ergebnis → 0
+    expect(befundZahl(z.docs[0], paket, false)).toEqual({ eigen: 0, paket: 0, hoch: 0, paketHoch: 0 })
+    expect(befundZahl(z.docs[0], undefined, true)).toEqual({ eigen: 0, paket: 0, hoch: 0, paketHoch: 0 })
+    // Noch nicht gelesen: nichts
+    expect(befundZahl(neu(LEER, { id: 'c', rolle: 'review', name: 'c', groesse: 1 }).docs[0], paket, true)).toEqual({ eigen: 0, paket: 0, hoch: 0, paketHoch: 0 })
+  })
+
   it('Pflichtfelder: Revision immer, Titel für Master', () => {
     const r = neu(LEER, { id: 'a', rolle: 'review', name: 'a', groesse: 1 }).docs[0]
     const m = neu(LEER, { id: 'm', rolle: 'master', name: 'm', groesse: 1 }).docs[0]
@@ -98,6 +135,47 @@ describe('Speicher', () => {
     dateiAblegen('z', new Uint8Array())
     dateiEntfernen('z')
     expect(datei('z')).toBeUndefined()
+  })
+
+  it('auch Referenzlisten oder ein Re-Check ohne Dokument gelten als verworfen — sonst wirkt das Glossar des Vorgängers im Worker weiter (Audit 11/2026, Nachtrag SEC#1)', () => {
+    // Nachgestellt: A lädt nur ein Glossar, „Ansicht als" B, B liest ein Dokument
+    // und bekommt Befunde „… glossary glossar-a.csv". Ein true lässt DocCheckApp den Worker beenden.
+    fuerNutzer('a')
+    setzen((z) => referenzenSetzen(z, [{ liste: null, datei: 'glossar-a.csv', zeilen: [] }]))
+    expect(fuerNutzer('b')).toBe(true)
+    expect(lesenZustand()).toEqual({ nutzer: 'b', docs: [] })
+    setzen((z) => ({ ...z, recheck: {} as ReCheckSitzung }))
+    expect(fuerNutzer('c')).toBe(true)
+    expect(lesenZustand().recheck).toBeUndefined()
+    // Leere Sitzung: nichts zu verwerfen, der Worker darf bleiben
+    expect(fuerNutzer('d')).toBe(false)
+    setzen((z) => referenzenSetzen(z, []))
+    expect(fuerNutzer(null)).toBe(false)
+  })
+})
+
+describe('Offene Arbeit für das automatische Update (Audit 11/2026, TEC-02)', () => {
+  /*
+   * Vorher lud ein DocCheck-Tab nach jedem Deployment binnen einer Minute von
+   * selbst neu — eingelesene Pakete, OCR-Läufe und Re-Check-Bestätigungen
+   * waren ohne Rückfrage weg. Die Sitzung meldet sich deshalb beim Laden des
+   * Moduls bei der Bearbeitungs-Wache an.
+   */
+  it('zählt Dokumente, Referenzlisten und einen Re-Check — eine leere Sitzung nicht', () => {
+    expect(offeneArbeit(LEER)).toBe(false)
+    expect(offeneArbeit({ ...LEER, referenzen: [] })).toBe(false)
+    expect(offeneArbeit(neu(LEER, { id: 'a', rolle: 'review', name: 'a', groesse: 1 }))).toBe(true)
+    expect(offeneArbeit(referenzenSetzen(LEER, [{ liste: null, datei: 'soll.xlsx', zeilen: [] }]))).toBe(true)
+    expect(offeneArbeit({ ...LEER, recheck: {} as ReCheckSitzung })).toBe(true)
+  })
+
+  it('ist bei der Wache angemeldet: Dokument da → offen, nach dem Abmelden nicht mehr', () => {
+    fuerNutzer('u-tec02')
+    expect(registrierteArbeitOffen()).toBe(false)
+    setzen((z) => neu(z, { id: 'p', rolle: 'review', name: 'p.docx', groesse: 1 }))
+    expect(registrierteArbeitOffen()).toBe(true)
+    fuerNutzer(null)
+    expect(registrierteArbeitOffen()).toBe(false)
   })
 })
 

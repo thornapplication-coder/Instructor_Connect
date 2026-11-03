@@ -1,0 +1,113 @@
+{
+  "_hinweis": "Beschriftungen aller Exporte (Spez. v1.1 Kap. 10.1 Nr. 4) — immer englisch, unabhängig von der Oberfläche.",
+  "disclaimer": "AI-assisted review – expert approval required",
+  "product": "DocCheck Review",
+  "sheets": { "summary": "Summary", "findings": "Findings", "matrix": "Compliance Matrix", "sources": "Documents & Sources" },
+  "columns": [
+    "ID", "Document", "Document No.", "Revision / Date", "Chapter / Section", "Page", "Paragraph / Line", "Affected Text (Excerpt)",
+    "Reference", "Reference Type", "Requirement (Summary)", "Master Quote (verbatim)", "Source (Library/Session)", "Category", "Technical Type",
+    "Priority", "Finding", "Proposed Correction", "Other Affected Documents", "Verification", "Revision Status", "Responsible", "Due Date", "Status"
+  ],
+  "ident": {
+    "organisation": "Organisation",
+    "document": "Document under review",
+    "reviewType": "Review type",
+    "reviewDate": "Review date",
+    "reviewedBy": "Reviewed by",
+    "library": "Library state",
+    "masters": "Master documents used",
+    "checks": "Checks performed",
+    "models": "AI model(s)",
+    "overall": "Overall assessment",
+    "exportId": "Export ID",
+    "versions": "App version · Layout version",
+    "disclaimer": "Disclaimer"
+  },
+  "reviewType": { "erst": "Initial review", "revision": "Revision review" },
+  "overall": {
+    "ready": "Ready for submission",
+    "afterCorrection": "Ready for submission after correction",
+    "notReady": "Not ready for submission",
+    "notAssessable": "Not assessable – text recognition pending"
+  },
+  "overallBasis": "Proposed from the rule-based checks: open High findings make the document not ready; pages without a text layer make it not assessable until text recognition has run; any open finding requires correction. To be confirmed by the reviewer.",
+  "checks": {
+    "formal": "Formal check",
+    "verweis": "References within the document (exercise numbers, circular references)",
+    "word": "Word technical check",
+    "sprache": "Language & placeholders",
+    "referenz": "Reference lists",
+    "rechnen": "Calculations & plausibility",
+    "regelwerk": "Regulatory references (against loaded regulations)",
+    "paket": "Package check (hierarchy, siblings, references between documents)"
+  },
+  "noChecks": "None – no check was active",
+  "noModel": "None – rule-based checks only (AI review not performed)",
+  "further": { "one": "+ 1 further document", "other": "+ {n} further documents" },
+  "categories": ["Non-Compliance", "Gap", "Inconsistency", "Document Control", "Editorial", "Recommendation"],
+  "priorities": ["High", "Medium", "Low"],
+  "statuses": ["Open", "In Progress", "Closed", "Rejected"],
+  "verifications": ["Verified", "Verified (partial)", "Verified (rule-based)", "To verify", "To verify – source not in library", "Not verifiable – source missing"],
+  "revisionStatuses": ["New", "Open", "Partially resolved", "Resolved"],
+  "sourceKinds": { "review": "Document under review", "library": "Library – released", "session": "Session document – not released" },
+  "summary": {
+    "byCategory": "Findings by category and priority",
+    "total": "Total",
+    "toVerify": "To verify",
+    "formal": "Formal check (traffic light per checkpoint)",
+    "top5": "Top 5 critical findings",
+    "noFindings": "No findings."
+  },
+  "ampel": { "ok": "Green", "wait": "Yellow", "bad": "Red", "na": "Not applicable" },
+  "matrix": {
+    "columns": ["Requirement (Reference + Summary)", "Type", "Location in Document", "Status", "Finding ID(s)"],
+    "notGenerated": "Not generated: the compliance matrix requires the AI review (phase 4). The rule-based checks do not assess whether a requirement is met."
+  },
+  "sources": {
+    "columns": ["Source", "Type", "Title", "Document No.", "Revision", "Date", "Rank", "Pages", "SHA-256 (short)"],
+    "method": "Method",
+    "methodText": "Rule-based checks run locally in the browser on reading each document. No document content leaves the device. Figures and images are not checked.",
+    "hierarchy": "Source hierarchy",
+    "hierarchyText": "Documents under review are checked against loaded master and session documents; a lower-level document is corrected against the higher-level one."
+  },
+  "report": {
+    "title": "Document Review Report",
+    "control": "Document Control",
+    "history": "Report history",
+    "contents": "Contents",
+    "executive": "Executive Summary",
+    "scope": "Scope",
+    "rationale": "Rationale",
+    "findingsSection": "Findings",
+    "matrix": "Compliance Matrix",
+    "sources": "Documents & Sources",
+    "method": "Method & Limitations",
+    "limitations": "Limitations: figures and images are not checked; results of an AI review require expert approval. This report contains rule-based results only.",
+    "approval": "Approval",
+    "approvalFields": ["Name", "Function", "Date", "Signature"],
+    "reviewedBy": "Reviewed by",
+    "approvedBy": "Approved by",
+    "findingsColumns": ["ID", "Chapter / Page", "Excerpt", "Reference (Type)", "Finding", "Proposed Correction", "Priority", "Status", "Verification"],
+    "noChapter": "Without chapter",
+    "location": "Location",
+    "checkpoint": "Checkpoint",
+    "notApplicableShort": "n.a.",
+    "notRun": "–",
+    "matrixLegend": "n.a. = Not applicable; – = not checked for this document."
+  },
+  "briefing": {
+    "title": "Document Review Briefing",
+    "scope": "Scope & Basis",
+    "overall": "Overall Assessment",
+    "byCategory": "Findings by Category and Priority",
+    "top5": "Top 5 Critical Findings",
+    "formal": "Formal & Document Control",
+    "next": "Next Steps",
+    "nextEmpty": "To be assigned",
+    "method": "Method & Disclaimer",
+    "seeId": "see",
+    "more": "+ {n} further – see Excel/Word (Export ID {id})",
+    "noChecks": "No formal checks performed.",
+    "tiles": ["Total", "High", "Medium", "Low", "To verify"]
+  }
+}

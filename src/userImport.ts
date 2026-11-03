@@ -1,6 +1,7 @@
-import { musterFehlt } from './aircraftScope'
+import { gruppenPflicht, gruppenTauglich, musterFehlt } from './aircraftScope'
 import { csvRow } from './csv'
-import type { Role, User } from './types'
+import { domainErlaubt } from './domains'
+import type { Group, Role, Settings, User } from './types'
 
 /**
  * Nutzer aus einer Tabelle anlegen.
@@ -74,6 +75,9 @@ export type ImportProblem =
   | 'aircraft'
   /** Musterpflichtige Rolle ohne ein einziges gueltiges Muster. Blockiert. */
   | 'aircraftMissing'
+  /** Beispielzeile der Vorlage (Adresse auf `.invalid`). Wird uebersprungen,
+   *  nicht angelegt und in der Vorschau nicht mitgezaehlt. Steht allein. */
+  | 'example'
 
 export interface ImportRow {
   /** Zeilennummer in der Datei, 1-basiert inkl. Kopfzeile — damit der
@@ -104,23 +108,87 @@ export interface ImportResult {
 /* ===================== Vorlage ===================== */
 
 /**
+ * Dateinamen der beiden Vorlagen — EIN Schema fuer beide Formate. Vorher
+ * hiess die Excel-Datei „Instructor-Connect-Benutzer-Vorlage.xlsx" und die
+ * CSV daneben „instructor-connect-users-template.csv" (Audit 11/2026,
+ * EXM-10). Die Excel-Datei liegt unter diesem Namen in `public/`;
+ * userTemplate.test.ts liest sie von dort.
+ */
+export const VORLAGE_XLSX = 'Instructor-Connect-Benutzer-Vorlage.xlsx'
+export const VORLAGE_CSV = 'Instructor-Connect-Benutzer-Vorlage.csv'
+
+/**
+ * Ist die gewaehlte Datei eine Tabelle (Excel) statt CSV?
+ *
+ * Das Dateifeld liest die Datei als Text. Wer die Excel-Vorlage selbst
+ * hochlud (mobil oder ueber „Alle Dateien"), bekam „Die Kopfzeile passt
+ * nicht … bitte die Vorlage verwenden" — also den Rat, genau die Datei zu
+ * nehmen, die er gerade genommen hatte (Audit 11/2026, VERW-19). Erkannt wird
+ * an der Endung UND am Inhalt, weil Endungen fehlen oder falsch sein koennen:
+ * `PK\x03\x04` beginnt jedes ZIP (xlsx, ods), `D0 CF 11 E0` das alte
+ * Office-Format (xls).
+ */
+export function istTabellenDatei(name: string, ersteBytes: Uint8Array): boolean {
+  if (/\.(xlsx|xlsm|xls|ods)$/i.test(name.trim())) return true
+  const b = ersteBytes
+  const zip = b.length >= 4 && b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04
+  const ole = b.length >= 4 && b[0] === 0xd0 && b[1] === 0xcf && b[2] === 0x11 && b[3] === 0xe0
+  return zip || ole
+}
+
+/**
+ * Domain der Beispielzeilen in CSV- und Excel-Vorlage.
+ *
+ * `.invalid` ist nach RFC 2606 reserviert — eine solche Adresse kann es nie
+ * geben, also auch nie ein Postfach, das spaeter jemand anderem gehoert.
+ * Vorher standen die Beispiele auf der echten Domain der ATO, und die
+ * Anleitung sagte, sie duerften stehen bleiben: Wer ihr folgte, legte zwei
+ * fiktive Konten an, eines davon Gruppen-Admin mit Verzeichnisrecht
+ * (Audit 11/2026, VERW-06). `scripts/benutzer-vorlage.py` liest den Wert von
+ * hier.
+ */
+export const BEISPIEL_DOMAIN = 'beispiel.invalid'
+
+/**
+ * Ist das eine Beispieladresse? Jede Adresse unter `.invalid`, nicht nur
+ * BEISPIEL_DOMAIN: Echt kann keine davon sein, und wer die Beispielzeile
+ * abwandelt, meint immer noch ein Beispiel.
+ */
+export function istBeispielAdresse(email: string): boolean {
+  const at = email.lastIndexOf('@')
+  if (at < 0) return false
+  const domain = email.slice(at + 1).trim().toLowerCase()
+  return domain === 'invalid' || domain.endsWith('.invalid')
+}
+
+/** Eine Vorschauzeile, die als Beispiel uebersprungen wird. */
+export function istBeispielZeile(row: Pick<ImportRow, 'problems'>): boolean {
+  return row.problems.includes('example')
+}
+
+/**
  * Vorlage mit Kopfzeile und zwei Beispielzeilen.
  *
  * Die Beispiele sind bewusst ausgefuellt statt leer: Sie zeigen die
  * Schreibweise der Rollen, wie mehrere Muster getrennt werden und dass
- * Ja/Nein-Spalten „ja"/„nein" vertragen.
+ * Ja/Nein-Spalten „ja"/„nein" vertragen. Sie stehen auf BEISPIEL_DOMAIN und
+ * werden beim Import uebersprungen — stehen bleiben duerfen sie also wirklich.
  */
-export function buildImportTemplate(aircraftTypes: string[], domain: string): string {
+export function buildImportTemplate(aircraftTypes: string[]): string {
   const muster = aircraftTypes.slice(0, 2)
   // Mehrere Muster mit Semikolon trennen. `csvRow` setzt die Zelle dann in
   // Anfuehrungszeichen, und genau die liest der Parser wieder ein — die Zeile
   // zerreisst also nicht. Ein Schraegstrich waere hier falsch: Musterkennungen
   // enthalten selbst welche („ATR 42/72").
   const beispielMuster = muster.length > 0 ? muster.join('; ') : 'CL30; C560 XLS+'
+  // Telefon mit „0043" statt „+43": Vor ein fuehrendes „+" setzt der
+  // Formelschutz (csv.ts) ein Hochkomma, und Excel zeigte „'+43 664 …"
+  // wörtlich an (Audit 11/2026, TPL-02). Die Leerzeichen halten Excel davon
+  // ab, die Nummer als Zahl zu lesen und die fuehrenden Nullen zu streichen.
   return (
     csvRow([...IMPORT_COLUMNS]) +
-    csvRow(['Max Beispiel', `max.beispiel@${domain}`, '+43 664 1234567', 'member', beispielMuster, 'ja', 'nein', 'nein', 'ja']) +
-    csvRow(['Erika Beispiel', `erika.beispiel@${domain}`, '+43 664 7654321', 'admin', beispielMuster, 'ja', 'nein', 'ja', 'ja'])
+    csvRow(['Max Beispiel', `max.beispiel@${BEISPIEL_DOMAIN}`, '0043 664 1234567', 'member', beispielMuster, 'ja', 'nein', 'nein', 'ja']) +
+    csvRow(['Erika Beispiel', `erika.beispiel@${BEISPIEL_DOMAIN}`, '0043 664 7654321', 'admin', beispielMuster, 'ja', 'nein', 'ja', 'ja'])
   )
 }
 
@@ -170,7 +238,12 @@ export function detectSeparator(headerLine: string): string {
   return headerLine.split(';').length >= headerLine.split(',').length ? ';' : ','
 }
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+/**
+ * Wann ist eine Adresse eine Adresse? Exportiert, weil der Dialog „Benutzer
+ * anlegen" dieselbe Frage stellt — er hatte ein eigenes, lockereres Muster,
+ * und die beiden Anlegewege waren sich nicht einig (Audit 11/2026, VERW-12).
+ */
+export const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 
 /**
  * Datei einlesen und Zeile fuer Zeile pruefen.
@@ -199,6 +272,31 @@ export function parseUserImport(
   const inDatei = new Set<string>()
   const musterBekannt = new Map(ctx.aircraftTypes.map((a) => [a.toLowerCase(), a]))
   const kopfIndex = zeilen.indexOf(kopfZeile)
+
+  const pruefe = (name: string, email: string, role: Role | null, aircraftTypes: string[], unknownAircraft: string[]) => {
+    const problems: ImportProblem[] = []
+    if (!name) problems.push('name')
+    if (!email) problems.push('email')
+    else if (!EMAIL.test(email)) problems.push('emailFormat')
+    else {
+      // Die Domainliste entscheidet auch bei der Anmeldung — eine Adresse
+      // ausserhalb koennte sich nie anmelden, also gar nicht erst anlegen.
+      // Dieselbe Regel wie dort (domains.ts), nicht eine dritte Fassung.
+      if (!domainErlaubt(email, ctx.allowedDomains)) problems.push('emailDomain')
+      if (vergeben.has(email)) problems.push('emailTaken')
+      if (inDatei.has(email)) problems.push('emailDuplicate')
+      inDatei.add(email)
+    }
+    if (!role) problems.push('role')
+    if (unknownAircraft.length > 0) problems.push('aircraft')
+    // Musterpflicht wie im Anlege-Dialog. Der Import kannte sie nicht und
+    // legte reihenweise Konten an, die anschliessend weder Lesson Plan noch
+    // Info noch Chat sehen — die Vorschau zeigte sie gruen. Geprueft wird das
+    // ERGEBNIS nach dem Verwerfen unbekannter Kennungen: Wer als einziges
+    // Muster ein unbekanntes nennt, steht danach ohne alles da.
+    if (role && musterFehlt({ role, aircraftTypes })) problems.push('aircraftMissing')
+    return problems
+  }
 
   const rows: ImportRow[] = []
   zeilen.forEach((zeile, i) => {
@@ -238,29 +336,10 @@ export function parseUserImport(
       } else unknownAircraft.push(m)
     })
 
-    const problems: ImportProblem[] = []
-    if (!name) problems.push('name')
-    if (!email) problems.push('email')
-    else if (!EMAIL.test(email)) problems.push('emailFormat')
-    else {
-      const domain = email.slice(email.lastIndexOf('@') + 1)
-      // Die Domainliste entscheidet auch bei der Anmeldung — eine Adresse
-      // ausserhalb koennte sich nie anmelden, also gar nicht erst anlegen.
-      if (ctx.allowedDomains.length > 0 && !ctx.allowedDomains.some((d) => d.toLowerCase() === domain)) {
-        problems.push('emailDomain')
-      }
-      if (vergeben.has(email)) problems.push('emailTaken')
-      if (inDatei.has(email)) problems.push('emailDuplicate')
-      inDatei.add(email)
-    }
-    if (!role) problems.push('role')
-    if (unknownAircraft.length > 0) problems.push('aircraft')
-    // Musterpflicht wie im Anlege-Dialog. Der Import kannte sie nicht und
-    // legte reihenweise Konten an, die anschliessend weder Lesson Plan noch
-    // Info noch Chat sehen — die Vorschau zeigte sie gruen. Geprueft wird das
-    // ERGEBNIS nach dem Verwerfen unbekannter Kennungen: Wer als einziges
-    // Muster ein unbekanntes nennt, steht danach ohne alles da.
-    if (role && musterFehlt({ role, aircraftTypes })) problems.push('aircraftMissing')
+    // Beispielzeile: steht allein, alles andere waere Laerm („Domain nicht
+    // freigegeben" fuer eine Zeile, die ohnehin uebersprungen wird). Sie
+    // zaehlt auch nicht als schon vorhandene Adresse fuer spaetere Zeilen.
+    const problems: ImportProblem[] = istBeispielAdresse(email) ? ['example'] : pruefe(name, email, role, aircraftTypes, unknownAircraft)
 
     rows.push({
       line: i + 1,
@@ -294,4 +373,94 @@ export function parseUserImport(
  */
 export function isImportable(row: ImportRow): boolean {
   return row.problems.every((p) => p === 'aircraft')
+}
+
+/* ===================== Anlegen ===================== */
+
+/** Was aus einer Vorschauzeile angelegt wird. */
+export type ImportEingabe = Pick<User, 'name' | 'email' | 'phone' | 'role' | 'aircraftTypes' | 'canGrade' | 'isTrainee' | 'canEditDirectory' | 'active'>
+
+/**
+ * In welche der gewaehlten Gruppen kommt diese Zeile?
+ *
+ * Nur in die, die sie auch betreten kann (aircraftScope, erreichbare
+ * Gruppen). Eine CL30-Gruppe fuer ein C560-Mitglied waere eine
+ * Mitgliedschaft, die die Pflicht erfuellt und den Zweck verfehlt.
+ */
+export function importZielgruppen<G extends Pick<Group, 'id' | 'aircraftType'>>(
+  settings: Settings,
+  zeile: Pick<ImportRow, 'role' | 'aircraftTypes' | 'canGrade' | 'canEditDirectory'>,
+  gruppen: G[],
+  groupIds: string[],
+): G[] {
+  const role = zeile.role
+  if (!role) return []
+  return gruppen.filter((g) => groupIds.includes(g.id) && gruppenTauglich(settings, { ...zeile, role }, g))
+}
+
+/**
+ * Braucht die Zeile eine Gruppe, und hat sie keine erreichbare? Dann wird
+ * sie NICHT angelegt — wie im Dialog „Benutzer anlegen". Der Import kannte
+ * die Pflicht gar nicht und legte reihenweise Konten in einem Zustand an,
+ * den jeder andere Schreibweg verbietet (Audit 11/2026, VERW-07). Der
+ * Training Admin hat keinen Chat und braucht keine Gruppe.
+ */
+export function importOhneGruppe(
+  settings: Settings,
+  zeile: Pick<ImportRow, 'role' | 'aircraftTypes' | 'canGrade' | 'canEditDirectory'>,
+  gruppen: Pick<Group, 'id' | 'aircraftType'>[],
+  groupIds: string[],
+): boolean {
+  const role = zeile.role
+  if (!role || !gruppenPflicht(settings, { ...zeile, role })) return false
+  return importZielgruppen(settings, zeile, gruppen, groupIds).length === 0
+}
+
+/**
+ * Die Zeilen anlegen — als reine Rechnung, damit Vorschau und Store
+ * dieselbe Antwort geben.
+ *
+ * Doppelte Adressen, nicht freigegebene Domains, fehlende Muster und
+ * fehlende erreichbare Gruppen werden HIER noch einmal abgewiesen: Die
+ * Vorschau prueft gegen den Stand beim Hochladen, aber zwischen Vorschau und
+ * Klick kann sich in einem zweiten Tab etwas geaendert haben.
+ */
+export function importPlanen<G extends Group>(
+  bestand: { users: User[]; groups: G[]; settings: Settings },
+  zeilen: ImportEingabe[],
+  groupIds: string[],
+  neueId: () => string,
+): { neue: User[]; groups: G[] } {
+  const vergeben = new Set(bestand.users.map((u) => u.email.trim().toLowerCase()))
+  const neue: User[] = []
+  const mitglieder = new Map<string, string[]>()
+  for (const z of zeilen) {
+    const mail = z.email.trim().toLowerCase()
+    if (!mail || vergeben.has(mail)) continue
+    // Beispielzeilen auch hier nicht — selbst wenn jemand `.invalid` als
+    // Login-Domain eingetragen haette.
+    if (istBeispielAdresse(mail)) continue
+    if (!domainErlaubt(mail, bestand.settings.allowedDomains)) continue
+    if (musterFehlt(z)) continue
+    if (importOhneGruppe(bestand.settings, z, bestand.groups, groupIds)) continue
+    vergeben.add(mail)
+    const id = neueId()
+    neue.push({
+      id,
+      name: z.name.trim(),
+      email: mail,
+      phone: z.phone.trim(),
+      role: z.role,
+      canEditDirectory: z.canEditDirectory,
+      canGrade: z.canGrade,
+      isTrainee: z.isTrainee,
+      aircraftTypes: z.aircraftTypes,
+      active: z.active,
+    })
+    for (const g of importZielgruppen(bestand.settings, z, bestand.groups, groupIds)) {
+      mitglieder.set(g.id, [...(mitglieder.get(g.id) ?? []), id])
+    }
+  }
+  const groups = bestand.groups.map((g) => (mitglieder.has(g.id) ? { ...g, memberIds: [...g.memberIds, ...mitglieder.get(g.id)!] } : g))
+  return { neue, groups }
 }

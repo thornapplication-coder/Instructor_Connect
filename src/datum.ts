@@ -42,3 +42,40 @@ export function formatDateTime(ts: number): string {
   if (Number.isNaN(d.getTime())) return String(ts)
   return `${formatDate(ts)} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
+
+const zwei = (n: number) => String(n).padStart(2, '0')
+
+/**
+ * Kalendertag (YYYY-MM-DD) in ORTSZEIT — „heute" im Sinne des Nutzers.
+ *
+ * Audit 11/2026, GRD-16/TEC-03/EXM-01: An mehreren Stellen stand dafuer
+ * `new Date(…).toISOString().slice(0, 10)`, und das ist der UTC-Tag. In Wien
+ * ist es um 00:30 (Sommerzeit bis 02:00) in UTC noch der Vortag: Das
+ * Grading-Formular belegte das Datum von gestern vor, und wer das richtige
+ * eintrug, bekam „Datum liegt in der Zukunft". Nachtslots im Simulator sind
+ * kein Sonderfall. Die richtige Fassung gab es dreimal als lokale Kopie
+ * (Logbuch, Grading-Liste, Export) — hier steht sie einmal.
+ */
+export function lokalerTag(ts: number): string {
+  const d = new Date(ts)
+  return `${d.getFullYear()}-${zwei(d.getMonth() + 1)}-${zwei(d.getDate())}`
+}
+
+/**
+ * Zeitpunkt als ISO 8601 MIT lokalem Versatz („2026-11-02T00:30:00+01:00").
+ *
+ * Fuer Stellen, die einen ISO-Zeitstempel weiterreichen und daraus spaeter
+ * mit `slice(0, 10)` den Tag schneiden (Export-ID, Dateiname, Remark): Mit
+ * `toISOString()` war das der UTC-Tag (EXM-01). Mit Versatz liefert derselbe
+ * Schnitt den lokalen Tag, und `Date.parse` ergibt weiter genau denselben
+ * Zeitpunkt — die Empfaenger muessen nicht umgebaut werden.
+ */
+export function lokalIso(ts: number): string {
+  const d = new Date(ts)
+  const versatz = -d.getTimezoneOffset()
+  const betrag = Math.abs(versatz)
+  return (
+    `${lokalerTag(ts)}T${zwei(d.getHours())}:${zwei(d.getMinutes())}:${zwei(d.getSeconds())}` +
+    `${versatz < 0 ? '-' : '+'}${zwei(Math.floor(betrag / 60))}:${zwei(betrag % 60)}`
+  )
+}

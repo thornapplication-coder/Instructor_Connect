@@ -8,6 +8,7 @@ import { Badge, Button, Card, CardHeading, Field, inputCls, selectCls } from '..
 import { testaufruf } from '../llm/client'
 import type { Antwortstand } from '../llm/sse'
 import { FEATURES, preiseVollstaendig } from '../settings'
+import { zahl } from '../../../zahl'
 
 /**
  * Administration (nur Superadmin, Spez. 6.8) — in Phase 1a die Teile, die
@@ -15,7 +16,7 @@ import { FEATURES, preiseVollstaendig } from '../settings'
  * Proxy-Testaufruf (simuliert), Audit-Log und die Fehlerprobe.
  */
 export function AdminTab({ onFehlerProbe }: { onFehlerProbe: () => void }) {
-  const { t } = useTranslation('doccheck')
+  const { t, i18n } = useTranslation('doccheck')
   const { state, docCheckSettings: s, updateDocCheckSettings } = useStore()
   const [stand, setStand] = useState<Antwortstand | null>(null)
   const [laeuft, setLaeuft] = useState(false)
@@ -78,7 +79,7 @@ export function AdminTab({ onFehlerProbe }: { onFehlerProbe: () => void }) {
                     <span className="font-semibold">{m.name}</span>
                     <span className="block font-mono text-micro text-dim">{m.id}</span>
                   </td>
-                  <td className="py-2">{m.maxTokens.toLocaleString('de-AT')}</td>
+                  <td className="py-2">{zahl(m.maxTokens, i18n.language)}</td>
                   <td className="py-2">{preiseVollstaendig(m) ? <Badge tone="ok">{t('admin.pricesOk')}</Badge> : <Badge tone="wait">{t('admin.pricesMissing')}</Badge>}</td>
                 </tr>
               ))}
@@ -110,6 +111,24 @@ export function AdminTab({ onFehlerProbe }: { onFehlerProbe: () => void }) {
               placeholder={t('admin.budgetPh')}
               onBlur={(e) => updateDocCheckSettings({ monatsbudgetUsd: e.target.value === '' ? null : Math.max(0, Number(e.target.value)) })}
             />
+          </Field>
+          <Field label={t('admin.organisation')}>
+            <input
+              className={inputCls}
+              defaultValue={s.organisation}
+              maxLength={120}
+              placeholder={t('admin.organisationPh')}
+              onBlur={(e) => e.target.value.trim() !== s.organisation && updateDocCheckSettings({ organisation: e.target.value.trim() })}
+            />
+          </Field>
+          {/* Spez. 10.6 sagt den Schalter zu; vorher gab es ihn nicht, und die
+              Re-Check-CSV hatte ohnehin ihren eigenen Dialekt (Audit 11/2026, EXP-17) */}
+          <Field label={t('admin.csvTrenner')}>
+            <select className={selectCls} value={s.csvTrenner} onChange={(e) => updateDocCheckSettings({ csvTrenner: e.target.value === ',' ? ',' : ';' })}>
+              <option value=";">{t('admin.csvSemikolon')}</option>
+              <option value=",">{t('admin.csvKomma')}</option>
+            </select>
+            <span className="mt-1 block text-micro text-dim">{t('admin.csvTrennerHint')}</span>
           </Field>
           <label className="flex items-start gap-2.5 text-small">
             <input type="checkbox" className="mt-0.5 h-5 w-5 accent-accent" checked={s.gateSperrt} onChange={(e) => updateDocCheckSettings({ gateSperrt: e.target.checked })} />
@@ -184,7 +203,7 @@ export function AdminTab({ onFehlerProbe }: { onFehlerProbe: () => void }) {
                     <td className="py-1.5 pr-3 text-dim">{formatDateTime(a.at)}</td>
                     <td className="py-1.5 pr-3">{name(a.von)}</td>
                     <td className="py-1.5 pr-3">{t(`auditAction.${a.aktion}`)}</td>
-                    <td className="py-1.5 pr-3">{a.aktion === 'zugang' || a.aktion === 'admin' ? name(a.ziel) : a.ziel}</td>
+                    <td className="py-1.5 pr-3">{a.aktion === 'zugang' || a.aktion === 'admin' || a.aktion === 'rolle' ? name(a.ziel) : a.ziel}</td>
                     <td className="py-1.5 font-mono text-micro">{a.wert}</td>
                   </tr>
                 ))}

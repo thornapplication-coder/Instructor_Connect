@@ -22,7 +22,7 @@
   },
   "tabs": {
     "pruefung": "Prüfung",
-    "findings": "Findings",
+    "findings": "Befunde",
     "recheck": "Re-Check",
     "chat": "Chat",
     "revisionen": "Revisionen",
@@ -62,10 +62,17 @@
   "pruefung": {
     "regel": {
       "titel": "Regelbasierte Prüfung – läuft automatisch beim Einlesen",
-      "stand_one": "1 Prüfdokument geprüft: {{befunde}} Befunde, davon {{hoch}} hoch.",
-      "stand_other": "{{count}} Prüfdokumente geprüft: {{befunde}} Befunde, davon {{hoch}} hoch.",
+      "stand_one": "1 Prüfdokument geprüft: {{befundeText}}, davon {{hoch}} hoch.",
+      "stand_other": "{{count}} Prüfdokumente geprüft: {{befundeText}}, davon {{hoch}} hoch.",
       "leer": "Prüfdokumente in der linken Spalte laden – Formalprüfung, Word-Check, Sprache, Rechnen und Verweise laufen dann von selbst.",
-      "zuFindings": "Zu den Findings"
+      "abgeschaltet": "Die regelbasierten Prüfungen sind vom Superadmin abgeschaltet – geladene Prüfdokumente werden nicht geprüft.",
+      "zuFindings": "Zu den Befunden",
+      "nichtBewertbar": {
+        "ocr_one": "1 Prüfdokument ist nicht bewertbar – Texterkennung ausstehend.",
+        "ocr_other": "{{count}} Prüfdokumente sind nicht bewertbar – Texterkennung ausstehend.",
+        "ohneText_one": "1 Prüfdokument ist nicht bewertbar – kein lesbarer Text.",
+        "ohneText_other": "{{count}} Prüfdokumente sind nicht bewertbar – kein lesbarer Text."
+      }
     },
     "ki": "KI-Prüfung",
     "arten": "Prüfarten",
@@ -108,6 +115,7 @@
       "verification": "Verifizierung"
     },
     "empty": "Noch keine Befunde. Prüfdokument hochladen — Formalprüfung und Word-Check laufen automatisch.",
+    "abgeschaltet": "Keine Befunde: Die regelbasierten Prüfungen sind vom Superadmin abgeschaltet – geladene Prüfdokumente werden nicht geprüft.",
     "filter": {
       "dok": "Dokument",
       "alleDok": "Alle Dokumente",
@@ -151,7 +159,39 @@
     "zip": "Alle Formate (ZIP)",
     "save": "Prüfstand speichern",
     "load": "Prüfstand laden",
-    "language": "Exporte sind immer englisch beschriftet; Zitate bleiben im Original."
+    "language": "Exporte sind immer englisch beschriftet; Zitate bleiben im Original.",
+    "laeuft": "Wird erzeugt …",
+    "fertig": "{{name}} erzeugt.",
+    "fehler": "Der Export konnte nicht erzeugt werden.",
+    "netz": "Excel, Word und PowerPoint laden ihre Bibliothek beim ersten Export aus dem Netz – gerade ist keins da. CSV und Prüfstand gehen auch offline.",
+    "neuLaden": {
+      "sitzung": "Excel, Word und PowerPoint gehen erst nach einem Neuladen der Seite wieder. Vorher „Prüfstand speichern“ – die Dokumente der Sitzung gehen dabei verloren, der Prüfstand nicht.",
+      "pruefstand": "Excel, Word und PowerPoint gehen erst nach einem Neuladen der Seite wieder; danach den Prüfstand erneut öffnen."
+    },
+    "pflicht": {
+      "revision_one": "Revision fehlt bei {{namen}} – im Bericht bleibt die Angabe leer.",
+      "revision_other": "Revision fehlt bei {{count}} Prüfdokumenten ({{namen}}) – im Bericht bleibt die Angabe leer.",
+      "dateiname": "Der Dateiname trägt dann „RevNA“.",
+      "abhilfe": "Eintragen lässt sie sich in der Dokumentkarte; exportieren geht auch so."
+    },
+    "stand_one": "{{count}} Befund aus {{dokumenteText}} – jeder Export friert den aktuellen Stand mit eigener Export-ID ein.",
+    "stand_other": "{{count}} Befunde aus {{dokumenteText}} – jeder Export friert den aktuellen Stand mit eigener Export-ID ein.",
+    "dokumente_one": "{{count}} Prüfdokument",
+    "dokumente_other": "{{count}} Prüfdokumenten",
+    "keineDokumente": "Noch keine geprüften Prüfdokumente. Prüfdokumente links laden – oder einen gespeicherten Prüfstand öffnen.",
+    "ladenHinweis": "Ein Prüfstand enthält nur Metadaten, Befunde und kurze Auszüge – keine Dokumentinhalte.",
+    "geladen_one": "{{name}} geöffnet: 1 Befund.",
+    "geladen_other": "{{name}} geöffnet: {{count}} Befunde.",
+    "geladenTitel": "Geöffneter Prüfstand",
+    "schliessen": "Prüfstand schließen",
+    "hashOk": "geladen, Hash stimmt",
+    "hashFehlt": "nicht geladen",
+    "ladefehler": {
+      "DC-STATE-SIZE": "Die Datei ist zu groß für einen Prüfstand.",
+      "DC-STATE-JSON": "Die Datei ist kein gültiges JSON.",
+      "DC-STATE-VERSION": "Der Prüfstand stammt aus einer neueren DocCheck-Version.",
+      "DC-STATE-FORMAT": "Die Datei ist kein DocCheck-Prüfstand oder unvollständig."
+    }
   },
   "verwalten": {
     "neu": "Neues Dokument veröffentlichen",
@@ -166,7 +206,7 @@
     "archiviert": "archiviert",
     "faellig": "fällig seit {{datum}}",
     "naechste": "nächste am {{datum}}",
-    "bestaetigen": "Stand bestätigt",
+    "bestaetigen": "Stand bestätigen",
     "bestaetigtToast": "{{doc}}: Stand bestätigt, Frist zurückgesetzt"
   },
   "admin": {
@@ -188,7 +228,7 @@
     "proxyStart": "Testaufruf starten",
     "proxyRunning": "Streamt …",
     "cancel": "Abbrechen",
-    "usage": "Modell {{model}} · Input {{input}} · Output {{output}} Tokens · Stopp: {{stop}}",
+    "usage": "Modell {{model}} · Input-Tokens {{input}} · Output-Tokens {{output}} · Stopp: {{stop}}",
     "error": "Fehler: {{code}}",
     "audit": "Audit-Log",
     "auditEmpty": "Noch keine Einträge. Jede Änderung einer DocCheck-Berechtigung oder Einstellung wird hier protokolliert.",
@@ -204,8 +244,14 @@
     "errorProbe": "Fehlerprobe (nur Sandbox)",
     "errorProbeHint": "Löst absichtlich einen Fehler im DocCheck-Modul aus. Erwartet: Meldung mit Fehlercode, die übrigen Kacheln laufen weiter.",
     "errorProbeBtn": "Fehler auslösen",
+    "organisation": "Organisation in Exporten",
+    "organisationPh": "z. B. Name der ATO – leer lassen, um keinen Namen zu setzen",
     "gateSperrt": "Export „einreichungsfähig“ bei offenem Hoch-Befund sperren",
-    "gateSperrtHint": "Ab Werk aus: Es wird nur gewarnt (Nachtrag N4.3)."
+    "gateSperrtHint": "Ab Werk aus: Es wird nur gewarnt (Nachtrag N4.3).",
+    "csvTrenner": "Trennzeichen in CSV-Exporten",
+    "csvTrennerHint": "Gilt für die Befundliste und den Re-Check. Semikolon öffnet Excel mit deutscher Ländereinstellung direkt richtig.",
+    "csvSemikolon": "Semikolon (;)",
+    "csvKomma": "Komma (,)"
   },
   "feature": {
     "doccheck": "DocCheck gesamt",
@@ -226,6 +272,7 @@
   "auditAction": {
     "zugang": "DocCheck access",
     "admin": "DocCheck admin",
+    "rolle": "Rolle (über Instructor Connect)",
     "feature": "Feature-Schalter",
     "einstellung": "Einstellung",
     "standBestaetigt": "Stand bestätigt",
@@ -239,7 +286,7 @@
     "recheck": "Re-Check",
     "chat": "Chat",
     "startOnDesktop": "Nachprüfung am Desktop starten",
-    "openState": "Noch nicht verfügbar. Mit Phase 6 öffnest du hier einen am Desktop gespeicherten Prüfstand (.doccheck.json), siehst die Befunde und exportierst sie. Bis dahin: Befunde am Desktop im Reiter „Findings“.",
+    "openState": "Prüfstand-Datei (.doccheck.json) öffnen – Befunde ansehen und exportieren. Gespeichert wird sie am Desktop im Reiter „Export“.",
     "chatLimit": "Fragen-Chat gegen ausgewählte Bibliotheksdokumente, höchstens 3 000 Seiten gleichzeitig."
   },
   "upload": {
@@ -253,6 +300,13 @@
     "entfernenFrage": "Wirklich entfernen?",
     "gelesen_one": "{{name}} gelesen und geprüft – 1 Befund.",
     "gelesen_other": "{{name}} gelesen und geprüft – {{count}} Befunde.",
+    "gelesenOcr_one": "{{name}} gelesen – 1 Seite ohne Textebene: Texterkennung ausstehend, noch nicht bewertbar.",
+    "gelesenOcr_other": "{{name}} gelesen – {{count}} Seiten ohne Textebene: Texterkennung ausstehend, noch nicht bewertbar.",
+    "gelesenOhneText": "{{name}} gelesen – kein lesbarer Text gefunden, nicht bewertbar.",
+    "gelesenUngeprueft": "{{name}} gelesen.",
+    "gelesenOcrUngeprueft_one": "{{name}} gelesen – 1 Seite ohne Textebene: Texterkennung ausstehend.",
+    "gelesenOcrUngeprueft_other": "{{name}} gelesen – {{count}} Seiten ohne Textebene: Texterkennung ausstehend.",
+    "gelesenOhnePruefung": "{{name}} gelesen – Prüfungen abgeschaltet, nicht geprüft.",
     "nichtGelesen": "{{name}} konnte nicht gelesen werden.",
     "entfernt": "{{name}} entfernt.",
     "angabenBearbeiten": "Angaben",
@@ -260,6 +314,7 @@
     "seiteVon": "Seite {{seite}} von {{gesamt}}",
     "startet": "wird gelesen …",
     "abbrechen": "Abbrechen",
+    "bricht": "bricht ab …",
     "lenkung": "Änderungen: {{aenderungen}} · Kommentare: {{kommentare}} · Revisionsbalken: {{revisionsbalken}}",
     "duplikat": {
       "identisch": "Identisch mit {{mit}} ({{wo}})",
@@ -309,10 +364,14 @@
     "DC-PDF-PASSWORD": "PDF ist passwortgeschützt.",
     "DC-PDF-INVALID": "PDF ist beschädigt oder unvollständig.",
     "DC-DOCX-INVALID": "Word-Datei ist unvollständig.",
-    "DC-XLSX-INVALID": "Excel-Datei ist unvollständig."
+    "DC-XLSX-INVALID": "Excel-Datei ist unvollständig.",
+    "DC-LISTE-GROSS": "Liste zu groß – höchstens {{mb}} MB.",
+    "DC-ZIP-GROSS": "Datei ist entpackt zu groß oder hat zu viele Teile – zum Schutz nicht geöffnet.",
+    "DC-EMPTY": "Datei ist leer (0 Byte)."
   },
   "ocr": {
-    "laeuft": "Texterkennung: {{fertig}} von {{gesamt}} Seiten …",
+    "laeuft_one": "Texterkennung: {{fertig}} von 1 Seite …",
+    "laeuft_other": "Texterkennung: {{fertig}} von {{count}} Seiten …",
     "starten": "Texterkennung starten",
     "fehler": "Texterkennung fehlgeschlagen.",
     "frage_one": "1 Seite hat keine Textebene (Scan). Texterkennung starten? Dauert einige Sekunden.",
@@ -329,7 +388,8 @@
     "groesser": "Vergrößern",
     "schliessen": "Schließen",
     "fehler": "Seite konnte nicht angezeigt werden.",
-    "leer": "(Seite ohne Text)"
+    "leer": "(Seite ohne Text)",
+    "befund": "Befund {{id}}"
   },
   "suche": {
     "titel": "Suche in geladenen Dokumenten",
@@ -358,6 +418,7 @@
     "laeuft": "Gleiche ab …",
     "ok": "Word-PDF übernommen: Seitenangaben jetzt exakt",
     "nichtUebernommen": "Word-PDF nicht übernommen — siehe Hinweis",
+    "zeit": "Keine Antwort auf die Word-PDF-Paarung von „{{name}}“ — die Seitenangaben bleiben geschätzt. Du kannst das PDF erneut dazulegen.",
     "warnung": {
       "abweichung": "PDF weicht {{prozent}} % vom DOCX ab — Seitenangaben weiter wie bisher",
       "aelter": "PDF ist älter als das DOCX — Seitenangaben weiter wie bisher",
@@ -437,7 +498,31 @@
     "glossar": "Variante durch die Soll-Schreibweise ersetzen (Word: Strg+H, „Groß-/Kleinschreibung beachten“ und „Nur ganzes Wort“ aktivieren).",
     "abkuerzungsliste": "Abkürzung in die Referenzliste aufnehmen oder im Text ausschreiben.",
     "register": "Revision/Datum im Dokument oder im Dokumentregister korrigieren — eines von beiden ist veraltet.",
-    "kennungen": "Kennung gegen die Referenzliste prüfen (Tippfehler oder fehlender Eintrag)."
+    "registerFehlt": "Dokument ins Dokumentregister aufnehmen oder Dokumentnummer/Titel im Dokument und im Register prüfen.",
+    "kennungen": "Kennung gegen die Referenzliste prüfen (Tippfehler oder fehlender Eintrag).",
+    "summen": "Summe nachrechnen und die Summenzeile oder die fehlerhafte Zeile korrigieren. Summen als Formel setzen (Word: Feld =SUM(ABOVE), Excel: SUMME), damit sie späteren Änderungen folgen.",
+    "kumuliert": "Kumulierte Zeit ab der ersten abweichenden Zeile neu berechnen — die folgenden Zeilen bauen darauf auf und sind meist mitbetroffen.",
+    "session": "Zeitblöcke oder die angegebene Sessiondauer anpassen, bis beide übereinstimmen (Briefing und Debriefing mitzählen, wenn die Dauer sie einschließt).",
+    "einheiten": "Umgerechneten Wert mit dem genauen Faktor neu berechnen und korrigieren (1 ft = 0,3048 m, 1 lb = 0,4536 kg, 1 NM = 1,852 km, 1 kt = 1,852 km/h, °F = °C × 1,8 + 32).",
+    "metar": "Wettermeldung des Szenarios in sich stimmig machen: Sicht, Wettergruppe, Temperatur/Taupunkt und Vertikalsicht passend zueinander wählen. Der Befund nennt den Widerspruch.",
+    "doppelt": "Doppeltes Wort bzw. doppelten Wegpunkt streichen.",
+    "uebung": "Übungsnummer im Verweis korrigieren oder die fehlende Übung in die Übungsliste aufnehmen.",
+    "zirkel": "Inhalt in einem der Abschnitte ausschreiben und nur von den anderen darauf verweisen.",
+    "regelids": "Regelwerksverweis gegen das geladene Regelwerk prüfen und die Kennung korrigieren — nennt der Befund eine nächstliegende Regel, zuerst diese prüfen.",
+    "absaetze": "Absatzangabe gegen das Regelwerk prüfen und korrigieren — der Befund nennt die vorhandenen Absätze.",
+    "regelQuelle": "Regelwerk in die Bibliothek laden, damit sich die Verweise prüfen lassen, oder die Verweise von Hand gegen die geltende Fassung prüfen.",
+    "listeFehlt": "Anhang mit dem Paket einreichen oder den Eintrag in der Liste als „Reserved“ kennzeichnen.",
+    "listeTitel": "Titel im Dokument und in der Anhangsliste des Hauptdokuments angleichen.",
+    "listeNachtragen": "Dokument in die Anhangsliste des Hauptdokuments aufnehmen.",
+    "paketStand": "Revision bzw. Datum an das Hauptdokument angleichen — oder bestätigen, dass das Paket bewusst mit unterschiedlichen Ständen eingereicht wird.",
+    "hierarchie": "Meinen beide Dokumente denselben Umfang, den Wert im tieferen Dokument an das höhere angleichen; sonst den Umfang im Text klarstellen.",
+    "geschwisterSchreibweise": "Eine Schreibweise in allen Geschwisterdokumenten verwenden — die im übrigen Paket übliche, wenn der Befund sie nennt.",
+    "geschwisterAbsatz": "Absätze angleichen oder bestätigen, dass der Unterschied zwischen den Fassungen gewollt ist.",
+    "gegenfassung": "Begriff durch den der eigenen Fassung ersetzen oder den Satz streichen — er stammt aus der anderen Fassung.",
+    "propagation": "Die im Geschwisterdokument bestätigte Korrektur auch hier übernehmen.",
+    "paketVerweisArt": "Verweis so korrigieren, dass er das Dokument im Paket nennt (Annex oder Appendix).",
+    "paketVerweisZiel": "Kapitel- bzw. Übungsnummer im Verweis korrigieren oder das Ziel im verwiesenen Dokument ergänzen.",
+    "paketVerweisFehlt": "Verwiesenes Dokument ins Paket oder in die Bibliothek aufnehmen, damit sich der Verweis prüfen lässt, oder den Verweis von Hand prüfen."
   },
   "gate": {
     "titel": "Submission gate",
@@ -447,6 +532,16 @@
     "nichtOk_other": "{{count}} Hoch-Befunde offen",
     "warnung": "Nicht einreichungsfähig, solange Hoch-Befunde offen sind. Der Export bleibt möglich (Einstellung: warnen).",
     "gesperrt": "Export mit „einreichungsfähig“ ist gesperrt, solange Hoch-Befunde offen sind.",
+    "nichtBewertbar": {
+      "ocr": "nicht bewertbar – Texterkennung ausstehend",
+      "ohneText": "nicht bewertbar – kein lesbarer Text"
+    },
+    "hinweis": {
+      "ocr_one": "1 Seite eines Prüfdokuments hat keine Textebene (Scan). Dort konnte keine Textprüfung laufen – bewertbar erst nach der Texterkennung in der Dokumentkarte.",
+      "ocr_other": "{{count}} Seiten von Prüfdokumenten haben keine Textebene (Scan). Dort konnte keine Textprüfung laufen – bewertbar erst nach der Texterkennung in der Dokumentkarte.",
+      "ohneText_one": "1 Prüfdokument enthält keinen lesbaren Text. Die Textprüfungen konnten dort nicht laufen – das Ergebnis ist nicht bewertbar.",
+      "ohneText_other": "{{count}} Prüfdokumente enthalten keinen lesbaren Text. Die Textprüfungen konnten dort nicht laufen – das Ergebnis ist nicht bewertbar."
+    },
     "formal": "Formalprüfung",
     "word": "Word-Check",
     "sprache": "Sprache und Platzhalter",
@@ -463,7 +558,8 @@
     "rechnen": "Rechenprüfung",
     "verweis": "Verweise",
     "regelwerk": "Regelwerksverweise",
-    "regelwerkStand": "Regelwerk: {{quellen}} · {{verweise}} Verweise, {{verifiziert}} verifiziert, {{nichtWiderlegbar}} ohne erfassten Absatz, {{zuPruefen}} zu prüfen, {{ohneQuelle}} ohne Quelle"
+    "regelwerkStand_one": "Regelwerk: {{quellen}} · 1 Verweis, {{verifiziert}} verifiziert, {{nichtWiderlegbar}} ohne erfassten Absatz, {{zuPruefen}} zu prüfen, {{ohneQuelle}} ohne Quelle",
+    "regelwerkStand_other": "Regelwerk: {{quellen}} · {{count}} Verweise, {{verifiziert}} verifiziert, {{nichtWiderlegbar}} ohne erfassten Absatz, {{zuPruefen}} zu prüfen, {{ohneQuelle}} ohne Quelle"
   },
   "prio": {
     "High": "Hoch",
@@ -497,17 +593,21 @@
   "pruefungKurz": {
     "titel": "Prüfung",
     "ohne": "ohne Befund",
+    "ocrAusstehend": "OCR ausstehend",
+    "ohneText": "kein lesbarer Text",
     "befunde_one": "1 Befund",
     "befunde_other": "{{count}} Befunde",
     "hoch_one": "davon 1 Hoch",
-    "hoch_other": "davon {{count}} Hoch"
+    "hoch_other": "davon {{count}} Hoch",
+    "paket_one": "1 Paketbefund",
+    "paket_other": "{{count}} Paketbefunde"
   },
   "referenz": {
     "titel": "Referenzlisten (Soll)",
     "hinweis": "Excel, CSV oder Markdown mit Kopfzeile: Glossar, Abkürzungen, Dokumentregister (Revision/Datum) oder Kennungen. Jedes Prüfdokument wird dagegen geprüft; nichts wird gespeichert.",
     "drop": "Liste hinzufügen",
     "format": "{{name}}: nur Excel, CSV oder Markdown",
-    "unbekannt": "{{name}}: Spalten nicht erkannt — Art bitte wählen",
+    "unbekannt": "{{name}}: Spalten nicht erkannt – Art wählen und Spalten zuordnen",
     "entfernen": "{{name}} entfernen",
     "art": "Art der Liste",
     "nichtErkannt": "— nicht erkannt —",
@@ -519,7 +619,24 @@
     },
     "eintraege_one": "1 Eintrag",
     "eintraege_other": "{{count}} Einträge",
-    "spaltenFehlen": "passende Spalten fehlen"
+    "spaltenFehlen": "passende Spalten fehlen",
+    "zuordnen": "Spalten zuordnen (Kopfzeile: Zeile {{zeile}})",
+    "spalte": "Spalte {{n}}: {{kopf}}",
+    "spalteLeer": "Spalte {{n}} (ohne Kopf)",
+    "pflichtspalte": "Pflichtspalte (*) fehlt",
+    "rollen": {
+      "soll": "Soll-Schreibweise",
+      "varianten": "Zu vermeidende Varianten",
+      "hinweis": "Hinweis",
+      "quelle": "Quelle",
+      "abk": "Abkürzung",
+      "bedeutung": "Bedeutung",
+      "dokument": "Dokument",
+      "revision": "Revision",
+      "datum": "Datum",
+      "kennung": "Kennung",
+      "bezeichnung": "Bezeichnung"
+    }
   },
   "recheck": {
     "einleitung": "Fremde Findingliste (Excel oder CSV des Teams, einer Behörde oder eines Audits) gegen das aktuelle Prüfpaket nachprüfen. Gesucht wird im ganzen Paket, nicht nur auf der genannten Seite – die Seitenzahlen der Liste beziehen sich auf die Vorrevision. Die Liste bleibt wie alle Dokumente nur in diesem Tab.",
@@ -531,6 +648,10 @@
     "profilGeladen": "Spaltenzuordnung aus dem gespeicherten Listenprofil übernommen",
     "befunde_one": "{{count}} Befund · Kopfzeile in Zeile {{zeile}}",
     "befunde_other": "{{count}} Befunde · Kopfzeile in Zeile {{zeile}}",
+    "befundeOhneKopf_one": "{{count}} Befund · keine Kopfzeile erkannt",
+    "befundeOhneKopf_other": "{{count}} Befunde · keine Kopfzeile erkannt",
+    "ohneKopf": "Keine Kopfzeile erkannt: Die Liste wird ab der ersten Zeile gelesen. Bitte die Spalten zuordnen – die Auswahl zeigt Beispiele aus der ersten Zeile. Ohne Kopfzeile wird kein Listenprofil gemerkt, und das Rückschreiben in die Datei ist nicht möglich.",
+    "spalteBeispiel": "z. B. {{wert}}",
     "blatt": "Blatt",
     "ausProfil": "Listenprofil",
     "schritt2": "Spalten zuordnen",
@@ -556,7 +677,8 @@
     "ohneWert": "(leer)",
     "paketweit": "Ganzes Paket",
     "quelleFehlt": "Quelle fehlt",
-    "sprache": "Sprache der Remarks",
+    "mehrere": "Mehrere: {{namen}}",
+    "sprache": "Sprache der Anmerkungen (Remarks)",
     "spracheDe": "Deutsch (Korrekturvorschlag in Manual-Sprache)",
     "spracheEn": "Englisch",
     "start_one": "{{count}} Befund nachprüfen",
@@ -570,7 +692,9 @@
     "aufgehoben_one": "1 Bestätigung aufgehoben – der Vorschlag hat sich geändert.",
     "aufgehoben_other": "{{count}} Bestätigungen aufgehoben – der Vorschlag hat sich geändert.",
     "schritt4": "Vorschläge prüfen und bestätigen",
-    "veraltet": "Das Prüfpaket hat sich seit der Prüfung geändert – bitte erneut prüfen.",
+    "veraltet": "Paket oder Zuordnung haben sich seit der Prüfung geändert – bitte erneut prüfen. Bestätigungen bleiben, solange der Vorschlag ihrer Zeile gleich bleibt.",
+    "verlustFrage_one": "Dabei geht {{count}} Bestätigung verloren. Trotzdem fortfahren?",
+    "verlustFrage_other": "Dabei gehen {{count}} Bestätigungen verloren. Trotzdem fortfahren?",
     "status": {
       "resolved": "Behoben",
       "partial": "Teilweise behoben",
@@ -614,6 +738,7 @@
     "remark": "Remark",
     "bestaetigen": "„{{status}}“ bestätigen",
     "zuruecknehmen": "Bestätigung zurücknehmen",
+    "aufklappen": "Befund {{nr}} aufklappen: Fundstellen und Freigabe",
     "bestaetigtToast_one": "{{count}} Vorschlag bestätigt",
     "bestaetigtToast_other": "{{count}} Vorschläge bestätigt",
     "folgt": "Folgt: KI-Prüfung inhaltlicher Befunde.",
@@ -626,12 +751,14 @@
       "zeilen_one": "{{count}} bestätigte Zeile wird geschrieben.",
       "zeilen_other": "{{count}} bestätigte Zeilen werden geschrieben.",
       "nurBestaetigt": "Nicht bestätigte Vorschläge bleiben draußen – im Original sähe ein Vorschlag aus wie eine Entscheidung.",
+      "veraltet": "Erst erneut prüfen: Die Vorschläge stammen von vor der letzten Änderung an Paket, Zuordnung oder Zielen – zurückgeschrieben wird nur ein aktueller Stand.",
       "start": "Neue Excel-Datei erzeugen",
       "fertig": "{{name}} erzeugt",
       "fehler": "Die Datei konnte nicht geschrieben werden – das Original ist unverändert.",
       "neu_one": "1 neuen Befund als Blatt „{{blatt}}“ anhängen",
       "neu_other": "{{count}} neue Befunde als Blatt „{{blatt}}“ anhängen",
-      "neuNummern": "Nummern {{von}} bis {{bis}}, im Anschluss an die höchste Nummer der Liste. Im Stil der Liste: Kopfzeile, Dropdowns, Farben, Filter, A4 quer.",
+      "neuNummern_one": "Nummer {{von}}, im Anschluss an die höchste Nummer der Liste. Im Stil der Liste: Kopfzeile, Dropdowns, Farben, Filter, A4 quer.",
+      "neuNummern_other": "Nummern {{von}} bis {{bis}}, im Anschluss an die höchste Nummer der Liste. Im Stil der Liste: Kopfzeile, Dropdowns, Farben, Filter, A4 quer.",
       "neuKeine": "DocCheck hat im Paket keine Befunde, die nicht schon in der Liste stehen.",
       "neuAusgenommen_one": "1 Befund ausgenommen: Er ist Restfundstelle eines alten Befunds und steht dort im Remark.",
       "neuAusgenommen_other": "{{count}} Befunde ausgenommen: Sie sind Restfundstellen alter Befunde und stehen dort im Remark."
@@ -661,7 +788,7 @@
     "modus": "Prüfumfang",
     "einzeln": "Einzeldokumente",
     "paket": "Paket",
-    "leer": "Noch keine fertig gelesenen Prüfdokumente. Laden Sie das Paket in der linken Spalte — Kürzel, Ebene und Geschwistergruppen werden aus Dateiname und Titel vorbelegt.",
+    "leer": "Noch keine fertig gelesenen Prüfdokumente. Lade das Paket in der linken Spalte — Kürzel, Ebene und Geschwistergruppen werden aus Dateiname und Titel vorbelegt.",
     "struktur": "Paketstruktur",
     "bestaetigen": "Vorbelegung bestätigen",
     "hinweis": "Ebene 1 ist die höchste Stufe (z. B. TM). Widerspricht ein tieferes Dokument einem höheren, wird der Befund beim tieferen geführt. Dokumente mit gleicher Gruppe sind Geschwister (z. B. Multi-/Single-Pilot-Fassung); die Variante entscheidet, welche Begriffe dort erlaubt sind.",
@@ -674,9 +801,9 @@
       "revision": "Revision",
       "datum": "Datum"
     },
-    "uebersicht": "Package overview",
+    "uebersicht": "Paketübersicht",
     "fehlt": "fehlt",
-    "befunde_one": "{{count}} Paketbefund — siehe Reiter Findings.",
-    "befunde_other": "{{count}} Paketbefunde — siehe Reiter Findings."
+    "befunde_one": "{{count}} Paketbefund — siehe Reiter Befunde.",
+    "befunde_other": "{{count}} Paketbefunde — siehe Reiter Befunde."
   }
 }

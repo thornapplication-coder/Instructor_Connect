@@ -87,6 +87,41 @@ describe('metaErkennen (Abnahme Phase 2: Revision und Datum eines Beispiel-Manua
   })
 })
 
+describe('Keine falschen „erkannten" Werte (Audit 11/2026, DC-06)', () => {
+  it('Typ nicht aus einer Erwähnung im Fließtext — wohl aus Titel, Betreff, Dateiname und den obersten Zeilen', () => {
+    const apx = ['SBX-PKG-01 Appendix 4 Line Training R0.1\n1 Line Training\nThe call-out is given by the PM.\n2 Line Check\nSee TM chapter 2.1.']
+    expect(metaErkennen(apx).typ).toBeUndefined()
+    expect(metaErkennen(apx, { title: 'SBX-PKG-01 Appendix 4 Line Training R0.1' }, 'SBX-PKG-01_APX4_R0.1.docx').typ).toBeUndefined()
+    // Fließtext auf Folgeseiten zählt nie
+    expect(metaErkennen(['Line Training Appendix', 'The Operations Manual applies.']).typ).toBeUndefined()
+    expect(metaErkennen(apx, {}, 'SBX-PKG-01_TM_R0.1.docx').typ).toBe('TM')
+    expect(metaErkennen(apx, {}, 'FREMD-OM-A_E1R3.pdf').typ).toBe('OM')
+    expect(metaErkennen(apx, { subject: 'Pilot Learning Manual' }).typ).toBe('PLM')
+    // Oberste Zeilen des Deckblatts: ja; die vierte schon nicht mehr
+    expect(metaErkennen(['AVIATION ACADEMY\nQRH\nCL30']).typ).toBe('QRH')
+    expect(metaErkennen(['AVIATION ACADEMY\nCL30\nEdition 1\nQRH']).typ).toBeUndefined()
+  })
+
+  it('Dokumentnummer: Schlüsselwort beliebig geschrieben, der Wert in Großbuchstaben mit Ziffer', () => {
+    expect(nummerFinden('Exercise reference list:\n3.8.3.5 | Steep turns')).toBeUndefined()
+    expect(nummerFinden('Reference: SBX-TM-300')).toBe('SBX-TM-300')
+    expect(nummerFinden('see the reference manual. Doc No.: SBX-OM-1.')).toBe('SBX-OM-1')
+    expect(nummerFinden('DOCUMENT NUMBER ABC-12')).toBe('ABC-12')
+    expect(nummerFinden('Reference 2.1 describes the scope.')).toBeUndefined()
+    expect(nummerFinden('Doc No.: TBD')).toBeUndefined()
+    expect(nummerFinden('Ref. 12')).toBeUndefined()
+  })
+
+  it('Titel: weder Verzeichnisüberschrift noch Tabellenkopf einer Liste', () => {
+    expect(titelFinden(['Contents', '1 General 2', 'Introduction to the course'])).toBe('Introduction to the course')
+    expect(titelFinden(['Table of Contents', 'Inhaltsverzeichnis', 'List of Effective Pages:', 'Record of Revisions'])).toBeUndefined()
+    expect(titelFinden(['Soll-Schreibweise | Zu vermeidende Varianten | Quelle', 'Operations Manual | OM, Ops Manual | OM-A'])).toBeUndefined()
+    // Zwei Zellen bleiben möglich (Deckblatt als Tabelle)
+    expect(titelFinden(['AVIATION ACADEMY | Training Manual CL30'])).toBe('AVIATION ACADEMY Training Manual CL30')
+    expect(metaErkennen(['Soll-Schreibweise | Zu vermeidende Varianten | Quelle\nOperations Manual | OM, Ops Manual | OM-A\nTraining manual | TM | TM'])).toEqual({ titel: undefined, nummer: undefined, revision: undefined, datum: undefined, typ: undefined })
+  })
+})
+
 describe('Revision aus dem Dateinamen (UX-Prüfung 01.11.2026)', () => {
   it('Edition+Revision, Rev, R mit Trenner; keine Revision in Wörtern', () => {
     expect(revisionAusDateiname('TM_E2R0.1.docx')).toBe('Edition 2 Rev 0.1')

@@ -1,5 +1,5 @@
 import { mean, scopeRecords, trainingDate } from './gradingStats'
-import type { Grade, GradingRecord, OverallResult } from './types'
+import type { CompetencySetKey, Grade, GradingRecord, OverallResult } from './types'
 
 /**
  * Verlauf eines Piloten über mehrere Sessions.
@@ -47,8 +47,12 @@ export interface CompetencyTrack {
 }
 
 export interface TraineeHistory {
+  /** Satz und Person (`traineeKey`) — dieselbe Person hat je Satz einen
+   *  eigenen Verlauf und damit einen eigenen Schlüssel. */
   key: string
   name: string
+  /** Pilotenkompetenzen (308A–F/H) oder Instruktorkompetenzen (308G) */
+  competencySet: CompetencySetKey
   /** chronologisch, neueste zuerst — so liest man eine Historie */
   sessions: TraineeSession[]
   competencies: CompetencyTrack[]
@@ -75,24 +79,43 @@ function trendOf(values: { grade: number }[]): 'up' | 'down' | 'flat' | null {
   return 'flat'
 }
 
+/** Schlüssel eines Verlaufs: Satz und Person. */
+export function historyKey(set: CompetencySetKey, name: string): string {
+  return `${set}:${traineeKey(name)}`
+}
+
 /**
  * Verlauf je Pilot. Die Datenbasis ist dieselbe wie in der Statistik
  * (scopeRecords): nur unterschriebene Blätter, keine Folgeformulare, nur
  * Blätter mit Piloten — ein nicht unterschriebenes Blatt ist kein Nachweis
  * und darf keinen Verlauf bewegen.
+ *
+ * Audit 11/2026, GTY-09: Gruppiert wurde nur nach dem Namen. Ein
+ * Instruktoranwärter mit einem 308B (als Pilot) und einem 308G (als
+ * Kandidat) stand unter „How a pilot develops" mit „2 sessions", und der
+ * Verlauf mischte KNO … WLM mit PRE … REP. Piloten- und
+ * Instruktorenbewertungen folgen verschiedenen Maßstäben und werden nirgends
+ * miteinander verrechnet (statsBySet, monthlyReport) — hier auch nicht mehr:
+ * Je Satz und Person ein eigener Verlauf. Ein Blatt ohne Satz im Katalog
+ * zählt wie bisher zu den Piloten.
  */
-export function traineeHistories(records: GradingRecord[], now: number): TraineeHistory[] {
+export function traineeHistories(
+  records: GradingRecord[],
+  now: number,
+  setOf: (r: GradingRecord) => CompetencySetKey | null,
+): TraineeHistory[] {
   const scoped = scopeRecords(records, { period: 'all', now })
-  const byTrainee = new Map<string, { name: string; sessions: TraineeSession[] }>()
+  const byTrainee = new Map<string, { name: string; set: CompetencySetKey; sessions: TraineeSession[] }>()
 
   scoped.forEach((r) => {
+    const set = setOf(r) ?? 'pilot'
     r.trainees.forEach((tr) => {
       // Beide Felder optional lesen: Ein Datensatz ohne traineeId (Altbestand,
       // von Hand eingespielt) brachte den ganzen Verlauf zum Absturz.
       const raw = tr.traineeName?.trim() || tr.traineeId?.trim()
       if (!raw) return
-      const key = traineeKey(raw)
-      const entry = byTrainee.get(key) ?? { name: raw, sessions: [] }
+      const key = historyKey(set, raw)
+      const entry = byTrainee.get(key) ?? { name: raw, set, sessions: [] }
       entry.sessions.push({
         recordId: r.id,
         date: trainingDate(r),
@@ -107,14 +130,15 @@ export function traineeHistories(records: GradingRecord[], now: number): Trainee
   })
 
   // Wortlaut der Kompetenzen aus dem jüngsten Blatt, das ihn führt — er ist
-  // je Formular eingefroren und kann sich über die Zeit geändert haben.
+  // je Formular eingefroren und kann sich über die Zeit geändert haben. Je
+  // Satz getrennt: Die Kürzel der beiden Kataloge sind unabhängig vergeben.
   const titles = new Map<string, string>()
   ;[...scoped]
     .sort((a, b) => trainingDate(a) - trainingDate(b))
-    .forEach((r) => r.competencies?.forEach((c) => titles.set(c.code, c.title)))
+    .forEach((r) => r.competencies?.forEach((c) => titles.set(`${setOf(r) ?? 'pilot'}:${c.code}`, c.title)))
 
   return [...byTrainee.entries()]
-    .map(([key, { name, sessions }]) => {
+    .map(([key, { name, set, sessions }]) => {
       const chrono = [...sessions].sort((a, b) => a.date - b.date)
       const codes: string[] = []
       chrono.forEach((s) => s.grades.forEach((g) => { if (!codes.includes(g.code)) codes.push(g.code) }))
@@ -126,7 +150,7 @@ export function traineeHistories(records: GradingRecord[], now: number): Trainee
         const lowCount = values.filter((v) => v.grade <= 2).length
         return {
           code,
-          title: titles.get(code) ?? code,
+          title: titles.get(`${set}:${code}`) ?? code,
           values,
           mean: mean(values.map((v) => v.grade)),
           lowCount,
@@ -138,6 +162,7 @@ export function traineeHistories(records: GradingRecord[], now: number): Trainee
       return {
         key,
         name,
+        competencySet: set,
         sessions: [...chrono].reverse(),
         competencies,
         notCompetentCount: chrono.filter((s) => s.overall === 'not_competent').length,
@@ -147,7 +172,12 @@ export function traineeHistories(records: GradingRecord[], now: number): Trainee
     .sort((a, b) => b.lastDate - a.lastDate)
 }
 
-/** Einzelner Verlauf; `key` stammt aus traineeKey. */
-export function historyOf(records: GradingRecord[], key: string, now: number): TraineeHistory | undefined {
-  return traineeHistories(records, now).find((h) => h.key === key)
+/** Einzelner Verlauf; `key` stammt aus historyKey. */
+export function historyOf(
+  records: GradingRecord[],
+  key: string,
+  now: number,
+  setOf: (r: GradingRecord) => CompetencySetKey | null,
+): TraineeHistory | undefined {
+  return traineeHistories(records, now, setOf).find((h) => h.key === key)
 }

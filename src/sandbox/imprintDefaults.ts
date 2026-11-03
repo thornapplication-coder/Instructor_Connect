@@ -22,15 +22,17 @@ Vollständige Anschrift und weitere Kontaktdaten werden vor dem Produktivbetrieb
 # 2. Zweck und Module der App
 Instructor Connect ist ein internes, zentral verwaltetes Werkzeug für Instruktoren. Es umfasst derzeit folgende Module:
 
-- Grading Tool: digitale Bewertungsformulare nach OM Appendix 5 (Grading Sheets, Additional Training, Record of Attendance, Deferred Item). Formulare sind immer englisch. Unterschriften werden ausschließlich live am Gerät geleistet und niemals gespeichert oder wiederverwendet; nach beidseitiger Unterschrift ist ein Formular schreibgeschützt. Ein Fingerabdruck über den Inhalt macht jede spätere Änderung sichtbar, und der Dokumentenstand (ATO, Zulassungsnummer, Formularstand, Formulartitel) wird beim Unterschreiben eingefroren. Abgeschlossene Formulare werden automatisch per E-Mail an die konfigurierten Empfänger versendet — die Deferred Item (Form 310) immer zusätzlich an den Training Admin. In der eigenen Ansicht bleiben Formulare eine Woche sichtbar; in der Ablage bleiben sie unbegrenzt erhalten. Ausdrucke und Exporte tragen immer Datum, Uhrzeit und Namen der exportierenden Person; jedes gedruckte Blatt nennt ATO, Formular und die geschulte Person.
+- Grading Tool: digitale Bewertungsformulare nach OM Appendix 5 (Grading Sheets, Additional Training, Record of Attendance, Deferred Item). Formulare sind immer englisch. Unterschriften werden ausschließlich live am Gerät geleistet und niemals gespeichert oder wiederverwendet; nach beidseitiger Unterschrift ist ein Formular schreibgeschützt. Ein Fingerabdruck über den Inhalt macht jede spätere Änderung sichtbar, und der Dokumentenstand (ATO, Genehmigungsnummer, Formularstand, Formulartitel) wird beim Unterschreiben eingefroren. Abgeschlossene Formulare werden automatisch per E-Mail an die konfigurierten Empfänger versendet — die Deferred Item (Form 310) immer zusätzlich an den Training Admin. In der eigenen Ansicht bleiben Formulare eine Woche sichtbar; in der Ablage bleiben sie unbegrenzt erhalten. Ausdrucke und Exporte tragen immer Datum, Uhrzeit und Namen der exportierenden Person; jedes gedruckte Blatt nennt ATO, Formular und die geschulte Person.
 - Auswertung: Verlauf je Pilot, Monatsbericht und Standardisierungsbericht. Sie vergleichen das Bewertungsverhalten der Instruktoren mit dem Flottenmittel und dienen der Standardisierung nach ORA.ATO.110 — nicht der Leistungskontrolle einzelner Personen (siehe Abschnitt 6).
 - Lesson Plan: Bibliothek der Lesson Plans je Muster und Schulungsart. Sichtbar sind nur die Muster, die dir im Admin-Panel zugewiesen wurden.
 - Chat: Gruppenchats mit Umfragen und automatischer Löschung nach der eingestellten Aufbewahrungsdauer. Der Zugang ist auf Mitglieder der jeweiligen Gruppe beschränkt. Der Admin kann einzelne Personen für das Senden im Chat sperren; Mitlesen bleibt möglich.
-- Instructor Info: Informationsbibliothek mit Kategorien, Gültigkeitszeitraum (ohne Enddatum: UFN — until further notice) und Zielgruppen. Einträge mit Zielgruppen sehen nur deren Mitglieder. Für gekennzeichnete Einträge ist eine Lese-Bestätigung zu leisten; Admins sehen, wer bestätigt hat, und können eine Kontrollliste exportieren.
-- Feedback: Feedback an einen wählbaren Empfänger, optional als „Urgent" markiert und mit Foto- oder PDF-Anhang. Feedback ist nicht anonym und bleibt für Admins gespeichert, bis es dort gelöscht wird. Wird die Kategorie „Safety" gewählt, weist die App sofort darauf hin, dass ein Safety Report zu schreiben ist — das Feedback-Modul ist kein Meldeweg.
+- Instructor Info: Informationsbibliothek mit Kategorien und Gültigkeitszeitraum (ohne Enddatum: UFN — until further notice). Einträge mit Musterangabe sind für die Personen dieses Musters bestimmt, Einträge ohne Musterangabe für alle. Für gekennzeichnete Einträge ist eine Lese-Bestätigung zu leisten; Admins sehen, wer bestätigt hat, und können eine Kontrollliste exportieren.
+- Feedback: Feedback an einen wählbaren Empfänger, optional als „Dringend“ markiert und mit Foto- oder PDF-Anhang. Feedback ist nicht anonym und bleibt für Admins gespeichert, bis es dort gelöscht wird. Wird die Kategorie „Safety“ gewählt, weist die App sofort darauf hin, dass ein Safety Report zu schreiben ist — das Feedback-Modul ist kein Meldeweg.
 - Notes: persönliche Merkliste. Notizen gehören ausschließlich ihrem Verfasser: Niemand sonst sieht sie, auch kein Admin und kein Superadmin, und sie gehen in keinen Export und in keinen Nachweis. Sie sind eine Gedächtnisstütze, keine Dokumentation.
 - Who to call: internes Kontaktverzeichnis.
-- Admin Panel: Benutzerverwaltung (einzeln oder als Tabellen-Import), Rechte-Matrix, Grading-Konfiguration, Gruppen, Feedback, Einstellungen, dieser Text und der Changelog.
+- my AAA Logbook: Tätigkeitsnachweis je Instruktor. Zeiten aus den eigenen Grading-Formularen erscheinen dort automatisch, dazu kommen eigene Einträge. Ändern kann ein Logbuch ausschließlich die Person, der es gehört. Einsehen können es außerdem Superadmin und Training Admin sowie Admins für ihre Muster. Das Logbuch lässt sich exportieren; der Superadmin wertet die Zeiten aller Instruktoren aus.
+- DocCheck: Prüfwerkzeug für Ausbildungs- und Betriebsdokumente, nur für Personen, denen der Superadmin den Zugang gegeben hat. Geprüfte Dokumente werden nur im geöffneten Browser-Tab verarbeitet und nie gespeichert. Ein Protokoll hält fest, wer Rechte, Einstellungen oder Prüfschritte geändert bzw. bestätigt hat — ohne Inhalte der Dokumente oder Befunde. KI-Prüfungen sind in dieser Fassung simuliert; mit angeschlossenem Dienst gehen dafür nur Auszüge an die KI.
+- Admin Panel: Benutzerverwaltung (einzeln oder als Tabellen-Import), Rechte-Matrix, Grading-Konfiguration, Logbuch-Auswertung, Gruppen, Feedback, Einstellungen, dieser Text und der Changelog.
 
 Die App ist ein Zusatzangebot. Sie ist ausdrücklich kein offizielles Anweisungs-, Melde- oder Dokumentationssystem der Organisation.
 
@@ -50,7 +52,7 @@ Verbindlich sind ausschließlich die genehmigten Handbücher und Verfahren der O
 Bei Widersprüchen zwischen Inhalten dieser App und einem genehmigten Handbuch oder einer offiziellen Anweisung gilt ausnahmslos das Handbuch bzw. die offizielle Anweisung.
 
 # 5. Vertraulichkeit, Verschlüsselung und Gruppenzugriff
-Alle Daten und Inhalte in Instructor Connect werden vertraulich behandelt. Der Zugang ist ausschließlich registrierten Mitgliedern vorbehalten; Konten werden nur vom Admin angelegt und dabei mindestens einer Gruppe zugewiesen — eine Selbstregistrierung existiert nicht. Angemeldet wird sich mit der dienstlichen E-Mail-Adresse und einem sechsstelligen Code, der bis Mitternacht gilt; Passwörter gibt es keine. Chats und gruppenbezogene Instructor-Info-Einträge sind nur für Mitglieder der jeweiligen Gruppe zugänglich.
+Alle Daten und Inhalte in Instructor Connect werden vertraulich behandelt. Der Zugang ist ausschließlich registrierten Mitgliedern vorbehalten; Konten werden nur vom Admin angelegt und dabei — sofern sie den Chat nutzen — mindestens einer Gruppe zugewiesen; eine Selbstregistrierung existiert nicht. Angemeldet wird sich mit der dienstlichen E-Mail-Adresse und einem sechsstelligen Code, der bis Mitternacht gilt; Passwörter gibt es keine. Chats sind nur für Mitglieder der jeweiligen Gruppe zugänglich, Inhalte mit Musterangabe nur für Personen dieses Musters.
 
 Die Datenübertragung erfolgt transportverschlüsselt (TLS). Eine Ende-zu-Ende-Verschlüsselung besteht bewusst nicht: technische Administratoren könnten Inhalte prinzipiell einsehen, etwa zur Fehlerbehebung oder Moderation. Bitte teile daher keine sensiblen privaten Inhalte oder vertraulichen personenbezogenen Dokumente über die App.
 
@@ -59,12 +61,12 @@ Die Datenübertragung erfolgt transportverschlüsselt (TLS). Eine Ende-zu-Ende-V
 - Die Daten werden ausschließlich für den Betrieb der App verwendet und nicht an Dritte weitergegeben.
 
 # 6. Datenschutz — welche Daten, wozu und wie lange
-Diese Fassung der App kommt ohne Server aus: Der gesamte Bestand liegt in der Datenbank des Browsers auf deinem Gerät. Es gibt keine Analyse-, Tracking- oder Werbedienste, keine Weitergabe an Dritte und keine Verbindungen zu fremden Servern.
+Solange kein Backend angeschlossen ist — wie in dieser Fassung —, kommt die App ohne Server aus: Der gesamte Bestand liegt in der Datenbank des Browsers auf deinem Gerät, und es bestehen keine Verbindungen zu fremden Servern. Analyse-, Tracking- oder Werbedienste gibt es nicht, ebenso keine Weitergabe an Dritte.
 
-Verarbeitet werden: Stammdaten (Name, dienstliche E-Mail-Adresse, Telefonnummer, Rolle, zugewiesene Muster), Grading-Formulare samt Noten, Kommentaren und Unterschriftsbildern, Chat-Nachrichten und Umfragen, Instructor-Info-Einträge samt Lese-Bestätigungen, Rückmeldungen aus dem Feedback-Modul, das Kontaktverzeichnis sowie persönliche Notizen.
+Verarbeitet werden: Stammdaten (Name, dienstliche E-Mail-Adresse, Telefonnummer, Rolle, zugewiesene Muster), Grading-Formulare samt Noten, Kommentaren und Unterschriftsbildern, Chat-Nachrichten und Umfragen, Instructor-Info-Einträge samt Lese-Bestätigungen, Rückmeldungen aus dem Feedback-Modul, das Kontaktverzeichnis, persönliche Notizen, Logbuch-Einträge (Tätigkeitszeiten und eigene Einträge) sowie das Protokoll von DocCheck (wer wann Rechte, Einstellungen oder Prüfschritte geändert bzw. bestätigt hat).
 
 - Wozu: zur Durchführung des Ausbildungsbetriebs und zur Erfüllung der aufsichtsrechtlichen Nachweispflichten (Art. 6 Abs. 1 lit. b und c DSGVO), im Übrigen zur internen Abstimmung auf Grundlage des berechtigten Interesses (lit. f). Die Nutzung der App selbst bleibt freiwillig (Abschnitt 3).
-- Wie lange: Chat-Nachrichten bis zum Ablauf der eingestellten Aufbewahrungsdauer; Formulare eine Woche in der eigenen Ansicht und danach dauerhaft in der Ablage, weil Ausbildungsnachweise aufbewahrungspflichtig sind (ORA.GEN.220); Notizen, bis ihr Verfasser sie löscht.
+- Wie lange: Chat-Nachrichten bis zum Ablauf der eingestellten Aufbewahrungsdauer; Formulare eine Woche in der eigenen Ansicht und danach dauerhaft in der Ablage, weil Ausbildungsnachweise aufbewahrungspflichtig sind (ORA.GEN.220); Notizen und eigene Logbuch-Einträge, bis ihr Verfasser sie löscht; Dokumente aus DocCheck gar nicht — sie leben nur im geöffneten Tab.
 - Notizen sind privat. Sie werden fremden Konten gar nicht erst herausgegeben und sind in keinem Export enthalten.
 - Unterschriften werden nicht gespeichert und nie wiederverwendet. Sie werden jedes Mal live geleistet, gehören zu genau einem Dokument, und der Fingerabdruck dient allein dem Nachweis, dass danach nichts verändert wurde.
 - Auswertungen (Kalibrierung, Standardisierungsbericht) verfolgen den Zweck der Standardisierung nach ORA.ATO.110. Sie kennzeichnen erst ab zehn Noten aus mindestens drei Durchgängen, arbeiten mit festen, erklärbaren Schwellen und ersetzen kein Personalgespräch. Eine automatisierte Entscheidung mit rechtlicher Wirkung im Sinne des Art. 22 DSGVO findet nicht statt.
@@ -76,12 +78,12 @@ Für die Inhalte dieser App wird derzeit keine Datensicherung (Backup) erstellt.
 
 Darüber hinaus kann es — etwa bei technischen Störungen, beim Löschen der Browserdaten oder beim Verlust des Geräts — jederzeit zu einem vollständigen Verlust von Inhalten kommen. Verlasse dich daher niemals darauf, dass eine Information in der App dauerhaft verfügbar bleibt: Alles Wichtige gehört zusätzlich in die offiziellen Kanäle und Dokumentationssysteme.
 
-# 8. Löschung von Teilnehmerkonten
-Jedes Teilnehmerkonto kann jederzeit durch den Admin deaktiviert oder vollständig gelöscht werden. Ein Anspruch auf Nutzung der App besteht nicht.
+# 8. Beenden der Teilnahme und Löschwünsche
+Der Admin kann jedes Teilnehmerkonto jederzeit deaktivieren. Ein Anspruch auf Nutzung der App besteht nicht.
 
-Ebenso kann jede Teilnehmerin und jeder Teilnehmer die Löschung des eigenen Kontos jederzeit und ohne Angabe von Gründen verlangen. Eine formlose Mitteilung an den Admin genügt (siehe Abschnitt 10); die Löschung wird zeitnah umgesetzt.
+Ebenso kann jede Teilnehmerin und jeder Teilnehmer jederzeit und ohne Angabe von Gründen verlangen, die Teilnahme zu beenden. Eine formlose Mitteilung an den Admin genügt (siehe Abschnitt 10). Das Konto wird dann deaktiviert; auf Wunsch werden zusätzlich Stammdaten und eigene Chat-Inhalte entfernt bzw. anonymisiert, soweit keine Aufbewahrungspflicht entgegensteht. Eigene Notizen und Logbuch-Einträge kannst du jederzeit selbst löschen.
 
-Mit der Löschung erlischt der Zugang zur App. Bereits erstellte Chat-Inhalte unterliegen weiterhin der automatischen Löschung nach Abschnitt 7; für unterschriebene Ausbildungsnachweise gilt die Grenze aus Abschnitt 6.
+Mit der Deaktivierung erlischt der Zugang zur App. Unterschriebene Ausbildungsnachweise bleiben samt ihrer Zuordnung erhalten (Abschnitt 6); bereits erstellte Chat-Inhalte unterliegen weiterhin der automatischen Löschung nach Abschnitt 7.
 
 # 9. Nutzungsregeln
 - Über die App werden keine sicherheitskritischen oder für Training und Simulatorbetrieb verbindlichen Anweisungen erteilt oder entgegengenommen.
@@ -92,7 +94,7 @@ Mit der Löschung erlischt der Zugang zur App. Bereits erstellte Chat-Inhalte un
 - Notizen sind für eigene Merkposten gedacht. Personenbezogene Bewertungen gehören in das Formular, nicht in eine Notiz.
 
 # 10. Kontakt — auch für Löschwünsche und Datenschutzfragen
-Fragen, Anregungen, Auskunfts- und Löschwünsche richte bitte an den Admin — direkt in der App über das Modul „Who to call" oder per E-Mail. Ein Löschwunsch wird ohne Nachfragen und ohne Angabe von Gründen umgesetzt, soweit ihm keine Aufbewahrungspflicht entgegensteht (Abschnitt 6).`
+Fragen, Anregungen, Auskunfts- und Löschwünsche richte bitte an den Admin — direkt in der App über das Modul „Who to call“ oder per E-Mail. Ein Löschwunsch wird ohne Nachfragen und ohne Angabe von Gründen umgesetzt, soweit ihm keine Aufbewahrungspflicht entgegensteht (Abschnitt 6).`
 
 export const IMPRINT_EN = `These notes govern the use of Instructor Connect, the internal communication app for instructors of a simulator-only training operation. Please read them carefully — they describe the character of the app, your rights, and the limits of what the app is intended for.
 
@@ -108,11 +110,13 @@ Instructor Connect is an internal, centrally managed tool for instructors. It cu
 - Reporting: trainee history, monthly report and standardisation report. They compare each instructor's grading behaviour against the fleet average and serve standardisation under ORA.ATO.110 — not individual performance monitoring (see section 6).
 - Lesson Plan: library of lesson plans per aircraft type and training category. You only see the types assigned to you in the admin panel.
 - Chat: group chats with polls and automatic deletion after the configured retention period. Access is restricted to members of the respective group. The admin can block individuals from sending in chat; reading remains possible.
-- Instructor Info: information library with categories, validity period (no end date: UFN — until further notice) and target groups. Entries with target groups are visible to their members only. Marked entries require a read confirmation; admins can see who has confirmed and export a control list.
-- Feedback: feedback to a selectable recipient, optionally marked "urgent" and with a photo or PDF attachment. Feedback is not anonymous and remains stored for admins until deleted there. Selecting the category "Safety" immediately shows a notice that a safety report has to be filed — the feedback module is not a reporting channel.
+- Instructor Info: information library with categories and validity period (no end date: UFN — until further notice). Entries with an aircraft type are meant for the people assigned to that type, entries without one for everyone. Marked entries require a read confirmation; admins can see who has confirmed and export a control list.
+- Feedback: feedback to a selectable recipient, optionally marked “Urgent” and with a photo or PDF attachment. Feedback is not anonymous and remains stored for admins until deleted there. Selecting the category “Safety” immediately shows a notice that a safety report has to be filed — the feedback module is not a reporting channel.
 - Notes: your personal memory aid. Notes belong to their author alone: nobody else can see them, not even an admin or superadmin, and they are part of no export and no record. They are a reminder, not documentation.
 - Who to call: internal contact directory.
-- Admin panel: user administration (individually or via table import), permission matrix, grading configuration, groups, feedback, settings, this text and the changelog.
+- my AAA Logbook: activity record per instructor. Times from your own grading forms appear there automatically, alongside your own entries. A logbook can only be changed by the person it belongs to. It can also be viewed by the superadmin and the Training Admin, and by admins for their aircraft types. The logbook can be exported; the superadmin evaluates the times of all instructors.
+- DocCheck: review tool for training and operational documents, available only to people the superadmin has granted access. Documents under review are processed only in the open browser tab and never stored. A log records who changed or confirmed permissions, settings or review steps — without the content of documents or findings. AI reviews are simulated in this version; once the service is connected, only excerpts are sent to the AI for this purpose.
+- Admin panel: user administration (individually or via table import), permission matrix, grading configuration, logbook evaluation, groups, feedback, settings, this text and the changelog.
 
 The app is a supplementary offer. It is expressly not an official instruction, reporting or documentation system of the organisation.
 
@@ -132,7 +136,7 @@ Only the organisation's approved manuals and procedures (e.g. Training Manual, o
 In case of any conflict between content in this app and an approved manual or an official instruction, the manual or official instruction prevails without exception.
 
 # 5. Confidentiality, encryption and group access
-All data and content in Instructor Connect are treated confidentially. Access is restricted to registered members; accounts are created by the admin only and are assigned to at least one group on creation — there is no self-registration. Signing in works with your work email address and a six-digit code valid until midnight; there are no passwords. Chats and group-scoped Instructor Info entries are accessible to members of the respective group only.
+All data and content in Instructor Connect are treated confidentially. Access is restricted to registered members; accounts are created by the admin only and — if they use the chat — assigned to at least one group on creation; there is no self-registration. Signing in works with your work email address and a six-digit code valid until midnight; there are no passwords. Chats are accessible to members of the respective group only, content with an aircraft type only to people assigned to that type.
 
 Data transmission is transport-encrypted (TLS). There is deliberately no end-to-end encryption: technical administrators could in principle access content, for instance for troubleshooting or moderation. Therefore, please do not share sensitive private content or confidential personal documents via the app.
 
@@ -141,12 +145,12 @@ Data transmission is transport-encrypted (TLS). There is deliberately no end-to-
 - Data is used exclusively to operate the app and is not passed on to third parties.
 
 # 6. Data protection — what is stored, why and for how long
-This version of the app works without a server: the entire dataset lives in the browser database on your device. There are no analytics, tracking or advertising services, no disclosure to third parties and no connections to external servers.
+As long as no backend is connected — as in this version — the app works without a server: the entire dataset lives in the browser database on your device, and there are no connections to external servers. There are no analytics, tracking or advertising services and no disclosure to third parties.
 
-Processed data: master data (name, work email address, phone number, role, assigned aircraft types), grading forms including grades, comments and signature images, chat messages and polls, Instructor Info entries including read confirmations, feedback submissions, the contact directory and personal notes.
+Processed data: master data (name, work email address, phone number, role, assigned aircraft types), grading forms including grades, comments and signature images, chat messages and polls, Instructor Info entries including read confirmations, feedback submissions, the contact directory, personal notes, logbook entries (activity times and your own entries) and the DocCheck log (who changed or confirmed permissions, settings or review steps, and when).
 
 - Why: to conduct training operations and to meet regulatory record-keeping duties (Art. 6(1)(b) and (c) GDPR), otherwise for internal coordination on the basis of legitimate interest (Art. 6(1)(f)). Using the app itself remains voluntary (section 3).
-- How long: chat messages until the configured retention period expires; forms one week in your own view and afterwards permanently in the records archive, because training records are subject to retention (ORA.GEN.220); notes until their author deletes them.
+- How long: chat messages until the configured retention period expires; forms one week in your own view and afterwards permanently in the records archive, because training records are subject to retention (ORA.GEN.220); notes and your own logbook entries until their author deletes them; documents in DocCheck not at all — they live only in the open tab.
 - Notes are private. They are never handed to other accounts and appear in no export.
 - Signatures are not stored and never reused. They are given live each time, belong to exactly one document, and the fingerprint serves only to show that nothing was altered afterwards.
 - Reporting (calibration, standardisation report) serves standardisation under ORA.ATO.110. It flags only from ten grades across at least three sessions, uses fixed, explainable thresholds and replaces no conversation. There is no automated decision producing legal effects within the meaning of Art. 22 GDPR.
@@ -158,12 +162,12 @@ No backup is currently made of the content of this app. Chat messages and their 
 
 Beyond that, content may be lost completely at any time — for example due to technical failures, clearing the browser data or losing the device. Never rely on information remaining permanently available in the app: anything important also belongs in the official channels and documentation systems.
 
-# 8. Deletion of participant accounts
-Any participant account can be deactivated or completely deleted by the admin at any time. There is no entitlement to use the app.
+# 8. Ending participation and deletion requests
+The admin can deactivate any participant account at any time. There is no entitlement to use the app.
 
-Likewise, every participant can request the deletion of their own account at any time and without giving reasons. An informal message to the admin is sufficient (see section 10); the deletion will be carried out promptly.
+Likewise, every participant can ask to end their participation at any time and without giving reasons. An informal message to the admin is sufficient (see section 10). The account is then deactivated; on request, master data and your own chat content are additionally removed or anonymised, unless a retention duty stands against it. You can delete your own notes and logbook entries yourself at any time.
 
-Deletion ends access to the app. Chat content already created remains subject to automatic deletion as per section 7; for signed training records the limit in section 6 applies.
+Deactivation ends access to the app. Signed training records are kept together with the person they belong to (section 6); chat content already created remains subject to automatic deletion as per section 7.
 
 # 9. Rules of use
 - No safety-critical instructions, nor instructions binding for training or simulator operations, are issued or received via the app.
@@ -174,7 +178,7 @@ Deletion ends access to the app. Chat content already created remains subject to
 - Notes are meant for your own reminders. Assessments of a person belong in the form, not in a note.
 
 # 10. Contact — including deletion requests and data protection
-Please address questions, suggestions, access and deletion requests to the admin — directly in the app via the "Who to call" module or by email. A deletion request will be carried out without queries and without reasons having to be given, unless a retention duty stands against it (section 6).`
+Please address questions, suggestions, access and deletion requests to the admin — directly in the app via the “Who to call” module or by email. A deletion request will be carried out without queries and without reasons having to be given, unless a retention duty stands against it (section 6).`
 
 /**
  * Prüfsummen (djb2) der VORIGEN Vorgabetexte.
@@ -190,7 +194,9 @@ Please address questions, suggestions, access and deletion requests to the admin
  * Migration läuft synchron beim Start, `crypto.subtle` ist asynchron — und
  * gegen eine böswillige Kollision muss hier nichts schützen.
  */
-export const IMPRINT_LEGACY_HASHES: readonly number[] = [431572830, 127527832]
+// 1377969991/2433309823: Fassung bis 11/2026 — §8 versprach eine Kontolöschung,
+// die die App nicht kennt; Logbuch und DocCheck fehlten (KERN-13, TXT-04/05).
+export const IMPRINT_LEGACY_HASHES: readonly number[] = [431572830, 127527832, 1377969991, 2433309823]
 
 /** djb2 — klein, deterministisch, ohne Abhängigkeit. */
 export function imprintHash(text: string): number {

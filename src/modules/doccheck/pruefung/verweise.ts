@@ -8,9 +8,9 @@ import { befund, type PruefKontext } from './kontext'
  * „see 1.4.1.1", „exercise 3.8.3.5".
  *
  * Aufgeteilt nach Zuständigkeit, damit nichts doppelt gemeldet wird:
- * - interne Kapitelverweise („see chapter 7") prüft weiterhin die
- *   Formalprüfung (v1.1 Kap. 8.8, Prüfpunkt „querverweise") — zwei Regeln für
- *   dieselbe Sache liefen auseinander;
+ * - interne Kapitelverweise („see chapter 7", auch die Kurzform „see 9.4")
+ *   prüft weiterhin die Formalprüfung (v1.1 Kap. 8.8, Prüfpunkt
+ *   „querverweise") — zwei Regeln für dieselbe Sache liefen auseinander;
  * - hier, je Dokument: Übungsnummern aus Referenzlisten und Zirkelverweise;
  * - in der Paketprüfung: alle Verweise auf ein ANDERES Dokument.
  *
@@ -47,7 +47,7 @@ const UEBUNG = /^(exercise|ex\.|übung)$/i
 const FREMD = /^\s*(?:\(\s*Part[- ][A-Z]|(?:to|of|zu|der|des|in)\s+(?:the\s+)?(?:Part[- ][A-Z]|Regulation|Commission|Verordnung|ICAO|EASA|Basic\s+Regulation|\(EU\)|EU\b|CS[- ]|AMC|GM\d*\b))/i
 export const fremdesRegelwerk = (danach: string) => FREMD.test(danach)
 /** Jahreszahlen und Daten sind keine Kapitel („01.11.2026"). */
-const datumAehnlich = (n: string) => n.split('.').some((t) => t.length === 4)
+export const datumAehnlich = (n: string) => n.split('.').some((t) => t.length === 4)
 
 export function verweiseIn(zeile: string, seite = ''): Verweis[] {
   const out: Verweis[] = []
@@ -177,7 +177,7 @@ export function verweisPruefung(k: PruefKontext): { befunde: Omit<Befund, 'id'>[
         for (const v of verweiseIn(z, p.label ?? String(p.index))) {
           // Nur Übungsverweise — Kapitelverweise gehören der Formalprüfung
           if (v.dok || !v.nummer || !v.uebung || vorhanden(v.nummer, kap, ueb)) continue
-          befunde.push(befund(k, { quelle: 'verweis', pruefpunkt: 'uebung', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Reference to exercise ${v.nummer} — no such exercise in the reference list of this document.`, fundstellen: [{ seite: v.seite, auszug: z.trim() }] }))
+          befunde.push(befund(k, { quelle: 'verweis', pruefpunkt: 'uebung', anleitung: 'uebung', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Reference to exercise ${v.nummer} — no such exercise in the reference list of this document.`, fundstellen: [{ seite: v.seite, auszug: z.trim() }] }))
         }
   }
   // Zirkel innerhalb des Dokuments: A verweist nur auf B, B nur auf A
@@ -187,7 +187,7 @@ export function verweisPruefung(k: PruefKontext): { befunde: Omit<Befund, 'id'>[
     if (v && !v.dok) kanten.set(a.nummer, v.nummer!)
   }
   for (const kreis of kreise(kanten)) {
-    befunde.push(befund(k, { quelle: 'verweis', pruefpunkt: 'zirkel', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Circular reference without content: ${[...kreis, kreis[0]].join(' → ')}.`, fundstellen: kreis.map((n) => ({ ort: n, auszug: abschnitte(pages, outline).find((a) => a.nummer === n)!.text.trim() })) }))
+    befunde.push(befund(k, { quelle: 'verweis', pruefpunkt: 'zirkel', anleitung: 'zirkel', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Circular reference without content: ${[...kreis, kreis[0]].join(' → ')}.`, fundstellen: kreis.map((n) => ({ ort: n, auszug: abschnitte(pages, outline).find((a) => a.nummer === n)!.text.trim() })) }))
   }
   const na = [...(!ueb.size ? ['uebung'] : []), ...(!outline.length ? ['zirkel'] : [])]
   return { befunde, ampel: ampelAus([...VERWEIS_PUNKTE], befunde as Befund[], na) }

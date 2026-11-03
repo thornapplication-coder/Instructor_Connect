@@ -1,5 +1,5 @@
 import { AlertTriangle, CheckCircle2, Clock, Printer, RefreshCw } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { contentFingerprint, HASH_VERSION, shortFingerprint } from '../docHash'
 import { networkReachable } from '../net'
 import { useUnsavedWork } from '../editGuard'
@@ -7,10 +7,13 @@ import { SignaturePad } from '../components/SignaturePad'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, CardHeading, Page, TopBar } from '../components/ui'
 import { navigate } from '../router'
-import { useStore, userHasPerm } from '../store'
+import { userHasPerm } from '../adminAccess'
+import { useStore } from '../store'
 import type { GradingRecord } from '../types'
-import { isNotCompetent, traineesOf } from '../gradingRules'
-import { gradeColor, missingFollowUps, TrafficIcon, trafficLight } from './Grading'
+import { bezeichnungen, dokumentStand, druckTitelTeile, empfaengerVon, gradeColor, isNotCompetent, istUnterschrift, personenZeile } from '../gradingRules'
+import { useDruckTitel } from '../useDruckTitel'
+import { kopfZeilen, type KopfZeile } from '../gradingKopf'
+import { missingFollowUps, TrafficIcon, trafficLight } from './Grading'
 import { formatDate, formatDateTime } from '../datum'
 
 /**
@@ -54,35 +57,6 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
     if (!record) navigate('/grading')
   }, [record])
 
-  // Der Browser benennt das gedruckte PDF nach dem Dokumenttitel. Solange
-  // dieses Formular offen ist, heißt das Dokument deshalb nach dem Schema
-  // Form_Titel_Person_Instruktor_Datum_Event — z. B.
-  // "308A_Grading Sheet TR_Sophie Berger_Mika Beispiel_05.08.2026_FFS4".
-  useEffect(() => {
-    if (!record) return
-    const typ = state.settings.grading.formTypes.find((f) => f.id === record.formTypeId)
-    // Der Name der geschulten Person gehoert in den Dateinamen: Abgelegt
-    // wird nach Pilot, nicht nach Instruktor — ohne ihn liegen zwoelf
-    // gleichnamige PDFs im selben Ordner.
-    const person = record.trainees.map((tr) => tr.traineeName || state.users.find((u) => u.id === tr.traineeId)?.name || '').filter(Boolean)
-    const teile = [
-      record.formTypeId,
-      // Wortlaut vom Unterschriftszeitpunkt, nicht der aktuelle Katalog.
-      record.docSnapshot?.formTitle || typ?.title || '',
-      (person.length > 0 ? person : [record.header.traineeName].filter(Boolean)).join(', '),
-      state.users.find((u) => u.id === record.instructorId)?.name ?? '',
-      record.header.date ? formatDate(record.header.date) : '',
-      (record.header.event ?? '').replace(/\s+/g, ''),
-    ]
-    document.title = teile
-      .filter(Boolean)
-      .join('_')
-      .replace(/[\/:*?"<>|]/g, '-')
-    return () => {
-      document.title = 'Instructor Connect'
-    }
-  }, [record, state.settings.grading.formTypes, state.users])
-
   // iOS/iPadOS erlaubt window.print() nur aus einer Nutzergeste heraus —
   // ein automatischer Aufruf nach Navigation verpufft dort wirkungslos.
   const isIOS =
@@ -108,7 +82,32 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
     return () => clearTimeout(tm)
   }, [autoPrint, record, recordId, isIOS])
 
-  if (!record) return null
+  const grading = state.settings.grading
+  const formType = record ? grading.formTypes.find((f) => f.id === record.formTypeId) : undefined
+  const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
+  const traineeLabel = (tr: { traineeName?: string; traineeId: string }) => tr.traineeName || userName(tr.traineeId)
+  // Wer auf dem Dokument steht — siehe `personenZeile` weiter unten. Vor dem
+  // fruehen Ausstieg berechnet, weil der Drucktitel ein Hook ist.
+  const personen = record ? personenZeile(record, { id: record.formTypeId, competencySet: formType?.competencySet }, state.gradingRecords, traineeLabel) : null
+  // Auch der Formulartitel ist im Katalog editierbar — auf dem Dokument gilt
+  // der Wortlaut vom Unterschriftszeitpunkt.
+  const formTitel = record?.docSnapshot?.formTitle || formType?.title || ''
+
+  // Der Browser benennt das gedruckte PDF nach dem Dokumenttitel (Schema in
+  // `druckTitelTeile`, gradingRules.ts). Dieselben Namen wie Kopf und Fuss:
+  // Vorher suchte der Titel sie selbst und kannte weder den geerbten
+  // Piloten eines Folgeformulars noch die Teilnehmer eines 307A.
+  useDruckTitel(
+    record && personen
+      ? druckTitelTeile(record, {
+          formTitel,
+          personen: personen.namen,
+          instruktor: state.users.find((u) => u.id === record.instructorId)?.name ?? '',
+        })
+      : null,
+  )
+
+  if (!record || !personen) return null
 
   // Der führende Instruktor selbst …
   const mayCountersign = record.instructorId === currentUser!.id
@@ -117,8 +116,6 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
   const ownerActive = state.users.find((u) => u.id === record.instructorId)?.active !== false
   const mayDeputise = !mayCountersign && !ownerActive && userHasPerm(state.settings, currentUser, 'grading_view_all')
 
-  const grading = state.settings.grading
-  const formType = grading.formTypes.find((f) => f.id === record.formTypeId)
   // Das Instruktoren-Blatt (308G) führt laut Original keine Kürzel —
   // dort steht ausschließlich die ausgeschriebene Kompetenz.
   const hideCodes = formType?.competencySet === 'instructor'
@@ -129,8 +126,6 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
     : formType?.competencySet
       ? grading.competencySets.find((c) => c.key === formType.competencySet)?.competencies ?? []
       : []
-  const userName = (id: string) => state.users.find((u) => u.id === id)?.name ?? '—'
-  const traineeLabel = (tr: { traineeName?: string; traineeId: string }) => tr.traineeName || userName(tr.traineeId)
 
   /**
    * Wer wurde geschult — auf dem DOKUMENT, nicht nur in der Bewertung.
@@ -142,36 +137,21 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
    * Ablage zieht oder das PDF ablegt, sucht genau diesen Namen zuerst.
    * 306 und 310 haben ihn als eigenes Kopffeld (`traineeName`); dort waere
    * eine zweite Zeile eine Dopplung, deshalb die Abfrage.
+   *
+   * Welche Namen unter welcher Beschriftung stehen, entscheidet
+   * `personenZeile` (gradingRules.ts): geerbter Pilot eines Folgeformulars,
+   * „Candidate Instructor (CAI)" auf dem 308G (GTY-10) und „Participants"
+   * auf 307A/307B — dort stand vorher der erste Teilnehmer als „Pilot /
+   * Student Name" auf jedem Blatt (PRT-02).
    */
-  // `traineesOf` erbt bei Folgeformularen notfalls den Piloten vom
-  // Ausgangsblatt — Listen und Admin loesen ihn schon immer so auf, die
-  // Druckansicht nicht. Ein 306 aus der Zeit vor dem Pflichtfeld
-  // „Pilot / Student Name" stand damit in jeder Liste MIT Namen, auf dem
-  // Dokument aber ohne.
-  const personNames = record.trainees.map(traineeLabel).filter(Boolean)
+  const b = bezeichnungen({ id: record.formTypeId, competencySet: formType?.competencySet })
+  const personLabel = t(personen.schluessel, { count: personen.anzahl })
   const hasNameField = !!formType?.fields.some((f) => f.key === 'traineeName')
-  // 308G beurteilt keinen Piloten, sondern einen angehenden Instruktor. „(CAI)"
-  // wie bei seiner Unterschrift — das Originalformular fuehrt daneben eine
-  // Zeile „Candidate Instructor" mit der Qualifikation (TRI/SFI/MCCI
-  // Candidate); das Kuerzel unterscheidet die Person von ihrer Qualifikation.
-  const personLabel = formType?.competencySet === 'instructor' ? t('forms:personCai') : t('forms:personPilot')
-  const showPersonRow = !hasNameField && personNames.length > 0
-  // Fuer Fuss und Dateiname: 306/310 tragen ihre Person im Kopffeld, die
-  // Grading Sheets in `trainees` — beide Wege muessen zum selben Namen fuehren.
-  const docPersons =
-    personNames.length > 0
-      ? personNames
-      : record.header.traineeName
-        ? [record.header.traineeName]
-        : // Geerbter Pilot eines Folgeformulars (siehe oben)
-          traineesOf(record, state.gradingRecords).map(traineeLabel).filter(Boolean).length > 0
-          ? traineesOf(record, state.gradingRecords).map(traineeLabel).filter(Boolean)
-          : // 307A/307B fuehren weder Kopffeld noch `trainees` — ihre Personen
-            // stehen in der Teilnehmerliste. Ohne diesen Zweig trug ein
-            // Anwesenheitsnachweis auf keinem Blatt einen Namen.
-            record.attendance && record.attendance.length > 0
-          ? [record.attendance[0].name + (record.attendance.length > 1 ? ` +${record.attendance.length - 1}` : '')].filter(Boolean)
-          : []
+  const showPersonRow = !hasNameField && personen.ausBlatt
+  // Fuer Kopf, Fuss und Dateiname dieselben Namen.
+  const docPersons = personen.namen
+  // Kopfdaten als Zeilen (GTY-01) — dieselben, die der Forms-Export liest.
+  const kopf = kopfZeilen(formType, record, (schluessel) => t(schluessel))
 
   // Kopf-/Fußzeile des Ausdrucks kommt aus den Einstellungen, damit der
   // Superadmin ATO-Kennung und Formularstand ohne Deployment pflegen kann.
@@ -187,9 +167,6 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
    * aktuellen Einstellungen zurück.
    */
   const snap = record.docSnapshot
-  // Auch der Formulartitel ist im Katalog editierbar — auf dem Dokument gilt
-  // der Wortlaut vom Unterschriftszeitpunkt.
-  const formTitel = snap?.formTitle || formType?.title || ''
   const doc = {
     atoName: snap?.atoName || liveDoc.atoName,
     formRevision: snap?.formRevision || liveDoc.formRevision,
@@ -209,6 +186,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         title={`${record.formTypeId} · ${formType?.title ?? ''}`}
         back="/grading"
         wide
+        lang="en"
         right={
           <button onClick={() => window.print()} title={t('forms:print')} className="flex h-11 w-11 items-center justify-center rounded-full text-dim transition hover:bg-line/5 hover:text-accent">
             <Printer size={19} />
@@ -219,11 +197,17 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           (siehe index.css) — nur so wiederholen Chrome und Safari Kopf und
           Fuss auf JEDEM Blatt. Am Bildschirm sind Kopf und Fuss ausgeblendet,
           der Abstand zwischen den Karten sitzt deshalb am Rumpf. */}
-      <Page wide className="print-doc">
+      <Page wide lang="en" className="print-doc">
         {/* Druck-Kopf: Organisation, Formularbenennung, Formularstand und
             Export-Stempel — ohne diese Angaben lässt sich ein Ausdruck weder
             der ATO noch einem Formularstand zuordnen. */}
-        <div className="print-head border-b-2 border-line/60 pb-2">
+        {/* Der Inhalt steckt in einem eigenen Block: An einer
+            Tabellen-Zeilengruppe (so wird `print-head` im Druck) wirken
+            weder Innenabstand noch Rahmen. Der Abstand zum Blattrand, den
+            jedes Blatt braucht, und die Linie unter dem Kopf sitzen deshalb
+            hier (index.css, Audit 11/2026 GRD-15/PRT-01). */}
+        <div className="print-head">
+        <div className="border-b-2 border-line/60 pb-2">
           <p className="text-micro font-semibold uppercase tracking-wide">
             {doc.atoName}
             {doc.atoName && approval ? ' · ' : ''}
@@ -234,9 +218,9 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           <h1 className="text-display font-bold tracking-tight">
             {record.formTypeId} — {formTitel}
           </h1>
-          {/* Die Person gehoert in den KOPF, weil sich nur der auf jedem Blatt
-              wiederholt (Chrome druckt Fussgruppen nur auf dem letzten Blatt).
-              Damit traegt auch Blatt 3 eines langen Nachweises den Namen. */}
+          {/* Die Person gehoert in den KOPF, weil sich nur der verlaesslich
+              auf jedem Blatt wiederholt (siehe Druck-Fuss). Damit traegt auch
+              Blatt 3 eines langen Nachweises den Namen. */}
           {docPersons.length > 0 && (
             <p className="text-micro font-semibold">
               {personLabel}: {docPersons.join(', ')}
@@ -246,6 +230,7 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             <span>{t('forms:exportStamp', { date: formatDateTime(Date.now() + state.timeOffsetMs), name: currentUser!.name })}</span>
             <span className="zusammen">{doc.formRevision}</span>
           </p>
+        </div>
         </div>
 
         <div className="print-body space-y-section">
@@ -363,43 +348,15 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           <dl className="grid gap-x-4 gap-y-2 text-small sm:grid-cols-2">
             {/* Die geschulte Person steht an erster Stelle — sie ist die
                 Zuordnung des Nachweises, alles andere beschreibt den Termin. */}
-            {showPersonRow && (
-              <div className="flex justify-between gap-3 border-b border-line/[0.06] pb-1.5">
-                <dt className="text-dim">{personLabel}</dt>
-                <dd className="text-right font-medium">{personNames.join(', ')}</dd>
-              </div>
-            )}
-            <div className="flex justify-between gap-3 border-b border-line/[0.06] pb-1.5">
-              <dt className="text-dim">{t('forms:instructor')}</dt>
-              <dd className="text-right font-medium">{userName(record.instructorId)}</dd>
-            </div>
-            {formType?.fields.map((f) => (
-              <div key={f.key} className="flex justify-between gap-3 border-b border-line/[0.06] pb-1.5">
-                <dt className="text-dim">
-                  {f.label}
-                  {/* Fußnoten des Originalformulars (z. B. PRG*) gehören auf den
-                      Nachweis, nicht nur in die Eingabemaske. */}
-                  {f.hint && <span className="block text-micro leading-snug text-dim">{f.hint}</span>}
-                </dt>
-                <dd className="text-right font-medium">
-                  {f.type === 'date' && record.header[f.key] ? formatDate(record.header[f.key]) : record.header[f.key] || '–'}
-                </dd>
-              </div>
+            {showPersonRow && <KopfEintrag z={{ label: personLabel, wert: docPersons.join(', '), breit: false, mehrzeilig: false, liste: docPersons }} />}
+            <KopfEintrag z={{ label: t('forms:instructor'), wert: userName(record.instructorId), breit: false, mehrzeilig: false, liste: null }} />
+            {/* Katalogfelder, danach Qualifikation und Sitzposition des
+                Instruktors — die werden im Formular erfasst, sind aber keine
+                Katalogfelder; nur auf den Blaettern, die sie fuehren (GRD-06,
+                Regel in gradingKopf.ts). */}
+            {kopf.map((z) => (
+              <KopfEintrag key={z.key} z={z} />
             ))}
-            {/* Qualifikation und Sitzposition werden im Formular erfasst, sind
-                aber keine Katalogfelder — ohne diese Zeilen fehlen sie auf dem
-                Dokument und im Ausdruck. */}
-            {([
-              [t('forms:instructorQual'), record.header.instructorQual],
-              [t('forms:instructorSeat'), record.header.instructorSeat],
-            ] as const)
-              .filter(([, v]) => !!v)
-              .map(([label, value]) => (
-                <div key={label} className="flex justify-between gap-3 border-b border-line/[0.06] pb-1.5">
-                  <dt className="text-dim">{label}</dt>
-                  <dd className="text-right font-medium">{value}</dd>
-                </div>
-              ))}
           </dl>
         </Card>
 
@@ -521,7 +478,10 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                   las diese Zeile nur das Feld — auf dem Papier stand dann
                   „☒ Competent / Continue to next session", waehrend die Ampel
                   gelb war und die App ein 306 einforderte. Das Dokument ist der
-                  Nachweis; es darf dem System nicht widersprechen. */}
+                  Nachweis; es darf dem System nicht widersprechen.
+                  Vor den Fussnotenzeichen steht ein geschuetztes Leerzeichen
+                  (Audit 11/2026, MOB-09): Bei 360 px stand der „*" sonst
+                  allein auf einer Zeile. */}
               {record.trainees.map((tr, i) => (
                 <div key={i}>
                   <p className="flex items-start gap-2">
@@ -530,11 +490,11 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                   </p>
                   <p className="flex items-start gap-2">
                     <span className="font-mono">{isNotCompetent(tr) ? '☒' : '☐'}</span>
-                    <span>Not Competent / Additional training required{pilotFootnotes ? ' *' : ''}</span>
+                    <span>Not Competent / Additional training required{pilotFootnotes ? '\u00a0*' : ''}</span>
                   </p>
                   <p className="flex items-start gap-2">
                     <span className="font-mono">{record.sessionStatus === 'not_completed' ? '☒' : '☐'}</span>
-                    <span>Session not completed{pilotFootnotes ? ' **' : ''}</span>
+                    <span>Session not completed{pilotFootnotes ? '\u00a0**' : ''}</span>
                   </p>
                 </div>
               ))}
@@ -589,8 +549,8 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
           )}
           <div className="grid gap-4 sm:grid-cols-2">
             {[
-              [record.formTypeId === '308G' ? 'Signature Course Instructor (COI)' : t('forms:sigInstructor'), record.signatureInstructor],
-              [record.formTypeId === '308G' ? 'Signature Candidate Instructor (CAI)' : t('forms:sigTrainee'), record.signatureTrainee],
+              [t(b.sigAusbilder), record.signatureInstructor],
+              [t(b.sigPerson), record.signatureTrainee],
             ]
               .filter(([, sig]) => sig !== null || !record.attendance)
               .map(([label, sig]) => (
@@ -639,10 +599,10 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
               <SignaturePad
                 value={lateSignature}
                 onChange={setLateSignature}
-                label={record.formTypeId === '308G' ? 'Signature Candidate Instructor (CAI)' : t('forms:sigTrainee')}
+                label={t(b.sigPerson)}
               />
               <Button
-                disabled={!lateSignature}
+                disabled={!istUnterschrift(lateSignature)}
                 className="w-full"
                 onClick={async () => {
                   const now = Date.now() + state.timeOffsetMs
@@ -661,6 +621,12 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
                     // bei 306-Vorgängen ist genau diese Abfolge prüfrelevant.
                     signedAt: now,
                     countersignedAt: now,
+                    // Erst jetzt geht der Nachweis hinaus: Fehlen Empfänger
+                    // oder Dokumentenstand (vor GRD-03/GTY-06 angelegt), werden
+                    // sie in diesem Moment eingefroren — nicht später aus den
+                    // Einstellungen gelesen.
+                    recipients: record.recipients ?? empfaengerVon(record, grading),
+                    docSnapshot: record.docSnapshot ?? dokumentStand(liveDoc, record.authority ?? 'AT', formType?.title ?? ''),
                   }
                   saveGradingRecord({ ...next, contentHash: await contentFingerprint(next), hashVersion: HASH_VERSION })
                   setLateSignature(null)
@@ -678,32 +644,24 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
         {isAdmin && (
           <p className="text-center text-micro text-dim print:mt-1 print:text-left print:text-fine">
             {t('forms:recipients')}:{' '}
-            {[
-              ...new Set([
-                ...grading.defaultRecipients,
-                // Form 310 (Deferred Item) geht IMMER an den Training Admin
-                ...(record.formTypeId === '310' ? grading.deferredRecipients : []),
-                // 306 (Additional Training) geht zusätzlich an die Eskalationsempfänger
-                // Dieselbe Regel wie oben: auch der rechnerisch nicht
-                // bestandene Pilot loest die Eskalation aus.
-                ...(record.formTypeId === '306' ||
-                record.trainees.some(isNotCompetent) ||
-                record.sessionStatus === 'not_completed'
-                  ? grading.escalationRecipients
-                  : []),
-                ...(record.extraRecipients ?? []),
-              ]),
-            ].join(', ')}
+            {/* Die beim Absenden eingefrorene Liste (GTY-06). Zur Anzeigezeit
+                gerechnet nannte ein alter Nachweis nach jeder Änderung der
+                Einstellungen Empfänger, an die er nie ging. Nur Altbestand
+                fällt auf die Regel zurück. */}
+            {(record.recipients ?? empfaengerVon(record, grading)).join(', ')}
           </p>
         )}
 
         </div>
 
-        {/* Druck-Fuß: schliesst das Dokument ab (ID, Stand, Status). Er steht
-            auf dem LETZTEN Blatt — Chrome wiederholt Fussgruppen im Druck
-            nicht zuverlaessig, Kopfgruppen schon. Die Zuordnung jedes
-            einzelnen Blattes traegt deshalb der Kopf. */}
-        <p className="print-foot border-t border-line/40 pt-1.5 text-fine text-dim">
+        {/* Druck-Fuß: schliesst das Dokument ab (ID, Stand, Status). Ob ein
+            Browser Fussgruppen auf jedem Blatt wiederholt, ist nicht
+            verlaesslich — Chrome tut es (gemessen am zweiseitigen 307A:
+            Fuss am unteren Rand von Blatt 1), darauf bauen laesst sich
+            nicht. Die Zuordnung jedes einzelnen Blattes traegt deshalb der
+            Kopf. Eigener Block aus demselben Grund wie beim Kopf. */}
+        <div className="print-foot">
+        <p className="border-t border-line/40 pt-1.5 text-fine text-dim">
           {[
             doc.atoName,
             `${record.formTypeId} — ${formTitel}`,
@@ -717,7 +675,70 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
             .filter(Boolean)
             .join(' · ')}
         </p>
+        </div>
       </Page>
     </>
+  )
+}
+
+/**
+ * Eine Zeile der Kopfdaten (Audit 11/2026, GTY-01).
+ *
+ * Beschriftung und Wert stehen nebeneinander, solange beide passen — sonst
+ * rueckt der Wert GESCHLOSSEN unter die Beschriftung (`flex-wrap`). Vorher
+ * teilten sich beide die Zeile, und ein langer Wert drueckte die
+ * Beschriftung auf ihre Mindestbreite: Mit der projektweiten Umbruchregel
+ * (index.css, `overflow-wrap: anywhere`) wurde daraus „Eve" / „nt". Ein
+ * festes `shrink-0` an der Beschriftung haette dasselbe am Telefon
+ * umgekehrt angerichtet: Eine lange Beschriftung aus dem Admin Panel laege
+ * dann ueber dem Rand.
+ *
+ * Breite Felder belegen beide Spalten, Textfelder stehen als Block unter
+ * der Beschriftung und behalten ihre Zeilenumbrueche, und eine
+ * Mehrfachauswahl bricht zwischen zwei Eintraegen um.
+ *
+ * Jeder Eintrag ist ein `inline-block` mit seinem Komma: Er wandert als
+ * Ganzes in die naechste Zeile, statt mitten in „LVO / CAT II / CAT III"
+ * zu brechen. Nur ein Eintrag, der allein breiter ist als die Zeile, bricht
+ * in sich um. Mit `whitespace-nowrap` stand „ATA21 Air Conditioning /
+ * Environmental / Pressurization" eines 308F bei 360 px ueber den Rand
+ * hinaus (Seite waagerecht verschiebbar), und das Komma rutschte an den
+ * Anfang der Folgezeile.
+ */
+function KopfEintrag({ z }: { z: Pick<KopfZeile, 'label' | 'hint' | 'wert' | 'breit' | 'mehrzeilig' | 'liste'> }) {
+  const beschriftung = (
+    <dt className="text-dim">
+      {z.label}
+      {/* Fußnoten des Originalformulars (z. B. PRG*) gehören auf den
+          Nachweis, nicht nur in die Eingabemaske. */}
+      {z.hint && <span className="block text-micro leading-snug text-dim">{z.hint}</span>}
+    </dt>
+  )
+  const breit = z.breit ? 'sm:col-span-2 print:col-span-2' : ''
+  if (z.mehrzeilig) {
+    return (
+      <div className={`border-b border-line/[0.06] pb-1.5 ${breit}`}>
+        {beschriftung}
+        <dd className="mt-0.5 whitespace-pre-wrap text-left font-medium">{z.wert || '–'}</dd>
+      </div>
+    )
+  }
+  return (
+    <div className={`flex flex-wrap justify-between gap-x-3 gap-y-0.5 border-b border-line/[0.06] pb-1.5 ${breit}`}>
+      {beschriftung}
+      <dd className={`font-medium ${z.breit ? 'text-left' : 'ml-auto text-right'}`}>
+        {z.liste && z.liste.length > 0
+          ? z.liste.map((eintrag, i, alle) => (
+              <Fragment key={i}>
+                {i > 0 && ' '}
+                <span className="inline-block max-w-full">
+                  {eintrag}
+                  {i < alle.length - 1 && ','}
+                </span>
+              </Fragment>
+            ))
+          : z.wert || '–'}
+      </dd>
+    </div>
   )
 }

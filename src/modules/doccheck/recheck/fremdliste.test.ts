@@ -19,9 +19,21 @@ describe('Spaltenzuordnung fremder Findinglisten (N3.1 Schritt 2)', () => {
     expect(z).toEqual({ befund: 0 })
   })
 
-  it('Kopfzeile unter einer Titelzeile wird gefunden; ohne Treffer gilt Zeile 1', () => {
+  it('Kopfzeile unter einer Titelzeile wird gefunden; ohne Treffer gibt es keine (-1)', () => {
     expect(kopfzeileFinden([['Finding list 2026'], [], ['No.', 'Finding', 'Status']])).toBe(2)
-    expect(kopfzeileFinden([['a', 'b']])).toBe(0)
+    // Bewusst geändert (Audit 11/2026, SEC-02): Vorher galt hier Zeile 0 als
+    // Kopf — bei einer Liste ohne Kopfzeile die erste Befundzeile. Sie wurde
+    // nie geprüft, und ihr Text wurde zum Schlüssel des Listenprofils.
+    expect(kopfzeileFinden([['a', 'b']])).toBe(-1)
+    expect(kopfzeileFinden([])).toBe(-1)
+  })
+
+  it('ohne Kopfzeile liest befundeLesen ab der ersten Zeile — keine Befundzeile geht verloren (SEC-02)', () => {
+    const zeilen = [['F-001', 'Total does not match'], ['F-002', 'Delete TBD']]
+    expect(befundeLesen(zeilen, -1, { id: 0, befund: 1 }).map((b) => [b.ref, b.zeile, b.befund])).toEqual([
+      ['F-001', 0, 'Total does not match'],
+      ['F-002', 1, 'Delete TBD'],
+    ])
   })
 
   it('liest Befunde ab der Kopfzeile, Zeilen ohne Befund und Empfehlung fallen weg', () => {
@@ -60,6 +72,26 @@ describe('Dokumentzuordnung (N3.1 Schritt 3)', () => {
     expect(zielVorschlagen('Line Training', d)).toEqual({ art: 'dok', ids: ['apx'] })
     // längere Werte dürfen Teil eines Namens sein
     expect(zielVorschlagen('OperationsManual', d)).toEqual({ art: 'dok', ids: ['om'] })
+  })
+
+  it('mehrere Treffer: der genaueste gewinnt — „TM" ist das Training Manual, nicht der Anhang, der „TM" erwähnt (Audit 11/2026, DC-05)', () => {
+    const d = [
+      { id: 'apx', namen: ['APX 4', 'SBX-PKG-01 Appendix 4 to the TM Line Training', 'SBX-PKG-01_APX4_R0.1.docx'] },
+      { id: 'tm', namen: ['TM', 'SBX-PKG-01 Training Manual R0.1', 'SBX-PKG-01_TM_R0.1.docx'] },
+    ]
+    expect(zielVorschlagen('TM', d)).toEqual({ art: 'dok', ids: ['tm'] })
+    // ganzes Wort im Namen vor Teil eines längeren Namens
+    const w = [
+      { id: 'lt', namen: ['SBX Line Training Manual'] },
+      { id: 'olt', namen: ['SBX Online Training Notes'] },
+    ]
+    expect(zielVorschlagen('Line Training', w)).toEqual({ art: 'dok', ids: ['lt'] })
+    // gleich genau: beide — die Oberfläche zeigt „Mehrere", geraten wird nicht
+    const zwei = [
+      { id: 'a', namen: ['SBX-PKG-01_TM_R0.1.docx'] },
+      { id: 'b', namen: ['SBX-PKG-02_TM_R0.3.docx'] },
+    ]
+    expect(zielVorschlagen('TM', zwei)).toEqual({ art: 'dok', ids: ['a', 'b'] })
   })
 
   it('paketweite Wörter und leere Werte → Paket; Unbekanntes → Quelle fehlt (nicht raten)', () => {

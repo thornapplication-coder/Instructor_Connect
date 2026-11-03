@@ -534,10 +534,50 @@ export interface RueckschreibAuftrag {
   zeilen: { excelZeile: number; status: string | null; remark: string }[]
 }
 
-/** Dateiname der Ausgabe: Original nie überschreiben, Datum anhängen (N3.5). */
-export function ausgabeName(datei: string, datum: string): string {
-  const stamm = datei.replace(/\.xlsx$/i, '')
-  return `${stamm}_recheck_${datum.slice(0, 10)}.xlsx`
+/**
+ * Höchstlänge des ganzen Namens in Byte (UTF-8): Dateisysteme zählen Byte
+ * (ext4, APFS: 255), Excel zählt Zeichen und öffnet ab 218 Zeichen PFAD nicht
+ * mehr — 140 lassen Platz für einen üblichen Download-Ordner.
+ */
+export const NAME_MAX = 140
+
+const BYTE = new TextEncoder()
+
+/**
+ * Dateiname der Ausgabe: Original nie überschreiben, Datum anhängen (N3.5);
+ * dieselbe Form für die CSV des Re-Checks.
+ *
+ * `datum` ist ein ISO-Zeitstempel MIT lokalem Versatz (`lokalIso`), der Tag
+ * also der des Nutzers — mit `toISOString()` stand bis 01:00 (Sommer 02:00)
+ * der Vortag im Namen (Audit 11/2026, EXM-01).
+ *
+ * Der Stamm wird gekürzt, bis der ganze Name höchstens `NAME_MAX` Byte hat,
+ * möglichst an einem Trenner; „_recheck_<Tag>.<Endung>" bleibt immer ganz.
+ * Vorher hing der Zusatz an einen beliebig langen Namen — 264 Zeichen sind
+ * auf keinem Dateisystem speicherbar (Audit 11/2026, EXM-05).
+ */
+export function ausgabeName(datei: string, datum: string, endung: 'xlsx' | 'csv' = 'xlsx'): string {
+  const zusatz = `_recheck_${datum.slice(0, 10)}.${endung}`
+  const stamm = datei.replace(/\.(xlsx|csv|txt)$/i, '')
+  const platz = NAME_MAX - BYTE.encode(zusatz).length
+  if (BYTE.encode(stamm).length <= platz) return stamm + zusatz
+  // Zeichenweise (Codepunkte), damit kein Emoji halbiert wird
+  const kurz: string[] = []
+  let n = 0
+  for (const z of stamm) {
+    n += BYTE.encode(z).length
+    if (n > platz) break
+    kurz.push(z)
+  }
+  // Trenner im letzten Viertel: Wortende statt Wortrest; sonst hart schneiden
+  let grenze = -1
+  for (let i = kurz.length - 1; i >= Math.floor(kurz.length * 0.75); i--) {
+    if (/[\s_.-]/.test(kurz[i])) {
+      grenze = i
+      break
+    }
+  }
+  return (grenze > 0 ? kurz.slice(0, grenze) : kurz).join('').replace(/[\s_.-]+$/, '') + zusatz
 }
 
 /** Pfade, die das Rückschreiben ändern darf — alles andere bleibt byte-gleich. */

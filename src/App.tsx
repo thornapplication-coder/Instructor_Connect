@@ -1,7 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { AppFehler, SeitenFehler } from './components/Fehlerseite'
 import { SandboxBar } from './components/SandboxBar'
 import { OfflineBanner } from './components/OfflineBanner'
 import { StorageBanner } from './components/StorageBanner'
+import { SessionBanner } from './components/SessionBanner'
 import { UpdateBanner } from './components/UpdateBanner'
 import { ToastHost } from './components/Toast'
 import { Admin } from './pages/Admin'
@@ -11,7 +14,8 @@ import { ChatRoom } from './pages/ChatRoom'
 import { DevicePreview } from './pages/DevicePreview'
 import { Feedback } from './pages/Feedback'
 import { Grading } from './pages/Grading'
-import { decodeChain, GradingForm } from './pages/GradingForm'
+import { GradingForm } from './pages/GradingForm'
+import { decodeChain } from './folgeKette'
 import { GradingView } from './pages/GradingView'
 import { Home } from './pages/Home'
 import { LessonPlans } from './pages/LessonPlans'
@@ -24,15 +28,19 @@ import { WhoToCall } from './pages/WhoToCall'
 import { navigate, useRoute } from './router'
 import { DocCheckRoute } from './modules/doccheck'
 import { StoreProvider, useStore } from './store'
+import { SANDBOX } from './sandbox/flag'
 import type { ModuleKey } from './types'
 
 function Screen() {
   const route = useRoute()
   const { currentUser, moduleAllowed, docCheckRolle } = useStore()
 
-  // Impressum und Gerätevorschau sind auch ohne Anmeldung erreichbar.
+  // Impressum und Gerätevorschau sind auch ohne Anmeldung erreichbar. Die
+  // Vorschau ist ein Sandbox-Werkzeug wie die Leiste, die zu ihr führt —
+  // ohne Sandbox gibt es sie nicht, auch nicht über die Adresszeile
+  // (Audit 11/2026, KERN-18).
   if (route === '/imprint') return <Imprint />
-  if (route === '/device') return <DevicePreview />
+  if (SANDBOX && route === '/device') return <DevicePreview />
 
   if (!currentUser) return <Login />
 
@@ -119,10 +127,22 @@ function AppShell() {
         Ein Flex-Stapel loest das Muster auf: Was gleichzeitig sichtbar ist,
         liegt untereinander statt uebereinander. Reihenfolge von unten nach
         oben, dringlichstes zuletzt.
+
+        Im Druck ist der ganze Stapel weg (Audit 11/2026, GRD-14/UI-01): Er
+        liegt ausserhalb von main, die Druckregel fuer Bedienelemente griff
+        dort nicht, und nur Offline- und Speicherstreifen trugen ein eigenes
+        `print:hidden`. Wer ein Blatt abschickte und gleich das PDF zog, hatte
+        „Form signed and sent." samt Schliessknopf auf dem Nachweis — Chrome
+        druckt ein `fixed`-Element auf JEDES Blatt. Die Regel sitzt hier, am
+        Stapel, damit sie fuer jeden Streifen gilt, auch fuer kuenftige.
+
+        Seitlich haelt `safe-x` den Stapel aus dem Sicherheitsbereich — im
+        Querformat lag ein Streifen sonst unter der Sensorkappe (MOB-07).
       */}
-      <div className="above-sandbox pointer-events-none fixed inset-x-0 z-40 flex flex-col items-center gap-tight px-3">
+      <div className="above-sandbox safe-x pointer-events-none fixed inset-x-0 z-40 flex flex-col items-center gap-tight [--rand-x:0.75rem] print:hidden">
         <ToastHost />
         <StorageBanner />
+        <SessionBanner />
         <OfflineBanner />
         <UpdateBanner />
       </div>
@@ -130,10 +150,27 @@ function AppShell() {
         {/* Identitätswechsel baut die Seite neu auf: sonst schrieb ein offener
             Bildschirm dem neuen Nutzer sofort „gesehen" gut und übernahm
             fremden Formularzustand. */}
-        <Screen key={currentUser?.id ?? 'anon'} />
+        <SeitenGrenze>
+          <Screen key={currentUser?.id ?? 'anon'} />
+        </SeitenGrenze>
       </div>
       <SandboxBar />
     </div>
+  )
+}
+
+/**
+ * Fehlergrenze um die Seiten (Audit 11/2026, TEC-07): Ein Fehler in einer
+ * Ansicht nimmt Hülle, Leisten und Streifen nicht mit. Die Route setzt sie
+ * zurück — wer über Zurück oder ein Lesezeichen weitergeht, sieht die neue
+ * Seite statt der alten Fehlermeldung.
+ */
+function SeitenGrenze({ children }: { children: ReactNode }) {
+  const route = useRoute()
+  return (
+    <ErrorBoundary zuruecksetzenBei={route} fallback={(fehler, zuruecksetzen) => <SeitenFehler fehler={fehler} zuruecksetzen={zuruecksetzen} />}>
+      {children}
+    </ErrorBoundary>
   )
 }
 
@@ -155,9 +192,15 @@ function ReportRedirect() {
 }
 
 export default function App() {
+  // Die äußere Grenze fängt, was die Seitengrenze nicht erreicht: einen
+  // Fehler in der Hülle oder schon beim Aufbau des Stores (ein gespeicherter
+  // Stand, an dem die App abstürzt). Vorher blieb dann nur eine weiße Seite
+  // — bei jedem Start wieder, bis jemand die Websitedaten löschte.
   return (
-    <StoreProvider>
-      <AppShell />
-    </StoreProvider>
+    <ErrorBoundary fallback={(fehler) => <AppFehler fehler={fehler} />}>
+      <StoreProvider>
+        <AppShell />
+      </StoreProvider>
+    </ErrorBoundary>
   )
 }

@@ -11,8 +11,10 @@ import type { GradingRecord } from './types'
  * 1 = Erststand. 2 = zusätzlich `authority` und `extraRecipients`.
  * 3 = zusätzlich `docSnapshot` (ATO-Name, Zulassungsnummer, Formularstand,
  *     Formulartitel im Moment des Unterschreibens).
+ * 4 = zusätzlich `recipients` (die beim Absenden eingefrorene
+ *     Empfängerliste, Audit 11/2026 GTY-06).
  */
-export const HASH_VERSION = 3
+export const HASH_VERSION = 4
 
 /**
  * Fingerabdruck des unterschriebenen Dokuments (SHA-256).
@@ -69,6 +71,10 @@ export async function contentFingerprint(r: GradingRecord, version: number = HAS
   // sich die Zulassungsnummer eines unterschriebenen Dokuments nachtraeglich
   // umstellen, ohne dass der Abdruck etwas gemerkt haette.
   if (version >= 3) core.docSnapshot = r.docSnapshot ?? null
+  // Wohin der Nachweis ging, gehoert zum Vorgang wie die zusaetzlichen
+  // Empfaenger seit Fassung 2. Vorher stand die Liste gar nicht im Datensatz
+  // und liess sich ueber die Einstellungen rueckwirkend umschreiben.
+  if (version >= 4) core.recipients = r.recipients ?? null
   const bytes = new TextEncoder().encode(JSON.stringify(core))
   const digest = await crypto.subtle.digest('SHA-256', bytes)
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')

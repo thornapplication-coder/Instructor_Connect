@@ -1,13 +1,31 @@
-import { ArrowLeft, ArrowRight, ChevronDown, Info, Plus, Send, Trash2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, ChevronDown, Info, Plus, Send, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
-import { Button, Card, CardHeading, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
-import { toast } from '../components/Toast'
+import { Ankreuzknopf, Badge, Button, Card, CardHeading, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
+import { useQuittung } from '../components/Toast'
 import { contentFingerprint, HASH_VERSION } from '../docHash'
 import { networkReachable } from '../net'
-import { autoNotCompetent, isFollowUpType, isNotCompetent } from '../gradingRules'
+import { lokalerTag } from '../datum'
+import { entwurfLesen, entwurfMitEingaben, entwurfSchluessel, hatEigeneEingaben, type Vorbelegt } from '../drafts'
+import { encodeChain, folgeKette, type FollowUpStep } from '../folgeKette'
+import { auswahlVon, fuehrtInstruktorAngaben, INSTRUKTOR_QUALI, INSTRUKTOR_SITZ, kopfFuerTyp, kopfVomElternblatt, vorbelegen, vorbelegung } from '../gradingPrefill'
+import {
+  autoNotCompetent,
+  behoerdeFuer,
+  bezeichnungen,
+  einfrieren,
+  empfaengerVon,
+  gradeColor,
+  isFollowUpType,
+  isNotCompetent,
+  istInstruktorBlatt,
+  istUnterschrift,
+  kopfHinweise,
+  overallNachNote,
+} from '../gradingRules'
 import { navigate, scrollToTop } from '../router'
+import { springeZuFeld } from '../sprungZiel'
 
 /**
  * Ohne Netz ist der Versand nicht gescheitert, sondern noch nicht erfolgt:
@@ -25,10 +43,26 @@ const mailStatusNow = () => 'queued' as const
 import { DURATION_OPTIONS } from '../sandbox/gradingDefaults'
 import { useStore } from '../store'
 import { GRADES, type AttendanceEntry, type FormField, type FormType, type FormTypeId, type Grade, type GradingRecord, type OverallResult, type SessionStatus, type TraineeGrading } from '../types'
-import { gradeColor } from './Grading'
 
 let seq = 0
 const newId = () => `gr-${Date.now()}-${seq++}`
+
+/** Id der Meldung am beanstandeten Feld — es steht immer höchstens eine da. */
+const FELD_FEHLER = 'feld-fehler'
+
+/**
+ * Meldung direkt unter dem beanstandeten Feld (Audit 11/2026, A11Y-16): Sie
+ * stand allein unter dem Weiter-Knopf, auf dem Telefon außer Sicht. Ohne
+ * role=alert — angesagt wird einmal, über die Meldung am Knopf; hier liest
+ * die Sprachausgabe sie über aria-describedby, sobald das Feld den Fokus hat.
+ */
+function FeldFehler({ text }: { text: string }) {
+  return (
+    <p id={FELD_FEHLER} className="mt-1.5 text-micro leading-relaxed text-danger">
+      {text}
+    </p>
+  )
+}
 
 function emptyTrainee(codes: string[], position: string): TraineeGrading {
   return {
@@ -61,7 +95,7 @@ function prefillFromParent(
   if (!section) return {}
   // Das 308G führt bewusst keine Kürzel — dort muss der Text die Kompetenz
   // ausschreiben, sonst steht auf dem 306 ein Code, den niemand auflösen kann.
-  const usesCodes = formTypes.find((f) => f.id === parent.formTypeId)?.competencySet !== 'instructor'
+  const usesCodes = bezeichnungen({ id: parent.formTypeId, competencySet: formTypes.find((f) => f.id === parent.formTypeId)?.competencySet }).kuerzel
   const label = (code: string) =>
     usesCodes ? code : parent.competencies?.find((c) => c.code === code)?.title ?? code
   const named = parent.trainees.length > 1
@@ -78,35 +112,16 @@ function prefillFromParent(
   return { [section]: `${lines.join('\n')}${source}` }
 }
 
-/** Ein noch offenes Glied der Folgeformular-Kette: Formulartyp plus das
- *  Ausgangsformular, an dem es hängt. Bei mehreren Piloten je Durchgang ist
- *  der Elternteil je Glied ein anderer — deshalb reicht eine reine Typliste
- *  nicht aus. */
-export interface FollowUpStep {
-  type: FormTypeId
-  parentId: string
-}
-
-/** Kette für die Adresszeile: „306:gr-1,306:gr-2,310:gr-1" */
-export const encodeChain = (steps: FollowUpStep[]) => steps.map((x) => `${x.type}:${x.parentId}`).join(',')
-
-export function decodeChain(raw: string): FollowUpStep[] {
-  return raw
-    .split(',')
-    .filter(Boolean)
-    .map((part) => {
-      const idx = part.indexOf(':')
-      return idx < 0 ? null : { type: part.slice(0, idx), parentId: part.slice(idx + 1) }
-    })
-    .filter((x): x is FollowUpStep => x !== null && x.parentId.length > 0)
-}
-
 export function GradingForm({ recordId, presetType, parentId, next = [] }: { recordId?: string; presetType?: FormTypeId; parentId?: string; next?: FollowUpStep[] }) {
   // Formulare sind immer vollständig englisch. Das steht nicht mehr hier,
   // sondern im Namensraum `forms`, den es nur auf Englisch gibt — ein
   // vergessenes getFixedT kann die Sprache damit nicht mehr kippen.
   const { t } = useTranslation()
   const { state, currentUser, saveGradingRecord, can, gradingRecordById } = useStore()
+  // Quittungen erst nach dem Schreiben; scheitert es, sagt die (englische)
+  // Meldung, dass das Formular nicht gespeichert ist (R3-SPEICHERQUITTUNG).
+  const quittungMelden = useQuittung()
+  const quittieren = (text: string, ton: 'ok' | 'wait') => void quittungMelden(text, ton, t('forms:toast.saveFailed'))
   const grading = state.settings.grading
 
   // Beide IDs stammen aus der Adresszeile — deshalb über die
@@ -127,25 +142,24 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     : []
   const codes = competencies.map((c) => c.code)
 
+  // Vom Elternblatt nur, was der Folgetyp führt — das Training Device stand
+  // sonst unsichtbar in jedem 306/310 (gradingPrefill.ts).
   const [header, setHeader] = useState<Record<string, string>>(
-    existing?.header ??
-      (parent
-        ? {
-            aircraftType: parent.header.aircraftType,
-            date: parent.header.date,
-            trainingDevice: parent.header.trainingDevice ?? '',
-            // Folgeformulare gehören genau einem Piloten — Name aus dem
-            // Ausgangsformular übernehmen, bleibt änderbar.
-            traineeName: parent.trainees[0]?.traineeName ?? parent.header.traineeName ?? '',
-          }
-        : {}),
+    existing?.header ?? (parent ? kopfVomElternblatt(parent, formType ?? undefined) : {}),
   )
   const [trainees, setTrainees] = useState<TraineeGrading[]>(existing?.trainees ?? [])
   const [freeText, setFreeText] = useState<Record<string, string>>(existing?.freeText ?? prefillFromParent(parent, presetType, grading.formTypes))
   const [sessionStatus, setSessionStatus] = useState<SessionStatus | null>(existing?.sessionStatus ?? null)
   // Zuständige Behörde: bestimmt die ATO-Kennung im Dokumentkopf
-  // (AT.ATO.106 bzw. GBR.ATO.0541). Standard ist AT.
-  const [authority, setAuthority] = useState<'AT' | 'UK'>(existing?.authority ?? 'AT')
+  // (AT.ATO.106 bzw. GBR.ATO.0541). Standard ist AT; ein Folgeformular
+  // gehört zur Zulassung seines Elternblatts (GRD-04, siehe behoerdeFuer).
+  const [authority, setAuthority] = useState<'AT' | 'UK'>(behoerdeFuer(existing, parent))
+  /*
+   * Was das Formular von sich aus eingetragen hat (Elternblatt, Vorbelegung,
+   * Behörde) — der Maßstab, an dem `dirty` misst (GRD-10). Startet mit dem
+   * Anfangsstand dieses ersten Renderns; die Vorbelegung unten ergänzt ihn.
+   */
+  const [basis, setBasis] = useState<Vorbelegt>(() => ({ header, freeText, authority }))
   // Unterschriften werden grundsätzlich NIE übernommen — auch beim Bearbeiten
   // eines bestehenden Formulars muss neu unterschrieben werden.
   const [attendance, setAttendance] = useState<AttendanceEntry[]>(
@@ -177,19 +191,14 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   const mayGrade = can('grading_create')
 
   /*
-   * Vorbelegung der Kopfdaten.
-   *
-   * Gemessen wurden ZWOELF Tipps, bevor die erste Note vergeben werden
-   * konnte — bei vier Sessions am Tag viermal dieselbe Eingabe. Dabei ist
-   * das meiste bekannt: Das Datum ist heute; wer nur EIN Muster fliegt, hat
-   * keine Wahl; Qualifikation, Sitz und Training Device sind dieselben wie
-   * beim letzten eigenen Blatt.
+   * Vorbelegung der Kopfdaten — die Regel steht in gradingPrefill.ts (GRD-06).
    *
    * Gefuellt wird nur, was leer ist, nur Felder, die der gewaehlte
-   * Formulartyp ueberhaupt fuehrt, und bei Auswahlfeldern nur Werte, die
-   * dort auch zur Wahl stehen. Alles bleibt aenderbar — es ist ein
-   * Vorschlag, keine Vorgabe. Ein Entwurf gewinnt: Er wird zuerst geladen,
-   * und diese Ergaenzung fasst nur noch die verbliebenen Luecken an.
+   * Formulartyp ueberhaupt fuehrt UND die man hier sieht, und bei
+   * Auswahlfeldern nur Werte, die dort auch zur Wahl stehen. Alles bleibt
+   * aenderbar — es ist ein Vorschlag, keine Vorgabe. Ein Entwurf gewinnt: Er
+   * wird zuerst geladen, und diese Ergaenzung fasst nur noch die
+   * verbliebenen Luecken an.
    */
   const letztesEigene = useMemo(
     () =>
@@ -200,35 +209,26 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   )
   useEffect(() => {
     if (existing || !formType) return
-    const heute = new Date(Date.now() + state.timeOffsetMs).toISOString().slice(0, 10)
-    const eigeneMuster = currentUser!.aircraftTypes ?? []
-    setHeader((h) => {
-      const next = { ...h }
-      let geaendert = false
-      /** Katalogfeld: nur fuellen, wenn der Typ es fuehrt und der Wert dort zur Wahl steht. */
-      const setzen = (key: string, wert: string | undefined) => {
-        if (!wert || next[key]) return
-        const feld = formType.fields.find((f) => f.key === key)
-        if (!feld) return
-        if (feld.options && !feld.options.includes(wert)) return
-        next[key] = wert
-        geaendert = true
-      }
-      /** Qualifikation und Sitz stehen NICHT im Katalog — sie haben eine
-       *  eigene Knopfgruppe im Formular, mit fester Auswahl. */
-      const setzenFrei = (key: string, wert: string | undefined, erlaubt: string[]) => {
-        if (!wert || next[key] || !erlaubt.includes(wert)) return
-        next[key] = wert
-        geaendert = true
-      }
-      setzen('date', heute)
-      if (eigeneMuster.length === 1) setzen('aircraftType', eigeneMuster[0])
-      setzen('trainingDevice', letztesEigene?.header.trainingDevice)
-      setzenFrei('instructorQual', letztesEigene?.header.instructorQual, ['TKI', 'SFI', 'TRI'])
-      setzenFrei('instructorSeat', letztesEigene?.header.instructorSeat, ['Left', 'Right', 'Rear'])
-      return geaendert ? next : h
+    const vorschlag = vorbelegung(formType, {
+      letztesEigene,
+      eigeneMuster: currentUser!.aircraftTypes ?? [],
+      muster: state.settings.aircraftTypes,
+      // Ortszeit, nicht der UTC-Tag: Nach Mitternacht stand sonst bis 01:00
+      // (Sommer 02:00) das Datum von gestern im Nachweis (GRD-16).
+      heute: lokalerTag(Date.now() + state.timeOffsetMs),
+      anzahlKompetenzen: competencies.length,
     })
-  }, [formType, existing, letztesEigene, currentUser, state.timeOffsetMs])
+    setHeader((h) => vorbelegen(h, vorschlag))
+    // Derselbe Vorschlag ist Teil der Basis: Was nur er eingetragen hat, ist
+    // keine Eingabe des Nutzers (GRD-10). Die Basis waechst mit jedem
+    // gewaehlten Typ, damit ein Typwechsel dessen Vorbelegung nicht
+    // ploetzlich zur „Eingabe" macht.
+    setBasis((b) => {
+      const kopf = vorbelegen((b.header ?? {}) as Record<string, string>, vorschlag)
+      return kopf === b.header ? b : { ...b, header: kopf }
+    })
+    // competencies folgt formType — als Zahl, sonst liefe der Effekt bei jedem Rendern.
+  }, [formType, existing, letztesEigene, currentUser, state.timeOffsetMs, state.settings.aircraftTypes, competencies.length])
 
   /**
    * Entwurfssicherung. Eine halbe Stunde Bewertung war bisher mit einer
@@ -241,13 +241,28 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   // geteilten iPad bekam sonst der naechste Instruktor den Entwurf des
   // vorigen angeboten — mit Pilotenname, Noten und Kommentaren. Fremde
   // Bewertungsdaten landeten so im eigenen Blatt.
-  const draftKey = `aaa-draft-${currentUser!.id}-${recordId ?? parentId ?? 'new'}-${formTypeId ?? ''}`
-  const dirty =
-    !existing &&
-    (Object.values(header).some((v) => v?.trim()) ||
-      trainees.some((tr) => tr.traineeName?.trim() || tr.grades.some((g) => g.grade !== null)) ||
-      Object.values(freeText).some((v) => v?.trim()) ||
-      attendance.some((a) => a.name.trim()))
+  // Die Kennung steht kodiert im Schlüssel (drafts.ts): Per Präfix fand die
+  // Entwurfsliste von „u" sonst auch die Entwürfe von „u-x" (R3-ENTWURFSPRAEFIX).
+  const draftBezug = recordId ?? parentId ?? 'new'
+  const draftKey = entwurfSchluessel(currentUser!.id, draftBezug, formTypeId ?? '')
+  /** Rest der Folgeformular-Kette als Zeichenkette — stabil über Renderläufe,
+   *  anders als das Feld, das die Adresszeile bei jedem Rendern neu baut. */
+  const kette = encodeChain(next)
+  /*
+   * Ungesichert ist nur, was der Nutzer selbst eingetragen hat (GRD-10,
+   * TEC-05). Vorher reichte ein beliebiger Kopfwert — und die Vorbelegung
+   * setzt immer das Datum: Bloßes Öffnen erzeugte einen Entwurf, eine
+   * Rückfrage beim Verlassen, eine Sperre beim Neuladen und beim nächsten
+   * Mal „A draft of this form was restored.".
+   */
+  const dirty = !existing && hatEigeneEingaben({ header, trainees, freeText, attendance, sessionStatus, authority }, basis)
+  /*
+   * Gesetzt, sobald das Formular selbst hinausführt (Zurück bestätigt,
+   * Entwurf verworfen). navigate() setzt den Hash, und das löst ein popstate
+   * aus — der Wächter dafür fragte dann ein ZWEITES Mal, nach „Verwerfen"
+   * sogar mit „Your entries are saved as a draft" (GRD-10).
+   */
+  const verlassenRef = useRef(false)
 
   /*
    * Entwurf anbieten — je Formulartyp, nicht nur einmal.
@@ -263,16 +278,24 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     if (draftLoaded.current === draftKey || existing || !formTypeId) return
     draftLoaded.current = draftKey
     try {
-      const raw = localStorage.getItem(draftKey)
+      // Auch ein Entwurf unter dem alten Schlüssel wird gefunden und übernommen.
+      const raw = entwurfLesen(localStorage, currentUser!.id, draftBezug, formTypeId)
       if (!raw) return
       const d = JSON.parse(raw)
+      // Ein Entwurf ohne eigene Eingabe — Altbestand aus bloßem Öffnen — ist
+      // keiner: kein Hinweis „restored", und weg damit (GRD-10).
+      if (!entwurfMitEingaben(d)) {
+        localStorage.removeItem(draftKey)
+        return
+      }
       if (d.header) setHeader(d.header)
       if (d.trainees) setTrainees(d.trainees)
       if (d.freeText) setFreeText(d.freeText)
       if (d.attendance) setAttendance(d.attendance)
       if (d.sessionStatus) setSessionStatus(d.sessionStatus)
       if (typeof d.step === 'number') setStep(d.step)
-      if (d.authority === 'AT' || d.authority === 'UK') setAuthority(d.authority)
+      // Beim Folgeformular gewinnt das Elternblatt, nicht der Entwurf (GRD-04).
+      setAuthority(behoerdeFuer(existing, parent, d.authority))
       setDraftRestored(true)
     } catch {
       /* unlesbarer Entwurf wird ignoriert */
@@ -280,16 +303,33 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   }, [draftKey, existing, formTypeId])
 
   useEffect(() => {
-    if (!dirty || submittingRef.current) return
+    if (existing || submittingRef.current || verlassenRef.current) return
     const tm = setTimeout(() => {
+      // Erst beim Feuern prüfen: Ein Takt, der vor „Verwerfen" oder dem
+      // Absenden geplant wurde, schriebe den Entwurf sonst wieder hin.
+      if (submittingRef.current || verlassenRef.current) return
       try {
-        localStorage.setItem(draftKey, JSON.stringify({ header, trainees, freeText, attendance, sessionStatus, step, authority }))
+        if (!dirty) {
+          // Alles zurückgenommen: Ein früher gesicherter Stand würde sonst
+          // als „Entwurf" mit Eingaben angeboten, die es nicht mehr gibt.
+          // Verzögert wie das Sichern — beim Öffnen läuft dieser Effekt,
+          // bevor der wiederhergestellte Stand gerendert ist.
+          if (draftLoaded.current === draftKey) localStorage.removeItem(draftKey)
+          return
+        }
+        // Die Kette (`next`) reist mit: Ohne sie verlor „Fortsetzen" aus der
+        // Liste die übrigen Pflichtformulare des Durchgangs (GRD-01). Die
+        // Basis ebenso: An ihr erkennt die Liste ein Phantom (GRD-10).
+        localStorage.setItem(
+          draftKey,
+          JSON.stringify({ header, trainees, freeText, attendance, sessionStatus, step, authority, next: kette, basis }),
+        )
       } catch {
         /* Speicher voll: der Entwurf gilt dann nur für diese Sitzung */
       }
     }, 400)
     return () => clearTimeout(tm)
-  }, [dirty, draftKey, header, trainees, freeText, attendance, sessionStatus, step])
+  }, [existing, dirty, draftKey, header, trainees, freeText, attendance, sessionStatus, step, authority, kette, basis])
 
   const clearDraft = useCallback(() => {
     try {
@@ -301,8 +341,11 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
   /** Vor dem Verlassen fragen — gibt false zurück, wenn geblieben wird. */
   const leaveGuard = useCallback(() => {
-    if (!dirty || submittingRef.current) return true
-    return window.confirm(t('forms:leaveConfirm'))
+    if (!dirty || submittingRef.current || verlassenRef.current) return true
+    const gehen = window.confirm(t('forms:leaveConfirm'))
+    // Das folgende navigate() löst popstate aus — nicht noch einmal fragen.
+    if (gehen) verlassenRef.current = true
+    return gehen
   }, [dirty, t])
 
   // Browser-Zurück abfangen: der Hash-Router wechselt sonst kommentarlos die
@@ -312,8 +355,10 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     const route = window.location.hash
     history.pushState(null, '', route)
     const onPop = () => {
-      if (submittingRef.current) return
+      if (submittingRef.current || verlassenRef.current) return
       if (window.confirm(t('forms:leaveConfirm'))) {
+        // navigate() setzt den Hash und löst damit selbst wieder popstate aus.
+        verlassenRef.current = true
         navigate('/grading')
         return
       }
@@ -328,6 +373,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   useEffect(() => {
     if (!dirty) return
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (verlassenRef.current || submittingRef.current) return
       e.preventDefault()
       e.returnValue = ''
     }
@@ -361,9 +407,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
       list.map((tr, j) => {
         if (j !== i) return tr
         const grades = tr.grades.map((g) => (g.code === code ? { ...g, grade } : g))
-        const next = { ...tr, grades }
-        // Automatik greift sofort und setzt das Overall Result fest.
-        return autoNotCompetent(next) ? { ...next, overall: 'not_competent' as OverallResult } : next
+        // Automatik greift sofort und setzt das Overall Result fest — und
+        // nimmt es zurück, wenn die auslösende Note korrigiert wird (GRD-08).
+        return overallNachNote(tr, { ...tr, grades })
       }),
     )
 
@@ -379,15 +425,29 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   const isAttendance = formTypeId === '307A' || formTypeId === '307B'
   // 308G bewertet einen Candidate Instructor durch einen Course Instructor —
   // die Sitz-/Positionsangaben stehen dort im Kopf, nicht als Chips.
-  const isInstructorSheet = formTypeId === '308G'
+  const blattArt = { id: formTypeId ?? '', competencySet: formType?.competencySet }
+  const isInstructorSheet = istInstruktorBlatt(blattArt)
+  // Personen und Unterschriften heißen wie auf dem Dokument (GTY-10) — die
+  // Ansicht fragt dieselbe Stelle.
+  const b = bezeichnungen(blattArt)
   // Instruktoren-Kompetenzen werden ausgeschrieben, ohne Kürzel (Original 308G)
-  const hideCodes = formType?.competencySet === 'instructor'
+  const hideCodes = !b.kuerzel
+  /** Kompetenz, wie das Formular sie zeigt: auf dem 308G ohne Kürzel — die
+   *  offenen Punkte nannten dort „PRE", „CLI", Kürzel, die das Formular
+   *  nirgends zeigt (GTY-10). Ebenso die Namen der Notenknöpfe. */
+  const kompVoll = (c: { code: string; title: string }) => (hideCodes ? c.title : `${c.code} · ${c.title}`)
 
   const needsFollowUp =
     trainees.some(isNotCompetent) || sessionStatus === 'not_completed'
 
   /** Anzahl der Piloten, für die je ein eigenes 306 fällig wird */
   const notCompetentCount = trainees.filter(isNotCompetent).length
+  /** Wie viele 306 die Auswahl im Folgedialog öffnet — je Pilot entsteht
+   *  ein Blatt, die Vorschau rechnet deshalb mit einem Blatt je Pilot. */
+  const anzahl306 = folgeKette(
+    trainees.map((tr, i) => ({ id: String(i), trainees: [tr] })),
+    followUps,
+  ).filter((x) => x.type === '306').length
 
   /** Pflicht-Folgeformulare: Not Competent ⇒ 306, Session nicht abgeschlossen ⇒ 310 */
   const requiredFollowUps: FormTypeId[] = [
@@ -395,9 +455,28 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     ...(sessionStatus === 'not_completed' ? (['310'] as FormTypeId[]) : []),
   ]
 
-  /** Schlüssel des zuerst beanstandeten Feldes — der Fokus springt dorthin,
-   *  statt die Meldung weit entfernt von der Ursache stehen zu lassen. */
-  const errorKeyRef = useRef<string | null>(null)
+  /** Schlüssel der beanstandeten Felder — der Fokus springt zum ersten,
+   *  statt die Meldung weit entfernt von der Ursache stehen zu lassen. Mehr
+   *  als einer bei Entweder-oder-Paaren: Dort fehlt keines der beiden Felder
+   *  für sich, sondern beide zusammen (GTY-12). */
+  const errorKeysRef = useRef<string[]>([])
+  /** Ist dieses Feld beanstandet? */
+  const beanstandet = (key: string) => !!error && errorKeysRef.current.includes(key)
+  /** Steht die Meldung hier? Nur beim ersten beanstandeten Feld — sie stand
+   *  vorher allein unter dem Weiter-Knopf, auf dem Telefon außer Sicht und
+   *  von der Sandbox-Leiste angeschnitten (A11Y-16). */
+  const meldungHier = (key: string) => !!error && errorKeysRef.current[0] === key
+
+  /*
+   * Plausibilität der Kopfdaten (gradingRules.ts): Zukunftswarnung nur beim
+   * Schulungsdatum, Due Date nicht vor dem Datum (GTY-05), Von ≠ Nach
+   * (GTY-11), ganze Zahlen ab 0 (GTY-07). Jeder Fehler wird dort gemeldet,
+   * wo sein Feld steht — Schritt 1 in `validateHeader`, Session-Daten in der
+   * Liste der offenen Punkte —, also genau einmal.
+   */
+  const heute = lokalerTag(Date.now() + state.timeOffsetMs)
+  const plausibel = useMemo(() => kopfHinweise(formType?.fields ?? [], header, heute), [formType, header, heute])
+  const imSchritt2 = useCallback((key: string) => !!formType?.fields.find((f) => f.key === key)?.postGrading, [formType])
 
   /**
    * ALLE offenen Punkte des Bewertungsschritts, jeder mit Sprungziel.
@@ -412,12 +491,12 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     if (!formType || step !== 2) return []
     const out: { id: string; text: string }[] = []
     trainees.forEach((tr, i) => {
-      const wer = tr.traineeName?.trim() || t('forms:traineeN', { n: i + 1 })
+      const wer = tr.traineeName?.trim() || t(b.personN, { n: i + 1 })
       competencies.forEach((c) => {
         const g = tr.grades.find((x) => x.code === c.code)
-        if (g?.grade === null || g?.grade === undefined) out.push({ id: `komp-${i}-${c.code}`, text: `${wer} · ${c.code} — ${t('forms:gradeMissing')}` })
+        if (g?.grade === null || g?.grade === undefined) out.push({ id: `komp-${i}-${c.code}`, text: `${wer} · ${hideCodes ? c.title : c.code} — ${t('forms:gradeMissing')}` })
         else if ((g.grade === 1 || g.grade === 2) && !g.comment.trim())
-          out.push({ id: `komp-${i}-${c.code}`, text: `${wer} · ${c.code} — ${t('forms:commentRequired')}` })
+          out.push({ id: `komp-${i}-${c.code}`, text: `${wer} · ${hideCodes ? c.title : c.code} — ${t('forms:commentRequired')}` })
       })
       if (competencies.length > 0) {
         // „NO" heisst not observed. Ein Blatt ohne eine einzige echte Note
@@ -435,6 +514,10 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     postFields.forEach((f) => {
       if (f.required && !header[f.key]?.trim()) out.push({ id: 'sessiondaten', text: `${f.label} — ${t('forms:gradeMissing')}` })
     })
+    // Beanstandete Session-Daten führen direkt ins Feld (Takeoffs/Landings).
+    plausibel.fehler
+      .filter((x) => imSchritt2(x.feld))
+      .forEach((x) => out.push({ id: `field-${x.feld}`, text: t(x.schluessel, x.werte) }))
     /* 306 und 310 belegen die Nachschulung bzw. den offenen Punkt — ihr
        Inhalt steht ausschliesslich in den Freitextabschnitten. Sie fehlten
        hier, und weil die Leiste den Senden-Knopf steuert, meldete ein leeres
@@ -449,12 +532,13 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     if (formTypeId === '307A') {
       // 307A ist eine Anwesenheitsliste: wer daraufsteht, war da und unterschreibt.
       attendance
-        .filter((a) => a.name.trim() && !a.signature)
+        .filter((a) => a.name.trim() && !istUnterschrift(a.signature))
         .forEach((a) => out.push({ id: 'anwesenheit', text: t('forms:errAttendanceSignature', { name: a.name.trim() }) }))
     }
-    if (!sigInstructor) out.push({ id: 'unterschriften', text: t('forms:errSignature') })
+    // Ein Bild ohne Inhalt ist keine Unterschrift (MOB-01).
+    if (!istUnterschrift(sigInstructor)) out.push({ id: 'unterschriften', text: t('forms:errSignature') })
     return out
-  }, [formType, formTypeId, step, trainees, competencies, sessionStatus, postFields, header, freeText, isAttendance, attendance, sigInstructor, t])
+  }, [formType, formTypeId, step, trainees, competencies, b, hideCodes, sessionStatus, postFields, header, plausibel, imSchritt2, freeText, isAttendance, attendance, sigInstructor, t])
 
   /** Fortschritt: wie viele Noten sind gesetzt? */
   const gradedCount = trainees.reduce((n, tr) => n + tr.grades.filter((g) => g.grade !== null).length, 0)
@@ -468,30 +552,51 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     return () => document.body.classList.remove('hat-formularleiste')
   }, [formType, step])
 
-  const springeZu = (id: string) => {
+  /*
+   * Höhe der Abschlussleiste als `--formularleiste-h` am Wurzelelement.
+   *
+   * Audit 11/2026, A11Y-01/MOB-03 (WCAG 2.4.11): Der Browser scrollte ein
+   * per Tab erreichtes Element nur bis an den Fensterrand — und dort stand
+   * die Leiste. Gemessen 26 von 139 Fokusstopps ganz verdeckt, auf dem iPad
+   * „LTW · Leadership & teamwork: 1" komplett darunter; eine Note ließ sich
+   * per Leertaste auf einem unsichtbaren Knopf setzen. `scroll-padding` in
+   * index.css hält den Bereich frei — mit der GEMESSENEN Höhe, denn die
+   * Leiste wächst mit der aufgeklappten Liste der offenen Punkte.
+   */
+  const leisteRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const leiste = leisteRef.current
+    const wurzel = document.documentElement
+    if (!leiste) return
+    const messen = () => wurzel.style.setProperty('--formularleiste-h', `${leiste.offsetHeight}px`)
+    messen()
+    const beobachter = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(messen)
+    beobachter?.observe(leiste)
+    return () => {
+      beobachter?.disconnect()
+      wurzel.style.removeProperty('--formularleiste-h')
+    }
+  }, [formType, step])
+
+  const springeZu = (id: string, nochmal = true) => {
     /* Manche offenen Punkte liegen auf Schritt 1 — bei 306/310 stehen die
        Freitextabschnitte dort, die Leiste steht aber auf Schritt 2. Ohne den
        Rücksprung verpuffte der Klick wortlos: Das Ziel gibt es im Baum gar
-       nicht, und der Punkt blieb offen, ohne dass man erfuhr, wo er steht. */
-    if (!document.getElementById(id)) {
-      setStep(1)
-      // Erst nach dem Wechsel suchen — vorher ist das Ziel nicht gerendert.
-      window.setTimeout(() => springeZu(id), 60)
-      return
-    }
-    const el = document.getElementById(id)!
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    const ziel = el.querySelector<HTMLElement>('button, input, textarea, select') ?? el
-    ziel.focus({ preventScroll: true })
+       nicht, und der Punkt blieb offen, ohne dass man erfuhr, wo er steht.
+       Erst nach dem Wechsel suchen — vorher ist das Ziel nicht gerendert;
+       und nur einmal, sonst liefe ein fehlendes Ziel endlos im Kreis. */
+    if (springeZuFeld(id) || !nochmal) return
+    setStep(1)
+    window.setTimeout(() => springeZu(id, false), 60)
   }
 
   /** Schritt 1: Kopfdaten inkl. Student/Instructor */
   const validateHeader = (): string => {
-    errorKeyRef.current = null
+    errorKeysRef.current = []
     if (!formType) return t('forms:errFormType')
     for (const f of preFields) {
       if (f.required && !header[f.key]?.trim()) {
-        errorKeyRef.current = f.key
+        errorKeysRef.current = [f.key]
         return t('forms:errRequired', { field: f.label })
       }
     }
@@ -500,12 +605,22 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
       const partner = f.exclusiveWith ? headerFields.find((x) => x.key === f.exclusiveWith) : undefined
       if (!partner) continue
       if (!header[f.key]?.trim() && !header[partner.key]?.trim()) {
-        errorKeyRef.current = f.key
+        errorKeysRef.current = [f.key, partner.key]
         return t('forms:errEitherOr', { a: f.label, b: partner.label })
       }
     }
+    // Plausibilität (GTY-05, GTY-07, GTY-11) — am Feld, wie die Pflichtfelder.
+    const kopfFehler = plausibel.fehler.find((x) => !imSchritt2(x.feld))
+    if (kopfFehler) {
+      errorKeysRef.current = [kopfFehler.feld]
+      return t(kopfFehler.schluessel, kopfFehler.werte)
+    }
     if (competencies.length > 0) {
-      if (trainees.length === 0 || trainees.some((tr) => !tr.traineeName?.trim())) return t('forms:errNoTrainee')
+      // Der Sprung führte hier auf das erste Feld mit Platzhalter — auch dann,
+      // wenn der zweite Pilot ohne Namen war.
+      const ohneName = trainees.findIndex((tr) => !tr.traineeName?.trim())
+      if (ohneName >= 0) errorKeysRef.current = [`traineeName-${ohneName}`]
+      if (trainees.length === 0 || ohneName >= 0) return t('forms:errNoTrainee')
     }
     return ''
   }
@@ -536,6 +651,18 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     return openItems[0]?.text ?? ''
   }
 
+  /*
+   * Dokumentenstand einfrieren: ATO, Zulassungsnummer, Formularstand und
+   * Formulartitel gehoerten bisher zur Anzeige und wurden zur DRUCKZEIT aus
+   * den Einstellungen gelesen — ein altes Dokument druckte danach eine
+   * andere Zulassungsnummer als zum Unterschriftszeitpunkt. Ab Fassung 3
+   * sind sie Teil des Fingerabdrucks. Das galt lange nur fuer die Grading
+   * Sheets; 306, 310, 307A und 307B blieben auf dem Altbestandsweg (GRD-03).
+   * Dasselbe fuer die Empfaenger: eingefroren beim Absenden (GTY-06). BEIDE
+   * Zweige unten gehen durch `einfrieren` (gradingRules.ts).
+   */
+  const stand = (r: GradingRecord): GradingRecord => einfrieren(r, dokKopf, formType?.title ?? '', grading)
+
   /**
    * Mehrere Studenten im selben Durchgang dienen nur der Bedienbarkeit:
    * beim Abschluss entsteht PRO Student ein eigenes Formular mit eigener
@@ -544,14 +671,17 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
    */
   const buildRecords = (): GradingRecord[] => {
     const ts = Date.now() + state.timeOffsetMs
+    // Nur, was das Formular zeigt — auch aus einem älteren Entwurf
+    // (gradingPrefill.ts, kopfFuerTyp).
+    const kopf = kopfFuerTyp(header, formType!, competencies.length)
     if (competencies.length === 0) {
-      const signed = sigInstructor && (sigTrainee || isAttendance)
+      const signed = istUnterschrift(sigInstructor) && (istUnterschrift(sigTrainee) || isAttendance)
       return [
-        {
+        stand({
           id: existing?.id ?? newId(),
           formTypeId: formType!.id,
           instructorId: currentUser!.id,
-          header,
+          header: kopf,
           trainees: [],
           sessionStatus,
           freeText,
@@ -568,9 +698,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
           parentId: parentId ?? existing?.parentId,
           createdAt: existing?.createdAt ?? ts,
           signedAt: signed ? ts : undefined,
-          instructorSignedAt: sigInstructor ? ts : undefined,
+          instructorSignedAt: istUnterschrift(sigInstructor) ? ts : undefined,
           authority,
-        },
+        }),
       ]
     }
     // Ein Durchgang = ein Batch: alle daraus entstehenden Formulare teilen
@@ -580,12 +710,12 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
       // Automatik nochmals hart durchsetzen, falls ein alter Zustand vorliegt.
       const fixed = autoNotCompetent(tr) ? { ...tr, overall: 'not_competent' as OverallResult } : tr
       const sigT = sigTrainees[i] ?? null
-      const signed = sigInstructor && sigT
-      return {
+      const signed = istUnterschrift(sigInstructor) && istUnterschrift(sigT)
+      return stand({
         id: existing && trainees.length === 1 ? existing.id : newId(),
         formTypeId: formType!.id,
         instructorId: currentUser!.id,
-        header,
+        header: kopf,
         trainees: [fixed],
         // Wortlaut einfrieren — spätere Katalogpflege darf dieses Dokument
         // nicht mehr verändern.
@@ -605,21 +735,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         batchId,
         createdAt: existing?.createdAt ?? ts,
         signedAt: signed ? ts : undefined,
-        instructorSignedAt: sigInstructor ? ts : undefined,
+        instructorSignedAt: istUnterschrift(sigInstructor) ? ts : undefined,
         authority,
-        // Dokumentenstand einfrieren: ATO, Zulassungsnummer, Formularstand
-        // und Formulartitel gehoerten bisher zur Anzeige und wurden zur
-        // DRUCKZEIT aus den Einstellungen gelesen — ein altes Dokument
-        // druckte danach eine andere Zulassungsnummer als zum
-        // Unterschriftszeitpunkt. Ab Fassung 3 sind sie Teil des
-        // Fingerabdrucks.
-        docSnapshot: {
-          atoName: dokKopf.atoName,
-          approval: (authority === 'UK' ? dokKopf.approvalNumberUK : dokKopf.approvalNumber) || dokKopf.approvalNumber,
-          formRevision: dokKopf.formRevision,
-          formTitle: formType?.title ?? '',
-        },
-      }
+      })
     })
   }
 
@@ -654,9 +772,10 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
    * nicht unbemerkt in die Ablage wandern.
    */
   const confirmImplausible = (): boolean => {
-    const today = new Date(Date.now() + state.timeOffsetMs).toISOString().slice(0, 10)
-    const future = headerFields.some((f) => f.type === 'date' && header[f.key] && header[f.key] > today)
-    if (future && !window.confirm(t('forms:warnFutureDate'))) return false
+    // Ortszeit: Mit dem UTC-Tag galt das richtige Datum kurz nach
+    // Mitternacht als „in der Zukunft" (GRD-16). Und nur das Schulungsdatum:
+    // Ein Due Date liegt naturgemäß in der Zukunft (GTY-05).
+    if (plausibel.zukunft && !window.confirm(t('forms:warnFutureDate'))) return false
     const zeroTime = headerFields.some((f) => f.type === 'duration' && f.required && header[f.key] === '00:00')
     if (zeroTime && !window.confirm(t('forms:warnNoFlightTime'))) return false
     return true
@@ -683,7 +802,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     // Teil einer Folgeformular-Kette: nächstes Glied öffnen — mit SEINEM
     // Ausgangsformular, nicht mit dem des gerade abgeschlossenen.
     if (parentId && next.length > 0) {
-      toast(t('forms:toast.chainNext'), 'ok')
+      quittieren(t('forms:toast.chainNext'), 'ok')
       navigate(`/grading/new?type=${next[0].type}&parent=${next[0].parentId}&next=${encodeChain(next.slice(1))}`)
       return
     }
@@ -697,9 +816,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
        Unterscheidung braucht der Instruktor, bevor er das Geraet weglegt. */
     const alleUnterschrieben = recs.every((r) => r.status === 'signed')
     const imKorb = recs.some((r) => r.mailStatus === 'queued')
-    if (allOk) toast(t('forms:toast.signedAndSent'), 'ok')
-    else if (alleUnterschrieben && imKorb) toast(t('forms:toast.queued'), 'wait')
-    else toast(t('forms:toast.openLeft'), 'wait')
+    if (allOk) quittieren(t('forms:toast.signedAndSent'), 'ok')
+    else if (alleUnterschrieben && imKorb) quittieren(t('forms:toast.queued'), 'wait')
+    else quittieren(t('forms:toast.openLeft'), 'wait')
     // replace: die Formularadresse verschwindet aus dem Verlauf
     navigate(allOk || recs.length > 1 ? '/grading' : `/grading/${recs[0].id}`, true)
   }
@@ -715,14 +834,10 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     // seine Unterschrift. Das 310 hing frueher einmalig am ersten Blatt des
     // Durchgangs; seit es ein Pflichtfeld „Pilot / Student Name" fuehrt
     // (#24), kann es fuer die uebrigen Piloten nichts belegen, haekelte deren
-    // offene Punkte aber trotzdem ab. Jetzt entsteht es je Blatt.
-    const chain: FollowUpStep[] = []
-    if (followUps.includes('306')) {
-      recs.filter((r) => r.trainees.some(isNotCompetent)).forEach((r) => chain.push({ type: '306', parentId: r.id }))
-    }
-    followUps
-      .filter((id) => id !== '306')
-      .forEach((id) => recs.forEach((r) => chain.push({ type: id, parentId: r.id })))
+    // offene Punkte aber trotzdem ab. Jetzt entsteht es je Blatt. Ein
+    // freiwillig angekreuztes 306 fiel ohne „Not Competent" still heraus
+    // (GRD-11) — die Regel steht in folgeKette.ts.
+    const chain = folgeKette(recs, followUps)
     if (chain.length > 0) {
       navigate(`/grading/new?type=${chain[0].type}&parent=${chain[0].parentId}&next=${encodeChain(chain.slice(1))}`)
     } else {
@@ -748,123 +863,126 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
    * Einstellungen — damit stehen in ALLEN Formularen dieselben Aircraft
    * Types und der Admin pflegt sie an einer Stelle.
    */
-  const optionsOf = (f: FormField): string[] =>
-    f.key === 'aircraftType' ? state.settings.aircraftTypes : (f.options ?? [])
+  const optionsOf = (f: FormField): string[] => auswahlVon(f, state.settings.aircraftTypes) ?? []
 
   /** Kopf- und Session-Datenfelder — in Schritt 1 (pre) und Schritt 2 (post) genutzt */
-  const renderField = (f: FormField) => (
-    <div key={f.key} className={f.wide ? 'sm:col-span-2' : ''}>
-      {/* Ankreuzgruppen sind mehrere Knöpfe — sie brauchen eine
-          Gruppenbeschriftung, kein <label> (siehe Field). */}
-      <Field label={f.label + (f.required ? ' *' : '')} group={f.type === 'radiogroup' || f.type === 'checkgroup'}>
-        {f.type === 'select' ? (
-          <select
-            id={`field-${f.key}`}
-            value={header[f.key] ?? ''}
-            onChange={(e) => setField(f, e.target.value)}
-            // Beanstandung hängt AM Feld, nicht nur als Text weit darunter —
-            // eine Sprachausgabe liest sie dann beim Fokussieren mit vor.
-            aria-invalid={!!error && errorKeyRef.current === f.key}
-            aria-describedby={!!error && errorKeyRef.current === f.key ? 'form-error' : undefined}
-            className={selectCls}
-          >
-            <option value="">…</option>
-            {[...optionsOf(f)].sort((a, b) => a.localeCompare(b)).map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-        ) : f.type === 'duration' ? (
-          // Zeiten immer im Format hh:mm, wählbar in 30-Minuten-Schritten
-          <select
-            id={`field-${f.key}`}
-            value={header[f.key] ?? ''}
-            onChange={(e) => setField(f, e.target.value)}
-            className={selectCls}
-          >
-            <option value="">hh:mm …</option>
-            {DURATION_OPTIONS.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-        ) : f.type === 'textarea' ? (
-          <textarea
-            id={`field-${f.key}`}
-            value={header[f.key] ?? ''}
-            onChange={(e) => setField(f, e.target.value)}
-            className={`${inputCls} min-h-20`}
-          />
-        ) : f.type === 'radiogroup' ? (
-          // Einfachauswahl als Ankreuzfelder wie im Original
-          <div className="flex flex-wrap gap-1.5">
-            {optionsOf(f).map((o) => {
-              const on = header[f.key] === o
-              return (
-                <button
-                  key={o}
-                  aria-pressed={on}
-                  onClick={() => setField(f, on ? '' : o)}
-                  className={`min-h-11 rounded-lg border px-3 py-2 text-small transition ${
-                    on ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
-                  }`}
-                >
-                  {on ? '☒' : '☐'} {o}
-                </button>
-              )
-            })}
-          </div>
-        ) : f.type === 'checkgroup' ? (
-          // Ankreuzfeld-Gruppe in der Reihenfolge des Original-Formulars
-          // (z. B. IOS / RH Seat / LH Seat auf 308G, ATA Chapters auf 308F)
-          <div className="flex flex-wrap gap-1.5">
-            {optionsOf(f).map((o) => {
-              const sel = (header[f.key] ?? '').split(', ').filter(Boolean)
-              const on = sel.includes(o)
-              return (
-                <button
-                  key={o}
-                  aria-pressed={on}
-                  onClick={() => {
-                    // Reihenfolge des Originalformulars beibehalten — eine
-                    // alphabetische Sortierung verdrehte z. B. die ATA-Kapitel.
-                    const next = on ? sel.filter((x) => x !== o) : [...sel, o]
-                    const ordered = optionsOf(f).filter((x) => next.includes(x))
-                    setField(f, ordered.join(', '))
-                  }}
-                  className={`min-h-11 rounded-lg border px-2.5 py-1.5 text-micro transition ${
-                    on ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
-                  }`}
-                >
-                  {on ? '☒' : '☐'} {o}
-                </button>
-              )
-            })}
-          </div>
-        ) : (
-          <input
-            id={`field-${f.key}`}
-            aria-invalid={!!error && errorKeyRef.current === f.key}
-            aria-describedby={!!error && errorKeyRef.current === f.key ? 'form-error' : undefined}
-            type={f.type === 'date' ? 'date' : f.type === 'number' ? 'number' : 'text'}
-            value={header[f.key] ?? ''}
-            onChange={(e) => setField(f, e.target.value)}
-            className={inputCls}
-          />
+  const renderField = (f: FormField) => {
+    const gruppe = f.type === 'radiogroup' || f.type === 'checkgroup'
+    const fehler = beanstandet(f.key)
+    /* Entweder-oder-Paare (308F: Zyklus ODER ATA-Kapitel): Keines der beiden
+       ist für sich Pflicht, deshalb kein Stern — und so war die Pflicht erst
+       NACH dem Fehler zu erkennen (GTY-12). Der Hinweis steht unter beiden. */
+    const partner = f.exclusiveWith ? headerFields.find((x) => x.key === f.exclusiveWith) : undefined
+    const hinweisId = partner ? `field-${f.key}-eitheror` : undefined
+    // Beanstandung hängt AM Feld, nicht nur als Text weit darunter — eine
+    // Sprachausgabe liest sie dann beim Fokussieren mit vor.
+    const beschreibung = [fehler ? FELD_FEHLER : undefined, hinweisId].filter(Boolean).join(' ') || undefined
+    const amFeld = { id: `field-${f.key}`, 'aria-invalid': fehler, 'aria-describedby': beschreibung }
+    return (
+      <div key={f.key} className={f.wide ? 'sm:col-span-2' : ''}>
+        {/* Ankreuzgruppen sind mehrere Knöpfe — sie brauchen eine
+            Gruppenbeschriftung, kein <label> (siehe Field). Id, Beanstandung
+            und Beschreibung tragen sie an der Gruppe (GTY-12). */}
+        <Field
+          label={f.label + (f.required ? ' *' : '')}
+          group={gruppe}
+          id={gruppe ? `field-${f.key}` : undefined}
+          invalid={gruppe && fehler}
+          describedBy={gruppe ? beschreibung : undefined}
+        >
+          {f.type === 'select' ? (
+            <select {...amFeld} value={header[f.key] ?? ''} onChange={(e) => setField(f, e.target.value)} className={selectCls}>
+              <option value="">…</option>
+              {[...optionsOf(f)].sort((a, b) => a.localeCompare(b)).map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          ) : f.type === 'duration' ? (
+            // Zeiten immer im Format hh:mm, wählbar in 30-Minuten-Schritten
+            <select {...amFeld} value={header[f.key] ?? ''} onChange={(e) => setField(f, e.target.value)} className={selectCls}>
+              <option value="">hh:mm …</option>
+              {DURATION_OPTIONS.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+          ) : f.type === 'textarea' ? (
+            <textarea {...amFeld} value={header[f.key] ?? ''} onChange={(e) => setField(f, e.target.value)} className={`${inputCls} min-h-20`} />
+          ) : f.type === 'radiogroup' ? (
+            // Einfachauswahl als Ankreuzfelder wie im Original
+            <div className="flex flex-wrap gap-1.5">
+              {optionsOf(f).map((o) => {
+                const on = header[f.key] === o
+                return (
+                  <Ankreuzknopf key={o} an={on} onClick={() => setField(f, on ? '' : o)}>
+                    {o}
+                  </Ankreuzknopf>
+                )
+              })}
+            </div>
+          ) : f.type === 'checkgroup' ? (
+            // Ankreuzfeld-Gruppe in der Reihenfolge des Original-Formulars
+            // (z. B. IOS / RH Seat / LH Seat auf 308G, ATA Chapters auf 308F)
+            <div className="flex flex-wrap gap-1.5">
+              {optionsOf(f).map((o) => {
+                const sel = (header[f.key] ?? '').split(', ').filter(Boolean)
+                const on = sel.includes(o)
+                return (
+                  <Ankreuzknopf
+                    key={o}
+                    an={on}
+                    klein
+                    onClick={() => {
+                      // Reihenfolge des Originalformulars beibehalten — eine
+                      // alphabetische Sortierung verdrehte z. B. die ATA-Kapitel.
+                      const next = on ? sel.filter((x) => x !== o) : [...sel, o]
+                      const ordered = optionsOf(f).filter((x) => next.includes(x))
+                      setField(f, ordered.join(', '))
+                    }}
+                  >
+                    {o}
+                  </Ankreuzknopf>
+                )
+              })}
+            </div>
+          ) : (
+            <input
+              {...amFeld}
+              /* Zahlen als Text mit Ziffernfeld, nicht type=number (GTY-07):
+                 Dort verschwand ein getipptes „e" wortlos (der Browser meldet
+                 dann den Wert ""), „-3" und „2.5" gingen durch. Als Text bleibt
+                 stehen, was man sieht, und `ganzzahligNichtNegativ` beanstandet
+                 es beim Weiter bzw. in den offenen Punkten. */
+              type={f.type === 'date' ? 'date' : 'text'}
+              inputMode={f.type === 'number' ? 'numeric' : undefined}
+              autoComplete={f.type === 'number' ? 'off' : undefined}
+              value={header[f.key] ?? ''}
+              onChange={(e) => setField(f, e.target.value)}
+              className={inputCls}
+            />
+          )}
+          {/* Fußnoten des Originalformulars, etwa zu den PRG-Sternchen */}
+          {f.hint && <p className="mt-1.5 text-micro leading-relaxed text-dim">{f.hint}</p>}
+        </Field>
+        {/* Außerhalb des <label>: Text darin würde Teil des Feldnamens. */}
+        {partner && (
+          <p id={hinweisId} className="mt-1.5 text-micro leading-relaxed text-dim">
+            {t('forms:eitherOrHint', { other: partner.label })}
+          </p>
         )}
-        {/* Fußnoten des Originalformulars, etwa zu den PRG-Sternchen */}
-        {f.hint && <p className="mt-1.5 text-micro leading-relaxed text-dim">{f.hint}</p>}
-      </Field>
-    </div>
-  )
+        {meldungHier(f.key) && <FeldFehler text={error} />}
+      </div>
+    )
+  }
 
   if (!mayGrade) {
     return (
       <>
-        <TopBar title={t('forms:newForm')} back="/grading" home={false} wide />
-        <Page>
+        <TopBar title={t('forms:newForm')} back="/grading" home={false} wide lang="en" />
+        <Page lang="en">
           <p className="rounded-xl border border-line/10 bg-surface/60 p-3.5 text-small leading-relaxed text-dim">{t('forms:noPermission')}</p>
         </Page>
       </>
@@ -879,8 +997,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         onBack={leaveGuard}
         home={false}
         wide
+        lang="en"
       />
-      <Page wide className="space-y-section pb-32">
+      <Page wide lang="en" className="space-y-section pb-32">
         {/* Wiederhergestellter Entwurf: sichtbar machen und verwerfbar halten */}
         {draftRestored && (
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-accent/40 bg-accent/10 p-3.5 text-small">
@@ -888,6 +1007,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             <Button
               variant="ghost"
               onClick={() => {
+                // Verworfen ist verworfen: keine Rückfrage, die von einem
+                // gesicherten Entwurf spricht (GRD-10).
+                verlassenRef.current = true
                 clearDraft()
                 setDraftRestored(false)
                 navigate('/grading')
@@ -915,6 +1037,14 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 // keine gültige Angabe und darf auch nicht gedruckt werden.
                 const pos = ft?.competencySet === 'instructor' ? '' : 'CDR'
                 setTrainees(cs.length > 0 ? [emptyTrainee(cs.map((c) => c.code), pos)] : [])
+                // Was der neue Typ nicht zeigt, fällt aus dem Kopf — die
+                // Vorbelegung des vorigen Typs (Device, Qualifikation, Sitz)
+                // blieb sonst unsichtbar stehen. Die Basis ebenso, sonst
+                // gälte das Wegfallen als Eingabe (GRD-06, GRD-10).
+                if (ft) {
+                  setHeader((h) => kopfFuerTyp(h, ft, cs.length))
+                  setBasis((b) => ({ ...b, header: kopfFuerTyp((b.header ?? {}) as Record<string, string>, ft, cs.length) }))
+                }
                 // Liste wird neu aufgebaut — alte Unterschriften dürfen nicht stehen bleiben
                 setSigTrainees({})
               }}
@@ -934,16 +1064,23 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
         {formType && step === 1 && (
           <>
-            {/* 2a. Student / Instructor — Aufbau wie im Originalformular */}
+            {/* 2a. Student / Instructor — Aufbau wie im Originalformular.
+                Die Karten des Formulars stehen direkt unter der
+                Seitenüberschrift und tragen deshalb h2 — als h3 sprang die
+                Gliederung in beiden Schritten von h1 auf h3 (A11Y-14). */}
             {competencies.length > 0 && (
               <Card className="space-y-section p-4">
-                <CardHeading>{t('forms:participants')}</CardHeading>
+                <CardHeading level={2}>{t(b.teilnehmer)}</CardHeading>
 
-                {trainees.map((tr, i) => (
+                {trainees.map((tr, i) => {
+                  // Bei mehreren Piloten sagt der Name der Gruppe, wessen Sitz es ist —
+                  // sonst stand „Left" zweimal hintereinander ohne Bezug (A11Y-08).
+                  const wessen = trainees.length > 1 ? ` — ${t(b.person)} ${i + 1}` : ''
+                  return (
                   <div key={i} className="rounded-xl border border-line/10 p-3">
                     <div className="mb-2 flex items-center gap-2">
                       <p className="flex-1 text-small font-semibold text-accent">
-                        {isInstructorSheet ? 'Candidate Instructor' : t('forms:student')} {trainees.length > 1 ? i + 1 : ''}
+                        {t(b.person)} {trainees.length > 1 ? i + 1 : ''}
                       </p>
                       {/* Beschriftet und 44 px: Der Knopf loescht einen kompletten
                           Piloten samt Bewertung und wurde als „Schaltflaeche"
@@ -951,90 +1088,93 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                       {trainees.length > 1 && (
                         <button
                           onClick={() => removeTrainee(i)}
-                          aria-label={`${isInstructorSheet ? 'Candidate Instructor' : t('forms:student')} ${i + 1} — ${t('common.delete')}`}
-                          title={t('common.delete')}
+                          aria-label={`${t(b.person)} ${i + 1} — ${t('forms:removePilot')}`}
+                          title={t('forms:removePilot')}
                           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-dim transition hover:bg-danger/10 hover:text-danger"
                         >
                           <Trash2 size={15} />
                         </button>
                       )}
                     </div>
-                    {/* Studentenname wird immer frei eingetippt — kein Dropdown */}
+                    {/* Studentenname wird immer frei eingetippt — kein Dropdown.
+                        Der Platzhalter war sein einziger Name und verschwand mit
+                        dem ersten Buchstaben (A11Y-07); als Sprungziel trägt das
+                        Feld eine id und seine Beanstandung (A11Y-16). */}
                     <input
+                      id={`field-traineeName-${i}`}
                       value={tr.traineeName ?? ''}
                       onChange={(e) => setTrainee(i, { traineeName: e.target.value })}
-                      placeholder={t('forms:studentName')}
+                      placeholder={t(b.name)}
+                      aria-label={`${t(b.name)}${wessen}`}
+                      aria-invalid={beanstandet(`traineeName-${i}`)}
+                      aria-describedby={beanstandet(`traineeName-${i}`) ? FELD_FEHLER : undefined}
                       className={`${inputCls} mb-2`}
                     />
+                    {meldungHier(`traineeName-${i}`) && <FeldFehler text={error} />}
                     {/* 308G kennt keine CDR/FO- und Sitzchips — dort stehen
-                        Qualifikation und Position im Kopf des Formulars */}
-                    <div className={`flex flex-wrap items-center gap-1.5 ${isInstructorSheet ? 'hidden' : ''}`}>
-                      {['CDR', 'FO'].map((o) => (
-                        <button
-                          key={o}
-                          onClick={() => setTrainee(i, { position: o })}
-                          className={`min-h-11 rounded-lg border px-3 py-1.5 text-small transition ${
-                            tr.position === o ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
-                          }`}
-                        >
-                          {tr.position === o ? '☒' : '☐'} {o}
-                        </button>
-                      ))}
-                      <span className="mx-1 h-6 w-px shrink-0 bg-line/15" />
-                      {['Left', 'Right'].map((o) => (
-                        <button
-                          key={o}
-                          onClick={() => setTrainee(i, { seat: tr.seat === o ? '' : o })}
-                          className={`min-h-11 rounded-lg border px-3 py-1.5 text-small transition ${
-                            tr.seat === o ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
-                          }`}
-                        >
-                          {tr.seat === o ? '☒' : '☐'} {o}
-                        </button>
-                      ))}
+                        Qualifikation und Position im Kopf des Formulars.
+                        Zwei eigene Gruppen statt eines Trennstrichs im
+                        gemeinsamen Umbruch: Der Strich hing bei 360 px allein am
+                        Zeilenende (MOB-11); jetzt bricht die zweite Gruppe als
+                        Ganzes um, und jede trägt ihren Namen (A11Y-08). */}
+                    <div className={`flex flex-wrap gap-x-section gap-y-tight ${isInstructorSheet ? 'hidden' : ''}`}>
+                      <div role="group" aria-label={`${t('forms:traineePosition')}${wessen}`} className="flex flex-wrap gap-1.5">
+                        {['CDR', 'FO'].map((o) => (
+                          <Ankreuzknopf key={o} an={tr.position === o} onClick={() => setTrainee(i, { position: o })}>
+                            {o}
+                          </Ankreuzknopf>
+                        ))}
+                      </div>
+                      <div role="group" aria-label={`${t('forms:traineeSeat')}${wessen}`} className="flex flex-wrap gap-1.5">
+                        {['Left', 'Right'].map((o) => (
+                          <Ankreuzknopf key={o} an={tr.seat === o} onClick={() => setTrainee(i, { seat: tr.seat === o ? '' : o })}>
+                            {o}
+                          </Ankreuzknopf>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
 
                 <button
                   onClick={() => setTrainees([...trainees, emptyTrainee(codes, isInstructorSheet ? '' : 'CDR')])}
                   className="flex items-center gap-1.5 text-small font-medium text-accent hover:underline"
                 >
-                  <Plus size={15} /> {t('forms:addTrainee')}
+                  <Plus size={15} /> {t(b.hinzufuegen)}
                 </button>
                 {trainees.length > 1 && (
                   <p className="rounded-xl bg-bg/40 p-3 text-micro leading-relaxed text-dim">{t('forms:multiStudentHint')}</p>
                 )}
 
                 <div className="rounded-xl border border-line/10 p-3">
-                  <p className="mb-2 text-small font-semibold text-accent">
-                    {isInstructorSheet ? 'Course Instructor' : t('forms:instructor')}
-                  </p>
+                  <p className="mb-2 text-small font-semibold text-accent">{t(b.ausbilder)}</p>
                   <p className="mb-2 rounded-lg bg-bg/40 px-3 py-2 text-body">{currentUser!.name}</p>
-                  <div className={`flex flex-wrap items-center gap-1.5 ${isInstructorSheet ? 'hidden' : ''}`}>
-                    {['TKI', 'SFI', 'TRI'].map((o) => (
-                      <button
-                        key={o}
-                        onClick={() => setHeader({ ...header, instructorQual: header.instructorQual === o ? '' : o })}
-                        className={`min-h-11 rounded-lg border px-3 py-1.5 text-small transition ${
-                          header.instructorQual === o ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
-                        }`}
-                      >
-                        {header.instructorQual === o ? '☒' : '☐'} {o}
-                      </button>
-                    ))}
-                    <span className="mx-1 h-6 w-px shrink-0 bg-line/15" />
-                    {['Left', 'Right', 'Rear'].map((o) => (
-                      <button
-                        key={o}
-                        onClick={() => setHeader({ ...header, instructorSeat: header.instructorSeat === o ? '' : o })}
-                        className={`min-h-11 rounded-lg border px-3 py-1.5 text-small transition ${
-                          header.instructorSeat === o ? 'border-accent bg-accent/15 font-medium text-ink' : 'border-line/15 text-dim'
-                        }`}
-                      >
-                        {header.instructorSeat === o ? '☒' : '☐'} {o}
-                      </button>
-                    ))}
+                  {/* Dieselbe Bedingung wie die Vorbelegung (GRD-06): Was hier
+                      nicht zu sehen ist, darf auch nicht vorbelegt werden. */}
+                  <div className={`flex flex-wrap gap-x-section gap-y-tight ${formType && fuehrtInstruktorAngaben(formType, competencies.length) ? '' : 'hidden'}`}>
+                    <div role="group" aria-label={t('forms:instructorQual')} className="flex flex-wrap gap-1.5">
+                      {INSTRUKTOR_QUALI.map((o) => (
+                        <Ankreuzknopf
+                          key={o}
+                          an={header.instructorQual === o}
+                          onClick={() => setHeader({ ...header, instructorQual: header.instructorQual === o ? '' : o })}
+                        >
+                          {o}
+                        </Ankreuzknopf>
+                      ))}
+                    </div>
+                    <div role="group" aria-label={t('forms:instructorSeat')} className="flex flex-wrap gap-1.5">
+                      {INSTRUKTOR_SITZ.map((o) => (
+                        <Ankreuzknopf
+                          key={o}
+                          an={header.instructorSeat === o}
+                          onClick={() => setHeader({ ...header, instructorSeat: header.instructorSeat === o ? '' : o })}
+                        >
+                          {o}
+                        </Ankreuzknopf>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -1042,16 +1182,31 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
             {/* 2b. Kopfdaten (nur Felder, die VOR dem Grading erfasst werden) */}
             <Card className="space-y-stack p-4">
-              <CardHeading>{t('forms:headerData')}</CardHeading>
+              <CardHeading level={2}>{t('forms:headerData')}</CardHeading>
               <div className="grid gap-3 sm:grid-cols-2">{preFields.map(renderField)}</div>
               {/* Kein Katalogfeld: die Behörde gehört zu JEDEM Formulartyp
                   und bestimmt die ATO-Kennung im Dokumentkopf. */}
-              <Field label={t('forms:authority')}>
-                <select value={authority} onChange={(e) => setAuthority(e.target.value as 'AT' | 'UK')} className={selectCls}>
-                  <option value="AT">{t('forms:authorityAT', { nr: state.settings.documentHeader?.approvalNumber || 'AT.ATO.106' })}</option>
-                  <option value="UK">{t('forms:authorityUK', { nr: state.settings.documentHeader?.approvalNumberUK || 'GBR.ATO.0541' })}</option>
-                </select>
-              </Field>
+              {parent ? (
+                /* Folgeformular: nur anzeigen. Es gehört zur Zulassung seines
+                   Elternblatts — wählbar startete es mit AT, und das 306 einer
+                   UK-Session druckte AT.ATO.106 (GRD-04). */
+                <div>
+                  <p className="mb-1.5 text-small font-medium text-dim">{t('forms:authority')}</p>
+                  <p className="rounded-xl bg-bg/40 px-3 py-2.5 text-body">
+                    {authority === 'UK'
+                      ? t('forms:authorityUK', { nr: state.settings.documentHeader?.approvalNumberUK || 'GBR.ATO.0541' })
+                      : t('forms:authorityAT', { nr: state.settings.documentHeader?.approvalNumber || 'AT.ATO.106' })}
+                  </p>
+                  <p className="mt-1 text-micro leading-relaxed text-dim">{t('forms:authorityFromParent', { form: parent.formTypeId })}</p>
+                </div>
+              ) : (
+                <Field label={t('forms:authority')}>
+                  <select value={authority} onChange={(e) => setAuthority(e.target.value as 'AT' | 'UK')} className={selectCls}>
+                    <option value="AT">{t('forms:authorityAT', { nr: state.settings.documentHeader?.approvalNumber || 'AT.ATO.106' })}</option>
+                    <option value="UK">{t('forms:authorityUK', { nr: state.settings.documentHeader?.approvalNumberUK || 'GBR.ATO.0541' })}</option>
+                  </select>
+                </Field>
+              )}
             </Card>
 
             {/* 3. Freitextabschnitte (306/310) */}
@@ -1076,12 +1231,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 if (err) {
                   setError(err)
                   // Zum beanstandeten Feld springen — die Meldung stand sonst
-                  // hunderte Pixel von der Ursache entfernt.
-                  const target = errorKeyRef.current
-                    ? document.getElementById(`field-${errorKeyRef.current}`)
-                    : document.querySelector<HTMLElement>('input[placeholder]')
-                  target?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-                  target?.focus({ preventScroll: true })
+                  // hunderte Pixel von der Ursache entfernt. Bei Ankreuzgruppen
+                  // fand der Sprung nichts und blieb auf diesem Knopf (GTY-12).
+                  if (errorKeysRef.current[0]) springeZuFeld(`field-${errorKeysRef.current[0]}`)
                   return
                 }
                 setError('')
@@ -1113,8 +1265,8 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 return (
                 <Card key={i} className="space-y-section p-4">
                   <div className="flex items-center gap-2">
-                    <CardHeading className="flex-1">
-                      {tr.traineeName?.trim() || t('forms:traineeN', { n: i + 1 })}
+                    <CardHeading level={2} className="flex-1">
+                      {tr.traineeName?.trim() || t(b.personN, { n: i + 1 })}
                       {tr.position ? ` · ${tr.position}` : ''}
                       {tr.seat ? ` · ${tr.seat}` : ''}
                     </CardHeading>
@@ -1164,13 +1316,13 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                               Fuellfarbe und Ring). */}
                           {/* Eine Reihe statt zwei: sechs Knoepfe zu je 52 px
                               passen in die Inhaltsbreite von 324 px. */}
-                          <div role="group" aria-label={`${c.code} · ${c.title}`} className="grid grid-cols-6 gap-1.5">
+                          <div role="group" aria-label={kompVoll(c)} className="grid grid-cols-6 gap-1.5">
                             {GRADES.map((val) => (
                               <button
                                 key={String(val)}
                                 onClick={() => setGrade(i, c.code, val)}
                                 aria-pressed={g?.grade === val}
-                                aria-label={`${c.code} · ${c.title}: ${val}`}
+                                aria-label={`${kompVoll(c)}: ${val}`}
                                 className={`min-h-11 rounded-lg px-1 py-2.5 text-body font-semibold transition ${
                                   g?.grade === val ? gradeColor(val) + ' ring-2 ring-accent' : 'bg-line/[0.06] text-dim hover:bg-line/10'
                                 }`}
@@ -1192,7 +1344,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                             // Der Platzhalter wechselt zwischen „erforderlich" und
                             // „optional" — als einziger Name des Feldes hiesse das:
                             // Das Feld heisst je nach Zustand anders.
-                            aria-label={`${t('forms:commentOptional')} — ${c.code}`}
+                            aria-label={`${t('forms:commentOptional')} — ${hideCodes ? c.title : c.code}`}
                             aria-required={commentRequired}
                             className={`${inputCls} mt-1.5 text-small ${commentRequired && !g?.comment.trim() ? 'border-danger/60' : ''}`}
                           />
@@ -1275,7 +1427,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             {/* 4b. Session-Daten — werden immer erst NACH dem Grading erfasst */}
             {postFields.length > 0 && (
               <Card id="sessiondaten" className="scroll-mt-24 space-y-stack p-4">
-                <CardHeading>{t('forms:sessionData')}</CardHeading>
+                <CardHeading level={2}>{t('forms:sessionData')}</CardHeading>
                 <p className="text-micro leading-relaxed text-dim">{t('forms:sessionDataHint')}</p>
                 <div className="grid gap-3 sm:grid-cols-2">{postFields.map(renderField)}</div>
               </Card>
@@ -1284,15 +1436,19 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
             {/* 4c. Teilnehmerliste (307A/307B) */}
             {isAttendance && (
               <Card id="anwesenheit" className="scroll-mt-24 space-y-stack p-4">
-                <CardHeading>{t('forms:attendance')}</CardHeading>
+                <CardHeading level={2}>{t('forms:attendance')}</CardHeading>
                 {attendance.map((a, i) => (
                   <div key={i} className="space-y-stack rounded-xl border border-line/10 p-3">
                     <div className="flex items-center gap-2">
                       <span className="w-6 shrink-0 text-micro text-dim">{i + 1}.</span>
+                      {/* Ein Platzhalter ist kein Name — er verschwindet beim
+                          Tippen, und die Sprachausgabe sagte nur „Eingabefeld"
+                          (Audit 11/2026, A11Y, Gegenprüfung Runde 1). */}
                       <input
                         value={a.name}
                         onChange={(e) => setAttendance(attendance.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
                         placeholder={t('forms:studentName')}
+                        aria-label={`${t('forms:studentName')} ${i + 1}`}
                         className={inputCls}
                       />
                       {attendance.length > 1 && (
@@ -1313,6 +1469,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                         value={a.signature}
                         onChange={(sig) => setAttendance(attendance.map((x, j) => (j === i ? { ...x, signature: sig } : x)))}
                         label={t('forms:attendanceSignature')}
+                        zeitversatzMs={state.timeOffsetMs}
                       />
                     )}
                   </div>
@@ -1331,20 +1488,22 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 Bei mehreren Studenten unterschreibt JEDER einzeln; pro Student
                 entsteht beim Abschluss ein eigenes Formular. */}
             <Card id="unterschriften" className="scroll-mt-24 space-y-section p-4">
-              <CardHeading>{t('forms:signatures')}</CardHeading>
+              <CardHeading level={2}>{t('forms:signatures')}</CardHeading>
               <div className="grid gap-4 sm:grid-cols-2">
-                <SignaturePad value={sigInstructor} onChange={setSigInstructor} label={t('forms:sigInstructor')} />
+                {/* Wie auf dem Dokument: auf dem 308G COI und CAI (GTY-10). */}
+                <SignaturePad value={sigInstructor} onChange={setSigInstructor} label={t(b.sigAusbilder)} zeitversatzMs={state.timeOffsetMs} />
                 {competencies.length > 0 ? (
                   trainees.map((tr, i) => (
                     <SignaturePad
                       key={i}
                       value={sigTrainees[i] ?? null}
                       onChange={(v) => setSigTrainees((s) => ({ ...s, [i]: v }))}
-                      label={`${t('forms:sigTrainee')} — ${tr.traineeName?.trim() || t('forms:traineeN', { n: i + 1 })}`}
+                      label={`${t(b.sigPerson)} — ${tr.traineeName?.trim() || t(b.personN, { n: i + 1 })}`}
+                      zeitversatzMs={state.timeOffsetMs}
                     />
                   ))
                 ) : (
-                  !isAttendance && <SignaturePad value={sigTrainee} onChange={setSigTrainee} label={t('forms:sigTrainee')} />
+                  !isAttendance && <SignaturePad value={sigTrainee} onChange={setSigTrainee} label={t(b.sigPerson)} zeitversatzMs={state.timeOffsetMs} />
                 )}
               </div>
               {trainees.length > 1 && (
@@ -1363,22 +1522,30 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
 
             {/* 6. Empfänger: Standard (Admin-Konfiguration) + zusätzliche */}
             <Card className="space-y-stack p-4">
-              <CardHeading>{t('forms:recipientsCard')}</CardHeading>
+              <CardHeading level={2}>{t('forms:recipientsCard')}</CardHeading>
               <div className="flex flex-wrap gap-1.5">
-                {[
-                  ...grading.defaultRecipients,
-                  ...(formTypeId === '310' ? grading.deferredRecipients : []),
-                  ...(needsFollowUp ? grading.escalationRecipients : []),
-                ].map((r) => (
+                {/* Dieselbe Regel, deren Ergebnis beim Absenden im Datensatz
+                    landet (GTY-06) — vorher kannte diese Vorschau die
+                    Eskalation bei 306 nicht. Über alle Piloten des Durchgangs. */}
+                {empfaengerVon({ formTypeId: formTypeId ?? '', trainees, sessionStatus }, grading).map((r) => (
                   <span key={r} className="rounded-full bg-raised px-2.5 py-1 text-micro text-dim">
                     {r}
                   </span>
                 ))}
+                {/* Das „×" hatte keinen Namen (angesagt als „×") und eine
+                    Trefferfläche von 13 px (A11Y-07, MOB-05). Jetzt 44 px — die
+                    negativen Ränder halten die Marke trotzdem flach. */}
                 {extraRecipients.map((r) => (
-                  <span key={r} className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-2.5 py-1 text-micro text-accent">
+                  <span key={r} className="flex items-center rounded-full border border-accent/40 bg-accent/10 py-1 pl-2.5 text-micro text-accent">
                     {r}
-                    <button onClick={() => setExtraRecipients(extraRecipients.filter((x) => x !== r))} className="hover:text-danger">
-                      ×
+                    <button
+                      type="button"
+                      onClick={() => setExtraRecipients(extraRecipients.filter((x) => x !== r))}
+                      aria-label={t('forms:removeRecipient', { r })}
+                      title={t('forms:removeRecipient', { r })}
+                      className="-my-3 -ml-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full hover:text-danger"
+                    >
+                      <X size={14} aria-hidden />
                     </button>
                   </span>
                 ))}
@@ -1392,15 +1559,19 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
                 }
                 return (
                   <div className="flex gap-2">
+                    {/* Platzhalter und Symbol waren die einzigen Namen — der eine
+                        verschwand beim Tippen, das andere wurde als „Schaltfläche"
+                        angesagt (A11Y-07). */}
                     <input
                       value={recipientDraft}
                       onChange={(e) => setRecipientDraft(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && addRecipient()}
                       placeholder={t('forms:addRecipient')}
+                      aria-label={t('forms:recipientInput')}
                       className={inputCls}
                     />
-                    <Button variant="ghost" onClick={addRecipient} disabled={!/.+@.+\..+/.test(recipientDraft.trim())}>
-                      <Plus size={16} />
+                    <Button variant="ghost" onClick={addRecipient} label={t('forms:addRecipientButton')} disabled={!/.+@.+\..+/.test(recipientDraft.trim())}>
+                      <Plus size={16} aria-hidden />
                     </Button>
                   </div>
                 )
@@ -1422,12 +1593,22 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
         offenen Punkt — gemessene 3.900 px von der Stelle entfernt, an der er
         fehlte. Jetzt steht der Fortschritt dauerhaft da, die Liste nennt
         ALLE offenen Punkte, und jeder Eintrag springt hin.
+
+        `safe-x`: Im Querformat lag „Finish" sonst unter der Sensorkappe
+        (Audit 11/2026, MOB-07). Als benannte Region ist die Leiste per
+        Landmarke erreichbar — sie steht außerhalb von <main>, und der
+        Senden-Knopf fehlte in der Landmarkenliste (A11Y-14).
       */}
       {formType && step === 2 && (
-        <div className="formularleiste above-sandbox fixed inset-x-0 z-30 border-t border-line/10 bg-bg/95 px-3 pb-3 pt-2 backdrop-blur print:hidden">
+        <div ref={leisteRef} lang="en" role="region" aria-label={t('forms:formBar')} className="formularleiste above-sandbox safe-x fixed inset-x-0 z-30 border-t border-line/10 bg-bg/95 pb-3 pt-2 backdrop-blur [--rand-x:0.75rem] print:hidden">
           <div className="mx-auto flex max-w-3xl flex-col gap-2">
+            {/* Höchstens die halbe Höhe, und ein Schatten am Rand, solange
+                darunter noch etwas steht (`scroll-schatten`, index.css): Bei
+                160 px Höhe zeigte die Liste auf dem Telefon 3 von 6 Punkten,
+                ohne dass etwas auf die übrigen hinwies — darunter ausgerechnet
+                die fehlende Unterschrift (MOB-11). */}
             {offenOffen && openItems.length > 0 && (
-              <ul className="max-h-40 space-y-tight overflow-y-auto rounded-xl border border-line/10 bg-surface/60 p-2">
+              <ul className="scroll-schatten max-h-[50vh] space-y-tight overflow-y-auto rounded-xl border border-line/10 p-2">
                 {openItems.map((o) => (
                   <li key={o.id + o.text}>
                     <button
@@ -1470,14 +1651,16 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
       )}
 
       {showFollowUp && (
-        <Modal title={t('forms:followUpTitle')} onClose={() => setShowFollowUp(false)}>
+        <Modal title={t('forms:followUpTitle')} onClose={() => setShowFollowUp(false)} lang="en">
           <p className="mb-4 text-small leading-relaxed text-dim">{t('forms:followUpBodyMandatory')}</p>
           <div className="space-y-stack">
-            {/* Über den Katalog iterieren, nicht über eine feste Liste: Fehlt
-                ein Typ (der Superadmin darf ihn löschen, solange kein
-                Datensatz ihn benutzt — im Auslieferungszustand trifft das auf
-                310 zu), stürzte der Dialog hier ab und die Session ließ sich
-                überhaupt nicht mehr abschließen. */}
+            {/* Über den Katalog iterieren, nicht über eine feste Liste. Früher
+                durfte der Superadmin 306/310 löschen, solange kein Datensatz
+                sie benutzte — dann stürzte der Dialog hier ab, und die Session
+                ließ sich nicht mehr abschließen. Inzwischen hält `updateGrading`
+                (store.tsx) beide immer im Katalog; die Abfrage bleibt, weil
+                ein Katalog aus einem älteren Stand trotzdem lückenhaft sein
+                kann und ein fehlender Typ dann nur wegfällt, statt abzustürzen. */}
             {grading.formTypes
               .filter((f) => f.id === '306' || f.id === '310')
               .map((ft) => {
@@ -1485,34 +1668,45 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
               const required = requiredFollowUps.includes(id)
               const on = followUps.includes(id)
               return (
+                /* Zustand als aria-pressed, das Häkchen ist Schmuck — vorher
+                   stand die Wahl allein im „✓" (A11Y-08). */
                 <button
                   key={id}
+                  type="button"
                   disabled={required}
+                  aria-pressed={on}
                   onClick={() => setFollowUps(on ? followUps.filter((x) => x !== id) : [...followUps, id])}
                   className={`flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition ${
                     on ? 'border-accent bg-accent/10' : 'border-line/15'
                   } ${required ? 'cursor-default' : ''}`}
                 >
-                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${on ? 'border-accent bg-accent text-bg' : 'border-line/30'}`}>
+                  <span aria-hidden className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${on ? 'border-accent bg-accent text-bg' : 'border-line/30'}`}>
                     {on && '✓'}
                   </span>
                   <span className="min-w-0 flex-1 text-body">
                     <span className="font-semibold">{ft.id}</span> — {ft.title}
                   </span>
-                  {/* Pflichtformular: vorausgewählt und nicht abwählbar */}
+                  {/* Pflichtformular: vorausgewählt und nicht abwählbar.
+                      Badge statt Handpille (VERW-17); Ton accent, weil
+                      Pflicht eine Einordnung ist, kein Fehler — bad heisst
+                      durchgefallen oder kaputt (CLAUDE.md, Statusmarken). */}
                   {required && (
-                    <span className="shrink-0 rounded-full bg-danger/15 px-2 py-0.5 text-micro font-semibold text-danger">
-                      {t('forms:mandatory')}
+                    <span className="shrink-0">
+                      <Badge tone="accent">{t('forms:mandatory')}</Badge>
                     </span>
                   )}
                 </button>
               )
             })}
           </div>
-          {/* Bei mehreren Piloten im Durchgang entsteht je Pilot ein 306 */}
-          {notCompetentCount > 1 && followUps.includes('306') && (
+          {/* Bei mehreren Piloten im Durchgang entsteht je Pilot ein 306 —
+              gezählt nach derselben Regel, nach der `finish` die Kette baut
+              (GRD-11): ohne „Not Competent" eines je Blatt. */}
+          {anzahl306 > 1 && (
             <p className="mt-3 rounded-xl border border-warm/25 bg-warm/5 p-3 text-micro leading-relaxed">
-              {t('forms:followUp306PerPilot', { count: notCompetentCount })}
+              {notCompetentCount > 0
+                ? t('forms:followUp306PerPilot', { count: anzahl306 })
+                : t('forms:followUp306Optional', { count: anzahl306 })}
             </p>
           )}
           {/* Gleiches gilt seit #24 für das 310: es nennt genau einen Piloten. */}

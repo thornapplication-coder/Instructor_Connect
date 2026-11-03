@@ -29,6 +29,9 @@ export interface Stil {
   bedingt?: Partial<Record<Bedingung, string>>
   /** Tabellenvorlage: Zeichenformat je Bedingung (z. B. weiße, fette Kopfzeile) */
   bedingtRPr?: Partial<Record<Bedingung, Laufeigenschaften>>
+  /** Absatzvorlage an eine Liste gebunden (w:numPr) — so nummeriert Word Überschriften */
+  numId?: string
+  ilvl?: number
 }
 
 export interface Stile {
@@ -87,8 +90,18 @@ export function stileLesen(xml: string): Stile {
   let bedingung: Bedingung | null = null
   let inTcPr = false
   let inPPr = false
+  // Tiefe in einer nachverfolgten Formatänderung (w:rPrChange, w:pPrChange …):
+  // Darin steht der ALTE Stand der Vorlage — er gilt nicht. Sonst wurde wie
+  // im Text (L-FREMD#1) die frühere Farbe oder Liste zur aktuellen, und das
+  // innere </w:pPr> beendete die Eigenschaften zu früh (Gegenprüfung Audit 11/2026).
+  let inAlt = 0
 
   for (const e of xmlEreignisse(xml)) {
+    if (e.typ !== 'text' && /^w:\w+PrChange$/.test(e.name)) {
+      inAlt += e.typ === 'auf' ? 1 : -1
+      continue
+    }
+    if (inAlt) continue
     if (e.typ === 'auf') {
       if (e.name === 'w:rPrDefault') inDefaults = true
       else if (e.name === 'w:style') {
@@ -116,7 +129,9 @@ export function stileLesen(xml: string): Stile {
           s.bedingtRPr ??= {}
           rPrAnwenden((s.bedingtRPr[bedingung] ??= {}), e)
         }
-      } else if (s && e.name === 'w:shd') {
+      } else if (s && inPPr && !bedingung && e.name === 'w:numId') s.numId = e.attr['w:val']
+      else if (s && inPPr && !bedingung && e.name === 'w:ilvl') s.ilvl = Number(e.attr['w:val'] ?? 0)
+      else if (s && e.name === 'w:shd') {
         const f = farbe(e.attr['w:fill'])
         if (f && f !== 'auto') {
           if (inTcPr && bedingung) s.bedingt = { ...(s.bedingt ?? {}), [bedingung]: f }
@@ -173,6 +188,23 @@ export function vorlageEbene(st: Stile, id: string | undefined): { ebene?: numbe
     x = x.basedOn ? st.stile.get(x.basedOn) : undefined
   }
   return { name }
+}
+
+/**
+ * Listenbindung einer Absatzvorlage, mit Vererbung (Audit 11/2026, FRD-01):
+ * Eine eigene Vorlage „Kapitel" auf Basis von „Heading 1" erbt deren Liste.
+ * Liste und Ebene kommen aus DERSELBEN Vorlage — die Ebene einer anderen
+ * Vorlage der Kette gälte sonst für eine fremde Liste.
+ */
+export function vorlageNummer(st: Stile, id: string | undefined): { numId?: string; ilvl?: number } {
+  const gesehen = new Set<string>()
+  let x = id ? st.stile.get(id) : undefined
+  while (x && !gesehen.has(x.id)) {
+    gesehen.add(x.id)
+    if (x.numId !== undefined) return { numId: x.numId, ...(x.ilvl !== undefined ? { ilvl: x.ilvl } : {}) }
+    x = x.basedOn ? st.stile.get(x.basedOn) : undefined
+  }
+  return {}
 }
 
 /** Tabellenvorlage: Zellschattierung für eine Position, Bedingungen vor Gesamt. */

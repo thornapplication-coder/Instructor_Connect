@@ -5,6 +5,7 @@ import type { Format, OutlineNode, Rechtscharakter, Rohdokument, SeitenQuelle } 
 import { pdfLesen } from './parse/pdf'
 import { pdfDatum, pdfZuordnung, seitenAusEinheiten, teilen } from './parse/seitenzuordnung'
 import type { PdfJs } from './parse/pdf'
+import type { PdfAblage } from './parse/pdfAblage'
 import { regelIds } from './parse/regeln'
 import { Suchindex, type Treffer } from './search/suche'
 import { dokumentPruefen, type Pruefung } from './pruefung/pruefen'
@@ -61,8 +62,17 @@ export interface LeseAuftrag {
   vorgabe?: Rechtscharakter
   bestand?: Vergleichsdokument[]
   /** Regelbasierte Prüfungen nach dem Einlesen (nur Prüfdokumente, Spez. 8.8) */
-  pruefen?: { formal: boolean; word: boolean; rechnen?: boolean }
+  pruefen?: PruefSchalter
 }
+
+/** Welche regelbasierten Prüfungen laufen — Abbild der Admin-Schalter formalCheck, wordCheck, calcCheck. */
+export interface PruefSchalter {
+  formal: boolean
+  word: boolean
+  rechnen?: boolean
+}
+
+const gleicheSchalter = (a: PruefSchalter, b: PruefSchalter) => a.formal === b.formal && a.word === b.word && !!a.rechnen === !!b.rechnen
 
 function zusammenfassen(id: string, roh: Rohdokument, sha256: string, meta: ErkannteMeta, duplikat: Duplikat, pdfPaar?: Zusammenfassung['pdfPaar']): Zusammenfassung {
   const l = roh.lenkung
@@ -94,7 +104,7 @@ function zusammenfassen(id: string, roh: Rohdokument, sha256: string, meta: Erka
 }
 
 export class Kern {
-  private docs = new Map<string, { titel: string; name: string; roh: Rohdokument; sha256: string; meta: ErkannteMeta; duplikat: Duplikat; pdfPaar?: Zusammenfassung['pdfPaar']; pruefen?: LeseAuftrag['pruefen'] }>()
+  private docs = new Map<string, { titel: string; name: string; roh: Rohdokument; sha256: string; meta: ErkannteMeta; duplikat: Duplikat; pdfPaar?: Zusammenfassung['pdfPaar']; pruefen?: PruefSchalter }>()
 
   /**
    * Zusammenfassung samt Prüfung. Die Prüfung läuft bei JEDEM Fassen neu:
@@ -142,7 +152,26 @@ export class Kern {
     return d && !d.pruefen ? this.regelwerkGeaendert() : []
   }
   private laufend = new Map<string, AbortController>()
+  /** Jüngste Word-PDF-Paarung je Dokument — eine ältere, die erst danach fertig wird, zählt nicht mehr (`paaren`) */
+  private paarLaeufe = new Map<string, number>()
   private referenzen: ReferenzListe[] = []
+  /** Zuletzt gesetzter Schalterstand — gilt auch für Dokumente, die gerade noch gelesen werden. */
+  private schalter: PruefSchalter | null = null
+
+  /**
+   * Prüfschalter geändert (Superadmin): Alle Prüfdokumente nehmen den neuen
+   * Stand an und werden neu gefasst. Vorher galten die Schalter nur fürs
+   * nächste Hochladen — der Hinweis „wirken sofort" stimmte nicht, und neben
+   * „abgeschaltet" standen Befunde der abgeschalteten Prüfung (Audit 11/2026,
+   * DC-12). Liefert nur, was sich geändert hat: Derselbe Stand noch einmal
+   * (etwa beim Öffnen des Moduls) prüft nichts neu.
+   */
+  pruefenSetzen(schalter: PruefSchalter): Zusammenfassung[] {
+    this.schalter = { ...schalter }
+    const geaendert = [...this.docs.entries()].filter(([, d]) => d.pruefen && !gleicheSchalter(d.pruefen, schalter))
+    for (const [, d] of geaendert) d.pruefen = { ...schalter }
+    return geaendert.map(([id]) => this.fassen(id))
+  }
 
   /**
    * Referenzlisten setzen (Soll) — alle Prüfdokumente werden neu geprüft,
@@ -153,7 +182,11 @@ export class Kern {
     return [...this.docs.entries()].filter(([, d]) => d.pruefen).map(([id]) => this.fassen(id))
   }
 
-  constructor(private deps: { pdfjs: () => Promise<PdfJs>; standardFontDataUrl?: string }) {}
+  constructor(private deps: { pdfjs: () => Promise<PdfJs> } & PdfAblage) {}
+
+  private get ablage(): PdfAblage {
+    return { standardFontDataUrl: this.deps.standardFontDataUrl, wasmUrl: this.deps.wasmUrl, iccUrl: this.deps.iccUrl }
+  }
 
   async lesen(a: LeseAuftrag, onFortschritt?: (seite: number, gesamt: number) => void): Promise<Zusammenfassung> {
     const ctrl = new AbortController()
@@ -162,14 +195,17 @@ export class Kern {
       const g = await dateiLesen({ name: a.name, daten: a.daten }, this.deps, {
         vorgabe: a.vorgabe,
         bestand: a.bestand,
-        standardFontDataUrl: this.deps.standardFontDataUrl,
+        ...this.ablage,
         onFortschritt,
         signal: ctrl.signal,
       })
       // Abgebrochen, während der letzte Schritt lief: nicht mehr aufnehmen.
       if (ctrl.signal.aborted) throw new Error('DC-ABORTED')
       const titel = a.titel || g.meta.titel || a.name
-      this.docs.set(a.id, { titel, name: a.name, ...g, pruefen: a.pruefen })
+      // Wurden die Schalter umgelegt, während dieses Dokument gelesen wurde,
+      // gilt der neue Stand — der Auftrag trägt noch den alten (DC-12).
+      const pruefen = a.pruefen && (this.schalter ? { ...this.schalter } : a.pruefen)
+      this.docs.set(a.id, { titel, name: a.name, ...g, pruefen })
       this.index.hinzufuegen({ id: a.id, titel, pages: g.roh.pages })
       return this.fassen(a.id)
     } finally {
@@ -186,6 +222,7 @@ export class Kern {
     this.abbrechen(id)
     const warRegelwerk = this.docs.has(id) && !this.docs.get(id)!.pruefen
     this.docs.delete(id)
+    this.paarLaeufe.delete(id)
     this.index.entfernen(id)
     return warRegelwerk ? this.regelwerkGeaendert() : []
   }
@@ -237,13 +274,23 @@ export class Kern {
   async paaren(id: string, pdf: Uint8Array): Promise<Zusammenfassung | null> {
     const d = this.docs.get(id)
     if (!d || d.roh.format !== 'docx' || !d.roh.einheiten) return null
+    // Nach Ablauf der Wartezeit (`paarZeitgrenze`) kann der Nutzer erneut ein
+    // PDF dazulegen, während das erste noch gelesen wird. Wer zuletzt fertig
+    // wird, gewänne sonst — womöglich das ALTE PDF, während der Viewer schon
+    // das neue zeigt. Und ein inzwischen entferntes Dokument käme über den
+    // Suchindex zurück (Gegenprüfung Audit 11/2026, Runde 3).
+    const lauf = (this.paarLaeufe.get(id) ?? 0) + 1
+    this.paarLaeufe.set(id, lauf)
+    const veraltet = () => this.docs.get(id) !== d || this.paarLaeufe.get(id) !== lauf
     let pdfDok: Rohdokument
     try {
-      pdfDok = await pdfLesen(pdf.slice(), await this.deps.pdfjs(), { standardFontDataUrl: this.deps.standardFontDataUrl })
+      pdfDok = await pdfLesen(pdf.slice(), await this.deps.pdfjs(), this.ablage)
     } catch {
+      if (veraltet()) return null
       d.pdfPaar = { abweichung: 1, warnung: 'lesefehler' }
       return this.fassen(id)
     }
+    if (veraltet()) return null
     const { schnitte, abweichung } = pdfZuordnung(d.roh.einheiten, pdfDok.pages.map((p) => p.text))
     const pdfZeit = pdfDatum(pdfDok.lenkung.eigenschaften.pdfDatum)
     const docxZeit = d.roh.word?.eigenschaften.modified ? Date.parse(d.roh.word.eigenschaften.modified) : NaN

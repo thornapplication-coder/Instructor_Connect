@@ -1,6 +1,6 @@
 import type { DocPage } from '../parse/model'
 import { AMC_GM, IR, CS, normalisieren, regelIds } from '../parse/regeln'
-import { ampelAus, type Ampel, type Befund, type Fundstelle } from './befund'
+import { ampelAus, anzahl, type Ampel, type Befund, type Fundstelle } from './befund'
 import { befund, editierabstand, type PruefKontext } from './kontext'
 
 /**
@@ -184,13 +184,13 @@ export function regelwerkPruefung(k: PruefKontext, index: RegelIndex): { befunde
             r.status === 'fehlt'
               ? `Rule reference ${id} not found in the loaded regulation (${index.quellen.join(', ')}).${r.naechste ? ` Nearest existing: ${r.naechste}.` : ''}`
               : `Rule reference ${id} — paragraph not found. ${zerlegen(id).art ? `${zerlegen(id).art} ` : ''}${zerlegen(id).basis} has ${r.vorhanden.join(', ')}.`
-          befunde.push({ ...befund(k, { quelle: 'regelwerk', pruefpunkt: r.status === 'fehlt' ? 'regelids' : 'absaetze', kategorie: 'Inconsistency', prioritaet: 'Medium', text, fundstellen: [fs] }), verifizierung: 'To verify' })
+          befunde.push({ ...befund(k, { quelle: 'regelwerk', pruefpunkt: r.status === 'fehlt' ? 'regelids' : 'absaetze', anleitung: r.status === 'fehlt' ? 'regelids' : 'absaetze', kategorie: 'Inconsistency', prioritaet: 'Medium', text, fundstellen: [fs] }), verifizierung: 'To verify' })
         }
       }
     }
   }
   for (const [f, fs] of ohne) {
-    befunde.push({ ...befund(k, { quelle: 'regelwerk', pruefpunkt: 'quelle', kategorie: 'Document Control', prioritaet: 'Low', text: `${fs.length} rule reference${fs.length === 1 ? '' : 's'} to ${f} cannot be verified: source not in library.`, fundstellen: fs }), verifizierung: 'To verify – source not in library' })
+    befunde.push({ ...befund(k, { quelle: 'regelwerk', pruefpunkt: 'quelle', anleitung: 'regelQuelle', kategorie: 'Document Control', prioritaet: 'Low', text: `${anzahl(fs.length, 'rule reference')} to ${f} cannot be verified: source not in library.`, fundstellen: fs }), verifizierung: 'To verify – source not in library' })
   }
   return { befunde, ampel: ampelAus([...REGELWERK_PUNKTE], befunde as Befund[]), stand }
 }

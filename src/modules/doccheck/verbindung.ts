@@ -1,5 +1,5 @@
 import type { Anfrage, Antwort } from './doccheck.worker'
-import type { LeseAuftrag, Zusammenfassung } from './kern'
+import type { LeseAuftrag, PruefSchalter, Zusammenfassung } from './kern'
 import type { Treffer } from './search/suche'
 import type { ReferenzListe } from './referenz/liste'
 import type { FremdBefund, Ziel } from './recheck/fremdliste'
@@ -117,6 +117,16 @@ export class Verbindung {
   /** Referenzlisten (Soll) an den Worker — neu geprüfte Dokumente kommen über die `beiOcr`-Hörer. */
   referenzen(listen: ReferenzListe[]): void {
     this.worker().postMessage({ typ: 'referenzen', listen })
+  }
+
+  /**
+   * Prüfschalter an den Worker (DC-12) — neu geprüfte Dokumente kommen über
+   * die `beiOcr`-Hörer. Läuft noch kein Worker, liegt nichts zum Neuprüfen
+   * vor; der nächste Leseauftrag trägt den Stand ohnehin selbst. Deshalb
+   * startet diese Nachricht keinen.
+   */
+  pruefenSetzen(schalter: PruefSchalter): void {
+    this.w?.postMessage({ typ: 'pruefenSetzen', schalter })
   }
 
   beiOcr(h: (z: Zusammenfassung) => void): () => void {

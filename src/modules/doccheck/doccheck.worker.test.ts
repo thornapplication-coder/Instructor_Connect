@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { fehlerCode, verbinden, type Anfrage, type Antwort, type Bereich } from './doccheck.worker'
-import type { Kern } from './kern'
+import { Kern } from './kern'
+import type { PdfJs } from './parse/pdf'
 
 function aufbau(kern: Partial<Kern>) {
   const raus: Antwort[] = []
@@ -69,6 +70,16 @@ describe('Worker-Nachrichtenschicht', () => {
   })
 })
 
+describe('Worker — Prüfschalter (Audit 11/2026, DC-12)', () => {
+  it('pruefenSetzen reicht den Stand an den Kern und meldet jedes neu geprüfte Dokument', async () => {
+    const pruefenSetzen = vi.fn(() => [{ id: 'a' } as never, { id: 'b' } as never])
+    const a = aufbau({ pruefenSetzen })
+    await a.senden({ typ: 'pruefenSetzen', schalter: { formal: false, word: true, rechnen: true } })
+    expect(pruefenSetzen).toHaveBeenCalledWith({ formal: false, word: true, rechnen: true })
+    expect(a.raus).toEqual([{ typ: 'fertig', id: 'a', z: { id: 'a' } }, { typ: 'fertig', id: 'b', z: { id: 'b' } }])
+  })
+})
+
 describe('fehlerCode', () => {
   it('lässt DC-Codes durch, alles andere wird DC-PARSE', () => {
     expect(fehlerCode(new Error('DC-PDF-PASSWORD'))).toBe('DC-PDF-PASSWORD')
@@ -77,3 +88,28 @@ describe('fehlerCode', () => {
   })
 })
 
+
+describe('Abbrechen erreicht den Worker während des Lesens (Audit 11/2026, DC-01)', () => {
+  // pdf.js im Fake-Worker (so lief es im Worker bis TEC-20): Antworten nur über Promise.resolve
+  const seite = { getTextContent: () => Promise.resolve({ items: [{ str: 'Synthetic page text', transform: [1, 0, 0, 1, 50, 700], width: 100, height: 10 }] }), getOperatorList: () => Promise.resolve({ fnArray: [] }), cleanup: () => {} }
+  const pdfjs: PdfJs = { OPS: {}, getDocument: () => ({ promise: Promise.resolve({ numPages: 300, getPage: () => Promise.resolve(seite), getMetadata: () => Promise.resolve({ info: {} }) }), destroy: () => Promise.resolve() }) }
+
+  it("„abbrechen“ nach dem ersten Fortschritt: Fehler DC-ABORTED, kein „fertig“; eine Suche dazwischen wird beantwortet", async () => {
+    const raus: Antwort[] = []
+    const bereich: Bereich = {
+      onmessage: null,
+      postMessage: (a) => {
+        raus.push(a)
+        // Die Oberfläche schickt ihre Nachrichten als eigene Tasks — wie postMessage
+        if (a.typ === 'fortschritt' && a.seite === 1) {
+          setTimeout(() => void bereich.onmessage!({ data: { typ: 'suchen', nr: 7, q: 'x' } }), 0)
+          setTimeout(() => void bereich.onmessage!({ data: { typ: 'abbrechen', id: 'gross' } }), 0)
+        }
+      },
+    }
+    verbinden(bereich, () => new Kern({ pdfjs: async () => pdfjs }))
+    await bereich.onmessage!({ data: { typ: 'lesen', auftrag: { id: 'gross', name: 'gross.pdf', daten: new TextEncoder().encode('%PDF-1.4 synthetisch') } } })
+    expect(raus.filter((a) => a.typ !== 'fortschritt')).toEqual([{ typ: 'treffer', nr: 7, treffer: [] }, { typ: 'fehler', id: 'gross', code: 'DC-ABORTED' }])
+    expect(raus.filter((a) => a.typ === 'fortschritt').length).toBeLessThan(300)
+  })
+})

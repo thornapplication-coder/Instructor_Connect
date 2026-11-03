@@ -32,13 +32,23 @@ export interface OutlineNode {
   vonSeite: number
 }
 
+/** Nicht angenommene Änderung (Spez. 8.8: offene Änderungen sind ein Rest).
+ *  Verschiebungen und Formatänderungen zeigt Word ebenso als Änderung, die
+ *  angenommen werden muss (Audit 11/2026, FRD-15). */
+export interface Aenderung {
+  art: 'ins' | 'del' | 'moveFrom' | 'moveTo' | 'format'
+  /** Betroffener Text; bei Tabellen- und Abschnittsformat, was geändert wurde */
+  text: string
+  autor?: string
+}
+
 /** Was der Leser zusätzlich zur Seitenfolge findet — für Dokumentenlenkung
  *  und Formalprüfung (Spez. 7.3). Nur DOCX füllt das vollständig. */
 export interface Lenkung {
   kopfzeilen: string[]
   fusszeilen: string[]
   textfelder: string[]
-  aenderungen: { art: 'ins' | 'del'; text: string; autor?: string }[]
+  aenderungen: Aenderung[]
   kommentare: { autor?: string; text: string }[]
   revisionsbalken: number
   eigenschaften: Record<string, string>
@@ -61,7 +71,8 @@ export interface Laufeigenschaften {
   fett?: boolean
 }
 
-export type WortOrt = 'body' | 'textfeld' | 'kopf' | 'fuss'
+/** fussnote: Absatz einer Fuß- oder Endnote (word/footnotes.xml, word/endnotes.xml) */
+export type WortOrt = 'body' | 'textfeld' | 'kopf' | 'fuss' | 'fussnote'
 
 export interface WortAbsatz {
   nr: number
@@ -78,6 +89,8 @@ export interface WortAbsatz {
   /** Seite nach Word-Umbruchmarken (Näherung) */
   seiteCa: number
   tabelle?: { zeile: number; spalte: number }
+  /** w:id der Fuß- oder Endnote, zu der der Absatz gehört */
+  notiz?: string
 }
 
 export interface WortLauf {
@@ -85,8 +98,10 @@ export interface WortLauf {
   text: string
   eigenschaften: Laufeigenschaften
   /** Wirksamer Hintergrund (Nachtrag N4): Lauf → Absatz → Zelle →
-   *  Tabellenformatvorlage (bedingt) → Seite → weiß */
-  hintergrund: string
+   *  Tabellenformatvorlage (bedingt) → Seite → weiß. Fehlt, wenn er sich
+   *  nicht bestimmen lässt (Textfeld mit Verlauf, Designfarbe, transparent) —
+   *  dann wird nicht geraten (Audit 11/2026, FRD-04). */
+  hintergrund?: string
 }
 
 export interface WortAbschnitt {
@@ -124,7 +139,7 @@ export interface Rohdokument {
   word?: WordExtrakt
   /** nur DOCX: Einheiten (Absätze, Tabellenzeilen) in Lesereihenfolge mit
    *  geschätzter Seite — Grundlage für die Neuzuordnung über ein Word-PDF. */
-  einheiten?: { text: string; seite: number; ebene?: number }[]
+  einheiten?: { text: string; seite: number; ebene?: number; nachgereicht?: boolean }[]
   seitenQuelle?: SeitenQuelle
 }
 
@@ -140,4 +155,4 @@ export const LEERE_LENKUNG: Lenkung = {
 
 /** Bei jeder Änderung an Parser oder Normalisierung hochzählen — Spez. 7.7:
  *  Weicht sie ab, wird ein gespeicherter Index neu gebaut. */
-export const PARSER_VERSION = '1.1.0'
+export const PARSER_VERSION = '1.2.0'
