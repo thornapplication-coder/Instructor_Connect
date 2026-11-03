@@ -236,7 +236,37 @@ export function readPreloadedState(): string | null {
  * Rueckgabe: ob es geklappt hat. Der Aufrufer setzt bei `false` seinen
  * Merker zurueck und versucht es erneut.
  */
-export async function persistState(payload: string): Promise<boolean> {
+export function persistState(payload: string): Promise<boolean> {
+  const vorgang = schreibeStand(payload)
+  laufend.add(vorgang)
+  const fertig = () => {
+    laufend.delete(vorgang)
+  }
+  vorgang.then(fertig, fertig)
+  return vorgang
+}
+
+/**
+ * Schreibvorgänge, die noch nicht abgeschlossen sind.
+ *
+ * Gebraucht vom Prüfstand (Ebene 2, `src/test/setup.ts`): Ein Test, der
+ * synchron klickt, lässt der IndexedDB-Nachbildung keinen Takt — die
+ * Vorgänge stauen sich bis zum Ende der Testdatei. Lief einer erst nach dem
+ * Abbau der Browser-Umgebung zu Ende, fand er kein `window` mehr; die Tests
+ * blieben grün, der Lauf aber rot, und zwar nur auf dem langsameren Runner
+ * der Veröffentlichung (1.26.0, `AdminVerwaltung.test.tsx`). Seit die
+ * Quittung sofort schreibt (R3-SPEICHERQUITTUNG), beginnt das Schreiben
+ * schon im Test statt nach dem eingefrorenen Zeitgeber.
+ */
+const laufend = new Set<Promise<boolean>>()
+
+/** Wartet, bis kein Schreibvorgang mehr läuft — auch auf solche, die während
+ *  des Wartens dazukommen. */
+export async function schreibvorgaengeAbwarten(): Promise<void> {
+  while (laufend.size > 0) await Promise.allSettled([...laufend])
+}
+
+async function schreibeStand(payload: string): Promise<boolean> {
   // Zwischen „beiseitegelegt" und dem Neuladen: Der Stand im Speicher ist
   // genau der, an dem die App abstürzte — ihn jetzt zu schreiben, machte
   // den Ausweg zunichte.

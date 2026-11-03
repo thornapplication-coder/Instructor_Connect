@@ -171,6 +171,44 @@ describe('Speichern', () => {
   })
 })
 
+/*
+ * Kein Schreibvorgang darf seine Testdatei überleben (Veröffentlichung
+ * 1.26.0): Synchrone Tests ließen der IndexedDB-Nachbildung keinen Takt, ein
+ * Vorgang lief nach dem Abbau der Umgebung zu Ende und fand kein `window`.
+ * `src/test/setup.ts` wartet deshalb vor dem Abbau hierauf.
+ */
+describe('Laufende Schreibvorgänge abwarten', () => {
+  it('ohne laufende Vorgänge: sofort fertig', async () => {
+    const p = await frischesModul()
+    await expect(p.schreibvorgaengeAbwarten()).resolves.toBeUndefined()
+  })
+
+  it('wartet auf begonnene Vorgänge — danach steht der jüngste Stand in der Ablage', async () => {
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    let fertig = 0
+    void p.persistState('{"n":1}').then(() => fertig++)
+    void p.persistState('{"n":2}').then(() => fertig++)
+    expect(fertig).toBe(0)
+    await p.schreibvorgaengeAbwarten()
+    expect(fertig).toBe(2)
+    const p2 = await frischesModul()
+    await p2.preloadPersistedState()
+    expect(p2.readPreloadedState()).toBe('{"n":2}')
+  })
+
+  it('auch ein gescheiterter Vorgang gilt als abgeschlossen', async () => {
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(() => {
+      throw new Error('voll')
+    })
+    const vorgang = p.persistState('{"x":1}')
+    await p.schreibvorgaengeAbwarten()
+    await expect(vorgang).resolves.toBe(false)
+  })
+})
+
 describe('Sicherungen beim Versionssprung', () => {
   it('legt den alten Stand unter einem eigenen Schlüssel ab', async () => {
     const p = await frischesModul()
