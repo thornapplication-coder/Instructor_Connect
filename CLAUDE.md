@@ -71,6 +71,12 @@ prüfen, nicht der Code anzupassen**, bis er zum Test passt.
   beiden Wachen trug den Grund „braucht eine Service-Worker-Registrierung",
   dabei liest die Probe nur `navigator.onLine` und ein `fetch`, beides
   ersetzbar (Audit 11/2026, TEC-18).
+  Kein Schreibvorgang überlebt seine Testdatei: `src/test/setup.ts`
+  wartet vor dem Abbau der Umgebung auf `schreibvorgaengeAbwarten`
+  (`persist.ts`). Synchrone Tests lassen fake-indexeddb keinen Takt; ein
+  Vorgang lief sonst nach dem Abbau zu Ende, fand kein `window`, und der
+  Lauf war rot bei grünen Tests — nur auf dem langsameren Runner der
+  Veröffentlichung (1.26.0).
 - **Ebene 3 (vorhanden, `e2e/`, `npm run e2e`):** wenige Wege mit Playwright
   gegen den echten Build (`vite preview`, Port 4174), eigener CI-Job — und
   eigener Job vor jeder Veröffentlichung: `deploy` in `deploy.yml` wartet

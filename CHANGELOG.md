@@ -1239,3 +1239,16 @@ Testlauf, Browser-Abnahme und Gegenprobe.
 - Der Grading-Weg läuft als EIN Durchgang im Browser: 308A anlegen →
   Unterschriften → Absenden → Ablage → Logbuch → Forms-CSV mit
   Fingerabdruck (`gradingweg.spec.ts`).
+
+## 1.26.1 — 2026-11-03
+
+- Veröffentlichung von 1.26.0 scheiterte am Testschritt, obwohl alle
+  Tests grün waren: Ein IndexedDB-Schreibvorgang aus
+  `AdminVerwaltung.test.tsx` lief erst nach dem Abbau der Testumgebung zu
+  Ende und fand kein `window` mehr. Synchrone Tests lassen der
+  IndexedDB-Nachbildung keinen Takt; seit die Quittung sofort schreibt,
+  beginnt das Schreiben schon im Test. `src/test/setup.ts` wartet jetzt vor
+  dem Abbau auf alle laufenden Vorgänge (`schreibvorgaengeAbwarten` in
+  `persist.ts`, mit Tests). Gegenprobe: ohne das Warten läuft ein Vorgang
+  nach dem Abbau, mit ihm alle fünf davor. Die App selbst ist nicht
+  betroffen.

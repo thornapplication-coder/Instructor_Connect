@@ -1,6 +1,7 @@
 import '@testing-library/jest-dom/vitest'
-import { afterEach, vi } from 'vitest'
+import { afterAll, afterEach, vi } from 'vitest'
 import { cleanup } from '@testing-library/react'
+import { schreibvorgaengeAbwarten } from '../persist'
 
 /**
  * Gemeinsame Vorbereitung der Ebene-2-Tests.
@@ -25,6 +26,18 @@ import 'fake-indexeddb/auto'
 
 afterEach(() => {
   cleanup()
+})
+
+/*
+ * Kein Schreibvorgang überlebt seine Testdatei. Synchrone Tests lassen der
+ * IndexedDB-Nachbildung keinen Takt; was ein Klick zu schreiben begann, lief
+ * sonst erst nach dem Abbau der Umgebung zu Ende und fand kein `window` mehr
+ * — alle Tests grün, der Lauf rot, nur auf dem langsameren Runner der
+ * Veröffentlichung (1.26.0). `afterAll` läuft nach den Hooks der Testdatei,
+ * also mit wieder echter Uhr, und noch in der Umgebung.
+ */
+afterAll(async () => {
+  await schreibvorgaengeAbwarten()
 })
 
 if (!window.matchMedia) {
