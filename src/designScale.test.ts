@@ -177,6 +177,25 @@ describe('Deckkraft', () => {
       expect(inhalt, pfad).toMatch(/(?<![\w:/-])opacity-(?!0\b|100\b)\d+/)
     }
   })
+
+  /*
+   * Dieselbe Daempfung als Deckkraftstufe an der Schriftfarbe: „Löschen" im
+   * Logbuch (`text-danger/80`) lag im Dunkelmodus bei 4,06:1, „ausstehend"
+   * in der Kontrollliste der Instructor Info bei 4,4:1 (dunkel) bzw. 4,3:1
+   * (hell) — die Tonfarbe allein erreicht 6,2:1 (Audit 11/2026, UID-15).
+   * Gilt ueberall, nicht nur in Seiten: Auch eine Komponente traegt Text.
+   * Varianten (`hover:`, `placeholder:` …) bleiben wie oben erlaubt.
+   */
+  it('gibt Schrift keine Deckkraftstufe (text-<ton>/<n>)', () => {
+    const treffer: string[] = []
+    for (const [pfad, inhalt] of dateien) {
+      ;(inhalt as string).split('\n').forEach((zeile, i) => {
+        if (istKommentar(zeile)) return
+        for (const m of zeile.matchAll(/(?<![\w:/-])text-[a-z]+(?:-[a-z]+)*\/\d+\b/g)) treffer.push(`${pfad}:${i + 1}  ${m[0]}`)
+      })
+    }
+    expect(treffer).toEqual([])
+  })
 })
 
 /**

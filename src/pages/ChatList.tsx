@@ -1,9 +1,12 @@
 import { BellOff, ChevronRight, Plus } from 'lucide-react'
 import { musterZurAuswahl } from '../aircraftScope'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Button, Card, Field, inputCls, Modal, NewDot, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { kurzeZeit } from '../drafts'
+import { istStumm } from '../chatMute'
+import { gruppenNameFehler } from '../gruppen'
+import { toast } from '../components/Toast'
 import { navigate } from '../router'
 import { darfGruppeAnlegen } from '../storeRechte'
 import { useStore } from '../store'
@@ -19,6 +22,13 @@ export function ChatList() {
   // Nur die eigenen Muster: Eine Gruppe fremden Musters koennte der
   // Anleger anschliessend selbst nicht betreten.
   const aircraftTypes = musterZurAuswahl(currentUser, [...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)))
+  // Dieselbe Namensregel wie Store und Admin-Panel (gruppen.ts). Hier fehlte
+  // sie: „autothrottle" liess sich anlegen, der Dialog schloss, und der Store
+  // hatte still abgewiesen (Audit 11/2026, KERN-08). Leer ist noch kein
+  // Fehler, nur ein nicht aktiver Speichern-Knopf.
+  const nameFehler = gruppenNameFehler(state.groups, null, name)
+  const nameTaken = nameFehler === 'vergeben'
+  const nameFehlerId = useId()
 
   return (
     <>
@@ -74,7 +84,10 @@ export function ChatList() {
                         {g.aircraftType}
                       </span>
                     )}
-                    {g.muted && <BellOff size={13} className="shrink-0 text-dim" />}
+                    {/* Stumm je Nutzer — nicht mehr fuer alle (chatMute.ts, KERN-06) */}
+                    {istStumm(state.mutedGroups, currentUser?.id, g.id) && (
+                      <BellOff size={13} className="shrink-0 text-dim" role="img" aria-label={t('chat.muted')} />
+                    )}
                   </div>
                   <p className="truncate text-small text-dim">
                     {/* Ein gelöschter Autor ergab „undefined:", ein reiner
@@ -107,7 +120,19 @@ export function ChatList() {
           <Modal title={t('admin.addGroup')} onClose={() => setShowNew(false)}>
             <div className="space-y-stack">
               <Field label={t('admin.groupName')}>
-                <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+                <input
+                  className={`${inputCls} ${nameTaken ? 'border-danger/60' : ''}`}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  aria-invalid={nameTaken || undefined}
+                  aria-describedby={nameTaken ? nameFehlerId : undefined}
+                  autoFocus
+                />
+                {nameTaken && (
+                  <p id={nameFehlerId} className="mt-1.5 text-micro leading-relaxed text-danger">
+                    {t('admin.groupNameTaken')}
+                  </p>
+                )}
               </Field>
               <Field label={t('admin.purpose')}>
                 <input className={inputCls} value={purpose} onChange={(e) => setPurpose(e.target.value)} />
@@ -131,9 +156,13 @@ export function ChatList() {
                   {t('common.cancel')}
                 </Button>
                 <Button
-                  disabled={!name.trim()}
+                  disabled={nameFehler !== null}
                   onClick={() => {
-                    addGroup(name.trim(), purpose.trim(), aircraft || undefined)
+                    // Bei Ablehnung bleibt der Dialog mit den Eingaben offen.
+                    if (!addGroup(name.trim(), purpose.trim(), aircraft || undefined)) {
+                      toast(t('chat.groupNotCreated'), 'bad')
+                      return
+                    }
                     setShowNew(false)
                     setName('')
                     setPurpose('')

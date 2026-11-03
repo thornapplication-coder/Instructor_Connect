@@ -65,7 +65,6 @@ function seedState(now: number): AppState {
         // Gruppe" war damit auf dem Papier erfuellt (Audit 11/2026, KERN-07).
         memberIds: ['u-patrick', 'u-christian'],
         retention: '30d',
-        muted: false,
       },
       {
         id: 'g-defects',
@@ -76,7 +75,6 @@ function seedState(now: number): AppState {
         // Ebenso Chris (nur CL30) in der C560-Gruppe.
         memberIds: ['u-patrick', 'u-michael'],
         retention: '7d',
-        muted: false,
       },
       {
         id: 'g-ground',
@@ -86,7 +84,6 @@ function seedState(now: number): AppState {
         adminIds: ['u-christian'],
         memberIds: ['u-patrick', 'u-christian'],
         retention: '30d',
-        muted: false,
       },
     ],
     messages: [
@@ -212,6 +209,8 @@ function seedState(now: number): AppState {
       },
     ],
     starredInfo: { 'u-michael': ['i2'] },
+    // Stummschalten je Nutzer (chatMute.ts) — ab Werk niemand stumm.
+    mutedGroups: {},
     contacts: [
       { id: 'c1', department: 'Simulator-Technik', position: 'FSTD-Technik', name: 'Daniel Düsentrieb', phone: '+43 1 5550 200', email: 'daniel.duesentrieb@aviationacademy.at' },
       { id: 'c2', department: 'Training', position: 'Training Admin', name: 'Sam Beispiel', phone: '+43 1 5550 300', email: 'training.admin@aviationacademy.at' },
@@ -260,6 +259,8 @@ function seedState(now: number): AppState {
     aircraftBackfilled: true,
     // Der Seed-Katalog führt die nachgetragenen Felder schon selbst.
     formularNachtraege: FELD_NACHTRAEGE.map((n) => n.marke),
+    // Gruppen ohne altes `muted` — der Verwurf in migrateState ist erledigt.
+    stummJeNutzer: true,
     timeOffsetMs: 0,
     seen: {},
     contactsChangedAt: now - 2 * d,

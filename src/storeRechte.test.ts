@@ -72,7 +72,6 @@ const gruppe: Group = {
   adminIds: ['gruppenadmin', 'fremd'],
   memberIds: ['mitglied', 'gruppenadmin', 'fremd'],
   retention: null,
-  muted: false,
 }
 
 const ROLLEN: [string, User][] = [

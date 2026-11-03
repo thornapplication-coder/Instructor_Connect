@@ -1,7 +1,7 @@
 import { createSeedState } from './sandbox/seed'
 import { FELD_NACHTRAEGE, type FeldNachtrag } from './sandbox/gradingDefaults'
 import { imprintHash, IMPRINT_DE, IMPRINT_EN, IMPRINT_LEGACY_HASHES } from './sandbox/imprintDefaults'
-import { LESSON_CATEGORIES, type AppState, type FormType } from './types'
+import { LESSON_CATEGORIES, type AppState, type FormType, type Group } from './types'
 
 /**
  * Pflichtfelder, die ein gespeicherter Stand haben MUSS, mit ihrer Vorgabe.
@@ -18,7 +18,7 @@ import { LESSON_CATEGORIES, type AppState, type FormType } from './types'
  * einen eigenen Nachtrag mit Marke.
  */
 const LISTEN = ['groups', 'messages', 'polls', 'infoEntries', 'contacts', 'lessonPlans', 'feedbackEntries'] as const
-const OBJEKTE = ['seen', 'starredInfo', 'infoAcks'] as const
+const OBJEKTE = ['seen', 'starredInfo', 'infoAcks', 'mutedGroups'] as const
 const ZAHLEN = ['timeOffsetMs', 'contactsChangedAt'] as const
 
 /** Was fehlt oder die falsche Form hat — mit Vorgabe. Leer, wenn alles passt. */
@@ -199,6 +199,22 @@ export function migrateState(eingang: AppState): AppState {
   const markFormulare = offeneNachtraege.length > 0
 
   /*
+   * Stummschalten je Nutzer (Audit 11/2026, KERN-06): Das alte `muted` an
+   * der Gruppe galt fuer ALLE Mitglieder. Es wird verworfen, nicht auf
+   * Nutzer verteilt — wer es gesetzt hat, steht nirgends, und es allen
+   * Mitgliedern zuzuschreiben hiesse, die Fehlwirkung festzuschreiben. Die
+   * neue Liste (`mutedGroups`) beginnt leer; die Form-Pruefung oben legt sie
+   * an. Mit Marke wie jeder Nachtrag hier, damit der Lauf beim naechsten
+   * Start nichts mehr anfasst.
+   */
+  const stummDone = st.stummJeNutzer === true || st.users === undefined
+  const altesStumm = !stummDone && st.groups.some((g) => 'muted' in g)
+  const groups: Group[] = altesStumm
+    ? st.groups.map((g) => ('muted' in g ? (Object.fromEntries(Object.entries(g).filter(([k]) => k !== 'muted')) as unknown as Group) : g))
+    : st.groups
+  const markStumm = !stummDone
+
+  /*
    * Impressum: Der Text steht in den Einstellungen, eine geaenderte Vorgabe
    * erreicht Bestandsgeraete also nicht. Ersetzt wird er nur, solange er noch
    * unveraendert der vorigen Vorgabe entspricht (Pruefsumme) — eine im Admin
@@ -242,6 +258,7 @@ export function migrateState(eingang: AppState): AppState {
     // haette sich hinten herum wieder eingeschlichen.
     !markAircraft &&
     !markFormulare &&
+    !markStumm &&
     !notesFehlten &&
     !kopfFehlte &&
     !formulareFehlten &&
@@ -255,6 +272,8 @@ export function migrateState(eingang: AppState): AppState {
     notes,
     seedHistoryMigrated: st.seedHistoryMigrated || markSeedHistory || undefined,
     aircraftBackfilled: st.aircraftBackfilled || markAircraft || undefined,
+    stummJeNutzer: st.stummJeNutzer || markStumm || undefined,
+    groups,
     formularNachtraege: markFormulare
       ? [...nachtraegeErledigt, ...offeneNachtraege.map((n) => n.marke)]
       : st.formularNachtraege,

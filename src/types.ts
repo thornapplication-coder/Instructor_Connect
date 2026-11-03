@@ -36,7 +36,8 @@ export interface Group {
   memberIds: string[]
   /** null = globale Voreinstellung gilt */
   retention: RetentionKey | null
-  muted: boolean
+  /* Kein `muted` mehr: Stummschalten ist eine Einstellung je Nutzer und
+     steht in `AppState.mutedGroups` (chatMute.ts, Audit 11/2026, KERN-06). */
 }
 
 export interface Attachment {
@@ -268,6 +269,9 @@ export interface AppState {
   logbook?: Record<string, import('./logbook').LogbookStand>
   /** je Nutzer: mit Stern markierte Instructor-Info-Einträge */
   starredInfo: Record<string, string[]>
+  /** je Nutzer: stumm geschaltete Chat-Gruppen (chatMute.ts). Lag als
+   *  `muted` an der Gruppe und galt damit fuer alle Mitglieder (KERN-06). */
+  mutedGroups: Record<string, string[]>
   /** Lese-Bestätigungen: Eintrag-ID -> Nutzer-ID -> Zeitstempel */
   infoAcks: Record<string, Record<string, number>>
   /** laufender Code-Login: an diese E-Mail wurde ein Code „gesendet“.
@@ -286,6 +290,9 @@ export interface AppState {
   /** Marken der erledigten Nachträge am Formularkatalog (FELD_NACHTRAEGE,
    *  sandbox/gradingDefaults.ts) — je Nachtrag einmal, nie wieder. */
   formularNachtraege?: string[]
+  /** Das alte `muted` an den Gruppen wurde einmalig verworfen (migrateState,
+   *  KERN-06) — mit Marke, wie jeder Nachtrag dort. */
+  stummJeNutzer?: boolean
   /** DocCheck (Sandbox): Rechte-Protokoll und Bestätigungen „Stand
    *  bestätigt". Mit Phase 1b wandert beides in das Schema `doccheck`. */
   docCheck?: import('./modules/doccheck/types').DocCheckState

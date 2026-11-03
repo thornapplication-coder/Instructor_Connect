@@ -338,7 +338,8 @@ describe('Rechte an der Aktion (KERN-19, VERW-23)', () => {
     act(() => store().toggleMute('g-auto'))
     expect(umfrage('p1').closed).toBe(false)
     expect(umfrage('p1').votes['u-michael']).toBeUndefined()
-    expect(gruppe('g-auto').muted).toBe(false)
+    // Stummschalten je Nutzer (KERN-06) — ohne Zugang auch fuer sich selbst nicht.
+    expect(store().state.mutedGroups).toEqual({})
     // p2 in „SIM Defects": Mitglied — abstimmen ja, eine fremde Umfrage schliessen nein.
     act(() => store().vote('p2', 2))
     expect(umfrage('p2').votes['u-michael']).toBe(2)

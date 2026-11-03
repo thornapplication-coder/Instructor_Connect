@@ -120,7 +120,23 @@
     "deleteMessageConfirm": "Diese Nachricht für alle löschen? Das lässt sich nicht rückgängig machen.",
     "newMessageFrom": "Neue Nachricht von {{name}}",
     "send": "Senden",
-    "votes_other": "{{count}} Stimmen"
+    "votes_other": "{{count}} Stimmen",
+    "sendRejected": "Nicht gesendet – dein Text bleibt stehen.",
+    "sendRejectedBlocked": "Nicht gesendet: Du bist für das Senden im Chat gesperrt. Dein Text bleibt stehen.",
+    "sendRejectedNotMember": "Nicht gesendet: Du bist nicht (mehr) Mitglied dieser Gruppe. Dein Text bleibt stehen.",
+    "sendRejectedTooLarge": "Nicht gesendet: Der Anhang ist größer als erlaubt (max. {{max}} MB). Entferne ihn – dein Text bleibt stehen.",
+    "pollRejected": "Umfrage nicht erstellt – bitte die Angaben prüfen.",
+    "pollEndPast": "Dieser Zeitpunkt liegt in der Vergangenheit.",
+    "pollEndAfterRetention": "Zu spät: Die Aufbewahrung der Gruppe löscht die Umfrage spätestens am {{date}}.",
+    "pollRetentionLimit": "Spätestens bis {{date}} – dann löscht die Aufbewahrung der Gruppe ({{period}}) die Umfrage samt Stimmen.",
+    "groupNotCreated": "Gruppe nicht angelegt – bitte Name und Muster prüfen.",
+    "muteOnlyYou": "Gilt nur für dich, nicht für die anderen Mitglieder.",
+    "closePollConfirm": "Umfrage jetzt schließen? Danach kann niemand mehr abstimmen oder seine Stimme ändern.",
+    "pollDate": "Datum (UTC)",
+    "pollTime": "Uhrzeit (UTC)",
+    "inputLabel": "Nachricht schreiben",
+    "showOlder_one": "Älteren Eintrag anzeigen (noch 1 davor)",
+    "showOlder_other": "Ältere Einträge anzeigen (noch {{count}} davor)"
   },
   "chatInfo": {
     "title": "Chat-Info",
@@ -142,7 +158,10 @@
     "deleteGroupHint": "Entfernt die Gruppe samt aller Nachrichten, Umfragen und Anhänge. Nicht rückgängig zu machen.",
     "deleteGroupConfirm": "„{{name}}“ mit allen {{count}} Nachrichten löschen? Das lässt sich nicht rückgängig machen.",
     "deleteBlocked": "Nicht möglich: {{names}} bliebe ohne Gruppe zurück. Erst einer anderen Gruppe hinzufügen.",
-    "noAccess": "kein Zugriff"
+    "noAccess": "kein Zugriff",
+    "removeBlocked": "{{name}} hätte sonst keine erreichbare Gruppe mehr – erst einer anderen Gruppe hinzufügen.",
+    "membersRejected": "Nicht geändert – die Mitgliederliste wurde abgewiesen.",
+    "removeMemberConfirm": "{{name}} aus „{{group}}“ entfernen? Der Gruppenchat ist für {{name}} danach nicht mehr erreichbar."
   },
   "info": {
     "noMatch": "Kein Eintrag passt zu Suche oder Filter.",
@@ -176,7 +195,8 @@
     "ackMissing": "ausstehend",
     "exportAck": "Kontrollliste exportieren (CSV)",
     "scheduled": "Geplant — für Nutzer noch nicht sichtbar",
-    "sinceRelease": "ab Veröffentlichung"
+    "sinceRelease": "ab Veröffentlichung",
+    "untilBeforeFrom": "„Gültig bis“ liegt vor „Gültig ab“ – so wäre der Eintrag nie sichtbar."
   },
   "notes": {
     "new": "Neue Notiz",
@@ -211,7 +231,9 @@
     "deleteContact": "Kontakt löschen",
     "search": "Name, Position oder Abteilung suchen",
     "empty": "Das Verzeichnis ist leer. Ein Admin kann hier Kontakte anlegen.",
-    "noMatch": "Kein Kontakt passt zur Suche."
+    "noMatch": "Kein Kontakt passt zur Suche.",
+    "phoneInvalid": "Das sieht nicht nach einer Telefonnummer aus – erlaubt sind Ziffern, Leerzeichen, + / - ( ) und mindestens 3 Ziffern.",
+    "emailInvalid": "Das sieht nicht nach einer E-Mail-Adresse aus (name@domain.at)."
   },
   "feedback": {
     "title": "Feedback",
@@ -225,7 +247,7 @@
     "recipients": "Empfänger",
     "cc": "CC",
     "backHome": "Zurück zur Startseite",
-    "errorEmpty": "Bitte Empfänger und Kategorie wählen und eine Nachricht eingeben.",
+    "errorEmpty": "Bitte die markierten Pflichtfelder ausfüllen.",
     "recipient": "Senden an",
     "urgent": "Dringend",
     "urgentOn": "als dringend markiert",
@@ -235,7 +257,11 @@
     "scopeLabel": "Bezug",
     "scopeGeneral": "Allgemein",
     "scopeAircraft": "Musterbezogen",
-    "safetyWarning": "⛔️ WRITE A SAFETY REPORT ⛔️"
+    "safetyWarning": "⛔️ WRITE A SAFETY REPORT ⛔️",
+    "missingRecipient": "Bitte einen Empfänger wählen.",
+    "missingCategory": "Bitte eine Kategorie wählen.",
+    "missingAircraft": "Bitte das Muster wählen – oder „Allgemein“.",
+    "missingMessage": "Bitte eine Nachricht eingeben."
   },
   "admin": {
     "title": "Admin Panel",

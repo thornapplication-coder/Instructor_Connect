@@ -7,8 +7,12 @@ import { SANDBOX } from './sandbox/flag'
 import { gruppenPflicht, gruppenTauglich, musterBelegt, musterFehlt, musterInVerwendung, musterListeBehalten, musterPflicht, nachMuster, sichtbarFuer, verliertLetzteGruppe } from './aircraftScope'
 import { userHasPerm, userMayModule } from './adminAccess'
 import { darfAbstimmen, darfFeedbackBearbeiten, darfGruppeAnlegen, darfInfoVerwalten, darfKontakteVerwalten, darfLessonPlansVerwalten, darfSchreiben, darfStummschalten, darfUmfrageSchliessen, darfVerwaltung, feedbackFuer } from './storeRechte'
-import { infoEntryAppliesTo } from './infoAcks'
+import { kontaktFehler, kontaktNormalisieren } from './contacts'
+import { feedbackFehlt } from './feedbackPruefung'
+import { gueltigkeitFehler, infoEntryAppliesTo, infoGesehenBis, infoIsExpired, infoIsPublished, neuesteFremdeVeroeffentlichung } from './infoAcks'
 import { adminKandidaten, gruppenAenderungFehler, gruppenName, gruppenNameFehler } from './gruppen'
+import { nachrichtAbgewiesen, umfrageAbgewiesen } from './chatRules'
+import { schalteStumm } from './chatMute'
 import { einzelAenderung } from './benutzerRegeln'
 import { domainErlaubt, domainListe, domainSperre } from './domains'
 import { importPlanen, type ImportEingabe } from './userImport'
@@ -55,14 +59,20 @@ export interface Store {
   switchUser: (userId: string) => void
   advanceTime: (ms: number) => void
   resetSandbox: () => void
-  sendMessage: (groupId: string, text: string, attachment?: Attachment) => void
+  /** `false`, wenn die Nachricht abgewiesen wurde (chatRules.ts) — die
+   *  Ansicht leert die Eingabe nur bei `true`, sonst war der Text weg
+   *  (Audit 11/2026, KERN-08). */
+  sendMessage: (groupId: string, text: string, attachment?: Attachment) => boolean
   deleteMessage: (id: string) => void
-  createPoll: (groupId: string, question: string, type: PollType, options: string[], validUntil?: number) => void
+  /** `false`, wenn die Umfrage abgewiesen wurde — der Dialog bleibt dann offen. */
+  createPoll: (groupId: string, question: string, type: PollType, options: string[], validUntil?: number) => boolean
   vote: (pollId: string, optionIndex: number) => void
   closePoll: (pollId: string) => void
+  /** Stummschalten fuer den AKTUELLEN Nutzer umschalten (chatMute.ts, KERN-06). */
   toggleMute: (groupId: string) => void
   setGroupRetention: (groupId: string, retention: RetentionKey | null) => void
-  setGroupMembers: (groupId: string, memberIds: string[]) => void
+  /** `false`, wenn die Aenderung abgewiesen wurde (Rechte, Zugang, letzte Gruppe). */
+  setGroupMembers: (groupId: string, memberIds: string[]) => boolean
   addInfoEntry: (entry: Omit<InfoEntry, 'id' | 'authorId' | 'createdAt'>) => void
   deleteInfoEntry: (id: string) => void
   /** Stern-Markierung des aktuellen Nutzers für einen Info-Eintrag umschalten */
@@ -90,7 +100,8 @@ export interface Store {
   /** Rueckmeldungen, die der aktuelle Nutzer im Panel sehen darf (Gruppe UND Muster). */
   visibleFeedback: FeedbackEntry[]
   updateUser: (id: string, patch: Partial<User>) => void
-  addGroup: (name: string, purpose: string, aircraftType?: string) => void
+  /** `false`, wenn die Gruppe nicht angelegt wurde (Rechte, Name leer oder vergeben). */
+  addGroup: (name: string, purpose: string, aircraftType?: string) => boolean
   setGroupAircraft: (id: string, aircraftType: string) => void
   renameGroup: (id: string, name: string) => void
   deleteGroup: (id: string) => void
@@ -583,11 +594,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [state.feedbackEntries, state.groups, currentUser],
   )
 
-  const latestForeignInfo = visibleInfoEntries.reduce(
-    (max, e) => (e.authorId !== state.currentUserId ? Math.max(max, infoPublishedAt(e)) : max),
-    0,
-  )
-  const hasNewInfo = !!state.currentUserId && latestForeignInfo > seenOfCurrent.info
+  /* Nur VEROEFFENTLICHTE fremde Eintraege zaehlen (infoAcks.ts). Verwalter
+     sehen in `visibleInfoEntries` auch Geplantes; dessen Veroeffentlichung
+     liegt in der Zukunft, und markInfoSeen schrieb diesen Zeitpunkt als
+     „gesehen" — bis zum Startdatum blieb jede Neu-Marke aus, auch fuer
+     sofort gueltige Eintraege (Audit 11/2026, KERN-11). */
+  const latestForeignInfo = neuesteFremdeVeroeffentlichung(visibleInfoEntries, state.currentUserId, now())
+  const hasNewInfo = !!state.currentUserId && latestForeignInfo > infoGesehenBis(seenOfCurrent.info, now())
   /**
    * Offene Lese-Bestaetigungen des aktuellen Nutzers.
    *
@@ -753,7 +766,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         patch((s) => {
           if (!s.currentUserId) return null
           const prev = seenOf(s)
-          if (latestForeignInfo <= prev.info) return null
+          // Ein Gesehen-Zeitpunkt in der Zukunft (Altfehler KERN-11) gilt
+          // nicht und wird ersetzt, auch durch einen kleineren.
+          const gueltig = infoGesehenBis(prev.info, Date.now() + s.timeOffsetMs)
+          if (gueltig === prev.info && latestForeignInfo <= gueltig) return null
           return { seen: { ...s.seen, [s.currentUserId]: { ...prev, info: latestForeignInfo } } }
         }),
       markContactsSeen: () =>
@@ -923,21 +939,27 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setState(() => ({ ...createSeedState(), currentUserId: state.currentUserId }))
       },
 
-      sendMessage: (groupId, text, attachment) =>
-        patch((s) => {
-          // Chat-Sperre und Mitgliedschaft greifen auch hier, nicht nur in der
-          // Oberfläche — dieselbe Regel wie fuer Umfragen (storeRechte.ts).
+      sendMessage: (groupId, text, attachment) => {
+        const id = uid('m')
+        const senden = (s: AppState): Partial<AppState> | null => {
+          // Chat-Sperre, Mitgliedschaft, leere Nachricht und Upload-Limit —
+          // dieselbe Regel, mit der die Ansicht den Grund nennt (chatRules.ts).
           const gruppe = s.groups.find((g) => g.id === groupId)
-          if (!gruppe || !darfSchreiben(actorOf(s), gruppe)) return null
-          // Das Upload-Limit aus den Einstellungen gilt auch für Anhänge.
-          if (attachment && attachment.sizeMB > s.settings.maxUploadMB) return null
+          if (nachrichtAbgewiesen(actorOf(s), gruppe, text, attachment, s.settings.maxUploadMB)) return null
           return {
             messages: [
               ...s.messages,
-              { id: uid('m'), groupId, authorId: s.currentUserId!, text, createdAt: Date.now() + s.timeOffsetMs, attachment },
+              { id, groupId, authorId: s.currentUserId!, text, createdAt: Date.now() + s.timeOffsetMs, attachment },
             ],
           }
-        }),
+        }
+        // Antwort aus derselben Pruefung auf dem gezeichneten Stand — wie
+        // addUser. Ohne Rueckgabe leerte die Ansicht die Eingabe auch bei
+        // Ablehnung, und der Text war weg (Audit 11/2026, KERN-08).
+        const gesendet = senden(stateRef.current) !== null
+        patch(senden)
+        return gesendet
+      },
       deleteMessage: (id) =>
         patch((s) => {
           const msg = s.messages.find((m) => m.id === id)
@@ -951,23 +973,32 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { messages: s.messages.filter((m) => m.id !== id) }
         }),
 
-      createPoll: (groupId, question, type, options, validUntil) =>
-        patch((s) => {
+      createPoll: (groupId, question, type, options, validUntil) => {
+        const id = uid('p')
+        const anlegen = (s: AppState): Partial<AppState> | null => {
           // Wie eine Nachricht: nur Mitglieder ohne Chat-Sperre. Vorher pruefte
           // die Aktion allein die Sperre — angelegt werden konnte in jeder
           // Gruppe (KERN-19).
           const gruppe = s.groups.find((g) => g.id === groupId)
           if (!gruppe || !darfSchreiben(actorOf(s), gruppe)) return null
-          // Eine Umfrage, deren Gültigkeit schon abgelaufen ist, käme
-          // geschlossen zur Welt — niemand könnte je abstimmen.
-          if (validUntil !== undefined && validUntil <= Date.now() + s.timeOffsetMs) return null
+          // Ablauf in der Zukunft UND innerhalb der Aufbewahrung der Gruppe:
+          // Sonst loeschte die Aufbewahrung die Umfrage samt Stimmen, solange
+          // sie laut Anzeige noch lief (Audit 11/2026, KERN-09).
+          const jetzt = Date.now() + s.timeOffsetMs
+          if (umfrageAbgewiesen({ question, type, options, validUntil }, jetzt, gruppe.retention ?? s.settings.defaultRetention)) return null
           return {
             polls: [
               ...s.polls,
-              { id: uid('p'), groupId, authorId: s.currentUserId!, question, type, options, votes: {}, closed: false, validUntil, createdAt: Date.now() + s.timeOffsetMs },
+              { id, groupId, authorId: s.currentUserId!, question, type, options, votes: {}, closed: false, validUntil, createdAt: jetzt },
             ],
           }
-        }),
+        }
+        // Der Dialog bleibt bei Ablehnung offen — er schloss vorher immer,
+        // und die Umfrage gab es nicht (KERN-08).
+        const angelegt = anlegen(stateRef.current) !== null
+        patch(anlegen)
+        return angelegt
+      },
       vote: (pollId, optionIndex) =>
         patch((s) => {
           const poll = s.polls.find((p) => p.id === pollId)
@@ -992,15 +1023,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toggleMute: (groupId) =>
         patch((s) => {
           const gruppe = s.groups.find((g) => g.id === groupId)
-          if (!gruppe || !darfStummschalten(actorOf(s), gruppe)) return null
-          return { groups: s.groups.map((g) => (g.id === groupId ? { ...g, muted: !g.muted } : g)) }
+          if (!gruppe || !s.currentUserId || !darfStummschalten(actorOf(s), gruppe)) return null
+          // Nur fuer den Handelnden selbst: `muted` an der Gruppe schaltete
+          // sie fuer ALLE Mitglieder stumm (Audit 11/2026, KERN-06).
+          return { mutedGroups: schalteStumm(s.mutedGroups, s.currentUserId, groupId) }
         }),
       setGroupRetention: (groupId, retention) =>
         patch((s) =>
           maySeeGroup(s, groupId) ? { groups: s.groups.map((g) => (g.id === groupId ? { ...g, retention } : g)) } : null,
         ),
-      setGroupMembers: (groupId, memberIds) =>
-        patch((s) => {
+      setGroupMembers: (groupId, memberIds) => {
+        const aendern = (s: AppState): Partial<AppState> | null => {
           if (!maySeeGroup(s, groupId)) return null
           const group = s.groups.find((g) => g.id === groupId)
           if (!group) return null
@@ -1028,7 +1061,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const dropped = group.memberIds.filter((m) => !memberIds.includes(m))
           if (dropped.some((m) => verliertGruppe(s, m, groups))) return null
           return { groups }
-        }),
+        }
+        // „Entfernen" in der Chat-Info tat bei Ablehnung nichts und meldete
+        // nichts (KERN-08) — die Antwort sagt der Ansicht, ob es gewirkt hat.
+        const geaendert = aendern(stateRef.current) !== null
+        patch(aendern)
+        return geaendert
+      },
 
       // Info, Kontakte, Lesson Plans, Feedback, Gruppen, Nutzer, Einstellungen:
       // jede schreibende Aktion fragt den Handelnden (storeRechte.ts). Vorher
@@ -1036,6 +1075,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       addInfoEntry: (entry) =>
         patch((s) => {
           if (!darfInfoVerwalten(s.settings, actorOf(s), entry.aircraftType)) return null
+          // Dieselbe Regel wie im Dialog: „bis" vor „ab" erschiene nie (KERN-12).
+          if (gueltigkeitFehler(entry.validFrom, entry.validUntil)) return null
           return {
             infoEntries: [
               ...s.infoEntries,
@@ -1073,12 +1114,24 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
 
       submitFeedback: (entry) =>
-        patch((s) => ({
-          feedbackEntries: [
-            ...s.feedbackEntries,
-            { ...entry, id: uid('fb'), authorId: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs },
-          ],
-        })),
+        patch((s) => {
+          // Dieselben Pflichtfelder wie im Formular (feedbackPruefung.ts,
+          // A11Y-16) — ein Musterbezug kommt hier als gesetztes Muster an.
+          const fehlt = feedbackFehlt({
+            recipient: entry.recipient,
+            category: entry.category,
+            scope: entry.aircraftType !== undefined ? 'aircraft' : 'general',
+            aircraftType: entry.aircraftType ?? '',
+            message: entry.message,
+          })
+          if (!s.currentUserId || fehlt.length > 0) return null
+          return {
+            feedbackEntries: [
+              ...s.feedbackEntries,
+              { ...entry, id: uid('fb'), authorId: s.currentUserId, createdAt: Date.now() + s.timeOffsetMs },
+            ],
+          }
+        }),
       deleteFeedback: (id) =>
         patch((s) => {
           if (!feedbackBearbeitbar(s, id)) return null
@@ -1107,9 +1160,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }),
 
-      saveContact: (contact) =>
+      saveContact: (eingabe) =>
         patch((s) => {
           if (!darfKontakteVerwalten(s.settings, actorOf(s))) return null
+          // Getrimmt und grob geprueft wie im Dialog (contacts.ts): „Training "
+          // ergab sonst eine zweite Abteilung (Audit 11/2026, KERN-16).
+          const contact = kontaktNormalisieren(eingabe)
+          if (kontaktFehler(contact).length > 0) return null
           return {
             contacts: contact.id
               ? s.contacts.map((c) => (c.id === contact.id ? { ...c, ...contact, id: contact.id } : c))
@@ -1222,8 +1279,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { users, ...protokoll }
         }),
 
-      addGroup: (name, purpose, aircraftType) =>
-        patch((s) => {
+      addGroup: (name, purpose, aircraftType) => {
+        const id = uid('g')
+        const anlegen = (s: AppState): Partial<AppState> | null => {
           // Superadmin und Gruppenadmin, und nur mit einem Muster, das der
           // Anleger selbst sieht — er wird Mitglied (KERN-19).
           if (!darfGruppeAnlegen(s.settings, actorOf(s), aircraftType)) return null
@@ -1236,10 +1294,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return {
             groups: [
               ...s.groups,
-              { id: uid('g'), name: gruppenName(name), purpose, aircraftType, adminIds: creator, memberIds: creator, retention: null, muted: false },
+              { id, name: gruppenName(name), purpose, aircraftType, adminIds: creator, memberIds: creator, retention: null },
             ],
           }
-        }),
+        }
+        // Der Dialog in der Chatliste schloss auch bei einem vergebenen Namen
+        // und meldete nichts (KERN-08).
+        const angelegt = anlegen(stateRef.current) !== null
+        patch(anlegen)
+        return angelegt
+      },
       setGroupAircraft: (id, aircraftType) =>
         patch((s) => (maySeeGroup(s, id) ? { groups: s.groups.map((g) => (g.id === id ? { ...g, aircraftType } : g)) } : null)),
       renameGroup: (id, name) =>
@@ -1656,31 +1720,10 @@ export function useStore(): Store {
    hier, in einer .tsx-Datei, und jede Rechtefrage der App war ungetestet
    (Audit 11/2026, VERW-02). */
 
-/** Ist der Eintrag schon veröffentlicht? „Gültig ab“ in der Zukunft heißt:
- *  noch nicht sichtbar und nicht bestätigbar (nur Verwalter sehen ihn). */
-export function infoIsPublished(entry: { validFrom?: string }, ts: number): boolean {
-  if (!entry.validFrom) return true
-  const from = new Date(`${entry.validFrom}T00:00:00`).getTime()
-  return Number.isNaN(from) || from <= ts
-}
-
-/** Abgelaufen? Nach dem Gültigkeitsende ist der Eintrag nicht mehr
- *  bestätigungspflichtig — eine Bestätigung auf ein überholtes Dokument
- *  landete sonst als „gelesen" in der Kontrollliste. */
-export function infoIsExpired(entry: { validUntil?: string }, ts: number): boolean {
-  if (!entry.validUntil) return false
-  const until = new Date(`${entry.validUntil}T23:59:59`).getTime()
-  return !Number.isNaN(until) && until < ts
-}
-
-/** Ab wann der Eintrag für die Leser sichtbar wurde — maßgeblich für die
- *  „Neu"-Markierung. Ein vorbereiteter Eintrag ging bisher ohne Markierung
- *  online, weil ab seiner Erstellung gerechnet wurde. */
-export function infoPublishedAt(entry: { validFrom?: string; createdAt: number }): number {
-  if (!entry.validFrom) return entry.createdAt
-  const from = new Date(`${entry.validFrom}T00:00:00`).getTime()
-  return Number.isNaN(from) ? entry.createdAt : Math.max(entry.createdAt, from)
-}
+/* `infoIsPublished`, `infoIsExpired` und `infoPublishedAt` liegen in
+   src/infoAcks.ts — hier, in einer .tsx-Datei, erreichte sie keine der
+   beiden Testwachen, und die Neu-Marke rechnete an zwei Stellen mit ihnen
+   verschieden (Audit 11/2026, KERN-11). */
 
 /* `infoEntryAppliesTo` liegt jetzt in src/infoAcks.ts — zusammen mit der
    Frage, wer bestaetigen muss, und damit dort, wo beide Testwachen sie

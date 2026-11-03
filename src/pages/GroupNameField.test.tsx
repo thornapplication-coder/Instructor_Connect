@@ -27,7 +27,7 @@ vi.mock('../store', async (original) => {
   }
 })
 
-const gruppe = (id: string, name: string): Group => ({ id, name, purpose: '', adminIds: [], memberIds: [], retention: null, muted: false })
+const gruppe = (id: string, name: string): Group => ({ id, name, purpose: '', adminIds: [], memberIds: [], retention: null })
 
 beforeEach(async () => {
   await i18n.changeLanguage('de')

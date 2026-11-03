@@ -38,9 +38,17 @@ export function useRoute(): string {
         // der neuen Seite ist der richtige Einstiegspunkt; sie ist nur
         // programmatisch fokussierbar (tabIndex -1), taucht also nicht in
         // der Tab-Reihenfolge auf.
+        //
+        // `preventScroll`: Den Anfang hat `scrollToTop` schon gesetzt. Ohne
+        // die Option rollte `focus()` zur Ueberschrift in der klebenden
+        // Kopfleiste — also an den Seitenanfang — und machte NACH dem
+        // Effekt der neuen Ansicht deren eigene Position zunichte: Der Chat
+        // sprang ans Ende und wurde gleich wieder nach oben gezogen; am
+        // iPhone lag die neueste Nachricht hinter der Eingabeleiste
+        // (Audit 11/2026, KERN-01).
         requestAnimationFrame(() => {
           const ziel = document.querySelector<HTMLElement>('[data-page-heading]')
-          ziel?.focus()
+          ziel?.focus({ preventScroll: true })
         })
       }
       setRoute(next)

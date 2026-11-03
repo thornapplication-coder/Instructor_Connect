@@ -120,7 +120,23 @@
     "deleteMessageConfirm": "Delete this message for everyone? This cannot be undone.",
     "newMessageFrom": "New message from {{name}}",
     "send": "Send",
-    "votes_other": "{{count}} votes"
+    "votes_other": "{{count}} votes",
+    "sendRejected": "Not sent – your text is kept.",
+    "sendRejectedBlocked": "Not sent: you have been blocked from sending in chat. Your text is kept.",
+    "sendRejectedNotMember": "Not sent: you are not (or no longer) a member of this group. Your text is kept.",
+    "sendRejectedTooLarge": "Not sent: the attachment exceeds the limit (max. {{max}} MB). Remove it – your text is kept.",
+    "pollRejected": "Poll not created – please check the details.",
+    "pollEndPast": "This time is already in the past.",
+    "pollEndAfterRetention": "Too late: the group's retention deletes the poll on {{date}} at the latest.",
+    "pollRetentionLimit": "At the latest until {{date}} – then the group's retention ({{period}}) deletes the poll and its votes.",
+    "groupNotCreated": "Group not created – please check name and aircraft type.",
+    "muteOnlyYou": "Applies to you only, not to the other members.",
+    "closePollConfirm": "Close the poll now? Afterwards nobody can vote or change their vote.",
+    "pollDate": "Date (UTC)",
+    "pollTime": "Time (UTC)",
+    "inputLabel": "Write a message",
+    "showOlder_one": "Show older entry (1 earlier)",
+    "showOlder_other": "Show older entries ({{count}} earlier)"
   },
   "chatInfo": {
     "title": "Chat info",
@@ -142,7 +158,10 @@
     "deleteGroupHint": "Removes the group with all messages, polls and attachments. Cannot be undone.",
     "deleteGroupConfirm": "Delete “{{name}}” with all {{count}} messages? This cannot be undone.",
     "deleteBlocked": "Not possible: {{names}} would be left without any group. Add them to another group first.",
-    "noAccess": "no access"
+    "noAccess": "no access",
+    "removeBlocked": "{{name}} would be left without any reachable group – add them to another group first.",
+    "membersRejected": "Not changed – the member list was rejected.",
+    "removeMemberConfirm": "Remove {{name}} from “{{group}}”? {{name}} will no longer be able to reach the group chat."
   },
   "info": {
     "noMatch": "No entry matches the search or filter.",
@@ -176,7 +195,8 @@
     "ackMissing": "pending",
     "exportAck": "Export control list (CSV)",
     "scheduled": "Scheduled — not yet visible to users",
-    "sinceRelease": "from release"
+    "sinceRelease": "from release",
+    "untilBeforeFrom": "“Valid until” is before “Valid from” – the entry would never be visible."
   },
   "notes": {
     "new": "New note",
@@ -211,7 +231,9 @@
     "deleteContact": "Delete contact",
     "search": "Search name, position or department",
     "empty": "The directory is empty. An admin can add contacts here.",
-    "noMatch": "No contact matches your search."
+    "noMatch": "No contact matches your search.",
+    "phoneInvalid": "This does not look like a phone number – use digits, spaces, + / - ( ) and at least 3 digits.",
+    "emailInvalid": "This does not look like an email address (name@domain.com)."
   },
   "feedback": {
     "title": "Feedback",
@@ -225,7 +247,7 @@
     "recipients": "Recipients",
     "cc": "CC",
     "backHome": "Back to home",
-    "errorEmpty": "Please choose a recipient and a category and enter a message.",
+    "errorEmpty": "Please fill in the marked required fields.",
     "recipient": "Send to",
     "urgent": "Urgent",
     "urgentOn": "marked as urgent",
@@ -235,7 +257,11 @@
     "scopeLabel": "Reference",
     "scopeGeneral": "General",
     "scopeAircraft": "Aircraft type related",
-    "safetyWarning": "⛔️ WRITE A SAFETY REPORT ⛔️"
+    "safetyWarning": "⛔️ WRITE A SAFETY REPORT ⛔️",
+    "missingRecipient": "Please choose a recipient.",
+    "missingCategory": "Please choose a category.",
+    "missingAircraft": "Please choose the aircraft type – or “General”.",
+    "missingMessage": "Please enter a message."
   },
   "admin": {
     "title": "Admin Panel",

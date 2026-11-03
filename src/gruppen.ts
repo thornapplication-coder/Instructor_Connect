@@ -1,6 +1,6 @@
 import { isGroupAdmin } from './adminAccess'
-import { sichtbarFuer } from './aircraftScope'
-import type { Group, User } from './types'
+import { sichtbarFuer, verliertLetzteGruppe, type GruppenPerson } from './aircraftScope'
+import type { Group, Settings, User } from './types'
 
 /**
  * Regeln fuer Chat-Gruppen, die Store und Oberflaeche gemeinsam fragen.
@@ -97,6 +97,25 @@ export function gruppenAenderungFehler(
  */
 export function adminKandidaten<U extends Pick<User, 'id' | 'active'>>(group: Pick<Group, 'memberIds'>, users: U[]): U[] {
   return users.filter((u) => u.active && group.memberIds.includes(u.id))
+}
+
+/**
+ * Liesse das Entfernen aus DIESER Gruppe die Person ohne erreichbare Gruppe
+ * zurueck?
+ *
+ * Der Store weist das ab (`setGroupMembers`, Regel aus aircraftScope.ts).
+ * In der Chat-Info tat „Entfernen" dann schlicht nichts — ausgerechnet das
+ * Loeschen einer Gruppe nannte seinen Grund (Audit 11/2026, KERN-08). Mit
+ * dieser Frage kann die Zeile den Knopf vorher sperren und sagen, warum.
+ */
+export function entfernenBlockiert<G extends Pick<Group, 'id' | 'aircraftType' | 'memberIds'>>(
+  settings: Settings,
+  person: GruppenPerson,
+  gruppen: G[],
+  groupId: string,
+): boolean {
+  const nachher = gruppen.map((g) => (g.id === groupId ? { ...g, memberIds: g.memberIds.filter((m) => m !== person.id) } : g))
+  return verliertLetzteGruppe(settings, person, gruppen, nachher)
 }
 
 /* ===================== Zugang ===================== */

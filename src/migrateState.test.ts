@@ -29,6 +29,7 @@ const bestand = (over: Partial<ReturnType<typeof createSeedState>> = {}) => {
   delete (st as { seedHistoryMigrated?: boolean }).seedHistoryMigrated
   delete (st as { aircraftBackfilled?: boolean }).aircraftBackfilled
   delete (st as { formularNachtraege?: string[] }).formularNachtraege
+  delete (st as { stummJeNutzer?: boolean }).stummJeNutzer
   return st
 }
 
@@ -241,9 +242,9 @@ describe('migrateState — Pflichtfelder (Audit 11/2026, TEC-07)', () => {
 
   it('ergänzt jede fehlende Pflichtliste, jedes Objekt und jede Zahl mit ihrer Vorgabe', () => {
     const alt = createSeedState() as unknown as Record<string, unknown>
-    for (const k of ['groups', 'messages', 'polls', 'infoEntries', 'contacts', 'lessonPlans', 'feedbackEntries', 'seen', 'starredInfo', 'infoAcks', 'timeOffsetMs', 'contactsChangedAt']) delete alt[k]
+    for (const k of ['groups', 'messages', 'polls', 'infoEntries', 'contacts', 'lessonPlans', 'feedbackEntries', 'seen', 'starredInfo', 'infoAcks', 'mutedGroups', 'timeOffsetMs', 'contactsChangedAt']) delete alt[k]
     const neu = migrateState(alt as unknown as ReturnType<typeof createSeedState>)
-    expect(neu).toMatchObject({ groups: [], messages: [], polls: [], infoEntries: [], contacts: [], lessonPlans: [], feedbackEntries: [], seen: {}, starredInfo: {}, infoAcks: {}, timeOffsetMs: 0, contactsChangedAt: 0 })
+    expect(neu).toMatchObject({ groups: [], messages: [], polls: [], infoEntries: [], contacts: [], lessonPlans: [], feedbackEntries: [], seen: {}, starredInfo: {}, infoAcks: {}, mutedGroups: {}, timeOffsetMs: 0, contactsChangedAt: 0 })
     // Und zwar beständig: Der zweite Lauf hat nichts mehr zu tun.
     expect(migrateState(neu)).toBe(neu)
   })
@@ -644,5 +645,56 @@ describe('Formularkatalog nachtragen (GTY-03, 308G Session Time)', () => {
     expect(felder[0].key).toBe('vorn')
     expect(felder[felder.length - 1].key).toBe('sessionTime')
     expect(felder[felder.length - 1]).not.toBe(SESSION_ZEIT_308G)
+  })
+})
+
+/**
+ * Audit 11/2026, KERN-06: Stummschalten lag als `muted` an der Gruppe und
+ * galt fuer alle Mitglieder. Es steht jetzt je Nutzer in `mutedGroups`; das
+ * alte Feld wird verworfen — mit Marke, wie jeder Nachtrag hier.
+ */
+describe('Stummschalten je Nutzer: altes group.muted verwerfen (KERN-06)', () => {
+  /** Bestand von vorher: Gruppen mit `muted`, keine Liste je Nutzer, keine Marke. */
+  const vorher = () => {
+    const st = bestand()
+    delete (st as { mutedGroups?: unknown }).mutedGroups
+    return { ...st, groups: st.groups.map((g, i) => ({ ...g, muted: i === 0 })) }
+  }
+
+  it('entfernt das alte Feld an jeder Gruppe und legt die leere Liste je Nutzer an', () => {
+    const neu = migrateState(vorher())
+    for (const g of neu.groups) expect('muted' in g, g.id).toBe(false)
+    // Nicht auf Nutzer verteilt: Wer es gesetzt hatte, steht nirgends.
+    expect(neu.mutedGroups).toEqual({})
+    expect(neu.stummJeNutzer).toBe(true)
+    // Sonst bleibt an den Gruppen alles, wie es war.
+    expect(neu.groups.map((g) => g.memberIds)).toEqual(vorher().groups.map((g) => g.memberIds))
+  })
+
+  it('ist idempotent: der zweite Lauf hat nichts mehr zu tun', () => {
+    const einmal = migrateState(vorher())
+    expect(migrateState(einmal)).toBe(einmal)
+  })
+
+  it('mit Marke bleibt eine persoenliche Stummschaltung unangetastet', () => {
+    const einmal = migrateState(vorher())
+    const persoenlich = { ...einmal, mutedGroups: { 'u-michael': ['g-defects'] } }
+    const nochmal = migrateState(persoenlich)
+    expect(nochmal).toBe(persoenlich)
+    expect(nochmal.mutedGroups).toEqual({ 'u-michael': ['g-defects'] })
+  })
+
+  it('setzt die Marke auch, wenn keine Gruppe das alte Feld hatte', () => {
+    const st = bestand()
+    const neu = migrateState(st)
+    expect(neu.stummJeNutzer).toBe(true)
+    expect(neu.groups).toBe(st.groups)
+  })
+
+  it('der Seed traegt die Marke und eine leere Liste bereits', () => {
+    const seed = createSeedState()
+    expect(seed.stummJeNutzer).toBe(true)
+    expect(seed.mutedGroups).toEqual({})
+    for (const g of seed.groups) expect('muted' in g, g.id).toBe(false)
   })
 })

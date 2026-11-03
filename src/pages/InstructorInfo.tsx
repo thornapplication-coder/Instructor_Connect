@@ -1,21 +1,21 @@
 import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, Plus, ScrollText, Search, Star, Trash2 } from 'lucide-react'
 import { musterZurAuswahl, sichtbarFuer } from '../aircraftScope'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
 import { toast } from '../components/Toast'
-import { ackStand, ackZiele } from '../infoAcks'
+import { ackListeDateiName, ackStand, ackZiele, gueltigkeitFehler, infoIsExpired, infoIsPublished, infoIstNeu } from '../infoAcks'
 import { userMayModule } from '../adminAccess'
-import { infoIsExpired, infoIsPublished, infoPublishedAt, useStore } from '../store'
+import { useStore } from '../store'
 import type { InfoEntry } from '../types'
 import { formatDate, formatDateTime } from '../datum'
 import { useJetzt } from '../zeitTakt'
 
 const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
 
-/** „Neu“-Kennzeichnung: zwei Wochen ab Veröffentlichung */
-const NEW_MS = 14 * 24 * 3600_000
+/* „Neu“-Kennzeichnung: zwei Wochen ab Veröffentlichung — Frist und Regel
+   stehen in infoAcks.ts (INFO_NEU_MS, infoIstNeu). */
 
 function NewEntryModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
@@ -30,8 +30,13 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
   const [requiresAck, setRequiresAck] = useState(false)
   const [aircraftType, setAircraftType] = useState('')
   const groups = [...state.groups].sort((a, b) => a.name.localeCompare(b.name))
+  const gueltigkeitId = useId()
 
-  const valid = title.trim() && category && (type === 'pdf' || body.trim())
+  /* „Gültig bis" vor „Gültig ab" liess sich speichern — der Eintrag war
+     danach zugleich abgelaufen und geplant und erschien nie (Audit 11/2026,
+     KERN-12). Dieselbe Regel fragt der Store (infoAcks.ts). */
+  const gueltigkeit = gueltigkeitFehler(validFrom, validUntil)
+  const valid = title.trim() && category && (type === 'pdf' || body.trim()) && !gueltigkeit
 
   return (
     <Modal
@@ -91,15 +96,37 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
         <Field label={t('info.description')}>
           <input className={inputCls} value={description} onChange={(e) => setDescription(e.target.value)} />
         </Field>
-        {/* Gültigkeit: leeres Bis-Datum = UFN (until further notice) */}
+        {/* Gültigkeit: leeres Bis-Datum = UFN (until further notice).
+            min/max grenzen den Kalender ein; ein getipptes Datum davor nennt
+            die Meldung, die AUSSERHALB des <label> steht — sonst wäre sie
+            Teil des Feldnamens (KERN-20). */}
         <div className="grid grid-cols-2 gap-3">
           <Field label={t('info.validFrom')}>
-            <input type="date" className={inputCls} value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />
+            <input
+              type="date"
+              className={inputCls}
+              value={validFrom}
+              max={validUntil || undefined}
+              onChange={(e) => setValidFrom(e.target.value)}
+            />
           </Field>
           <Field label={t('info.validUntil')}>
-            <input type="date" className={inputCls} value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+            <input
+              type="date"
+              className={inputCls}
+              value={validUntil}
+              min={validFrom || undefined}
+              aria-invalid={gueltigkeit ? true : undefined}
+              aria-describedby={gueltigkeit ? gueltigkeitId : undefined}
+              onChange={(e) => setValidUntil(e.target.value)}
+            />
           </Field>
         </div>
+        {gueltigkeit && (
+          <p id={gueltigkeitId} className="-mt-2 text-micro leading-relaxed text-danger">
+            {t('info.untilBeforeFrom')}
+          </p>
+        )}
         <p className="-mt-2 text-micro leading-relaxed text-dim">{t('info.ufnHint')}</p>
         {/* Lese-Bestätigung: jeder Nutzer des Moduls muss aktiv „gelesen“ bestätigen */}
         <label className="flex items-center gap-2 text-small">
@@ -191,16 +218,19 @@ export function InstructorInfo() {
   /** Kontrollliste der Lese-Bestätigungen als CSV exportieren (Admins) */
   const exportAckList = (entry: (typeof state.infoEntries)[number]) => {
     const acks = state.infoAcks[entry.id] ?? {}
+    // EIN Zeitpunkt für Kopf und Dateiname — kurz vor Mitternacht trüge der
+    // Name sonst einen anderen Tag als der Kopf (EXM-10).
+    const jetzt = now()
     let csv = csvRow(['Instructor Connect — Read Confirmation Control List'])
     csv += csvRow(['Entry', entry.title])
-    csv += csvRow(['Exported (date/time)', formatDateTime(now()), 'Exported by', currentUser!.name])
+    csv += csvRow(['Exported (date/time)', formatDateTime(jetzt), 'Exported by', currentUser!.name])
     csv += csvRow([])
     csv += csvRow(['Name', 'Status', 'Confirmed at'])
     ackTargets(entry).forEach((u) => {
       csv += csvRow([u.name, acks[u.id] ? 'confirmed' : 'PENDING', acks[u.id] ? formatDateTime(acks[u.id]) : ''])
     })
     toast(t('toast.downloaded'))
-    downloadCsv(`read-confirmations_${entry.title.replace(/[^\w-]+/g, '-').slice(0, 40)}.csv`, csv)
+    downloadCsv(ackListeDateiName(entry.title, jetzt), csv)
   }
 
   /**
@@ -323,8 +353,10 @@ export function InstructorInfo() {
         {entries.map((entry, i) => {
           const open = openId === entry.id
           // „Neu" zählt ab Veröffentlichung, nicht ab Erstellung: ein
-          // vorbereiteter Eintrag ging sonst ohne Markierung online.
-          const isNew = now() - infoPublishedAt(entry) < NEW_MS
+          // vorbereiteter Eintrag ging sonst ohne Markierung online. Und
+          // nur veröffentlicht — ein geplanter trug „Neu" und „Geplant"
+          // zugleich (infoAcks.ts, Audit 11/2026, KERN-11).
+          const isNew = infoIstNeu(entry, now())
           const starred = starredInfoIds.has(entry.id)
           const expired = isExpired(entry)
           const scheduled = isScheduled(entry)
@@ -363,10 +395,15 @@ export function InstructorInfo() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start gap-2">
                     <p className="min-w-0 flex-1 text-lead font-semibold leading-snug">{entry.title}</p>
-                    {/* Stern: persönliche Wichtig-Markierung des Nutzers */}
+                    {/* Stern: persönliche Wichtig-Markierung des Nutzers.
+                        Name und Zustand für die Sprachausgabe: Vorher nur
+                        `title`, und ob markiert war, sagte allein die
+                        Füllung (Audit 11/2026, KERN-20). */}
                     <button
                       onClick={() => toggleStarInfo(entry.id)}
                       title={t('info.star')}
+                      aria-label={t('info.star')}
+                      aria-pressed={starred}
                       className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-lg transition ${starred ? 'text-wait' : 'text-dim hover:text-wait'}`}
                     >
                       <Star size={17} fill={starred ? 'currentColor' : 'none'} />
@@ -446,7 +483,10 @@ export function InstructorInfo() {
                                     {acks[u.id] ? (
                                       <span className="text-ok">{formatDateTime(acks[u.id])}</span>
                                     ) : (
-                                      <span className="text-danger/80">{t('info.ackMissing')}</span>
+                                      /* Volle Tonfarbe: Mit /80 lag „fehlt" bei 4,4:1
+                                         (dunkel) bzw. 4,3:1 (hell) unter 4,5:1
+                                         (Audit 11/2026, UID-15). */
+                                      <span className="text-danger">{t('info.ackMissing')}</span>
                                     )}
                                   </li>
                                 ))}

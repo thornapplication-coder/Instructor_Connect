@@ -1,8 +1,9 @@
 import { Mail, Pencil, Phone, Plus, Trash2 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, TopBar } from '../components/ui'
 import { toast } from '../components/Toast'
+import { kontaktFehler, kontaktGruppen, mailLink, telefonLink } from '../contacts'
 import { useStore } from '../store'
 import type { Contact } from '../types'
 
@@ -17,7 +18,15 @@ function ContactModal({ contact, onClose }: { contact: Partial<Contact> | null; 
     email: contact?.email ?? '',
   })
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [k]: e.target.value })
-  const valid = form.department.trim() && form.name.trim()
+  /* Dieselbe Pruefung wie im Store (contacts.ts, KERN-16). Pflichtfelder
+     sperren nur den Knopf; ein Formatfehler bei Telefon oder E-Mail steht
+     am Feld — sonst suchte man, warum „Speichern" nicht geht. */
+  const fehler = kontaktFehler(form)
+  const valid = fehler.length === 0
+  const telefonId = useId()
+  const mailId = useId()
+  const telefonFalsch = fehler.includes('phone')
+  const mailFalsch = fehler.includes('email')
 
   return (
     <Modal
@@ -36,12 +45,44 @@ function ContactModal({ contact, onClose }: { contact: Partial<Contact> | null; 
         <Field label={t('contacts.name')}>
           <input className={inputCls} value={form.name} onChange={set('name')} />
         </Field>
-        <Field label={t('contacts.phone')}>
-          <input className={inputCls} value={form.phone} onChange={set('phone')} />
-        </Field>
-        <Field label={t('contacts.email')}>
-          <input className={inputCls} value={form.email} onChange={set('email')} />
-        </Field>
+        {/* type tel/email: passende Bildschirmtastatur am Telefon. Die
+            Meldung steht AUSSERHALB des <label>, sonst gehörte sie zum Namen. */}
+        <div>
+          <Field label={t('contacts.phone')}>
+            <input
+              type="tel"
+              autoComplete="tel"
+              className={inputCls}
+              value={form.phone}
+              onChange={set('phone')}
+              aria-invalid={telefonFalsch || undefined}
+              aria-describedby={telefonFalsch ? telefonId : undefined}
+            />
+          </Field>
+          {telefonFalsch && (
+            <p id={telefonId} className="mt-1.5 text-micro leading-relaxed text-danger">
+              {t('contacts.phoneInvalid')}
+            </p>
+          )}
+        </div>
+        <div>
+          <Field label={t('contacts.email')}>
+            <input
+              type="email"
+              autoComplete="email"
+              className={inputCls}
+              value={form.email}
+              onChange={set('email')}
+              aria-invalid={mailFalsch || undefined}
+              aria-describedby={mailFalsch ? mailId : undefined}
+            />
+          </Field>
+          {mailFalsch && (
+            <p id={mailId} className="mt-1.5 text-micro leading-relaxed text-danger">
+              {t('contacts.emailInvalid')}
+            </p>
+          )}
+        </div>
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -79,17 +120,9 @@ export function WhoToCall() {
   // können zusätzlich über das canEditDirectory-Flag freigeschaltet werden.
   const mayEdit = can('contacts_manage')
 
-  const departments = [...new Set(state.contacts.map((c) => c.department))].sort((a, b) => a.localeCompare(b))
-  const needle = query.trim().toLowerCase()
-  const visible = state.contacts
-    .filter((c) => !filter || c.department === filter)
-    // Ohne Suchfeld war ein Kontakt in einem langen Verzeichnis nur durch
-    // Scrollen zu finden.
-    .filter((c) => !needle || `${c.name} ${c.position} ${c.department} ${c.email} ${c.phone}`.toLowerCase().includes(needle))
-    .sort((a, b) => a.department.localeCompare(b.department) || a.name.localeCompare(b.name))
-  const grouped = departments
-    .filter((d) => !filter || d === filter)
-    .map((d) => ({ department: d, contacts: visible.filter((c) => c.department === d) }))
+  // Abteilungen nach dem bereinigten Wert — „Training " ist keine zweite
+  // Abteilung (contacts.ts, KERN-16).
+  const { abteilungen: departments, gruppen: grouped, treffer } = kontaktGruppen(state.contacts, filter, query)
 
   return (
     <>
@@ -140,7 +173,7 @@ export function WhoToCall() {
 
         {/* Leerer Zustand: die Seite sah sonst aus, als würde sie noch laden */}
         {state.contacts.length === 0 && <p className="pt-6 text-center text-body text-dim">{t('contacts.empty')}</p>}
-        {state.contacts.length > 0 && visible.length === 0 && (
+        {state.contacts.length > 0 && treffer === 0 && (
           <p className="pt-6 text-center text-body text-dim">{t('contacts.noMatch')}</p>
         )}
 
@@ -184,23 +217,37 @@ export function WhoToCall() {
                       </div>
                     )}
                   </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <a
-                      href={`tel:${c.phone.replace(/\s+/g, '')}`}
-                      className="min-h-11 flex items-center justify-center gap-2 rounded-xl border border-line/15 py-2.5 text-small font-medium transition hover:border-accent/50 hover:text-accent"
-                    >
-                      <Phone size={15} /> {t('contacts.call')}
-                    </a>
-                    <a
-                      href={`mailto:${c.email}`}
-                      className="min-h-11 flex items-center justify-center gap-2 rounded-xl border border-line/15 py-2.5 text-small font-medium transition hover:border-accent/50 hover:text-accent"
-                    >
-                      <Mail size={15} /> {t('contacts.mail')}
-                    </a>
-                  </div>
-                  <p className="mt-2 text-center text-micro text-dim">
-                    {c.phone} · {c.email}
-                  </p>
+                  {/* Anrufen und Schreiben nur mit Ziel: Ohne Nummer bzw.
+                      Adresse fuehrten `tel:` und `mailto:` ins Leere, und
+                      darunter stand „ · " (contacts.ts, KERN-16). */}
+                  {(() => {
+                    const tel = telefonLink(c.phone)
+                    const mail = mailLink(c.email)
+                    if (!tel && !mail) return null
+                    return (
+                      <>
+                        <div className={`mt-3 grid gap-2 ${tel && mail ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                          {tel && (
+                            <a
+                              href={tel}
+                              className="min-h-11 flex items-center justify-center gap-2 rounded-xl border border-line/15 py-2.5 text-small font-medium transition hover:border-accent/50 hover:text-accent"
+                            >
+                              <Phone size={15} /> {t('contacts.call')}
+                            </a>
+                          )}
+                          {mail && (
+                            <a
+                              href={mail}
+                              className="min-h-11 flex items-center justify-center gap-2 rounded-xl border border-line/15 py-2.5 text-small font-medium transition hover:border-accent/50 hover:text-accent"
+                            >
+                              <Mail size={15} /> {t('contacts.mail')}
+                            </a>
+                          )}
+                        </div>
+                        <p className="mt-2 text-center text-micro text-dim">{[c.phone.trim(), c.email.trim()].filter(Boolean).join(' · ')}</p>
+                      </>
+                    )
+                  })()}
                 </Card>
               ))}
             </CardGrid>

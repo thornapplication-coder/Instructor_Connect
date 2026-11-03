@@ -131,7 +131,7 @@ describe('Vorlage', () => {
 
   it('der Import legt auch dann keine Beispieladresse an, wenn sie durchgereicht wird', () => {
     const settings = { allowedDomains: [] } as unknown as Settings
-    const g: Group = { id: 'g', name: 'g', aircraftType: '', purpose: '', adminIds: [], memberIds: [], retention: null, muted: false }
+    const g: Group = { id: 'g', name: 'g', aircraftType: '', purpose: '', adminIds: [], memberIds: [], retention: null }
     const zeile: ImportEingabe = { name: 'X', email: `x@${BEISPIEL_DOMAIN}`, phone: '', role: 'member', aircraftTypes: ['CL30'], canGrade: true, isTrainee: false, canEditDirectory: false, active: true }
     expect(importPlanen({ users: [], groups: [g], settings }, [zeile], ['g'], () => 'neu').neue).toEqual([])
   })
@@ -362,7 +362,7 @@ describe('Import nur mit Gruppe (Audit 11/2026, VERW-07)', () => {
   // „Benutzer anlegen" genau das verweigert. Gezaehlt werden — wie ueberall —
   // nur Gruppen, die die Person betreten kann.
   const settings = { allowedDomains: ['aviationacademy.at'] } as unknown as Settings
-  const gruppe = (id: string, aircraftType: string): Group => ({ id, name: id, aircraftType, purpose: '', adminIds: [], memberIds: ['alt'], retention: null, muted: false })
+  const gruppe = (id: string, aircraftType: string): Group => ({ id, name: id, aircraftType, purpose: '', adminIds: [], memberIds: ['alt'], retention: null })
   const cl30 = gruppe('g-cl30', 'CL30')
   const allgemein = gruppe('g-alle', '')
   const zeile = (p: Partial<ImportEingabe> = {}): ImportEingabe => ({

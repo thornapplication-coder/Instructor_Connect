@@ -29,8 +29,9 @@ beforeEach(async () => {
   ende.setHours(23, 59, 59, 999)
   localStorage.setItem('aaa-user', 'u-patrick')
   localStorage.setItem('aaa-session-exp', String(ende.getTime()))
-  // jsdom kennt kein scrollIntoView; der Chat rollt beim Zeichnen ans Ende.
-  Element.prototype.scrollIntoView = () => {}
+  // jsdom kennt kein window.scrollTo; der Chat rollt beim Zeichnen ans
+  // Seitenende (KERN-01).
+  window.scrollTo = () => {}
   laden = null
 })
 

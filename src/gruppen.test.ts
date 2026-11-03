@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { adminKandidaten, gruppenAenderungFehler, gruppenName, gruppenNameFehler, mayAccessGroup } from './gruppen'
+import { adminKandidaten, entfernenBlockiert, gruppenAenderungFehler, gruppenName, gruppenNameFehler, mayAccessGroup } from './gruppen'
+import { createSeedState } from './sandbox/seed'
 import type { Group, Role, User } from './types'
 
 /**
@@ -114,7 +115,7 @@ describe('mayAccessGroup — verlegt aus store.tsx (Audit 11/2026, KERN-19)', ()
   const u = (id: string, role: Role, aircraftTypes: string[]): User => ({
     id, name: id, email: `${id}@example.test`, phone: '', role, canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes, active: true,
   })
-  const cl30: Group = { id: 'g', name: 'CL30', purpose: '', aircraftType: 'CL30', adminIds: ['admin'], memberIds: ['drin', 'admin', 'c560'], retention: null, muted: false }
+  const cl30: Group = { id: 'g', name: 'CL30', purpose: '', aircraftType: 'CL30', adminIds: ['admin'], memberIds: ['drin', 'admin', 'c560'], retention: null }
 
   it('Mitglied und Admin im eigenen Muster: ja', () => {
     expect(mayAccessGroup(u('drin', 'member', ['CL30']), cl30)).toBe(true)
@@ -133,5 +134,32 @@ describe('mayAccessGroup — verlegt aus store.tsx (Audit 11/2026, KERN-19)', ()
 
   it('Gruppe ohne Muster: fuer jedes Mitglied', () => {
     expect(mayAccessGroup(u('c560', 'member', ['C560 XLS+']), { ...cl30, aircraftType: '' })).toBe(true)
+  })
+})
+
+describe('entfernenBlockiert — „Entfernen" sagt vorher, warum nicht (Audit 11/2026, KERN-08)', () => {
+  /*
+   * Nachgestellt: „Entfernen" bei Mikas formal letzter Gruppe wirkte nicht
+   * und meldete nichts. Der Store weist das ab (letzte erreichbare Gruppe);
+   * die Chat-Info fragt jetzt vorher dieselbe Regel und sperrt den Knopf.
+   */
+  const seed = createSeedState()
+  const nutzer = (id: string) => seed.users.find((x) => x.id === id)!
+
+  it('Mika: „SIM Defects" ist seine einzige erreichbare Gruppe — gesperrt', () => {
+    expect(entfernenBlockiert(seed.settings, nutzer('u-michael'), seed.groups, 'g-defects')).toBe(true)
+  })
+
+  it('Alex: in mehreren Gruppen — Entfernen geht', () => {
+    expect(entfernenBlockiert(seed.settings, nutzer('u-patrick'), seed.groups, 'g-defects')).toBe(false)
+  })
+
+  it('eine Gruppe, in der die Person gar nicht ist, sperrt nichts', () => {
+    expect(entfernenBlockiert(seed.settings, nutzer('u-michael'), seed.groups, 'g-auto')).toBe(false)
+  })
+
+  it('ohne Chat-Pflicht (Training Admin) verliert niemand etwas', () => {
+    const mitSam = seed.groups.map((g) => (g.id === 'g-ground' ? { ...g, memberIds: [...g.memberIds, 'u-max'] } : g))
+    expect(entfernenBlockiert(seed.settings, nutzer('u-max'), mitSam, 'g-ground')).toBe(false)
   })
 })

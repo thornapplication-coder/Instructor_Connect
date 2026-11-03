@@ -4,7 +4,9 @@ import { Avatar, Badge, Button, Card, CardHeading, Field, Page, selectCls, TopBa
 import { navigate } from '../router'
 import { isGroupAdmin } from '../adminAccess'
 import { gruppenTauglich } from '../aircraftScope'
-import { gruppenAenderungFehler } from '../gruppen'
+import { entfernenBlockiert, gruppenAenderungFehler } from '../gruppen'
+import { istStumm } from '../chatMute'
+import { toast } from '../components/Toast'
 import { mayAccessGroup, useStore } from '../store'
 import type { RetentionKey } from '../types'
 
@@ -37,6 +39,13 @@ export function ChatInfo({ groupId }: { groupId: string }) {
   // die Sichtbarkeit der Instructor Info. Das Löschen wird dann nicht still
   // abgelehnt, sondern begründet gesperrt.
   const blockers = mayManage ? groupDeleteBlockers(group.id) : []
+  // Persoenlich — nicht mehr am Gruppenobjekt fuer alle (KERN-06).
+  const stumm = istStumm(state.mutedGroups, currentUser?.id, group.id)
+  /** Mitglieder aendern; bei Ablehnung sagen, dass nichts passiert ist —
+   *  vorher tat der Klick still nichts (Audit 11/2026, KERN-08). */
+  const mitglieder = (ids: string[]) => {
+    if (!setGroupMembers(group.id, ids)) toast(t('chatInfo.membersRejected'), 'bad')
+  }
 
   return (
     <>
@@ -79,9 +88,16 @@ export function ChatInfo({ groupId }: { groupId: string }) {
               ))}
             </div>
           </div>
-          <button onClick={() => toggleMute(group.id)} className="flex w-full items-center gap-3 p-4 text-left hover:bg-line/[0.03]">
-            {group.muted ? <BellOff size={18} className="shrink-0 text-accent" /> : <Bell size={18} className="shrink-0 text-accent" />}
-            <p className="text-small">{group.muted ? t('chat.muted') : t('chat.mute')}</p>
+          <button
+            onClick={() => toggleMute(group.id)}
+            aria-pressed={stumm}
+            className="flex w-full items-center gap-3 p-4 text-left hover:bg-line/[0.03]"
+          >
+            {stumm ? <BellOff size={18} className="shrink-0 text-accent" /> : <Bell size={18} className="shrink-0 text-accent" />}
+            <span className="text-small">
+              {stumm ? t('chat.muted') : t('chat.mute')}
+              <span className="mt-0.5 block text-micro text-dim">{t('chat.muteOnlyYou')}</span>
+            </span>
           </button>
         </Card>
 
@@ -90,8 +106,14 @@ export function ChatInfo({ groupId }: { groupId: string }) {
             <Users size={15} /> {t('chatInfo.members', { count: members.length })}
           </CardHeading>
           <ul className="space-y-stack">
-            {members.map((m) => (
-              <li key={m.id} className="flex items-center gap-2.5">
+            {members.map((m) => {
+              // Wer hier seine letzte erreichbare Gruppe hat, kann nicht
+              // entfernt werden — der Knopf sagt das, statt still nichts zu
+              // tun (gruppen.ts, KERN-08).
+              const blockiert = mayManage && m.id !== currentUser!.id && entfernenBlockiert(state.settings, m, state.groups, group.id)
+              const grundId = `entfernen-${m.id}`
+              return (
+              <li key={m.id} className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                 <Avatar name={m.name} size={30} />
                 <span className="min-w-0 flex-1 truncate text-body">{m.name}</span>
                 {/* Mitglied auf dem Papier, aber ohne Zugang (fremdes Muster,
@@ -100,20 +122,36 @@ export function ChatInfo({ groupId }: { groupId: string }) {
                 {group.adminIds.includes(m.id) && <Badge tone="accent">{t('chatInfo.admin')}</Badge>}
                 {mayManage && m.id !== currentUser!.id && (
                   <button
+                    disabled={blockiert}
+                    aria-describedby={blockiert ? grundId : undefined}
                     onClick={() => {
-                      // Dieselbe Rueckfrage wie im Admin-Panel, wenn der
-                      // letzte Admin geht (gruppen.ts, VERW-09).
+                      // Immer mit Rueckfrage: vorher 55×18 px und sofort
+                      // wirksam — ein Fehltipper beim Scrollen nahm jemandem
+                      // den Gruppenchat (Audit 11/2026, MOB-05). Geht dabei
+                      // der letzte Admin, fragt die Rueckfrage des
+                      // Admin-Panels (gruppen.ts, VERW-09) — EINE Frage,
+                      // nicht zwei hintereinander.
                       const ohne = group.memberIds.filter((id) => id !== m.id)
-                      if (gruppenAenderungFehler(currentUser, group, ohne, group.adminIds) === 'ohneAdmin' && !window.confirm(t('admin.groupNoAdminConfirm', { name: group.name }))) return
-                      setGroupMembers(group.id, ohne)
+                      const frage =
+                        gruppenAenderungFehler(currentUser, group, ohne, group.adminIds) === 'ohneAdmin'
+                          ? t('admin.groupNoAdminConfirm', { name: group.name })
+                          : t('chatInfo.removeMemberConfirm', { name: m.name, group: group.name })
+                      if (!window.confirm(frage)) return
+                      mitglieder(ohne)
                     }}
-                    className="text-micro text-dim hover:text-danger"
+                    className="-my-2 min-h-11 rounded-lg px-2 text-micro text-dim hover:text-danger disabled:cursor-not-allowed disabled:hover:text-dim"
                   >
                     {t('chatInfo.removeMember')}
                   </button>
                 )}
+                {blockiert && (
+                  <p id={grundId} className="w-full pl-10 text-micro leading-relaxed text-dim">
+                    {t('chatInfo.removeBlocked', { name: m.name })}
+                  </p>
+                )}
               </li>
-            ))}
+              )
+            })}
           </ul>
         </Card>
 
@@ -138,7 +176,7 @@ export function ChatInfo({ groupId }: { groupId: string }) {
               <Field label={t('chatInfo.addMember')}>
                 <select
                   value=""
-                  onChange={(e) => e.target.value && setGroupMembers(group.id, [...group.memberIds, e.target.value])}
+                  onChange={(e) => e.target.value && mitglieder([...group.memberIds, e.target.value])}
                   className={selectCls}
                 >
                   <option value="">…</option>
