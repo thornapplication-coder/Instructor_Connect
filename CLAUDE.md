@@ -80,7 +80,18 @@ prüfen, nicht der Code anzupassen**, bis er zum Test passt.
   Abgedeckt: DocCheck einlesen → Befund per Tastatur → Viewer-Fokus; Export
   (CSV/Excel gleiche IDs, Prüfstand hin und zurück); Re-Check bis zur Datei
   mit „Neue Findings"; Wartung und Wiedereinschalten; Telefon-Ansicht;
-  Offline-Start. Offen: Grading (Formular → Unterschrift → Versand).
+  Offline-Start. Seit dem Audit 11/2026 außerdem: Grading-Formular
+  (`formular.spec.ts`: Unterschrift im Vollbild, offene Punkte, Entwurf,
+  Folgeformular nach Mitternacht, Fokus hinter Leisten, 308F/308G),
+  Druck (`druck.spec.ts`: Kopf/Fuß je Blatt, PDF-Symbol der Ablage),
+  Auswertungen (`auswertung.spec.ts`), Chat (`chat.spec.ts`, Löschen per
+  Tastatur), Barrierefreiheit (`barrierefreiheit.spec.ts`: Fokusführung,
+  Dialog-Portal, Sprachumschalter, Gliederung und Fenstertitel, axe-core
+  über die Hauptbereiche, Bewegung reduzieren), Desktop-Raster
+  (`desktop.spec.ts`) und am Telefon Chat, Feedback, Seitentitel und
+  Sicherheitsbereiche (`mobil.spec.ts`). Teilweise offen bleibt der
+  Grading-Weg bis zum Versand (Formular → Unterschrift → Absenden →
+  Ablage) als EIN Durchgang.
   Die Content-Security-Policy steht nur im Build (`src/csp.ts`, Meta-Tag;
   `vite dev` braucht ein Inline-Skript) — deshalb prüft JEDER Weg hier, dass
   sie nichts abweist: `test` aus `e2e/hilfen.ts` scheitert an jedem
@@ -651,7 +662,11 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
   `gradingRecords`; im Store liegen nur Overrides (Teilzeiten, Notiz,
   Löschmarke) und manuelle Einträge. Wer abgeleitete Einträge materialisiert,
   baut die zweite Wahrheit für dieselbe Stunde — Formular korrigiert,
-  Logbuch veraltet. Geschrieben wird **ausschließlich ins eigene** Logbuch
+  Logbuch veraltet. Gezählt wird der DURCHGANG (`batchId`), nicht das
+  Blatt: Ein Durchgang mit zwei Piloten zählt einmal, nicht doppelt.
+  Korrekturen gelten je Durchgang (`overrideSetzen`), die Löschmarke
+  steht auf jedem Blatt (Audit 11/2026, LOG-01).
+  Geschrieben wird **ausschließlich ins eigene** Logbuch
   (die Store-Aktionen kennen gar keinen Ziel-Nutzer): Ein
   Tätigkeitsnachweis, den ein anderer nachbessern kann, ist keiner. Die
   Sichtbarkeit fremder Logbücher folgt der Musterregel (`sichtbareEintraege`,
