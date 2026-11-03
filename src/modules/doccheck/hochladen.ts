@@ -1,6 +1,6 @@
 import type { Vergleichsdokument } from './parse/duplikat'
 import { SANDBOX_DOKUMENTE } from './library'
-import { aktualisiert, dateiAblegen, dateiEntfernen, entfernen, fehler, fertig, fortschritt, lesenZustand, neu, setzen, type Rolle } from './sitzung'
+import { abonnieren, aktualisiert, dateiAblegen, dateiEntfernen, entfernen, fehler, fertig, fortschritt, lesenZustand, neu, setzen, type Rolle } from './sitzung'
 import type { PruefSchalter, Zusammenfassung } from './kern'
 import type { Verbindung } from './verbindung'
 
@@ -44,19 +44,63 @@ type Datei = { name: string; size: number; arrayBuffer(): Promise<ArrayBuffer> }
 export const stamm = (name: string) => name.replace(/\.[^.]+$/, '').trim().toLowerCase()
 
 /**
+ * Wie lange auf die Antwort des Workers zu einer Word-PDF-Paarung gewartet
+ * wird. Ohne Grenze blieb ein hängender Worker (oder einer, der das Dokument
+ * nicht mehr kennt und deshalb gar nicht antwortet) für immer im Zustand
+ * „Gleiche ab …", und beim Hochladen wartete die Meldung abgelehnter
+ * Dateien mit (Audit 11/2026, Runde 3). Die Zeit wächst mit der Datei: Das
+ * Lesen des PDF-Texts dauert etwa proportional zur Seitenzahl, und die
+ * wächst grob mit der Größe. 60 s Sockel decken Worker- und pdf.js-Start,
+ * 4 s je angefangenem MB sind großzügig (ein MB Handbuch-PDF sind etwa zehn
+ * Seiten, gelesen werden mehrere je Sekunde); höchstens 10 min.
+ */
+export const PAAR_ZEIT_SOCKEL = 60_000
+export const PAAR_ZEIT_JE_MB = 4_000
+export const PAAR_ZEIT_MAX = 600_000
+
+export function paarZeitgrenze(bytes: number): number {
+  return Math.min(PAAR_ZEIT_MAX, PAAR_ZEIT_SOCKEL + Math.ceil(Math.max(0, bytes) / 1_048_576) * PAAR_ZEIT_JE_MB)
+}
+
+/**
  * Word-PDF-Paar (Nachtrag N5): Das PDF wird KEIN eigenes Dokument, sondern
  * liefert dem DOCX die Seitenzahlen. Die Datei bleibt für den Viewer liegen
  * (`<id>#pdf`) — so zeigt „Seite ansehen" Words Seite, nicht die Näherung.
+ *
+ * `'zeit'`: keine Antwort binnen `paarZeitgrenze`. Das DOCX bleibt, wie
+ * es ist — gelesen, mit geschätzten Seiten, nutzbar. Antwortet der Worker
+ * doch noch, übernimmt der dauerhafte Hörer in `DocCheckApp` das Ergebnis
+ * wie jede andere Aktualisierung aus dem Worker; hier wartet dann niemand
+ * mehr, und die Datei für den Viewer liegt dafür schon bereit. Eine
+ * überholte Paarung verwirft der Kern selbst (`Kern.paaren`).
+ *
+ * `'entfernt'`: Das Dokument verließ die Sitzung, während gewartet wurde
+ * (entfernt, abgemeldet, Nutzerwechsel). Dann wartet niemand weiter, und es
+ * gibt nichts zu melden — die Zeitgrenze hätte sonst Minuten später „keine
+ * Antwort" zu einem Dokument gesagt, das es nicht mehr gibt, nach dem
+ * Abmelden mit seinem Namen vor dem nächsten Nutzer (Gegenprüfung Audit
+ * 11/2026, Runde 3).
  */
-export async function pdfDazulegen(id: string, pdf: Datei, v: Pick<Verbindung, 'paaren' | 'beiOcr'>): Promise<Zusammenfassung> {
+export async function pdfDazulegen(id: string, pdf: Datei, v: Pick<Verbindung, 'paaren' | 'beiOcr'>, warten = paarZeitgrenze(pdf.size)): Promise<Zusammenfassung | 'zeit' | 'entfernt'> {
   const daten = new Uint8Array(await pdf.arrayBuffer())
   dateiAblegen(`${id}#pdf`, daten)
   return new Promise((ok) => {
-    const ab = v.beiOcr((z) => {
+    const ende = (r: Zusammenfassung | 'zeit' | 'entfernt') => {
+      clearTimeout(uhr)
+      abOcr()
+      abSitzung()
+      ok(r)
+    }
+    const uhr = setTimeout(() => ende('zeit'), warten)
+    const abOcr = v.beiOcr((z) => {
       if (z.id !== id) return
-      ab()
+      // Erst abmelden, dann einspielen: `setzen` ruft den Sitzungshörer unten sofort auf
+      abSitzung()
       setzen((s) => aktualisiert(s, z))
-      ok(z)
+      ende(z)
+    })
+    const abSitzung = abonnieren(() => {
+      if (!lesenZustand().docs.some((d) => d.id === id)) ende('entfernt')
     })
     v.paaren(id, daten)
   })
@@ -68,8 +112,10 @@ export async function hochladen(
   v: Pick<Verbindung, 'lesen' | 'titel'> & Partial<Pick<Verbindung, 'paaren' | 'beiOcr' | 'entfernen'>>,
   jetzt: () => number = () => Date.now(),
   opts: { paaren?: boolean; pruefen?: PruefSchalter } = {},
-): Promise<{ abgelehnt: { name: string; grund: 'format' | 'groesse' }[] }> {
+): Promise<{ abgelehnt: { name: string; grund: 'format' | 'groesse' }[]; ohneAntwort: string[] }> {
   const abgelehnt: { name: string; grund: 'format' | 'groesse' }[] = []
+  /** DOCX, deren Word-PDF-Paarung nicht rechtzeitig antwortete — gelesen sind sie trotzdem */
+  const ohneAntwort: string[] = []
   const laeufe: Promise<void>[] = []
   // Gleichnamige DOCX/PDF im selben Hochladen sind ein Word-PDF-Paar — aber
   // nur, wenn beide angenommen werden: Ein zu großes DOCX nahm sein PDF sonst
@@ -134,8 +180,9 @@ export async function hochladen(
           const titel = lesenZustand().docs.find((d) => d.id === id)?.felder.titel
           if (titel) v.titel(id, titel)
           const pdf = paare.get(f)
-          if (pdf && z.format === 'docx') await pdfDazulegen(id, pdf, v as Pick<Verbindung, 'paaren' | 'beiOcr'>)
-          else if (pdf) await pdfAllein(pdf)
+          if (pdf && z.format === 'docx') {
+            if ((await pdfDazulegen(id, pdf, v as Pick<Verbindung, 'paaren' | 'beiOcr'>)) === 'zeit') ohneAntwort.push(f.name)
+          } else if (pdf) await pdfAllein(pdf)
         } catch (e) {
           const code = (e as Error).message
           if (code === 'DC-ABORTED') {
@@ -153,5 +200,5 @@ export async function hochladen(
     )
   }
   await Promise.all(laeufe)
-  return { abgelehnt }
+  return { abgelehnt, ohneAntwort }
 }

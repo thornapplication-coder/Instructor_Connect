@@ -54,8 +54,10 @@ export function DokListe({ rolle }: { rolle: Rolle }) {
 
   const annehmen = async (liste: FileList | null) => {
     if (!liste?.length) return
-    const { abgelehnt } = await hochladen([...liste], rolle, standardVerbindung(), undefined, { paaren: aktiv(docCheckSettings, 'pdfPairing'), pruefen: pruefSchalter(docCheckSettings) })
+    const { abgelehnt, ohneAntwort } = await hochladen([...liste], rolle, standardVerbindung(), undefined, { paaren: aktiv(docCheckSettings, 'pdfPairing'), pruefen: pruefSchalter(docCheckSettings) })
     for (const a of abgelehnt) toast(t(`upload.abgelehnt.${a.grund}`, { name: a.name }), 'bad')
+    // Paarung ohne Antwort des Workers: Das DOCX ist gelesen, nur die Seiten bleiben geschätzt (Audit 11/2026, Runde 3)
+    for (const name of ohneAntwort) toast(t('paar.zeit', { name }), 'wait')
   }
 
   return (
@@ -307,7 +309,10 @@ function DokKarte({ d }: { d: SitzungsDok }) {
                       setPaart(true)
                       try {
                         const z = await pdfDazulegen(d.id, f, standardVerbindung())
-                        toast(z.seitenQuelle === 'pdf_pair' ? t('paar.ok') : t('paar.nichtUebernommen'), z.seitenQuelle === 'pdf_pair' ? 'ok' : 'wait')
+                        // Keine Antwort binnen der Zeitgrenze: Knopf wieder frei, das DOCX bleibt mit geschätzten Seiten.
+                        // Inzwischen entfernt (oder abgemeldet): nichts zu melden.
+                        if (z === 'zeit') toast(t('paar.zeit', { name: d.name }), 'wait')
+                        else if (z !== 'entfernt') toast(z.seitenQuelle === 'pdf_pair' ? t('paar.ok') : t('paar.nichtUebernommen'), z.seitenQuelle === 'pdf_pair' ? 'ok' : 'wait')
                       } finally {
                         setPaart(false)
                       }

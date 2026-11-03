@@ -91,6 +91,12 @@ export interface Datenstand {
   bibliothek: string
   /** „Checks performed": was an diesem Stand WIRKLICH geprüft wurde, englisch (`pruefungenAus`) */
   pruefungen: string[]
+  /**
+   * KI-Modell(e) der Prüfung, leer = es lief keine KI-Prüfung (bis Phase 4
+   * immer). Daran hängt „AI model(s)" in der Kennung und, ob das Excel die
+   * leeren KI-Spalten zuklappen darf (`ausgeblendeteSpalten`, EXP-12).
+   */
+  modelle: string
   /** Hauptdokument: das erste Prüfdokument — im Paketmodus das ranghöchste (`exportDokumente` ordnet nach Ebene) */
   haupt: ExportDokument | null
   dokumente: ExportDokument[]
@@ -121,6 +127,8 @@ export interface ExportEingabe {
   lesestand: Lesestand
   /** Lief die Paketprüfung (Paketmodus mit Ergebnis)? Pflicht aus demselben Grund: sonst stünde sie immer unter „Checks performed" (EXP-01) */
   paketGeprueft: boolean
+  /** KI-Modell(e), wenn eine KI-Prüfung lief — fehlt bis Phase 4 */
+  modelle?: string
 }
 
 const RANG: Record<Prioritaet, number> = { High: 0, Medium: 1, Low: 2 }
@@ -297,14 +305,15 @@ export function pruefungenAus(ampeln: ExportEingabe['ampeln'], paketGeprueft: bo
   return [...bekannt.filter((g) => gelaufen.has(g)), ...[...gelaufen].filter((g) => !bekannt.includes(g))].map((g) => (L.checks as Record<string, string>)[g] ?? gruppenName(g))
 }
 
-export function datenstand(e: ExportEingabe): Datenstand {
-  const pruef = e.dokumente.filter((d) => d.rolle === 'review')
-  const haupt = pruef[0] ?? null
-  const dok = new Map(e.dokumente.map((d) => [d.id, d]))
-  const praefix = praefixe(pruef)
+/**
+ * Befunde in Export-Reihenfolge mit ihrer Export-ID — die EINE Rechnung für
+ * Sortierung und Nummer, aus der `datenstand()` und `befundIds()` lesen.
+ * Dokument → Seite → Priorität (Kap. 10.2); Paketbefunde ohne eigenes
+ * Dokument zuletzt.
+ */
+function nummerieren(e: Pick<ExportEingabe, 'dokumente' | 'befunde'>): { b: Befund; id: string }[] {
+  const praefix = praefixe(e.dokumente.filter((d) => d.rolle === 'review'))
   const reihenfolge = new Map(e.dokumente.map((d, i) => [d.id, i]))
-
-  // Dokument → Seite → Priorität (Kap. 10.2); Paketbefunde ohne eigenes Dokument zuletzt
   const sortiert = [...e.befunde].sort(
     (a, b) =>
       (reihenfolge.get(a.dokId) ?? 1e9) - (reihenfolge.get(b.dokId) ?? 1e9) ||
@@ -313,12 +322,45 @@ export function datenstand(e: ExportEingabe): Datenstand {
       a.id.localeCompare(b.id),
   )
   const zaehler = new Map<string, number>()
-  const befunde: ExportBefund[] = sortiert.map((b) => {
-    const d = dok.get(b.dokId)
+  return sortiert.map((b) => {
     const p = praefix.get(b.dokId) ?? 'PKG'
     const n = (zaehler.get(p) ?? 0) + 1
     zaehler.set(p, n)
-    const id = `${p}-${String(n).padStart(3, '0')}`
+    return { b, id: `${p}-${String(n).padStart(3, '0')}` }
+  })
+}
+
+/**
+ * Schlüssel eines Befunds der Sitzung: Die Prüfungen nummerieren je
+ * Dokument („F-01" steht in jedem Dokument), erst mit dem Dokument ist er
+ * eindeutig. Paketbefunde zählen über das ganze Paket („P-03") und haben
+ * eine eigene Quelle — sie treffen nie die ID einer Dokumentprüfung.
+ */
+export function befundSchluessel(b: Pick<Befund, 'dokId' | 'id'>): string {
+  return JSON.stringify([b.dokId, b.id])
+}
+
+/**
+ * Export-ID je Befund (`befundSchluessel` → „TM-003") — für die
+ * Oberfläche. Sie zeigte „F-01" je Dokument, der Bericht „TM-003" über alle
+ * Dokumente; wer einen Befund aus Excel oder Word am Bildschirm suchte,
+ * fand ihn nicht (Spez. 6.3, 10.1: IDs in allen Formaten identisch; Audit
+ * 11/2026, DC-10/UID-07/TXT-03). Aus derselben Rechnung wie `datenstand()`,
+ * nicht nachgebaut — sonst liefen die IDs beim ersten neuen Sortierschlüssel
+ * auseinander.
+ */
+export function befundIds(e: Pick<ExportEingabe, 'dokumente' | 'befunde'>): Map<string, string> {
+  return new Map(nummerieren(e).map(({ b, id }) => [befundSchluessel(b), id]))
+}
+
+export function datenstand(e: ExportEingabe): Datenstand {
+  const pruef = e.dokumente.filter((d) => d.rolle === 'review')
+  const haupt = pruef[0] ?? null
+  const dok = new Map(e.dokumente.map((d) => [d.id, d]))
+  const reihenfolge = new Map(e.dokumente.map((d, i) => [d.id, i]))
+
+  const befunde: ExportBefund[] = nummerieren(e).map(({ b, id }) => {
+    const d = dok.get(b.dokId)
     const f = b.fundstellen.find((x) => x.seite) ?? b.fundstellen[0]
     // Kapitel unter „Chapter / Section", die Stelle darin unter „Paragraph / Line" (Nachtrag TXT#1)
     const ort = exportOrt(f)
@@ -380,6 +422,7 @@ export function datenstand(e: ExportEingabe): Datenstand {
     pruefer: e.pruefer,
     bibliothek: e.bibliothek,
     pruefungen: pruefungenAus(e.ampeln, e.paketGeprueft),
+    modelle: e.modelle?.trim() ?? '',
     haupt,
     dokumente: e.dokumente,
     befunde,
@@ -483,7 +526,7 @@ export function kennung(d: Datenstand): [string, string][] {
     [L.ident.library, d.bibliothek],
     [L.ident.masters, `${masters} (see “${L.sheets.sources}”)`],
     [L.ident.checks, pruefungenText(d)],
-    [L.ident.models, L.noModel],
+    [L.ident.models, d.modelle || L.noModel],
     [L.ident.overall, L.overall[d.gesamt]],
     [L.ident.exportId, d.exportId],
     [L.ident.versions, `InstructorConnect ${d.appVersion} · Layout ${d.layout}`],

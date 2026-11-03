@@ -388,7 +388,8 @@
     "groesser": "Zoom in",
     "schliessen": "Close",
     "fehler": "The page could not be displayed.",
-    "leer": "(page without text)"
+    "leer": "(page without text)",
+    "befund": "Finding {{id}}"
   },
   "suche": {
     "titel": "Search loaded documents",
@@ -417,6 +418,7 @@
     "laeuft": "Matching …",
     "ok": "Word PDF applied: page numbers are now exact",
     "nichtUebernommen": "Word PDF not applied — see note",
+    "zeit": "No response to the Word PDF matching for “{{name}}” — page numbers stay estimated. You can add the PDF again.",
     "warnung": {
       "abweichung": "PDF differs from the DOCX by {{prozent}} % — page numbers unchanged",
       "aelter": "PDF is older than the DOCX — page numbers unchanged",

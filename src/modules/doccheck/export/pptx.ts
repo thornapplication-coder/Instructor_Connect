@@ -188,7 +188,7 @@ export function folien(d: Datenstand): { praesentation: PptxGenJS; titel: string
     `${L.ident.checks}: ${pruefungenText(d)}`,
     `${L.ident.library}: ${d.bibliothek}`,
     `${L.ident.masters}: ${kuerzen(masters.map((x) => [x.titel || x.name, x.revision].filter(Boolean).join(' ')).join('; ') || '—', 160)}`,
-    `${L.ident.models}: ${L.noModel}`,
+    `${L.ident.models}: ${d.modelle || L.noModel}`,
   ])
 
   // 3 Overall Assessment: große Statusanzeige + Kennzahl-Kacheln

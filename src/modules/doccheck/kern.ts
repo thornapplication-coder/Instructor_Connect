@@ -152,6 +152,8 @@ export class Kern {
     return d && !d.pruefen ? this.regelwerkGeaendert() : []
   }
   private laufend = new Map<string, AbortController>()
+  /** Jüngste Word-PDF-Paarung je Dokument — eine ältere, die erst danach fertig wird, zählt nicht mehr (`paaren`) */
+  private paarLaeufe = new Map<string, number>()
   private referenzen: ReferenzListe[] = []
   /** Zuletzt gesetzter Schalterstand — gilt auch für Dokumente, die gerade noch gelesen werden. */
   private schalter: PruefSchalter | null = null
@@ -220,6 +222,7 @@ export class Kern {
     this.abbrechen(id)
     const warRegelwerk = this.docs.has(id) && !this.docs.get(id)!.pruefen
     this.docs.delete(id)
+    this.paarLaeufe.delete(id)
     this.index.entfernen(id)
     return warRegelwerk ? this.regelwerkGeaendert() : []
   }
@@ -271,13 +274,23 @@ export class Kern {
   async paaren(id: string, pdf: Uint8Array): Promise<Zusammenfassung | null> {
     const d = this.docs.get(id)
     if (!d || d.roh.format !== 'docx' || !d.roh.einheiten) return null
+    // Nach Ablauf der Wartezeit (`paarZeitgrenze`) kann der Nutzer erneut ein
+    // PDF dazulegen, während das erste noch gelesen wird. Wer zuletzt fertig
+    // wird, gewänne sonst — womöglich das ALTE PDF, während der Viewer schon
+    // das neue zeigt. Und ein inzwischen entferntes Dokument käme über den
+    // Suchindex zurück (Gegenprüfung Audit 11/2026, Runde 3).
+    const lauf = (this.paarLaeufe.get(id) ?? 0) + 1
+    this.paarLaeufe.set(id, lauf)
+    const veraltet = () => this.docs.get(id) !== d || this.paarLaeufe.get(id) !== lauf
     let pdfDok: Rohdokument
     try {
       pdfDok = await pdfLesen(pdf.slice(), await this.deps.pdfjs(), this.ablage)
     } catch {
+      if (veraltet()) return null
       d.pdfPaar = { abweichung: 1, warnung: 'lesefehler' }
       return this.fassen(id)
     }
+    if (veraltet()) return null
     const { schnitte, abweichung } = pdfZuordnung(d.roh.einheiten, pdfDok.pages.map((p) => p.text))
     const pdfZeit = pdfDatum(pdfDok.lenkung.eigenschaften.pdfDatum)
     const docxZeit = d.roh.word?.eigenschaften.modified ? Date.parse(d.roh.word.eigenschaften.modified) : NaN

@@ -33,6 +33,12 @@ describe('PowerPoint-Kurzbriefing (Spez. v1.1 Kap. 10.7)', async () => {
     expect(await folie(7)).toContain('To be assigned')
   })
 
+  it('Scope & Basis nennt die KI-Modelle des Stands, sonst „keine" (Audit 11/2026, EXP-12)', async () => {
+    expect(await folie(2)).toContain(`${LABELS.ident.models}: ${LABELS.noModel}`)
+    const ki = await JSZip.loadAsync(await pptxExport(datenstand(eingabe({ modelle: 'Testmodell' }))))
+    expect(await ki.file('ppt/slides/slide2.xml')!.async('string')).toContain(`${LABELS.ident.models}: Testmodell`)
+  })
+
   it('kürzt an der Grenze mit Verweis auf die ID, nie die Schrift', () => {
     expect(kuerzen('kurz', 10)).toBe('kurz')
     expect(kuerzen('a'.repeat(50), 20)).toBe(`${'a'.repeat(19)}…`)

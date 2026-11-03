@@ -105,6 +105,22 @@ interface Blatt {
   verbunden?: string[]
   filter?: string
   extras?: string
+  /** zugeklappte Spalten (Index ab 0) — als Gliederungsgruppe, nicht gelöscht */
+  zugeklappt?: number[]
+  /** schmale Seitenränder links/rechts (Excel-Vorgabe „Schmal", 0,25") — nur, wo die Breite die Schrift bestimmt */
+  schmal?: boolean
+}
+
+/**
+ * `<cols>` mit zugeklappten Spalten als Gliederung der Ebene 1: verborgen,
+ * und die Spalte rechts daneben trägt `collapsed` — dort sitzt in Excel das
+ * „+", das sie wieder aufklappt (summaryRight ist Vorgabe).
+ */
+function spaltenXml(b: Blatt): string {
+  const zu = new Set(b.zugeklappt ?? [])
+  return b.breiten
+    .map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}"${zu.has(i) ? ' hidden="1"' : ''} customWidth="1"${zu.has(i) ? ' outlineLevel="1"' : ''}${!zu.has(i) && zu.has(i - 1) ? ' collapsed="1"' : ''}/>`)
+    .join('')
 }
 
 function blattXml(b: Blatt, d: Datenstand): string {
@@ -117,13 +133,13 @@ function blattXml(b: Blatt, d: Datenstand): string {
     `<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>` +
     `<dimension ref="A1:${letzte}${n}"/>` +
     `<sheetViews><sheetView workbookViewId="0"${b.name === L.sheets.summary ? ' tabSelected="1"' : ''}>${pane}</sheetView></sheetViews>` +
-    `<sheetFormatPr defaultRowHeight="13.2"/>` +
-    `<cols>${b.breiten.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` +
+    `<sheetFormatPr defaultRowHeight="13.2"${b.zugeklappt?.length ? ' outlineLevelCol="1"' : ''}/>` +
+    `<cols>${spaltenXml(b)}</cols>` +
     `<sheetData>${zeilenXml(b.zeilen)}</sheetData>` +
     (b.filter ? `<autoFilter ref="${b.filter}"/>` : '') +
     (b.verbunden?.length ? `<mergeCells count="${b.verbunden.length}">${b.verbunden.map((r) => `<mergeCell ref="${r}"/>`).join('')}</mergeCells>` : '') +
     (b.extras ?? '') +
-    `<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.7" header="0.3" footer="0.3"/>` +
+    `<pageMargins left="${b.schmal ? 0.25 : 0.5}" right="${b.schmal ? 0.25 : 0.5}" top="0.6" bottom="0.7" header="0.3" footer="0.3"/>` +
     // Alle Blätter A4 quer (Kap. 10.4) — „Summary" druckte hochkant (Audit 11/2026, EXP-12)
     `<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>` +
     // Fußzeile nicht mitskalieren: „an Breite angepasst" verkleinert „Findings" stark, und die Fußzeile
@@ -134,6 +150,32 @@ function blattXml(b: Blatt, d: Datenstand): string {
 }
 
 const liste = (werte: string[]) => `"${werte.join(',')}"`
+
+/**
+ * Spalten von „Findings", die nur die KI-Prüfung füllt (Phase 4): Bezug aufs
+ * Regelwerk, Anforderung, Master-Zitat, Quelle, technische Einordnung. Die
+ * regelbasierten Prüfungen lassen sie leer — auch ein Regelwerksbefund nennt
+ * die Regel im Befundtext, nicht unter „Reference".
+ */
+export const KI_SPALTEN = ['Reference', 'Reference Type', 'Requirement (Summary)', 'Master Quote (verbatim)', 'Source (Library/Session)', 'Technical Type'] as const
+
+/**
+ * KI-Spalten, die „Findings" zugeklappt zeigt: nur ohne KI-Prüfung und nur,
+ * wenn die Spalte in JEDER Zeile leer ist (Index ab 0).
+ *
+ * Spez. 10.4 verlangt 24 feste Spalten und Druck „an Breite angepasst" —
+ * zusammen ergab das auf A4 quer rund 30 % der Schriftgröße, unlesbar (Audit
+ * 11/2026, EXP-12; Entscheidung des Nutzers vom 03.11.2026: „ohne leere
+ * KI-Spalten"). Ausgelegt so, dass die Datei die Spalten der Spezifikation
+ * behält: Sie bleiben in Reihenfolge und Kopf erhalten, zugeklappt als
+ * Gliederung, ein Klick auf „+" öffnet sie; Excel druckt verborgene Spalten
+ * nicht. Mit KI-Prüfung bleiben sie offen — eine leere Referenz ist dann
+ * eine Aussage —, ebenso eine Spalte, in der irgendetwas steht.
+ */
+export function ausgeblendeteSpalten(d: Pick<Datenstand, 'modelle' | 'befunde'>): number[] {
+  if (d.modelle) return []
+  return KI_SPALTEN.map((titel) => L.columns.indexOf(titel)).filter((i) => d.befunde.every((b) => !b.spalten[i]?.trim()))
+}
 
 /** Blatt „Findings": eine Zeile je Befund, Spalten fest (Kap. 10.4). */
 function findings(d: Datenstand): Blatt {
@@ -149,9 +191,14 @@ function findings(d: Datenstand): Blatt {
     .join('')
   return {
     name: L.sheets.findings,
-    breiten: [11, 22, 14, 16, 18, 8, 10, 40, 16, 12, 30, 30, 16, 16, 14, 10, 48, 48, 20, 18, 14, 14, 12, 11],
+    // Für den Druck auf eine Seitenbreite bemessen (EXP-12): Jedes Zeichen Breite kostet Schriftgröße,
+    // lange Texte brechen um. Untergrenzen: Kopfwörter fett ohne Trennung („Responsible", „Other
+    // Affected"), ein Datum ohne „####" unter „Due Date". Die KI-Spalten (I–M, O) bleiben, wie sie waren.
+    breiten: [10, 13, 10, 10, 13, 8, 10, 22, 16, 12, 30, 30, 16, 12, 14, 8, 26, 26, 14, 11, 10, 12, 10, 9],
+    schmal: true,
     kopf: 2,
     filter: `A2:${spaltenName(L.columns.length - 1)}${Math.max(2, n + 2)}`,
+    zugeklappt: ausgeblendeteSpalten(d),
     zeilen: [
       { zellen: [L.disclaimer], stil: S.hinweis },
       { zellen: L.columns, stil: S.kopf, hoehe: 30 },

@@ -101,7 +101,7 @@ export function pruefstandAus(d: Datenstand, userId: string, formate: string[], 
     // Steuerzeichen fallen wie beim Einfrieren weg (SEC-04) — sonst stünde der Name hier anders als im Bericht
     reviewer: herkunft ? ohneSteuerzeichen({ ...herkunft.reviewer }) : { userId, name: d.pruefer.name, function: d.pruefer.funktion },
     // Was an diesem Stand wirklich lief (EXP-01/DC-12) — bisher die feste Liste aller Prüfungen
-    settings: { checks: d.pruefungen, model: '', language: 'en' },
+    settings: { checks: d.pruefungen, model: d.modelle, language: 'en' },
     documents: d.dokumente.map((x) => ({ id: x.id, role: x.rolle, fileName: x.name, sha256: x.sha256, docType: x.typ, title: x.titel, docNumber: x.nummer, revision: x.revision, date: x.datum, rank: x.rang, pages: x.seiten })),
     findings: d.befunde.map((b) => {
       const f = Object.fromEntries(FELDER.map((k, i) => [k, b.spalten[i]])) as unknown as PruefstandBefund
@@ -234,6 +234,8 @@ export function datenstandAus(p: Pruefstand, datum: string, laufnummer: number, 
     exportId: exportId(datum, laufnummer),
     layout: EXPORT_LAYOUT_VERSION,
     pruefungen: p.settings.checks,
+    // Lief eine KI-Prüfung, bleiben ihre Spalten im Excel offen, auch wenn sie leer sind (EXP-12)
+    modelle: p.settings.model.trim(),
     befunde,
     zuPruefen: befunde.filter((b) => b.verifizierung.startsWith('To verify')).length,
     ampeln: p.formalChecks.map((a) => ({ dokument: a.document, gruppe: a.group, punkt: a.check, ampel: zurueck[a.status] })),

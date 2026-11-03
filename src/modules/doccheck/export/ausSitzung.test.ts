@@ -3,10 +3,10 @@ import { feldSetzen, fertig, LEER, neu, type SitzungsDok } from '../sitzung'
 import type { Zusammenfassung } from '../kern'
 import type { Befund } from '../pruefung/befund'
 import { befund } from './beispiel'
-import { exportDokumente, exportEingabe, exportZeitpunkt, LAUF_KEY, naechsteLaufnummer, pflichtLuecken, prueferAus } from './ausSitzung'
+import { befundIdsAusSitzung, befundTabelle, exportBefunde, exportDokumente, exportEingabe, exportZeitpunkt, LAUF_KEY, naechsteLaufnummer, pflichtLuecken, prueferAus } from './ausSitzung'
 import app from '../../../i18n/en.json' with { type: 'json' }
 import appDe from '../../../i18n/de.json' with { type: 'json' }
-import { datenstand, kennung, LABELS } from './datenstand'
+import { befundSchluessel, datenstand, kennung, LABELS } from './datenstand'
 
 const felder = { typ: 'TM', titel: 'Training Manual', nummer: 'TM-1', revision: 'Rev 1', datum: '2026-10-01', rang: '2' }
 const doc = (id: string, rolle: 'review' | 'master', x: Partial<SitzungsDok> = {}, befunde: Befund[] = []): SitzungsDok =>
@@ -75,6 +75,52 @@ describe('Sitzung → Export-Datenstand', () => {
     expect(d.befunde.map((b) => b.id)).toEqual(['TM-001', 'DOC2-001'])
     expect([...new Set(d.ampeln.map((a) => a.dokument))]).toEqual(['Training Manual', 'Appendix 4', 'Appendix 10', 'Annex 2A'])
     expect(datenstand(exportEingabe(basis)).haupt?.id).toBe('anx')
+  })
+
+  it('Befund-IDs der Oberfläche = IDs des Exports aus derselben Sitzung, auch im Paketmodus (Audit 11/2026, DC-10/UID-07/TXT-03)', () => {
+    // Vorher: Tabelle „F-01" je Dokument, Export „TM-001"/„DOC2-001" — der Befund aus dem Bericht war am Bildschirm nicht zu finden
+    const angaben = (kuerzel: string, ebene: number) => ({ paket: { kuerzel, ebene, gruppe: '', variante: '', erkannt: false } })
+    const mit = (b: Befund) => ({ ...b, text: `${b.dokId} ${b.id}` })
+    const docs = [
+      doc('anx', 'review', { ...angaben('ANX 2A', 3), felder: { ...felder, typ: '', titel: 'Annex 2A', nummer: '' } }, [mit(befund('F-01', 'anx'))]),
+      doc('m', 'master'),
+      doc('tm', 'review', angaben('TM', 1), [mit(befund('F-01', 'tm')), mit(befund('C-01', 'tm', { quelle: 'rechnen', prioritaet: 'High' }))]),
+      doc('apx', 'review', { ...angaben('APX 4', 2), felder: { ...felder, typ: '', titel: 'Appendix 4', nummer: '' } }, [mit(befund('F-01', 'apx'))]),
+      // Noch nicht fertig gelesen: weder im Export noch in der Tabelle
+      doc('liest', 'review', { status: 'liest' }, [mit(befund('F-01', 'liest'))]),
+    ]
+    const paketBefunde = [mit(befund('P-01', 'anx', { quelle: 'paket' }))]
+    const basis = { docs, paketBefunde, paketGeprueft: true, datum: '2026-11-01T10:00:00Z', laufnummer: 1, appVersion: '1', organisation: '', pruefer: { name: '', funktion: '' }, bibliothek: '' }
+    for (const paketModus of [false, true]) {
+      const ids = befundIdsAusSitzung({ docs, paketModus, paketBefunde })
+      const s = datenstand(exportEingabe({ ...basis, paketModus }))
+      // Jede Zeile der Tabelle (exportBefunde) hat ihre ID, und es ist die der Exportzeile mit demselben Befund
+      const tabelle = exportBefunde(docs, paketBefunde)
+      expect(tabelle.map((b) => b.dokId)).toEqual(['anx', 'tm', 'tm', 'apx', 'anx'])
+      for (const b of tabelle) expect(s.befunde.find((x) => x.id === ids.get(befundSchluessel(b)))?.spalten[16]).toBe(b.text)
+      expect(ids.size).toBe(s.befunde.length)
+    }
+    // Die IDs folgen der Export-Reihenfolge: ohne Paketmodus die des Hochladens (Annex DOC1), im
+    // Paketmodus die Paketstruktur (Appendix auf Ebene 2 vor dem Annex auf Ebene 3 → DOC1)
+    const id = (paketModus: boolean, dokId: string, regel: string) => befundIdsAusSitzung({ docs, paketModus, paketBefunde }).get(befundSchluessel({ dokId, id: regel }))
+    expect([id(false, 'anx', 'F-01'), id(false, 'apx', 'F-01'), id(false, 'anx', 'P-01')]).toEqual(['DOC1-001', 'DOC2-001', 'DOC1-002'])
+    expect([id(true, 'anx', 'F-01'), id(true, 'apx', 'F-01'), id(true, 'anx', 'P-01')]).toEqual(['DOC2-001', 'DOC1-001', 'DOC2-002'])
+    // Seite gleich, High vor Medium: C-01 vor F-01
+    expect([id(true, 'tm', 'C-01'), id(true, 'tm', 'F-01')]).toEqual(['TM-001', 'TM-002'])
+
+    // Die Tabelle: wichtigste zuerst, bei gleicher Priorität in Export-Reihenfolge wie „Top 5" im
+    // Bericht — vorher nach Dokumentname und Prüfpunkt, mit Export-IDs stand „DOC4-002" vor „DOC4-001"
+    // (Gegenprüfung Audit 11/2026, DC-10). Ein Low im TM, damit sich das von der Export-Reihenfolge unterscheidet.
+    const mitLow = docs.map((d) => (d.id === 'tm' ? doc('tm', 'review', angaben('TM', 1), [mit(befund('F-01', 'tm', { prioritaet: 'Low' })), mit(befund('C-01', 'tm', { quelle: 'rechnen', prioritaet: 'High' }))]) : d))
+    for (const paketModus of [false, true]) {
+      const zeilen = befundTabelle({ docs: mitLow, paketModus, paketBefunde })
+      const s = datenstand(exportEingabe({ ...basis, docs: mitLow, paketModus }))
+      expect(zeilen.map((z) => z.id)).toEqual(s.top5)
+      const ids = befundIdsAusSitzung({ docs: mitLow, paketModus, paketBefunde })
+      for (const z of zeilen) expect(ids.get(befundSchluessel(z.befund))).toBe(z.id)
+    }
+    expect(befundTabelle({ docs: mitLow, paketModus: true, paketBefunde }).map((z) => z.id)).toEqual(['TM-001', 'DOC1-001', 'DOC2-001', 'DOC2-002', 'TM-002'])
+    expect(befundTabelle({ docs: mitLow, paketModus: false, paketBefunde }).map((z) => z.id)).toEqual(['TM-001', 'DOC1-001', 'DOC1-002', 'DOC2-001', 'TM-002'])
   })
 
   it('Prüfer: Funktion nur, wenn eingetragen — nie die App-Rolle (Audit 11/2026, EXP-13)', () => {

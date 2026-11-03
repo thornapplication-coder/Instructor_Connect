@@ -197,6 +197,26 @@ describe('Abnahme N5.3: SBX-PAGE-01 — Seitenangaben bei DOCX', async () => {
     expect(await k.paaren('q', sbx.pdf)).toBeNull()
     expect(await k.paaren('fehlt', sbx.pdf)).toBeNull()
   })
+
+  it('nur die jüngste Paarung zählt; ein entferntes Dokument kommt nicht zurück (Gegenprüfung Audit 11/2026, Runde 3)', async () => {
+    // Nach der Zeitgrenze darf der Nutzer erneut ein PDF dazulegen, während das erste noch gelesen
+    // wird. Vorher gewann, wer zuletzt fertig wurde — auch das alte PDF neben dem neuen im Viewer.
+    const k = kern()
+    await k.lesen({ id: 'p', name: 'x.docx', daten: sbx.docx })
+    const fremd = pdfBauen([{ texte: umbrechen('Something entirely different that is not in the document at all').map((t, i) => ({ text: t, x: 50, y: 800 - i * 18 })) }])
+    const [alt, neu] = await Promise.all([k.paaren('p', sbx.pdf), k.paaren('p', fremd)])
+    expect(alt).toBeNull()
+    expect(neu).toMatchObject({ seitenQuelle: 'toc_mapping', pdfPaar: { warnung: 'abweichung' } })
+    // Auch ein kaputtes PDF meldet als überholter Lauf nichts mehr
+    const [kaputt, gut] = await Promise.all([k.paaren('p', new TextEncoder().encode('%PDF-1.4 kaputt')), k.paaren('p', sbx.pdf)])
+    expect(kaputt).toBeNull()
+    expect(gut).toMatchObject({ seitenQuelle: 'pdf_pair' })
+    // Entfernt, während das PDF gelesen wird: keine Antwort, und die Suche findet es nicht wieder
+    const lauf = k.paaren('p', sbx.pdf)
+    k.entfernen('p')
+    expect(await lauf).toBeNull()
+    expect(k.suchen(sbx.stichproben[0].text)).toEqual([])
+  })
 })
 
 describe('Bausteine der Testdateien', () => {

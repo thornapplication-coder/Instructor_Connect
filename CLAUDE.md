@@ -218,6 +218,15 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   `nachgereicht` markiert — die Word-PDF-Paarung sucht sie, schiebt aber
   den Lesezeiger nicht weiter: Im PDF steht die Fußnote am Seitenfuß, und
   die nächste Überschrift fand sich sonst nur noch im Inhaltsverzeichnis.
+  Auf die Paarung wartet `pdfDazulegen` höchstens `paarZeitgrenze` (60 s
+  plus 4 s je MB, höchstens 10 min) — vorher hing „Gleiche ab …" für immer,
+  wenn der Worker nicht antwortete. Danach bleibt das DOCX mit geschätzten
+  Seiten nutzbar, die Oberfläche sagt es, und eine späte Antwort übernimmt
+  der dauerhafte `beiOcr`-Hörer wie jede andere (Audit 11/2026, Runde 3).
+  Weil danach ein zweites PDF dazukommen kann, zählt im Kern nur die
+  jüngste Paarung (`Kern.paaren`) — sonst gewann, wer zuletzt fertig
+  wurde. Verlässt das Dokument die Sitzung, endet das Warten sofort ohne
+  Meldung (`'entfernt'`).
 - **Testdokumente sind synthetisch:** `benchmark/sbx.ts` erzeugt die
   Abnahmedateien des Nachtrags (`SBX-…`) aus Code; `parse/pdfBauen.ts` erzeugt PDFs aus
   Text, DOCX/XLSX entstehen in den Tests mit jszip.
@@ -358,12 +367,27 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   Datenstand (`datenstand.ts`), aus dem Excel, Word, CSV, PowerPoint und
   Prüfstand entstehen — wer einen Wert in einem Format selbst ausrechnet,
   baut die zweite Wahrheit. Befund-IDs sind über Dokumente eindeutig
-  (`TM-001`, `TM2-001`, `PKG-001`), Sortierung Dokument → Seite → Priorität.
-  Alles englisch aus `labels.en.json` bzw. dem englischen Sprachpaket,
-  unabhängig von der Oberfläche. Excel von Hand wie das Rückschreiben
+  (`TM-001`, `TM2-001`, `PKG-001`), Sortierung Dokument → Seite → Priorität,
+  und die Oberfläche zeigt dieselben IDs (Befundtabelle, Viewer):
+  `befundIds`/`befundIdsAusSitzung` lesen dieselbe Rechnung wie
+  `datenstand()`; die Tabelle ordnet wichtigste zuerst und sonst in
+  Export-Reihenfolge wie „Top 5" (`befundTabelle`), damit „DOC4-002" nicht
+  vor „DOC4-001" steht. Die Regel-ID der Prüfung („F-01" je Dokument) steht nicht
+  mehr am Bildschirm — „TM-003" aus dem Bericht war dort nicht zu finden
+  (Entscheidung vom 03.11.2026, Audit 11/2026, DC-10). Die „Neuen Findings"
+  des Re-Checks behalten die Nummern der Fremdliste. Alles englisch aus
+  `labels.en.json` bzw. dem englischen Sprachpaket, unabhängig von der
+  Oberfläche. Excel von Hand wie das Rückschreiben
   (COUNTIFS mit mitgeliefertem Ergebnis, Dropdowns, Zeilenfarbe nach
   Priorität, Druck A4 quer mit Fußzeile); gleiche Eingabe → byte-gleiche
-  Datei (JSZip `createFolders: false`, sonst Ordner mit Uhrzeit). Word mit
+  Datei (JSZip `createFolders: false`, sonst Ordner mit Uhrzeit). Spez.
+  10.4 (24 feste Spalten, „an Breite angepasst") ist so ausgelegt: Ohne
+  KI-Prüfung (`modelle` leer) klappt „Findings" die KI-Spalten I–M und O
+  zu, sofern sie in allen Zeilen leer sind — als Gliederung, die Datei
+  behält alle 24, Excel druckt sie nicht (`ausgeblendeteSpalten`). Die
+  sichtbaren Breiten sind für den Druck bemessen (höchstens 240 Zeichen,
+  schmale Ränder); in LibreOffice nachgemessen druckt das Blatt mit 6,2 statt
+  2,9 pt (Entscheidung vom 03.11.2026, EXP-12). Word mit
   `docx`, PowerPoint mit `pptxgenjs` — beide NUR per `import()` in
   `ausgabe.ts`, also nie im Startbundle. Word ohne Inhaltsverzeichnis-FELD
   (Aktualisierungsdialog); Links auf Textmarken. Gesamtbewertung ist ein

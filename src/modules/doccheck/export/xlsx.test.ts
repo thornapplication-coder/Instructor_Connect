@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { xlsxTabellen } from '../parse/xlsx'
 import { datenstand, fussText, LABELS } from './datenstand'
 import { dok, eingabe } from './beispiel'
-import { fusszeile, FUSSZEILE_MAX, spaltenName, STYLES, xlsxExport, zeilenHoehe } from './xlsx'
+import { ausgeblendeteSpalten, fusszeile, FUSSZEILE_MAX, KI_SPALTEN, spaltenName, STYLES, xlsxExport, zeilenHoehe } from './xlsx'
 
 const teile = async (d: Uint8Array) => {
   const zip = await JSZip.loadAsync(d)
@@ -174,5 +174,87 @@ describe('Excel im Projektformat (Spez. v1.1 Kap. 10.4)', async () => {
       expect(x).toContain('<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>')
       expect(x).toContain('<headerFooter scaleWithDoc="0"><oddFooter>')
     }
+  })
+})
+
+/**
+ * Audit 11/2026, EXP-12 Teil 3: 24 Spalten auf eine Seitenbreite druckten
+ * „Findings" auf rund 30 % verkleinert (LibreOffice nachgemessen: 2,9 pt
+ * Schrift). Entscheidung des Nutzers vom 03.11.2026: ohne leere KI-Spalten.
+ * Sie bleiben in der Datei, zugeklappt als Gliederung — Spez. 10.4 bleibt
+ * vollständig, Excel druckt sie nicht.
+ */
+describe('Findings ohne leere KI-Spalten im Druck', async () => {
+  /** `<col>` je Spalte von „Findings" (Index ab 0) */
+  const spalten = async (x: Parameters<typeof xlsxExport>[0]) => {
+    const s = (await teile(await xlsxExport(x)))['xl/worksheets/sheet2.xml']
+    return { s, cols: [...s.matchAll(/<col [^>]*\/>/g)].map((m) => m[0]) }
+  }
+  const zu = (cols: string[]) => cols.flatMap((c, i) => (c.includes('hidden="1"') ? [spaltenName(i)] : []))
+  const d = datenstand(eingabe())
+
+  it('die KI-Spalten sind I–M und O — Reference bis Source, Technical Type', () => {
+    expect(KI_SPALTEN.map((k) => spaltenName(LABELS.columns.indexOf(k)))).toEqual(['I', 'J', 'K', 'L', 'M', 'O'])
+  })
+
+  it('ohne KI-Prüfung und leer: zugeklappt als Gliederung; Kopf und Zellen aller 24 Spalten bleiben', async () => {
+    expect(ausgeblendeteSpalten(d)).toEqual([8, 9, 10, 11, 12, 14])
+    const { s, cols } = await spalten(d)
+    expect(cols).toHaveLength(24)
+    expect(zu(cols)).toEqual(['I', 'J', 'K', 'L', 'M', 'O'])
+    for (const i of [8, 9, 10, 11, 12, 14]) expect(cols[i]).toContain('outlineLevel="1"')
+    // Das „+" zum Aufklappen sitzt rechts neben der Gruppe
+    expect([13, 15].map((i) => cols[i].includes('collapsed="1"'))).toEqual([true, true])
+    expect(cols.filter((c) => c.includes('collapsed'))).toHaveLength(2)
+    expect(s).toContain('<sheetFormatPr defaultRowHeight="13.2" outlineLevelCol="1"/>')
+    // Eingabespalten (Responsible, Due Date, Status) und Revision Status bleiben sichtbar
+    for (const k of ['Revision Status', 'Responsible', 'Due Date', 'Status', 'Verification', 'Priority', 'Category']) expect(cols[LABELS.columns.indexOf(k)]).not.toContain('hidden')
+    // Die Datei behält alle 24 Spalten der Spezifikation: Kopf und Filter unverändert
+    const f = (await xlsxTabellen(await xlsxExport(d)))[1].zeilen
+    expect(f[1]).toEqual(LABELS.columns)
+    expect(s).toContain('<autoFilter ref="A2:X7"/>')
+  })
+
+  it('eine KI-Spalte mit Inhalt bleibt offen — auch ohne KI-Prüfung', async () => {
+    // Etwa aus einem Prüfstand einer späteren Fassung: Was dasteht, wird gedruckt
+    const mitRef = { ...d, befunde: d.befunde.map((b, i) => (i === 2 ? { ...b, spalten: b.spalten.map((c, k) => (k === 8 ? 'ORA.ATO.230' : c)) } : b)) }
+    expect(ausgeblendeteSpalten(mitRef)).toEqual([9, 10, 11, 12, 14])
+    expect(zu((await spalten(mitRef)).cols)).toEqual(['J', 'K', 'L', 'M', 'O'])
+    // Nur Leerraum zählt als leer
+    expect(ausgeblendeteSpalten({ ...d, befunde: d.befunde.map((b) => ({ ...b, spalten: b.spalten.map((c, k) => (k === 14 ? '  ' : c)) })) })).toContain(14)
+  })
+
+  it('mit KI-Prüfung bleiben alle Spalten offen, auch leere — und die Kennung nennt das Modell', async () => {
+    const ki = datenstand(eingabe({ modelle: 'Testmodell' }))
+    expect(ausgeblendeteSpalten(ki)).toEqual([])
+    const { s, cols } = await spalten(ki)
+    expect(zu(cols)).toEqual([])
+    expect(s).not.toContain('outlineLevel')
+    expect(s).toContain('<sheetFormatPr defaultRowHeight="13.2"/>')
+    const z = (await xlsxTabellen(await xlsxExport(ki)))[0].zeilen
+    expect(z.find((r) => r[0] === LABELS.ident.models)![1]).toBe('Testmodell')
+    expect((await xlsxTabellen(await xlsxExport(d)))[0].zeilen.find((r) => r[0] === LABELS.ident.models)![1]).toBe(LABELS.noModel)
+  })
+
+  it('0 Befunde: KI-Spalten zugeklappt, die Datei bleibt gültig', async () => {
+    const leer = datenstand(eingabe({ befunde: [] }))
+    expect(zu((await spalten(leer)).cols)).toEqual(['I', 'J', 'K', 'L', 'M', 'O'])
+  })
+
+  it('die übrigen Blätter: nichts zugeklappt, Ränder wie bisher', async () => {
+    const t = await teile(await xlsxExport(d))
+    for (const n of [1, 3, 4]) {
+      expect(t[`xl/worksheets/sheet${n}.xml`]).not.toMatch(/hidden="1"|outlineLevel/)
+      expect(t[`xl/worksheets/sheet${n}.xml`]).toContain('<pageMargins left="0.5" right="0.5"')
+    }
+  })
+
+  it('sichtbare Breite von „Findings" höchstens 240 Zeichen, schmale Ränder', async () => {
+    // Nachgemessen (LibreOffice → PDF, A4 quer): 468 Zeichen druckten mit 2,9 pt, die 234 sichtbaren
+    // jetzt mit 6,2 pt. Jede Spalte, die breiter wird, kostet Schrift — die Grenze macht das sichtbar.
+    const { s, cols } = await spalten(d)
+    const sichtbar = cols.filter((c) => !c.includes('hidden')).reduce((n, c) => n + Number(c.match(/width="([\d.]+)"/)![1]), 0)
+    expect(sichtbar).toBeLessThanOrEqual(240)
+    expect(s).toContain('<pageMargins left="0.25" right="0.25"')
   })
 })

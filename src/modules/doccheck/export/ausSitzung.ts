@@ -1,8 +1,8 @@
 import { lokalIso } from '../../../datum'
-import { lesestand, type Befund } from '../pruefung/befund'
+import { lesestand, PRIO_RANG, type Befund } from '../pruefung/befund'
 import { offenePflichtfelder, type Feld, type SitzungsDok } from '../sitzung'
 import { paketVergleich } from '../paket/struktur'
-import type { ExportDokument, ExportEingabe } from './datenstand'
+import { befundIds, befundSchluessel, type ExportDokument, type ExportEingabe } from './datenstand'
 
 /**
  * Brücke von der Sitzung zum Export-Datenstand. Rein, damit testbar, was
@@ -127,6 +127,44 @@ export function pflichtLuecken(docs: SitzungsDok[], paketModus = false): Pflicht
     })
 }
 
+/**
+ * Befunde, die in den Export gehen: die der fertig geprüften
+ * Prüfdokumente (mit deren Namen) und die Paketbefunde. Dieselbe Menge
+ * zeigt die Befundtabelle — sonst hätte eine Zeile keine Export-ID.
+ */
+export function exportBefunde(docs: SitzungsDok[], paketBefunde: Befund[]): Befund[] {
+  const pruef = docs.filter((d) => d.rolle === 'review' && d.status === 'fertig' && d.z?.pruefung)
+  return [...pruef.flatMap((d) => d.z!.pruefung!.befunde.map((b) => ({ ...b, dokName: d.felder.titel || d.name }))), ...paketBefunde]
+}
+
+/**
+ * Export-ID je Befund der laufenden Sitzung (`befundSchluessel` → „TM-003")
+ * — aus demselben Stand, den „Exportieren" jetzt einfröre: dieselben
+ * Dokumente in derselben Reihenfolge (im Paketmodus nach Paketstruktur),
+ * dieselben Befunde (Audit 11/2026, DC-10/UID-07/TXT-03).
+ */
+export function befundIdsAusSitzung(a: { docs: SitzungsDok[]; paketModus?: boolean; paketBefunde: Befund[] }): Map<string, string> {
+  return befundIds({ dokumente: exportDokumente(a.docs, a.paketModus), befunde: exportBefunde(a.docs, a.paketBefunde) })
+}
+
+/**
+ * Zeilen der Befundtabelle: jeder Befund des Exports mit seiner Export-ID,
+ * wichtigste zuerst und bei gleicher Priorität in Export-Reihenfolge — wie
+ * „Top 5" im Bericht. Die Tabelle ordnete nach Dokumentname und Prüfpunkt;
+ * mit Export-IDs stand dann „DOC4-002" vor „DOC4-001", und wer „TM-003"
+ * aus dem Bericht suchte, fand keine Reihenfolge, an der er sich entlang
+ * lesen konnte (Gegenprüfung Audit 11/2026, DC-10).
+ */
+export function befundTabelle(a: { docs: SitzungsDok[]; paketModus?: boolean; paketBefunde: Befund[] }): { befund: Befund; id: string }[] {
+  const ids = befundIdsAusSitzung(a)
+  // Die Map steht in Export-Reihenfolge (`befundIds` liest sie aus der sortierten Liste)
+  const reihe = new Map([...ids.keys()].map((k, i) => [k, i]))
+  return exportBefunde(a.docs, a.paketBefunde)
+    .map((befund) => ({ befund, id: ids.get(befundSchluessel(befund))!, i: reihe.get(befundSchluessel(befund))! }))
+    .sort((x, y) => PRIO_RANG[x.befund.prioritaet] - PRIO_RANG[y.befund.prioritaet] || x.i - y.i)
+    .map(({ befund, id }) => ({ befund, id }))
+}
+
 export function exportEingabe(a: {
   docs: SitzungsDok[]
   /** Prüfen als Paket — ordnet die Prüfdokumente nach der Paketstruktur (EXP-08) */
@@ -151,7 +189,7 @@ export function exportEingabe(a: {
     pruefer: a.pruefer,
     bibliothek: a.bibliothek,
     dokumente: exportDokumente(a.docs, a.paketModus),
-    befunde: [...pruef.flatMap((d) => d.z!.pruefung!.befunde.map((b) => ({ ...b, dokName: d.felder.titel || d.name }))), ...a.paketBefunde],
+    befunde: exportBefunde(a.docs, a.paketBefunde),
     // Nur Gruppen, die gelaufen sind — daraus entsteht auch „Checks performed" (EXP-01/DC-12)
     ampeln: pruef.map((d) => ({ dokId: d.id, gruppen: Object.fromEntries(Object.entries(d.z!.pruefung!.ampel).filter(([, v]) => v && Object.keys(v).length)) as ExportEingabe['ampeln'][number]['gruppen'] })),
     // Ein Scan ohne Texterkennung ist nicht „ready" (DC-03)

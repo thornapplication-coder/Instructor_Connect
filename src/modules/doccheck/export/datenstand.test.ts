@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ampelMatrix, dateiStamm, datenstand, dokumentAngabe, dokumentKurz, exportId, fundort, FUSS_MAX, fussText, gesamtVorschlag, kennung, LABELS, ohneSteuerzeichen, praefixe, pruefungenAus, revisionAngabe, revisionKurz, seitenZahl, STAMM_DOKUMENT_MAX, STAMM_REVISION_MAX } from './datenstand'
+import { ampelMatrix, befundIds, befundSchluessel, dateiStamm, datenstand, dokumentAngabe, dokumentKurz, exportId, fundort, FUSS_MAX, fussText, gesamtVorschlag, kennung, LABELS, ohneSteuerzeichen, praefixe, pruefungenAus, revisionAngabe, revisionKurz, seitenZahl, STAMM_DOKUMENT_MAX, STAMM_REVISION_MAX } from './datenstand'
 import { befund, dok, eingabe } from './beispiel'
 import { VOLL_GELESEN } from '../pruefung/befund'
 import { dateiLesen } from '../parse/lesen'
@@ -189,6 +189,63 @@ describe('Befund-IDs: Präfixe je Dokument (Audit 11/2026, EXP-09)', () => {
     const s = datenstand(eingabe({ dokumente: ['TM', 'TM', 'TM2', 'PKG'].map((typ, i) => dok(`d${i}`, 'review', { typ })), befunde: [...['d0', 'd1', 'd2', 'd3'].map((d) => befund('F-01', d)), befund('P-01', 'paket')] }))
     expect(new Set(s.befunde.map((b) => b.id)).size).toBe(5)
     expect(s.befunde.at(-1)!.id).toBe('PKG-001')
+  })
+})
+
+/**
+ * Audit 11/2026, DC-10/UID-07/TXT-03: Die Oberfläche zeigte „F-01" je
+ * Dokument, der Bericht „TM-003" über alle Dokumente — wer einen Befund aus
+ * Excel oder Word am Bildschirm suchte, fand ihn nicht. `befundIds` liefert
+ * der Oberfläche die Export-ID aus derselben Rechnung wie `datenstand()`.
+ */
+describe('Befund-IDs der Oberfläche = Befund-IDs des Exports', () => {
+  /** Je Eingabebefund: Export-ID laut `befundIds` → Zeile des Datenstands mit derselben ID */
+  const gleich = (e: ReturnType<typeof eingabe>) => {
+    const ids = befundIds(e)
+    const s = datenstand(e)
+    expect(ids.size).toBe(e.befunde.length)
+    expect([...ids.values()].sort()).toEqual(s.befunde.map((b) => b.id).sort())
+    for (const b of e.befunde) {
+      const zeile = s.befunde.find((x) => x.id === ids.get(befundSchluessel(b)))
+      expect(zeile, `${b.dokId}/${b.id}`).toBeDefined()
+      expect([zeile!.dokId, zeile!.spalten[16]]).toEqual([b.dokId, b.text])
+    }
+    return ids
+  }
+
+  it('mehrere Dokumente, Paket, gleiche Regel-ID in zwei Dokumenten', () => {
+    // Texte eindeutig, damit die Zeile am Inhalt erkennbar ist — „Finding F-01" stünde zweimal da
+    const mitText = (b: ReturnType<typeof befund>) => ({ ...b, text: `${b.dokId} ${b.id}` })
+    const e = eingabe({
+      befunde: [
+        befund('F-01', 'tm', { fundstellen: [{ seite: 'S. 9', auszug: 'x' }] }),
+        befund('F-01', 'apx', { prioritaet: 'Low' }),
+        befund('F-02', 'tm', { prioritaet: 'High', fundstellen: [{ seite: 'S. 9', auszug: 'y' }] }),
+        befund('C-01', 'tm', { quelle: 'rechnen', fundstellen: [{ seite: 'S. 1', auszug: 'z' }] }),
+        // Hierarchiebefund beim tieferen Dokument (Paketprüfung, dokId des Dokuments) und einer ohne Dokument
+        befund('P-01', 'apx', { quelle: 'paket' }),
+        befund('P-02', 'paket', { quelle: 'paket' }),
+      ].map(mitText),
+    })
+    const ids = gleich(e)
+    // Seite vor Priorität, das zweite TM heißt TM2, ohne Dokument PKG
+    expect(Object.fromEntries([...ids].map(([k, v]) => [JSON.parse(k).join('/'), v]))).toEqual({
+      'tm/C-01': 'TM-001',
+      'tm/F-02': 'TM-002',
+      'tm/F-01': 'TM-003',
+      'apx/P-01': 'TM2-001',
+      'apx/F-01': 'TM2-002',
+      'paket/P-02': 'PKG-001',
+    })
+  })
+
+  it('auch für den Beispielstand und Dokumente ohne Typ (DOCn)', () => {
+    gleich(eingabe())
+    gleich(eingabe({ dokumente: ['', 'TM', ''].map((typ, i) => dok(`d${i}`, 'review', { typ })), befunde: ['d2', 'd0', 'd1', 'd2'].map((d, i) => ({ ...befund(i === 3 ? 'F-02' : 'F-01', d), text: `${d}-${i}` })) }))
+  })
+
+  it('der Schlüssel trennt Dokument und Regel-ID eindeutig', () => {
+    expect(befundSchluessel({ dokId: 'a:b', id: 'c' })).not.toBe(befundSchluessel({ dokId: 'a', id: 'b:c' }))
   })
 })
 

@@ -108,10 +108,11 @@ export interface Pruefergebnis {
   ampel: Record<string, Ampel>
 }
 
-const RANG: Record<Prioritaet, number> = { High: 0, Medium: 1, Low: 2 }
+/** Wichtigste zuerst — für jede Ordnung nach Priorität */
+export const PRIO_RANG: Record<Prioritaet, number> = { High: 0, Medium: 1, Low: 2 }
 
 export function sortieren(b: Befund[]): Befund[] {
-  return [...b].sort((x, y) => RANG[x.prioritaet] - RANG[y.prioritaet] || x.dokName.localeCompare(y.dokName) || x.pruefpunkt.localeCompare(y.pruefpunkt))
+  return [...b].sort((x, y) => PRIO_RANG[x.prioritaet] - PRIO_RANG[y.prioritaet] || x.dokName.localeCompare(y.dokName) || x.pruefpunkt.localeCompare(y.pruefpunkt))
 }
 
 /** Ampel aus Befunden für eine feste Liste von Prüfpunkten. */

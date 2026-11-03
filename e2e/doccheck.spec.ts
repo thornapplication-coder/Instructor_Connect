@@ -25,8 +25,11 @@ test('Einlesen → Befund per Tastatur → Viewer hält und gibt den Fokus zurü
   await expect(page.getByRole('tab', { name: 'Befunde' })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('tab', { name: 'Befunde' })).toBeFocused()
 
-  // Befundzeile per Tastatur aufklappen — vorher nur mit der Maus erreichbar
-  const knopf = page.getByRole('button', { name: /^Befund C-\d+: Fundstellen anzeigen$/ }).first()
+  // Befundzeile per Tastatur aufklappen — vorher nur mit der Maus erreichbar. Die Zeile
+  // trägt die Export-ID („CALC-001"), nicht mehr die Regel-ID „C-01" je Dokument (Audit 11/2026, DC-10)
+  const knopf = page.getByRole('button', { name: /^Befund [A-Z0-9]+-\d{3}: Fundstellen anzeigen$/ }).first()
+  const id = (await knopf.textContent())!.trim()
+  expect(id).toMatch(/^[A-Z0-9]+-\d{3}$/)
   await knopf.focus()
   await page.keyboard.press('Enter')
   await expect(knopf).toHaveAttribute('aria-expanded', 'true')
@@ -36,6 +39,8 @@ test('Einlesen → Befund per Tastatur → Viewer hält und gibt den Fokus zurü
   await page.keyboard.press('Enter')
   const viewer = page.getByRole('dialog', { name: 'Dokument ansehen' })
   await expect(viewer).toBeVisible()
+  // Der Viewer nennt den Befund, von dem er kommt — mit derselben ID
+  await expect(viewer.getByText(`Befund ${id}`, { exact: true })).toBeVisible()
   await expect.poll(() => page.evaluate(() => !!document.activeElement?.closest('[role=dialog]'))).toBe(true)
   await page.keyboard.press('Escape')
   await expect(viewer).toHaveCount(0)
@@ -57,6 +62,13 @@ test('Export: CSV mit BOM und denselben IDs wie die Excel-Datei; Prüfstand spei
   const [xlsx] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /^Excel/ }).click()])
   const blatt = await (await JSZip.loadAsync(readFileSync((await xlsx.path())!))).file('xl/worksheets/sheet2.xml')!.async('string')
   for (const id of csvIds) expect(blatt).toContain(`>${id}<`)
+
+  // ID in der Tabelle = ID im Excel/CSV: vorher „C-01" am Bildschirm, „CALC-001" im Bericht (Audit 11/2026, DC-10/UID-07/TXT-03)
+  await page.getByRole('tab', { name: 'Befunde' }).click()
+  const zeilen = page.getByRole('button', { name: /^Befund .+: Fundstellen anzeigen$/ })
+  await expect(zeilen).toHaveCount(csvIds.length)
+  for (const id of csvIds) await expect(page.getByRole('button', { name: `Befund ${id}: Fundstellen anzeigen`, exact: true })).toBeVisible()
+  await page.getByRole('tab', { name: 'Export' }).click()
 
   const [json] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Prüfstand speichern/ }).click()])
   await page.locator('input[accept=".json,application/json"]').setInputFiles((await json.path())!)
