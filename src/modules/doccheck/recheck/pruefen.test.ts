@@ -86,9 +86,21 @@ describe('Remark (N3.2)', () => {
 
   it('englisch; Korrekturvorschlag bleibt Manual-Text', () => {
     const r = befundPruefen(b({ befund: 'Replace "Threat management" with "TEM"' }), tm, paket)
+    // Seite bewusst geändert: vorher stand „S. 2 (±1)" im englischen Remark (Audit 11/2026, EXP-07/TXT-01)
     expect(remark(r, '2026-11-01', 'en')).toBe(
-      'NOT RESOLVED (re-check 2026-11-01): Text objected to is still present unchanged.\nStill present:\n• TM · S. 2 (±1) · “Approved by AT.ATO.106. Threat management.”\nMissing: “TEM”\nProposed correction: “Threat management” → “TEM”',
+      'NOT RESOLVED (re-check 2026-11-01): Text objected to is still present unchanged.\nStill present:\n• TM · Page 2 (±1) · “Approved by AT.ATO.106. Threat management.”\nMissing: “TEM”\nProposed correction: “Threat management” → “TEM”',
     )
+  })
+
+  it('englischer Remark ohne „S." und „ca.", deutscher unverändert (Audit 11/2026, EXP-07/TXT-01)', () => {
+    const r = befundPruefen(b({ befund: '"call-out" should read "callout"', teamStatus: 'Closed' }), tm, paket)
+    const mit = (seiten: string[]) => ({ ...r, rest: seiten.map((seite) => ({ ...r.rest[0], seite })) })
+    const en = remark(mit(['1', 'ca. 3', 'S. 2 (±1)', 'S. 10–11 (±1)', '6-04-15 Page 2']), '2026-11-01', 'en')
+    expect(en).not.toMatch(/\b(S\.|ca\.|p\.) \d/)
+    expect(en.split('\n').filter((z) => z.startsWith('•')).map((z) => z.split(' · ')[1])).toEqual(['Page 1', 'approx. page 3', 'Page 2 (±1)', 'Pages 10–11 (±1)', '6-04-15 Page 2'])
+    // Die Oberfläche und der deutsche Remark behalten die Herkunft auf Deutsch (CLAUDE.md)
+    const de = remark(mit(['1', 'ca. 3', 'S. 2 (±1)']), '2026-11-01', 'de')
+    expect(de.split('\n').filter((z) => z.startsWith('•')).map((z) => z.split(' · ')[1])).toEqual(['S. 1', 'ca. 3', 'S. 2 (±1)'])
   })
 
   it('Anführung gepaart und je Sprache — der Remark landet in einer fremden Excel-Liste (Audit 11/2026, EXP-20/TXT-13)', () => {

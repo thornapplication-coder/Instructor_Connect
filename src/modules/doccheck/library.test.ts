@@ -11,6 +11,8 @@ import {
   SANDBOX_SAMMLUNGEN,
   SANDBOX_STAENDE,
   standLabel,
+  standLabelIso,
+  standLabelNachIso,
 } from './library'
 
 const t = (iso: string) => Date.parse(`${iso}T08:00:00Z`)
@@ -80,6 +82,20 @@ describe('Bibliotheksstand', () => {
   it('Fußzeile im App-Datumsformat DD.MM.YYYY', () => {
     expect(standLabel(aktuellerStand(SANDBOX_STAENDE))).toBe('Lib 3 · 28.10.2026')
     expect(standLabel(undefined)).toBe('Lib –')
+  })
+
+  it('Exporte ISO: „Lib 3 · 2026-10-28" — die Oberfläche bleibt DD.MM.YYYY (Audit 11/2026, EXP-16/TXT-15)', () => {
+    // Vorher übernahm der Export das Label der Oberfläche: „Lib 3 · 28.10.2026" neben „Review date 2026-11-01"
+    const s = aktuellerStand(SANDBOX_STAENDE)
+    expect(standLabelIso(s)).toBe('Lib 3 · 2026-10-28')
+    expect(standLabel(s)).toBe('Lib 3 · 28.10.2026')
+    expect(standLabelIso(undefined)).toBe('Lib –')
+    // Derselbe Tag wie die Oberfläche: beide in Ortszeit
+    expect(standLabelIso(s).slice(-10).split('-').reverse().join('.')).toBe(standLabel(s).slice(-10))
+    // Ältere Prüfstände: DD.MM.YYYY im Label wird ISO, alles andere bleibt
+    expect(standLabelNachIso('Lib 3 · 28.10.2026')).toBe('Lib 3 · 2026-10-28')
+    expect(standLabelNachIso('Lib 12 · 2026-10-28')).toBe('Lib 12 · 2026-10-28')
+    expect(standLabelNachIso('Sandbox')).toBe('Sandbox')
   })
 })
 

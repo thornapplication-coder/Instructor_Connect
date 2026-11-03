@@ -173,7 +173,11 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
 - **Seitenangaben bei DOCX tragen ihre Herkunft** (`seitenQuelle`:
   `pdf_pair` · `toc_mapping` · `approx`) und die Bezeichnung zeigt sie
   („S. 12", „S. 12 (±1)", „ca. 12"). Eine Zahl ohne Herkunft würde für
-  Words Seite gehalten. Fußnoten und Textfelder stehen als eigene Einheit
+  Words Seite gehalten. Im Export und im englischen Re-Check-Remark steht
+  dieselbe Herkunft englisch („Page 12", „Page 12 (±1)", „approx. page 12",
+  `seiteEnglisch`); was das Dokument selbst druckt, bleibt wörtlich — vorher
+  stand „S. 2 (±1)" neben „Page 5" in derselben englischen Spalte (Audit
+  11/2026, EXP-07/TXT-01). Fußnoten und Textfelder stehen als eigene Einheit
   direkt hinter ihrem Anker (in einer Tabelle: hinter der Tabelle) und sind
   `nachgereicht` markiert — die Word-PDF-Paarung sucht sie, schiebt aber
   den Lesezeiger nicht weiter: Im PDF steht die Fußnote am Seitenfuß, und

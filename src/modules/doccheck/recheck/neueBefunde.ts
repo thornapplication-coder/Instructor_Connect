@@ -1,4 +1,4 @@
-import type { Befund, Prioritaet } from '../pruefung/befund'
+import { exportOrt, seiteEnglisch, type Befund, type Prioritaet } from '../pruefung/befund'
 import { vergleichsform } from '../parse/seitenzuordnung'
 import type { ReErgebnis } from './pruefen'
 import type { Ziel } from './fremdliste'
@@ -21,6 +21,7 @@ export interface NeuerBefund {
   dokId: string
   /** Wert für die Spalte „Dokument/Bereich" — wie die Liste das Dokument nennt */
   dokument: string
+  /** englisch wie der Export („Page 2 (±1)") */
   seite: string
   kapitel: string
   befund: string
@@ -169,8 +170,10 @@ export function neueBefundeFuer(
       nr: nummern[i],
       dokId: b.dokId,
       dokument: dokumentWert(b.dokId, ziele, kuerzel[b.dokId] || b.dokName),
-      seite: f?.seite ?? '',
-      kapitel: f?.ort ?? '',
+      // Das Blatt ist englisch wie der Export — auch die Seite, nicht „S. 2"/„ca. 1" (EXP-07/TXT-01)
+      seite: seiteEnglisch(f?.seite ?? ''),
+      // Dieselbe Spalte wie „Chapter / Section" im DocCheck-Export: das Kapitel, sonst der Ort (Nachtrag TXT#1)
+      kapitel: exportOrt(f).kapitel,
       befund: b.text,
       prioritaet: b.prioritaet,
       kategorie: b.kategorie,

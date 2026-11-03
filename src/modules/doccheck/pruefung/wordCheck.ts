@@ -2,7 +2,7 @@ import { datumFinden } from '../parse/meta'
 import { tocPlausibel, vergleichsform } from '../parse/seitenzuordnung'
 import { ampelAus, anzahl, type Befund, type Fundstelle } from './befund'
 import { unsichtbar } from './kontrast'
-import { befund, kurz, notenOrt, seiteFinder, type PruefKontext } from './kontext'
+import { befund, kurz, notenOrt, seiteFinder, teilOrt, wortKapitel, type PruefKontext } from './kontext'
 import { dokumentSprache, spracheVon } from './sprache'
 
 /**
@@ -70,18 +70,30 @@ export function kopfFussVarianten<T extends { text: string }>(teile: T[]): Map<s
   return out
 }
 
+/**
+ * Orte ohne Kapitel, wie Word sie nennt — nicht als Teil der ZIP-Datei
+ * („docProps/core.xml", „word/settings.xml"), der so unter „Chapter /
+ * Section" im Bericht für die Behörde stand (Audit 11/2026, Nachtrag TXT#1).
+ */
+const EIGENSCHAFTEN = 'Document properties'
+const EINSTELLUNGEN = 'Document settings'
+
 export function wordCheck(k: PruefKontext, dateiname: string): { befunde: Omit<Befund, 'id'>[]; ampel: Record<string, 'ok' | 'wait' | 'bad' | 'na'> } {
   const w = k.roh.word
   if (!w) return { befunde: [], ampel: Object.fromEntries(WORD_PUNKTE.map((p) => [p, 'na'])) }
   const out: Omit<Befund, 'id'>[] = []
   const seite = seiteFinder(k.roh)
   const absatzVon = new Map(w.absaetze.map((a) => [a.nr, a]))
+  // Dasselbe Kapitel wie in den übrigen Prüfungen (`absaetze`) — Export-Spalte „Chapter / Section" (Nachtrag TXT#1)
+  const kapitel = wortKapitel(w.absaetze)
+  const kapitelVon = new Map(w.absaetze.map((a, i) => [a.nr, kapitel[i]]))
   const ortVon = (nr: number): Partial<Fundstelle> => {
     const a = absatzVon.get(nr)
     if (!a) return {}
-    if (a.ort === 'kopf' || a.ort === 'fuss') return { ort: `${a.ort === 'kopf' ? 'Header' : 'Footer'} ${a.teil.replace('word/', '')}` }
+    if (a.ort === 'kopf' || a.ort === 'fuss') return { ort: teilOrt(a.teil) }
     const s = seite(a.text)
-    return { ...(s ? { seite: s } : {}), ...(a.ort === 'textfeld' ? { ort: 'Text box' } : a.ort === 'fussnote' ? { ort: notenOrt(a.teil) } : a.tabelle ? { ort: `Table row ${a.tabelle.zeile + 1}, column ${a.tabelle.spalte + 1}` } : {}) }
+    const kap = kapitelVon.get(nr)
+    return { ...(s ? { seite: s } : {}), ...(kap ? { kapitel: kap } : {}), ...(a.ort === 'textfeld' ? { ort: 'Text box' } : a.ort === 'fussnote' ? { ort: notenOrt(a.teil) } : a.tabelle ? { ort: `Table row ${a.tabelle.zeile + 1}, column ${a.tabelle.spalte + 1}` } : {}) }
   }
 
   // 1 Unsichtbarer Text
@@ -164,15 +176,15 @@ export function wordCheck(k: PruefKontext, dateiname: string): { befunde: Omit<B
 
   // 5 Kompatibilitätsmodus
   if (w.kompatibilitaet !== undefined && w.kompatibilitaet < 15) {
-    out.push(befund(k, { quelle: 'word', pruefpunkt: 'kompatibilitaet', kategorie: 'Document Control', prioritaet: 'Low', text: `[Word check] Document is saved in compatibility mode (Word ${w.kompatibilitaet}). Layout may differ between Word versions.`, fundstellen: [{ ort: 'word/settings.xml', auszug: `compatibilityMode = ${w.kompatibilitaet}` }], anleitung: 'kompatibilitaet' }))
+    out.push(befund(k, { quelle: 'word', pruefpunkt: 'kompatibilitaet', kategorie: 'Document Control', prioritaet: 'Low', text: `[Word check] Document is saved in compatibility mode (Word ${w.kompatibilitaet}). Layout may differ between Word versions.`, fundstellen: [{ ort: EINSTELLUNGEN, auszug: `compatibilityMode = ${w.kompatibilitaet}` }], anleitung: 'kompatibilitaet' }))
   }
 
   // 6 Dokumenteigenschaften
   const eig: Fundstelle[] = []
-  if (!w.eigenschaften.title?.trim()) eig.push({ ort: 'docProps/core.xml', auszug: 'Title is empty' })
-  else if (k.meta.titel && vergleichsform(w.eigenschaften.title) !== vergleichsform(k.meta.titel)) eig.push({ ort: 'docProps/core.xml', auszug: `Title "${w.eigenschaften.title}" differs from cover "${k.meta.titel}"` })
+  if (!w.eigenschaften.title?.trim()) eig.push({ ort: EIGENSCHAFTEN, auszug: 'Title is empty' })
+  else if (k.meta.titel && vergleichsform(w.eigenschaften.title) !== vergleichsform(k.meta.titel)) eig.push({ ort: EIGENSCHAFTEN, auszug: `Title "${w.eigenschaften.title}" differs from cover "${k.meta.titel}"` })
   for (const [feld, wert] of [['Author', w.eigenschaften.creator], ['Last modified by', w.eigenschaften.lastModifiedBy]] as const) {
-    if (wert && PERSONENNAME.test(wert.trim())) eig.push({ ort: 'docProps/core.xml', auszug: `${feld}: ${wert}` })
+    if (wert && PERSONENNAME.test(wert.trim())) eig.push({ ort: EIGENSCHAFTEN, auszug: `${feld}: ${wert}` })
   }
   if (eig.length) out.push(befund(k, { quelle: 'word', pruefpunkt: 'eigenschaften', kategorie: 'Document Control', prioritaet: 'Low', text: `[Word check] Document properties need attention (${eig.length}): empty or deviating title, personal names in author fields.`, fundstellen: eig, anleitung: 'eigenschaften' }))
 
@@ -187,10 +199,10 @@ export function wordCheck(k: PruefKontext, dateiname: string): { befunde: Omit<B
     abweichend.push(`${name} ${nachZahl.map(([v]) => v).join(' / ')}`)
     for (const [wert, liste] of nachZahl) {
       if (wert === mehrheit) continue
-      for (const x of liste) kfFund.push({ ort: `Section ${x.abschnitt}, ${x.teil.replace('word/', '')} (${x.typ})`, auszug: `${kurz(x.text, 80)} → ${name} ${wert}${mehrheit ? ` (other sections: ${mehrheit})` : ''}` })
+      for (const x of liste) kfFund.push({ ort: `Section ${x.abschnitt}, ${teilOrt(x.teil, x.typ)}`, auszug: `${kurz(x.text, 80)} → ${name} ${wert}${mehrheit ? ` (other sections: ${mehrheit})` : ''}` })
     }
   }
-  for (const v of w.verwaisteKopfFuss) kfFund.push({ ort: v.replace('word/', ''), auszug: 'Header/footer part not used by any section (leftover)' })
+  for (const v of w.verwaisteKopfFuss) kfFund.push({ ort: teilOrt(v), auszug: 'Header/footer part not used by any section (leftover)' })
   if (kfFund.length) {
     out.push(
       befund(k, {

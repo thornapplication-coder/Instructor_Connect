@@ -1,5 +1,5 @@
 import JSZip from 'jszip'
-import { fussText, kennung, LABELS as L, type Datenstand } from './datenstand'
+import { FUSS_MAX, fussText, kennung, LABELS as L, type Datenstand } from './datenstand'
 
 /**
  * Excel im Projektformat (Spez. v1.1 Kap. 10.4): Summary, Findings,
@@ -19,7 +19,8 @@ export const AKZENT = '2563BE'
 /** Zellformate (Index in cellXfs) — eine Stelle, alle Blätter. */
 const S = { normal: 0, hinweis: 1, kopf: 2, text: 3, schluessel: 4, titel: 5, zahl: 6, zahlFett: 7 } as const
 
-const esc = (s: string) =>
+/** Text für XML: Steuerzeichen raus, Sonderzeichen maskiert — auch für Stellen, an denen pptxgenjs selbst nicht maskiert. */
+export const esc = (s: string) =>
   s
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
     .replace(/&/g, '&amp;')
@@ -43,6 +44,25 @@ function zelle(ref: string, z: Zelle, stil: number): string {
   return `<c r="${ref}" s="${stil}" t="inlineStr"><is><t xml:space="preserve">${esc(z)}</t></is></c>`
 }
 
+/** Höhe einer Textzeile in Arial 10 (wie `defaultRowHeight`). */
+const ZEILE_PT = 13.2
+
+/**
+ * Zeilenhöhe für Text in VERBUNDENEN Zellen: Excel passt die Höhe dort
+ * nicht selbst an — ohne Angabe bliebe eine Zeile sichtbar und der Rest
+ * abgeschnitten. `breite` ist die Summe der Spaltenbreiten in Zeichen der
+ * Standardschrift; Fließtext ist schmaler als die Ziffer, nach der Excel
+ * misst, die Schätzung reicht also auch mit Wortumbruch. Eine Zeile braucht
+ * keine Angabe (`undefined`) — dann misst das Programm selbst.
+ */
+export function zeilenHoehe(text: string, breite: number): number | undefined {
+  const zeilen = text.split('\n').reduce((n, absatz) => n + Math.max(1, Math.ceil(Array.from(absatz).length / Math.max(1, breite))), 0)
+  return zeilen > 1 ? Math.round(zeilen * ZEILE_PT * 10) / 10 : undefined
+}
+
+/** Breite eines verbundenen Bereichs in Zeichen der Standardschrift. */
+const gesamtBreite = (breiten: number[]) => breiten.reduce((a, b) => a + b, 0)
+
 function zeilenXml(zeilen: Zeile[], ab = 1): string {
   return zeilen
     .map((z, i) => {
@@ -53,10 +73,26 @@ function zeilenXml(zeilen: Zeile[], ab = 1): string {
     .join('')
 }
 
-/** Fußzeile nach Kap. 10.2; `&` ist in Kopf-/Fußzeilen ein Steuerzeichen und wird verdoppelt. */
+/** Excel nimmt Kopf- und Fußzeilen bis 255 Zeichen — gezählt wird der Text MIT Steuercodes (`&L`, `&"Arial,Regular"`, `&&`). */
+export const FUSSZEILE_MAX = 255
+
+/**
+ * Fußzeile nach Kap. 10.2; `&` ist in Kopf-/Fußzeilen ein Steuerzeichen und
+ * wird verdoppelt. Links die gekürzte Fußzeile (`fussText`, dieselbe wie in
+ * Word und PowerPoint), rechts Seitenzahl und Disclaimer. Vorher lief eine
+ * lange Organisation mit langem Titel über 255 Zeichen und in den rechten
+ * Teil hinein (Audit 11/2026, EXP-04). Jedes `&` im Text zählt doppelt —
+ * darum wird der linke Teil gemessen, wie Excel ihn liest, und notfalls
+ * weiter gekürzt.
+ */
 export function fusszeile(d: Datenstand): string {
   const t = (s: string) => s.replace(/&/g, '&&')
-  return esc(`&L&"Arial,Regular"&8${t(fussText(d))}&R&"Arial,Regular"&8Page &P of &N · ${t(L.disclaimer)}`)
+  const schrift = '&"Arial,Regular"&8'
+  const rechts = `&R${schrift}Page &P of &N · ${t(L.disclaimer)}`
+  let max = FUSS_MAX
+  const links = () => `&L${schrift}${t(fussText(d, max))}`
+  while (max > 1 && links().length + rechts.length > FUSSZEILE_MAX) max--
+  return esc(links() + rechts)
 }
 
 interface Blatt {
@@ -69,7 +105,6 @@ interface Blatt {
   verbunden?: string[]
   filter?: string
   extras?: string
-  quer?: boolean
 }
 
 function blattXml(b: Blatt, d: Datenstand): string {
@@ -89,8 +124,11 @@ function blattXml(b: Blatt, d: Datenstand): string {
     (b.verbunden?.length ? `<mergeCells count="${b.verbunden.length}">${b.verbunden.map((r) => `<mergeCell ref="${r}"/>`).join('')}</mergeCells>` : '') +
     (b.extras ?? '') +
     `<pageMargins left="0.5" right="0.5" top="0.6" bottom="0.7" header="0.3" footer="0.3"/>` +
-    `<pageSetup paperSize="9" orientation="${b.quer === false ? 'portrait' : 'landscape'}" fitToWidth="1" fitToHeight="0"/>` +
-    `<headerFooter><oddFooter>${fusszeile(d)}</oddFooter></headerFooter>` +
+    // Alle Blätter A4 quer (Kap. 10.4) — „Summary" druckte hochkant (Audit 11/2026, EXP-12)
+    `<pageSetup paperSize="9" orientation="landscape" fitToWidth="1" fitToHeight="0"/>` +
+    // Fußzeile nicht mitskalieren: „an Breite angepasst" verkleinert „Findings" stark, und die Fußzeile
+    // wurde mit ihr unlesbar — so steht sie auf jedem Blatt gleich in 8 pt (EXP-12)
+    `<headerFooter scaleWithDoc="0"><oddFooter>${fusszeile(d)}</oddFooter></headerFooter>` +
     `</worksheet>`
   )
 }
@@ -128,10 +166,12 @@ function findings(d: Datenstand): Blatt {
 /** Blatt „Summary": Kennung, Zählung als Formeln, Formalprüfung, Gesamtbewertung, Top 5. */
 function summary(d: Datenstand): { blatt: Blatt; gesamtZeile: number } {
   const z: Zeile[] = [{ zellen: [L.disclaimer], stil: S.hinweis }, { zellen: [`${L.product} – ${L.sheets.summary}`], stil: S.titel, hoehe: 22 }]
-  // Werte des Kennungsblocks über B:E — in Spalte B allein brächen sie Wort für Wort um
+  // Werte des Kennungsblocks über B:E — in Spalte B allein brächen sie Wort für Wort um;
+  // mehrzeilige („Checks performed") mit Höhe, weil Excel verbundene Zellen nicht anpasst (EXP-11)
+  const breiten = [30, 22, 26, 14, 60]
   const verbunden: string[] = []
   for (const [k, v] of kennung(d)) {
-    z.push({ zellen: [k, v, null, null, null], stile: [S.schluessel, S.text, S.text, S.text, S.text] })
+    z.push({ zellen: [k, v, null, null, null], stile: [S.schluessel, S.text, S.text, S.text, S.text], hoehe: zeilenHoehe(v, gesamtBreite(breiten.slice(1))) })
     verbunden.push(`B${z.length}:E${z.length}`)
   }
   const gesamtZeile = z.findIndex((x) => x.zellen[0] === L.ident.overall) + 1
@@ -190,10 +230,9 @@ function summary(d: Datenstand): { blatt: Blatt; gesamtZeile: number } {
     gesamtZeile,
     blatt: {
       name: L.sheets.summary,
-      breiten: [30, 22, 26, 14, 60],
+      breiten,
       zeilen: z,
       verbunden,
-      quer: false,
       extras:
         (d.ampeln.length ? `<conditionalFormatting sqref="D${ampelVon}:D${ampelBis}">${ampelCf}</conditionalFormatting>` : '') +
         `<dataValidations count="1"><dataValidation type="list" allowBlank="0" showErrorMessage="1" sqref="B${gesamtZeile}"><formula1>${esc(liste(overall))}</formula1></dataValidation></dataValidations>`,
@@ -211,11 +250,27 @@ function matrix(d: Datenstand): Blatt {
   }
 }
 
+/**
+ * Blatt „Documents & Sources": eine Zeile je Dokument, darunter Bibliotheksstand,
+ * Methode und Quellenhierarchie. Diese Erläuterungen laufen über B:I — in
+ * Spalte B (14 Zeichen) allein brachen sie Wort für Wort um, über dreizehn
+ * Zeilen, und rechts daneben blieb alles leer (Audit 11/2026, EXP-11). B..I
+ * tragen denselben Stil, damit der Rahmen durchgeht.
+ */
 function quellen(d: Datenstand): Blatt {
   const art = (r: string) => (r === 'review' ? L.sourceKinds.review : r === 'master' ? L.sourceKinds.library : L.sourceKinds.session)
+  const breiten = [26, 14, 40, 16, 14, 12, 8, 8, 16]
+  const erlaeuterung = (k: string, v: string): Zeile => ({ zellen: [k, v, ...Array<null>(7).fill(null)], stile: [S.schluessel, ...Array<number>(8).fill(S.text)], hoehe: zeilenHoehe(v, gesamtBreite(breiten.slice(1))) })
+  const erlaeuterungen = [
+    erlaeuterung(L.ident.library, d.bibliothek),
+    erlaeuterung(L.sources.method, L.sources.methodText),
+    erlaeuterung(L.sources.hierarchy, L.sources.hierarchyText),
+  ]
+  // Disclaimer, Kopf, Dokumente, Leerzeile — dann die Erläuterungen
+  const ab = 2 + d.dokumente.length + 2
   return {
     name: L.sheets.sources,
-    breiten: [26, 14, 40, 16, 14, 12, 8, 8, 16],
+    breiten,
     kopf: 2,
     filter: `A2:I${Math.max(2, d.dokumente.length + 2)}`,
     zeilen: [
@@ -226,10 +281,9 @@ function quellen(d: Datenstand): Blatt {
         stile: [S.text, S.text, S.text, S.text, S.text, S.text, S.text, S.zahl, S.text],
       })),
       { zellen: [] },
-      { zellen: [L.ident.library, d.bibliothek], stile: [S.schluessel, S.text] },
-      { zellen: [L.sources.method, L.sources.methodText], stile: [S.schluessel, S.text] },
-      { zellen: [L.sources.hierarchy, L.sources.hierarchyText], stile: [S.schluessel, S.text] },
+      ...erlaeuterungen,
     ],
+    verbunden: erlaeuterungen.map((_, i) => `B${ab + i}:I${ab + i}`),
   }
 }
 

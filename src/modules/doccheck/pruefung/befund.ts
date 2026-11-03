@@ -15,9 +15,11 @@ export type Prioritaet = 'High' | 'Medium' | 'Low'
 export type Quelle = 'formal' | 'word' | 'sprache' | 'referenz' | 'paket' | 'rechnen' | 'verweis' | 'regelwerk'
 
 export interface Fundstelle {
-  /** Seitenbezeichnung wie im Dokument („S. 12", „6-04-15 Page 2", „ca. 3") */
+  /** Seitenbezeichnung wie im Dokument („S. 12", „6-04-15 Page 2", „ca. 3"); im Export `seiteEnglisch` */
   seite?: string
-  /** Kapitel, Kopfzeile, Tabelle, Textfeld … */
+  /** Kapitel der Fundstelle: die letzte Überschrift VOR ihr (`wortKapitel`, `absaetze`) */
+  kapitel?: string
+  /** Stelle ohne oder innerhalb eines Kapitels: Kopfzeile, Tabellenzelle, Textfeld, Fußnote, Deckblatt … */
   ort?: string
   auszug: string
 }
@@ -52,6 +54,51 @@ export interface Befund {
  * Übersetzen auf, nicht erst als leere Zelle.
  */
 export type Anleitung = keyof typeof en.anleitung
+
+/**
+ * Seitenbezeichnung für Export und englischen Re-Check-Remark — englisch
+ * (Spez. v1.1 Kap. 10.1 Nr. 4).
+ *
+ * Die Oberfläche zeigt die Herkunft einer DOCX-Seite auf Deutsch („S. 12",
+ * „S. 12 (±1)", „ca. 12", CLAUDE.md). Genau so gingen die Bezeichnungen bis
+ * 11/2026 auch in CSV, Excel, Word, PowerPoint und den englischen Remark —
+ * in derselben Spalte neben „Page 5" aus dem PDF (Audit 11/2026,
+ * EXP-07/TXT-01). Abgebildet wird nur, was DocCheck selbst erzeugt: „S. n",
+ * „ca. n", die bloße Seitenzahl, die Spanne einer Tabelle über die
+ * Seitengrenze („S. 10–11 (±1)", `seitenSpanne`) und der Zusatz „(±1)" —
+ * die Herkunft bleibt also auch englisch sichtbar. Was das Dokument selbst
+ * druckt („6-04-15 Page 2", „ii"), bleibt wörtlich. Idempotent, damit ein
+ * gespeicherter Prüfstand beim nächsten Export gleich aussieht.
+ *
+ * Steht hier und nicht im Export, weil der Remark im Worker entsteht: Der
+ * Export zöge das ganze Sprachpaket in den Worker.
+ */
+export function seiteEnglisch(label: string): string {
+  if (label.includes(' – ')) return label.split(' – ').map(seiteEnglisch).join(' – ')
+  const m = label.match(/^(S\. |ca\. )?(\d+)(?:–(\d+))?( \(±1\))?$/)
+  if (!m) return label
+  const [, art, von, bis, plusMinus = ''] = m
+  const seite = bis ? 'pages' : 'page'
+  return `${art === 'ca. ' ? `approx. ${seite}` : seite[0].toUpperCase() + seite.slice(1)} ${bis ? `${von}–${bis}` : von}${plusMinus}`
+}
+
+/**
+ * Spalten „Chapter / Section" und „Paragraph / Line" einer Fundstelle im
+ * Export (Spez. v1.1 Kap. 10.2). Bis 11/2026 stand unter „Chapter /
+ * Section" der Ort — nie ein Kapitel, meist nichts, sonst „Table row 2,
+ * column 3" oder ein Teil der Word-Datei (Audit 11/2026, Nachtrag TXT#1).
+ * Mit Kapitel steht der Ort darin eine Spalte weiter, unter „Paragraph /
+ * Line"; ohne Kapitel (Kopfzeile, Deckblatt, Verzeichnis, Fußnote) IST der
+ * Ort der Abschnitt. Der Word-Bericht gruppiert nach der ersten Spalte —
+ * also nach Kapitel, nicht nach Tabellenzelle.
+ *
+ * Steht neben `seiteEnglisch`, weil das Blatt „New findings" des Re-Checks
+ * dieselben Spalten aus denselben Befunden füllt.
+ */
+export function exportOrt(f: Pick<Fundstelle, 'kapitel' | 'ort'> | undefined): { kapitel: string; absatz: string } {
+  if (f?.kapitel) return { kapitel: f.kapitel, absatz: f.ort ?? '' }
+  return { kapitel: f?.ort ?? '', absatz: '' }
+}
 
 export type Ampel = 'ok' | 'wait' | 'bad' | 'na'
 

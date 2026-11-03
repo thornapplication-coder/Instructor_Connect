@@ -52,9 +52,28 @@ export function notenOrt(teil: string): string {
   return /endnote/i.test(teil) ? 'Endnote' : 'Footnote'
 }
 
+const TEIL_ART: Record<string, string> = { default: 'default', first: 'first-page', even: 'even-page' }
+
+/**
+ * Ort einer Kopf- oder Fußzeile: „Footer (footer1.xml)", je Abschnitt
+ * „Section 2, default footer (footer1.xml)". Vorher stand der Teil der
+ * ZIP-Datei vorn („Section 1, footer1.xml (default)", „header9.xml") — so
+ * im Export unter „Chapter / Section", in einem Bericht für die Behörde
+ * (Audit 11/2026, Nachtrag TXT#1). Der Dateiname bleibt in Klammern: Eine
+ * Kopfzeile, die kein Abschnitt verwendet, ist nur an ihm zu erkennen.
+ */
+export function teilOrt(teil: string, typ?: string): string {
+  const name = teil.replace(/^word\//, '')
+  const fuss = /^footer/i.test(name)
+  if (typ === undefined) return `${fuss ? 'Footer' : 'Header'} (${name})`
+  return `${TEIL_ART[typ] ?? typ} ${fuss ? 'footer' : 'header'} (${name})`
+}
+
 export interface PruefAbsatz {
   text: string
   seite?: string
+  /** Letzte Überschrift VOR dem Absatz (`wortKapitel` bzw. Gliederung des Seitentexts) */
+  kapitel?: string
   ort?: string
   wortOrt?: WortOrt
   /** DOCX: Absatz in einer Tabellenzelle */
@@ -77,34 +96,101 @@ function ersteZelleVon(alle: WortAbsatz[], i: number): string | undefined {
   return undefined
 }
 
+/** Höchstlänge eines Kapitels in der Fundstelle — eine falsch formatierte „Überschrift" kann ein ganzer Absatz sein. */
+const KAPITEL_MAX = 100
+
+/**
+ * Kapitel je Absatz eines Word-Dokuments, parallel zu `alle`: die letzte
+ * Überschrift (Gliederungsebene der Absatzvorlage — dieselbe Quelle wie
+ * `outline`) VOR dem Absatz. Nicht das Kapitel der Seite: Ein DOCX ohne
+ * Umbruchmarken ist eine einzige Seite, und jede Fundstelle trüge das
+ * letzte Kapitel — dieselbe Regel wie im Re-Check (`kapitelBei`).
+ *
+ * Bis 11/2026 trug keine Fundstelle ein Kapitel; die Export-Spalte
+ * „Chapter / Section" war meist leer (Audit 11/2026, Nachtrag TXT#1).
+ *
+ * Kopf- und Fußzeilen gehören zu keinem Kapitel. Fuß- und Endnoten stehen
+ * im Extrakt hinter dem ganzen Text, ihr Anker ist dort unbekannt — sie
+ * bleiben ohne, statt das letzte Kapitel geraten zu bekommen. Textfelder
+ * stehen an ihrem Anker und erben dessen Kapitel.
+ */
+export function wortKapitel(alle: WortAbsatz[]): (string | undefined)[] {
+  let aktuell: string | undefined
+  return alle.map((a) => {
+    if (a.ort !== 'body' && a.ort !== 'textfeld') return undefined
+    if (a.ort === 'body' && a.ebene && !a.toc && a.text.trim()) aktuell = kurz(a.text, KAPITEL_MAX)
+    return aktuell
+  })
+}
+
+/**
+ * Verzeichniseintrag mit Punktlinie („2.1 Hours ....... 5"): Die Gliederung
+ * eines PDF führt ihn, weil er wie eine Überschrift beginnt — als Kapitel
+ * trüge sonst alles zwischen Inhaltsverzeichnis und erstem Kapitel den
+ * letzten Verzeichniseintrag.
+ */
+const VERZEICHNISZEILE = /(?:[.…·]\s*){3,}\d{1,4}\s*$/
+
+/**
+ * Kapitel je Zeile des Seitentexts (`pages[i].text.split('\n')`): die
+ * letzte Zeile davor, die ein Eintrag der Gliederung (`outline`) auf
+ * dieser Seite ist — beim PDF aus der Überschriftenerkennung, beim DOCX aus
+ * den Gliederungsebenen der Vorlagen, also dieselben Überschriften wie in
+ * `wortKapitel`. Für Prüfungen, die am Seitentext arbeiten (Rechnen, PDF).
+ * XLSX-Blätter haben keine Kapitel; ihr Ort ist das Blatt.
+ */
+export function seitenKapitel(roh: Pick<Rohdokument, 'format' | 'pages'> & Partial<Pick<Rohdokument, 'outline'>>): (string | undefined)[][] {
+  if (roh.format === 'xlsx' || !roh.outline?.length) return roh.pages.map((p) => p.text.split('\n').map(() => undefined))
+  // Je Seite vorab — bei einem Handbuch mit tausend Seiten und Überschriften sonst Seiten × Gliederung je Aufruf
+  const jeSeite = new Map<number, { titel: string; form: string }[]>()
+  for (const o of roh.outline) jeSeite.set(o.vonSeite, [...(jeSeite.get(o.vonSeite) ?? []), { titel: o.titel, form: vergleichsform(o.titel) }])
+  let aktuell: string | undefined
+  return roh.pages.map((p) => {
+    const offen = [...(jeSeite.get(p.index) ?? [])]
+    return p.text.split('\n').map((z) => {
+      if (offen.length && !VERZEICHNISZEILE.test(z)) {
+        const form = vergleichsform(z)
+        const i = form ? offen.findIndex((o) => o.form === form) : -1
+        if (i >= 0) aktuell = kurz(offen.splice(i, 1)[0].titel, KAPITEL_MAX)
+      }
+      return aktuell
+    })
+  })
+}
+
 /**
  * Absätze in Lesereihenfolge für alle Formate. DOCX: echte Absätze inkl.
  * Textfelder, Tabellenzellen, Kopf-/Fußzeilen. PDF/XLSX: Zeilen der Seiten.
+ * Jeder Absatz trägt sein Kapitel (`wortKapitel`, `seitenKapitel`).
  */
 export function absaetze(roh: Rohdokument): PruefAbsatz[] {
   if (roh.word) {
     const seite = seiteFinder(roh)
     const alle = roh.word.absaetze
+    const kapitel = wortKapitel(alle)
     return alle
       .map((a, i) => ({ a, i }))
       .filter(({ a }) => a.text.trim())
-      .map(({ a, i }) => ({ a, zelle0: ersteZelleVon(alle, i) }))
-      .map(({ a, zelle0 }) => ({
+      .map(({ a, i }) => ({ a, zelle0: ersteZelleVon(alle, i), kap: kapitel[i] }))
+      .map(({ a, zelle0, kap }) => ({
         text: a.text.replace(/\s+/g, ' ').trim(),
         // Textfelder und Fußnoten stehen seit FRD-13 im Seitentext — ihre Seite ist auffindbar
         seite: a.ort === 'body' || a.ort === 'textfeld' || a.ort === 'fussnote' ? seite(a.text) : undefined,
-        ort: a.ort === 'kopf' ? `Header (${a.teil.replace('word/', '')})` : a.ort === 'fuss' ? `Footer (${a.teil.replace('word/', '')})` : a.ort === 'textfeld' ? 'Text box' : a.ort === 'fussnote' ? notenOrt(a.teil) : a.tabelle ? `Table row ${a.tabelle.zeile + 1}, column ${a.tabelle.spalte + 1}` : undefined,
+        ...(kap ? { kapitel: kap } : {}),
+        ort: a.ort === 'kopf' || a.ort === 'fuss' ? teilOrt(a.teil) : a.ort === 'textfeld' ? 'Text box' : a.ort === 'fussnote' ? notenOrt(a.teil) : a.tabelle ? `Table row ${a.tabelle.zeile + 1}, column ${a.tabelle.spalte + 1}` : undefined,
         wortOrt: a.ort,
         ...(a.tabelle ? { inTabelle: true as const } : {}),
         ...(a.stilName ? { stilName: a.stilName } : {}),
         ...(zelle0 ? { ersteZelle: zelle0 } : {}),
       }))
   }
-  return roh.pages.flatMap((p) =>
+  const kapitel = seitenKapitel(roh)
+  return roh.pages.flatMap((p, s) =>
     p.text
       .split('\n')
-      .filter((z) => z.trim())
-      .map((z) => ({ text: z.trim(), seite: seitenName(p), ...(roh.format === 'xlsx' ? { ort: `Sheet ${p.label ?? p.index}` } : {}) })),
+      .map((z, i) => ({ z, kap: kapitel[s][i] }))
+      .filter(({ z }) => z.trim())
+      .map(({ z, kap }) => ({ text: z.trim(), seite: seitenName(p), ...(kap ? { kapitel: kap } : {}), ...(roh.format === 'xlsx' ? { ort: `Sheet ${p.label ?? p.index}` } : {}) })),
   )
 }
 
@@ -114,7 +200,7 @@ export function kurz(s: string, n = 120): string {
 }
 
 export function fundstelle(a: PruefAbsatz, auszug = a.text): Fundstelle {
-  return { ...(a.seite ? { seite: a.seite } : {}), ...(a.ort ? { ort: a.ort } : {}), auszug: kurz(auszug) }
+  return { ...(a.seite ? { seite: a.seite } : {}), ...(a.kapitel ? { kapitel: a.kapitel } : {}), ...(a.ort ? { ort: a.ort } : {}), auszug: kurz(auszug) }
 }
 
 /**

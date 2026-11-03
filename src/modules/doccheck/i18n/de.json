@@ -163,6 +163,17 @@
     "laeuft": "Wird erzeugt …",
     "fertig": "{{name}} erzeugt.",
     "fehler": "Der Export konnte nicht erzeugt werden.",
+    "netz": "Excel, Word und PowerPoint laden ihre Bibliothek beim ersten Export aus dem Netz – gerade ist keins da. CSV und Prüfstand gehen auch offline.",
+    "neuLaden": {
+      "sitzung": "Excel, Word und PowerPoint gehen erst nach einem Neuladen der Seite wieder. Vorher „Prüfstand speichern“ – die Dokumente der Sitzung gehen dabei verloren, der Prüfstand nicht.",
+      "pruefstand": "Excel, Word und PowerPoint gehen erst nach einem Neuladen der Seite wieder; danach den Prüfstand erneut öffnen."
+    },
+    "pflicht": {
+      "revision_one": "Revision fehlt bei {{namen}} – im Bericht bleibt die Angabe leer.",
+      "revision_other": "Revision fehlt bei {{count}} Prüfdokumenten ({{namen}}) – im Bericht bleibt die Angabe leer.",
+      "dateiname": "Der Dateiname trägt dann „RevNA“.",
+      "abhilfe": "Eintragen lässt sie sich in der Dokumentkarte; exportieren geht auch so."
+    },
     "stand_one": "{{count}} Befund aus {{dokumenteText}} – jeder Export friert den aktuellen Stand mit eigener Export-ID ein.",
     "stand_other": "{{count}} Befunde aus {{dokumenteText}} – jeder Export friert den aktuellen Stand mit eigener Export-ID ein.",
     "dokumente_one": "{{count}} Prüfdokument",

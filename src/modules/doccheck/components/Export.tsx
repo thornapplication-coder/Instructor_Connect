@@ -1,18 +1,18 @@
 import { Archive, FileSpreadsheet, FileText, FolderOpen, Presentation, Save, Sheet, X } from 'lucide-react'
 import { useMemo, useRef, useState } from 'react'
-import i18n from 'i18next'
 import { useTranslation } from 'react-i18next'
 import { Badge, Button, Card, CardHeading } from '../../../components/ui'
 import { toast } from '../../../components/Toast'
 import { useStore } from '../../../store'
 import { APP_VERSION } from '../../../types'
-import { aktuellerStand, SANDBOX_STAENDE, standLabel } from '../library'
+import { lokalIso } from '../../../datum'
+import { aktuellerStand, SANDBOX_STAENDE, standLabelIso } from '../library'
 import { aktiv } from '../settings'
 import { useSitzung } from '../sitzung'
-import { exportEingabe, naechsteLaufnummer } from '../export/ausSitzung'
+import { exportEingabe, exportZeitpunkt, pflichtLuecken, prueferAus, type PflichtLuecke } from '../export/ausSitzung'
 import { datenstand, type Datenstand } from '../export/datenstand'
-import { erzeugen, paket, type Datei, type Format } from '../export/ausgabe'
-import { datenstandAus, hashAbgleich, pruefstandLesen, type Pruefstand } from '../export/pruefstand'
+import { erzeugen, exportFehler, paket, type Datei, type Format } from '../export/ausgabe'
+import { datenstandAus, hashAbgleich, pruefstandDateiLesen, type Pruefstand } from '../export/pruefstand'
 import type { DocCheckFeature } from '../types'
 
 /**
@@ -37,27 +37,36 @@ function herunterladen(d: Datei) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-/** Datenstand aus der laufenden Sitzung — Prüfer englisch (Export), Rolle aus dem englischen Paket. */
-function useAusSitzung(): { erstellen: () => Datenstand; befunde: number; dokumente: number } {
+/** Datenstand aus der laufenden Sitzung. */
+function useAusSitzung(): { erstellen: () => Datenstand; befunde: number; dokumente: number; luecken: PflichtLuecke[] } {
   const { docs, paketModus, paketErgebnis } = useSitzung()
   const { docCheckSettings, currentUser, now } = useStore()
-  const paketBefunde = paketModus && aktiv(docCheckSettings, 'packageCheck') ? (paketErgebnis?.ergebnis.befunde ?? []) : []
+  // Nur im Paketmodus mit Ergebnis gehört die Paketprüfung in den Stand — auch unter „Checks performed" (EXP-01)
+  const paketLauf = paketModus && aktiv(docCheckSettings, 'packageCheck') ? paketErgebnis : undefined
+  const paketGeprueft = !!paketLauf
+  const paketBefunde = paketLauf?.ergebnis.befunde ?? []
   const pruef = docs.filter((d) => d.rolle === 'review' && d.z?.pruefung)
   return {
     befunde: pruef.reduce((n, d) => n + d.z!.pruefung!.befunde.length, 0) + paketBefunde.length,
     dokumente: pruef.length,
+    luecken: pflichtLuecken(docs, paketModus),
     erstellen: () => {
-      const datum = new Date(now()).toISOString()
+      // Ortszeit, nicht UTC: um 00:30 trug der Export sonst den Vortag (EXM-01)
+      const { datum, laufnummer } = exportZeitpunkt(now(), localStorage)
       return datenstand(
         exportEingabe({
           docs,
+          paketModus,
           paketBefunde,
+          paketGeprueft,
           datum,
-          laufnummer: naechsteLaufnummer(localStorage, datum),
+          laufnummer,
           appVersion: APP_VERSION,
           organisation: docCheckSettings.organisation,
-          pruefer: { name: currentUser?.name ?? '', funktion: currentUser ? i18n.getFixedT('en')(`roles.${currentUser.role}`) : '' },
-          bibliothek: standLabel(aktuellerStand(SANDBOX_STAENDE)),
+          // Funktion in der ATO, nie die App-Rolle (EXP-13) — die Eingabe kommt mit Phase 4
+          pruefer: prueferAus(currentUser),
+          // Export ISO, Oberfläche DD.MM.YYYY (EXP-16/TXT-15)
+          bibliothek: standLabelIso(aktuellerStand(SANDBOX_STAENDE)),
         }),
       )
     },
@@ -65,26 +74,34 @@ function useAusSitzung(): { erstellen: () => Datenstand; befunde: number; dokume
 }
 
 /** Formatknöpfe — dieselben für die Sitzung und für einen geladenen Prüfstand. */
-function Knoepfe({ stand, mitPruefstand }: { stand: () => Datenstand | null; mitPruefstand: boolean }) {
+function Knoepfe({ stand, mitPruefstand, herkunft }: { stand: () => Datenstand | null; mitPruefstand: boolean; herkunft?: Pruefstand }) {
   const { t } = useTranslation('doccheck')
   const { docCheckSettings, currentUser, now } = useStore()
   const [laeuft, setLaeuft] = useState<string | null>(null)
   const an = FORMATE.filter((f) => aktiv(docCheckSettings, f.feature))
   const ausfuehren = async (was: string, f: (d: Datenstand) => Promise<Datei>) => {
-    const d = stand()
-    if (!d) return
     setLaeuft(was)
     try {
+      // Das Einfrieren gehört in den Versuch: Scheiterte es, blieb der Knopf
+      // ohne jede Meldung stehen (Audit 11/2026, SEC-03)
+      const d = stand()
+      if (!d) return
       const datei = await f(d)
       herunterladen(datei)
       toast(t('export.fertig', { name: datei.name }))
-    } catch {
-      toast(t('export.fehler'), 'bad')
+    } catch (e) {
+      // Offline fehlt die Bibliothek, der Export ist nicht kaputt (Audit 11/2026, TEC-19). Mit Netz
+      // gescheitert hilft nur ein Neuladen — in der Sitzung erst nach „Prüfstand speichern"
+      const art = exportFehler(e)
+      if (art === 'netz') toast(t('export.netz'), 'wait')
+      else if (art === 'neuLaden') toast(mitPruefstand ? t('export.neuLaden.sitzung') : t('export.neuLaden.pruefstand'), 'wait')
+      else toast(t('export.fehler'), 'bad')
     } finally {
       setLaeuft(null)
     }
   }
-  const kontext = () => ({ userId: currentUser?.id ?? '', ts: new Date(now()).toISOString(), csvTrenner: docCheckSettings.csvTrenner })
+  // Aus einem geladenen Prüfstand: dessen Herkunft weiterreichen, sonst trüge die neue Datei unsere ID neben fremdem Namen (EXP-15)
+  const kontext = () => ({ userId: currentUser?.id ?? '', ts: lokalIso(now()), csvTrenner: docCheckSettings.csvTrenner, herkunft })
   return (
     <div className="space-y-stack">
       <div className="grid gap-stack sm:grid-cols-2">
@@ -139,7 +156,8 @@ export function PruefstandLaden({ onGeladen }: { onGeladen: (p: Pruefstand, date
           const f = e.target.files?.[0]
           e.target.value = ''
           if (!f) return
-          const p = pruefstandLesen(await f.text())
+          // Größe vor dem Einlesen prüfen, nicht danach (SEC-03)
+          const p = await pruefstandDateiLesen(f)
           if (typeof p === 'string') toast(t(`export.ladefehler.${p}`), 'bad')
           else {
             onGeladen(p, f.name)
@@ -193,7 +211,15 @@ export function PruefstandAnsicht({ p, datei, onSchliessen }: { p: Pruefstand; d
           </li>
         ))}
       </ul>
-      <Knoepfe stand={() => datenstandAus(p, new Date(now()).toISOString(), naechsteLaufnummer(localStorage, new Date(now()).toISOString()))} mitPruefstand={false} />
+      <Knoepfe
+        stand={() => {
+          const { datum, laufnummer } = exportZeitpunkt(now(), localStorage)
+          // Diese App erzeugt den Export — ihre Version, nicht die der Datei (EXP-15)
+          return datenstandAus(p, datum, laufnummer, APP_VERSION)
+        }}
+        mitPruefstand={false}
+        herkunft={p}
+      />
     </Card>
   )
 }
@@ -209,6 +235,13 @@ export function ExportTab() {
     <div className="space-y-section">
       <div className="space-y-stack">
         <p className="text-small">{leer ? t('export.keineDokumente') : zahl}</p>
+        {/* Pflichtangabe Revision (Spez. 11.2): warnen, wo der Bericht entsteht — nicht sperren (Audit 11/2026, DC-17) */}
+        {!leer && s.luecken.length > 0 && (
+          <p className="rounded-xl bg-wait/10 p-3 text-small">
+            {t('export.pflicht.revision', { count: s.luecken.length, namen: s.luecken.map((l) => l.name).join(', ') })}
+            {s.luecken.some((l) => l.haupt) && <> {t('export.pflicht.dateiname')}</>} {t('export.pflicht.abhilfe')}
+          </p>
+        )}
         {!leer && <Knoepfe stand={s.erstellen} mitPruefstand />}
       </div>
       <div className="flex flex-wrap items-center gap-2 border-t border-line/10 pt-section">

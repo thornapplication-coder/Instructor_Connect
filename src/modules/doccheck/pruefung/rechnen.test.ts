@@ -249,3 +249,22 @@ describe('Prüfungen', () => {
     })
   })
 })
+
+describe('Kapitel der Fundstellen (Audit 11/2026, Nachtrag TXT#1)', () => {
+  it('Tabelle, Umrechnung, Wettermeldung und Doppelwort tragen das Kapitel, in dem sie stehen — auch auf einer einzigen Seite', () => {
+    // Vorher stand unter „Chapter / Section" nur „Table" oder nichts
+    const text = '1 Hours\nName | h\nA | 1\nB | 2\nTotal | 4\n2 Data\nMTOW 11930 lbs (5000 kg)\n3 Weather\nMETAR 24010KT 0800 15/04\n4 Routes\nProceed to to the hold.'
+    const outline = ['1 Hours', '2 Data', '3 Weather', '4 Routes'].map((titel) => ({ titel, ebene: 1, vonSeite: 1 }))
+    const r: Rohdokument = { format: 'docx', pages: [{ index: 1, label: 'ca. 1', text }], outline, lenkung: LEERE_LENKUNG, ocrKandidaten: [], tabellen: 0 }
+    expect(tabellen(r).map((t) => t.kapitel)).toEqual(['1 Hours'])
+    const b = rechenPruefung({ dokId: 'd', dokName: 'D', roh: r, meta: {}, regeln: REGELN }).befunde
+    expect(Object.fromEntries(b.map((x) => [x.pruefpunkt, [x.fundstellen[0].kapitel, x.fundstellen[0].ort]]))).toEqual({
+      summen: ['1 Hours', 'Table'],
+      einheiten: ['2 Data', undefined],
+      metar: ['3 Weather', undefined],
+      doppelt: ['4 Routes', undefined],
+    })
+    // Ohne Gliederung wie bisher: kein Kapitel, kein leeres Feld
+    expect(rechenPruefung(k('Name | h\nA | 1\nB | 2\nTotal | 4')).befunde[0].fundstellen[0]).toEqual({ seite: '1', ort: 'Table', auszug: 'Total | 4' })
+  })
+})

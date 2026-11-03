@@ -1,4 +1,5 @@
 import type { DocPage } from '../parse/model'
+import { seiteEnglisch } from '../pruefung/befund'
 import { formatDate } from '../../../datum'
 import { anweisungAus, type Anweisung } from './anweisung'
 import type { FremdBefund, Ziel } from './fremdliste'
@@ -321,9 +322,20 @@ const SATZ: Record<RemarkSprache, Record<Grund, string>> = {
   },
 }
 
-const W: Record<RemarkSprache, { rest: string; fehlt: string; widerlegt: string; vorschlag: string; seite: string; ausgenommen: (n: number) => string }> = {
-  de: { rest: 'Noch vorhanden', fehlt: 'Fehlt', widerlegt: 'Team-Kommentar meldet die Korrektur, im Dokument nicht nachweisbar.', vorschlag: 'Korrekturvorschlag', seite: 'S.', ausgenommen: (n) => `Nicht als Rest gezählt (Zitat bzw. Verbform): ${n} Fundstelle${n === 1 ? '' : 'n'}.` },
-  en: { rest: 'Still present', fehlt: 'Missing', widerlegt: 'Team comment reports the correction; not found in the document.', vorschlag: 'Proposed correction', seite: 'p.', ausgenommen: (n) => `Not counted as remaining (quotation or verb form): ${n} occurrence${n === 1 ? '' : 's'}.` },
+/**
+ * Seitenangabe je Remark-Sprache. Englisch wie im Export (`seiteEnglisch`):
+ * Vorher wurde nur die bloße Zahl übersetzt („p. 3"), „S. 2 (±1)" und
+ * „ca. 1" standen wörtlich im englischen Remark der fremden Liste (Audit
+ * 11/2026, EXP-07/TXT-01).
+ */
+const SEITE: Record<RemarkSprache, (s: string) => string> = {
+  de: (s) => (/^\d+$/.test(s) ? `S. ${s}` : s),
+  en: seiteEnglisch,
+}
+
+const W: Record<RemarkSprache, { rest: string; fehlt: string; widerlegt: string; vorschlag: string; ausgenommen: (n: number) => string }> = {
+  de: { rest: 'Noch vorhanden', fehlt: 'Fehlt', widerlegt: 'Team-Kommentar meldet die Korrektur, im Dokument nicht nachweisbar.', vorschlag: 'Korrekturvorschlag', ausgenommen: (n) => `Nicht als Rest gezählt (Zitat bzw. Verbform): ${n} Fundstelle${n === 1 ? '' : 'n'}.` },
+  en: { rest: 'Still present', fehlt: 'Missing', widerlegt: 'Team comment reports the correction; not found in the document.', vorschlag: 'Proposed correction', ausgenommen: (n) => `Not counted as remaining (quotation or verb form): ${n} occurrence${n === 1 ? '' : 's'}.` },
 }
 
 /**
@@ -334,7 +346,7 @@ const W: Record<RemarkSprache, { rest: string; fehlt: string; widerlegt: string;
  */
 export const zitat = (text: string, s: RemarkSprache): string => (s === 'de' ? `„${text}“` : `“${text}”`)
 
-const zeile = (f: Fundstelle, s: RemarkSprache) => `• ${[f.dok, f.kapitel, /^\d+$/.test(f.seite) ? `${W[s].seite} ${f.seite}` : f.seite, zitat(f.auszug, s)].filter(Boolean).join(' · ')}`
+const zeile = (f: Fundstelle, s: RemarkSprache) => `• ${[f.dok, f.kapitel, SEITE[s](f.seite), zitat(f.auszug, s)].filter(Boolean).join(' · ')}`
 
 /**
  * Remark nach N3.2: Präfix mit Status und Datum, Restfundstellen je Zeile

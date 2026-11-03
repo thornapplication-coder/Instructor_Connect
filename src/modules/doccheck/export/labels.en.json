@@ -31,8 +31,19 @@
     "notAssessable": "Not assessable – text recognition pending"
   },
   "overallBasis": "Proposed from the rule-based checks: open High findings make the document not ready; pages without a text layer make it not assessable until text recognition has run; any open finding requires correction. To be confirmed by the reviewer.",
-  "checks": ["Formal check", "Word technical check", "Language & placeholders", "Calculations & plausibility", "References between documents", "Regulatory references (against loaded regulations)"],
+  "checks": {
+    "formal": "Formal check",
+    "verweis": "References within the document (exercise numbers, circular references)",
+    "word": "Word technical check",
+    "sprache": "Language & placeholders",
+    "referenz": "Reference lists",
+    "rechnen": "Calculations & plausibility",
+    "regelwerk": "Regulatory references (against loaded regulations)",
+    "paket": "Package check (hierarchy, siblings, references between documents)"
+  },
+  "noChecks": "None – no check was active",
   "noModel": "None – rule-based checks only (AI review not performed)",
+  "further": { "one": "+ 1 further document", "other": "+ {n} further documents" },
   "categories": ["Non-Compliance", "Gap", "Inconsistency", "Document Control", "Editorial", "Recommendation"],
   "priorities": ["High", "Medium", "Low"],
   "statuses": ["Open", "In Progress", "Closed", "Rejected"],
@@ -77,7 +88,12 @@
     "reviewedBy": "Reviewed by",
     "approvedBy": "Approved by",
     "findingsColumns": ["ID", "Chapter / Page", "Excerpt", "Reference (Type)", "Finding", "Proposed Correction", "Priority", "Status", "Verification"],
-    "noChapter": "Without chapter"
+    "noChapter": "Without chapter",
+    "location": "Location",
+    "checkpoint": "Checkpoint",
+    "notApplicableShort": "n.a.",
+    "notRun": "–",
+    "matrixLegend": "n.a. = Not applicable; – = not checked for this document."
   },
   "briefing": {
     "title": "Document Review Briefing",
@@ -90,6 +106,8 @@
     "nextEmpty": "To be assigned",
     "method": "Method & Disclaimer",
     "seeId": "see",
+    "more": "+ {n} further – see Excel/Word (Export ID {id})",
+    "noChecks": "No formal checks performed.",
     "tiles": ["Total", "High", "Medium", "Low", "To verify"]
   }
 }

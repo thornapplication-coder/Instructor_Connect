@@ -5,6 +5,7 @@ import { Badge, Button, Card, CardHeading } from '../../../components/ui'
 import { formatDate } from '../../../datum'
 import { korrekturen, paketStand } from '../recheck/ablauf'
 import { paketBestaetigen, paketSetzen, paketStruktur, setzen, useSitzung, type SitzungsDok } from '../sitzung'
+import { paketVergleich } from '../paket/struktur'
 import { standardVerbindung } from '../verbindung'
 import { useStore } from '../../../store'
 import { aktiv } from '../settings'
@@ -89,7 +90,7 @@ function Zeile({ d }: { d: SitzungsDok }) {
 export function PaketPanel() {
   const { t } = useTranslation('doccheck')
   const z = useSitzung()
-  const docs = z.docs.filter((d) => d.rolle === 'review' && d.status === 'fertig' && d.paket).sort((a, b) => a.paket!.ebene - b.paket!.ebene || a.paket!.kuerzel.localeCompare(b.paket!.kuerzel, 'de', { numeric: true }))
+  const docs = z.docs.filter((d) => d.rolle === 'review' && d.status === 'fertig' && d.paket).sort((a, b) => paketVergleich(a.paket!, b.paket!))
   const e = z.paketErgebnis?.ergebnis
   const erkannt = docs.some((d) => d.paket!.erkannt)
   if (!docs.length) {

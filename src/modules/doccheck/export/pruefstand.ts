@@ -1,5 +1,6 @@
-import { VOLL_GELESEN, type Ampel, type Kategorie, type Prioritaet } from '../pruefung/befund'
-import { datenstand as neuerStand, EXPORT_LAYOUT_VERSION, exportId, dateiStamm, LABELS as L, type Datenstand, type ExportDokument, type Gesamt } from './datenstand'
+import { standLabelNachIso } from '../library'
+import { seiteEnglisch, VOLL_GELESEN, type Ampel, type Kategorie, type Prioritaet } from '../pruefung/befund'
+import { datenstand as neuerStand, EXPORT_LAYOUT_VERSION, exportId, LABELS as L, ohneSteuerzeichen, seitenZahl, type Datenstand, type ExportDokument, type Gesamt } from './datenstand'
 
 /**
  * Prüfstand-Datei `.doccheck.json` (Spez. v1.1 Kap. 12).
@@ -52,7 +53,12 @@ export interface PruefstandBefund {
 
 export interface Pruefstand {
   schema: typeof SCHEMA
-  app: { version: string; exportLayout: string }
+  /**
+   * `version`: die App, die DIESE Datei geschrieben hat. `sourceAppVersion`
+   * nur bei einem Export aus einem geladenen Prüfstand: die App, die den
+   * Stand ursprünglich erzeugt hat (EXP-15).
+   */
+  app: { version: string; exportLayout: string; sourceAppVersion?: string }
   library: { label: string }
   createdAt: string
   updatedAt: string
@@ -73,25 +79,37 @@ const FELDER: (keyof PruefstandBefund | null)[] = [
   'category', 'techType', 'priority', 'description', 'correction', 'otherDocs', 'verification', 'revisionStatus', 'responsible', 'due', 'status',
 ]
 
-export function pruefstandAus(d: Datenstand, userId: string, formate: string[], ts: string): Pruefstand {
+/**
+ * Prüfstand aus einem Datenstand. `herkunft` ist der geladene Prüfstand, aus
+ * dem `d` stammt (`datenstandAus`): Dann ist es DERSELBE Stand, nur erneut
+ * exportiert — Prüfer (ID und Name zusammen), Anlagedatum und Bestätigung
+ * bleiben, der Exportverlauf wird ergänzt, nicht ersetzt, und die
+ * ursprüngliche App-Version steht als `sourceAppVersion` daneben. Vorher
+ * trug die Datei die ID dessen, der sie am iPad weiterexportierte, neben dem
+ * Namen des Prüfers, ein neues Anlagedatum und nur noch den letzten Export
+ * (Audit 11/2026, EXP-15). `userId` gilt nur für einen neuen Stand.
+ */
+export function pruefstandAus(d: Datenstand, userId: string, formate: string[], ts: string, herkunft?: Pruefstand): Pruefstand {
   return {
     schema: SCHEMA,
-    app: { version: d.appVersion, exportLayout: d.layout },
+    app: { version: d.appVersion, exportLayout: d.layout, ...(herkunft ? { sourceAppVersion: herkunft.app.sourceAppVersion ?? herkunft.app.version } : {}) },
     library: { label: d.bibliothek },
-    createdAt: ts,
+    createdAt: herkunft?.createdAt ?? ts,
     updatedAt: ts,
     organisation: d.organisation,
     reviewType: d.art,
-    reviewer: { userId, name: d.pruefer.name, function: d.pruefer.funktion },
-    settings: { checks: L.checks, model: '', language: 'en' },
+    // Steuerzeichen fallen wie beim Einfrieren weg (SEC-04) — sonst stünde der Name hier anders als im Bericht
+    reviewer: herkunft ? ohneSteuerzeichen({ ...herkunft.reviewer }) : { userId, name: d.pruefer.name, function: d.pruefer.funktion },
+    // Was an diesem Stand wirklich lief (EXP-01/DC-12) — bisher die feste Liste aller Prüfungen
+    settings: { checks: d.pruefungen, model: '', language: 'en' },
     documents: d.dokumente.map((x) => ({ id: x.id, role: x.rolle, fileName: x.name, sha256: x.sha256, docType: x.typ, title: x.titel, docNumber: x.nummer, revision: x.revision, date: x.datum, rank: x.rang, pages: x.seiten })),
     findings: d.befunde.map((b) => {
       const f = Object.fromEntries(FELDER.map((k, i) => [k, b.spalten[i]])) as unknown as PruefstandBefund
       return { ...f, docId: b.dokId }
     }),
-    assessment: { overall: GESAMT_JSON[d.gesamt], top5: d.top5, confirmedBy: '', confirmedAt: '' },
+    assessment: { overall: GESAMT_JSON[d.gesamt], top5: d.top5, confirmedBy: herkunft?.assessment.confirmedBy ?? '', confirmedAt: herkunft?.assessment.confirmedAt ?? '' },
     formalChecks: d.ampeln.map((a) => ({ document: a.dokument, group: a.gruppe, check: a.punkt, status: AMPEL_JSON[a.ampel] })),
-    exports: [{ exportId: d.exportId, formats: formate, ts }],
+    exports: [...(herkunft?.exports ?? []), { exportId: d.exportId, formats: formate, ts }],
   }
 }
 
@@ -101,7 +119,52 @@ export function pruefstandText(p: Pruefstand): string {
 
 export type LadeFehler = 'DC-STATE-SIZE' | 'DC-STATE-JSON' | 'DC-STATE-VERSION' | 'DC-STATE-FORMAT'
 
-const istText = (v: unknown) => typeof v === 'string'
+const istText = (v: unknown): v is string => typeof v === 'string'
+const istObjekt = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v)
+const alleText = (o: Record<string, unknown>, felder: string[]) => felder.every((k) => istText(o[k]))
+const textListe = (v: unknown): v is string[] => Array.isArray(v) && v.every(istText)
+/** ISO-Datum, wahlweise mit Uhrzeit und Versatz — gezeigt wird daraus der Tag (`slice(0, 10)`). */
+const ISO = /^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:Z|[+-]\d{2}:\d{2})?)?$/
+const istIso = (v: unknown) => istText(v) && ISO.test(v)
+
+/**
+ * Prüft die Datei gegen das GANZE Interface, nicht nur gegen die Teile,
+ * die die Liste der Befunde braucht. Vorher kamen eine Minimaldatei, ein
+ * Stand ohne `reviewer` und ein Titel als Objekt durch: Der Toast meldete
+ * „geöffnet", daneben stand die Fehlerseite DC-LOAD, und ein Export daraus
+ * griff auf `undefined` zu (Audit 11/2026, SEC-03). Was ein legitimer
+ * Export schreibt, besteht diese Prüfung immer — IDs sind eindeutig, Top 5
+ * nennt nur IDs aus den Befunden, Seitenzahlen sind ganze Zahlen.
+ */
+function vollstaendig(p: Record<string, unknown>): boolean {
+  const { app, library, reviewer, settings, assessment } = p
+  if (!istObjekt(app) || !alleText(app, ['version', 'exportLayout']) || !(app.sourceAppVersion === undefined || istText(app.sourceAppVersion))) return false
+  if (!istObjekt(library) || !istText(library.label)) return false
+  if (!istIso(p.createdAt) || !istIso(p.updatedAt) || !istText(p.organisation)) return false
+  if (p.reviewType !== 'erst' && p.reviewType !== 'revision') return false
+  if (!istObjekt(reviewer) || !alleText(reviewer, ['userId', 'name', 'function'])) return false
+  if (!istObjekt(settings) || !textListe(settings.checks) || !istText(settings.model) || settings.language !== 'en') return false
+  const dokumente = p.documents as unknown[]
+  const dokOk = (x: unknown) =>
+    istObjekt(x) &&
+    alleText(x, ['id', 'fileName', 'sha256', 'docType', 'title', 'docNumber', 'revision', 'date', 'rank']) &&
+    ['review', 'master', 'session'].includes(x.role as string) &&
+    Number.isInteger(x.pages) &&
+    (x.pages as number) >= 0
+  if (!dokumente.every(dokOk)) return false
+  const befunde = p.findings as unknown[]
+  const befundOk = (b: unknown) =>
+    istObjekt(b) && FELDER.every((k) => k === null || istText(b[k])) && istText(b.docId) && L.categories.includes(b.category as string) && L.priorities.includes(b.priority as string)
+  if (!befunde.every(befundOk)) return false
+  // IDs sind eindeutig (CLAUDE.md) — mit doppelten zeigten Top 5 und Ansicht auf zwei Befunde zugleich
+  const ids = new Set((befunde as PruefstandBefund[]).map((b) => b.id))
+  if (ids.size !== befunde.length) return false
+  if (!(p.formalChecks as unknown[]).every((a) => istObjekt(a) && alleText(a, ['document', 'group', 'check']) && Object.values(AMPEL_JSON).includes(a.status as string))) return false
+  if (!istObjekt(assessment) || !Object.values(GESAMT_JSON).includes(assessment.overall as string) || !alleText(assessment, ['confirmedBy', 'confirmedAt'])) return false
+  if (!textListe(assessment.top5) || !assessment.top5.every((id) => ids.has(id))) return false
+  const exporte = p.exports
+  return Array.isArray(exporte) && exporte.every((x) => istObjekt(x) && istText(x.exportId) && textListe(x.formats) && istText(x.ts))
+}
 
 /**
  * Datei prüfen und lesen. Eine neuere Schema-Version wird abgewiesen statt
@@ -112,37 +175,52 @@ export function pruefstandLesen(text: string): Pruefstand | LadeFehler {
   if (new TextEncoder().encode(text).length > MAX_BYTES) return 'DC-STATE-SIZE'
   let roh: unknown
   try {
-    roh = JSON.parse(text.replace(/^﻿/, ''))
+    roh = JSON.parse(text.replace(/^\uFEFF/, ''))
   } catch {
     return 'DC-STATE-JSON'
   }
-  if (!roh || typeof roh !== 'object') return 'DC-STATE-FORMAT'
-  const p = roh as Partial<Pruefstand>
-  if (typeof p.schema !== 'string' || !p.schema.startsWith('doccheck/')) return 'DC-STATE-FORMAT'
-  if (p.schema !== SCHEMA) return 'DC-STATE-VERSION'
-  if (!Array.isArray(p.documents) || !Array.isArray(p.findings) || !p.assessment || !Array.isArray(p.formalChecks)) return 'DC-STATE-FORMAT'
-  const befundOk = (b: Partial<PruefstandBefund>) =>
-    FELDER.every((k) => k === null || istText(b[k])) && istText(b.docId) && L.categories.includes(b.category as string) && L.priorities.includes(b.priority as string)
-  if (!p.findings.every((b) => b && befundOk(b))) return 'DC-STATE-FORMAT'
-  if (!p.documents.every((x) => x && istText(x.id) && istText(x.sha256) && ['review', 'master', 'session'].includes(x.role) && typeof x.pages === 'number')) return 'DC-STATE-FORMAT'
-  if (!p.formalChecks.every((a) => a && istText(a.check) && Object.values(AMPEL_JSON).includes(a.status))) return 'DC-STATE-FORMAT'
-  if (!Array.isArray(p.assessment.top5) || !Object.values(GESAMT_JSON).includes(p.assessment.overall)) return 'DC-STATE-FORMAT'
-  return p as Pruefstand
+  if (!istObjekt(roh)) return 'DC-STATE-FORMAT'
+  if (typeof roh.schema !== 'string' || !roh.schema.startsWith('doccheck/')) return 'DC-STATE-FORMAT'
+  if (roh.schema !== SCHEMA) return 'DC-STATE-VERSION'
+  if (!Array.isArray(roh.documents) || !Array.isArray(roh.findings) || !Array.isArray(roh.formalChecks)) return 'DC-STATE-FORMAT'
+  return vollstaendig(roh) ? (roh as unknown as Pruefstand) : 'DC-STATE-FORMAT'
+}
+
+/**
+ * Datei vom Gerät lesen — die Größe VOR dem Einlesen: `pruefstandLesen`
+ * misst erst den fertigen Text, und bis dahin lag eine beliebig große
+ * Datei schon ganz im Speicher (SEC-03). Ein Lesefehler des Browsers ist
+ * für den Nutzer dasselbe wie eine unlesbare Datei.
+ */
+export async function pruefstandDateiLesen(f: { size: number; text(): Promise<string> }): Promise<Pruefstand | LadeFehler> {
+  if (f.size > MAX_BYTES) return 'DC-STATE-SIZE'
+  let text: string
+  try {
+    text = await f.text()
+  } catch {
+    return 'DC-STATE-JSON'
+  }
+  return pruefstandLesen(text)
 }
 
 /**
  * Datenstand aus einem geladenen Prüfstand — für Exporte am iPad. IDs,
  * Reihenfolge und Inhalte bleiben, wie sie gespeichert wurden; neu sind
- * nur Export-ID und Datum, denn es ist ein neuer Export.
+ * Export-ID, Datum und App-Version, denn es ist ein neuer Export dieser
+ * App. Vorher stand die Version aus der Datei im Bericht — neben dem
+ * Layout der laufenden App (Audit 11/2026, EXP-15); die ursprüngliche
+ * Version bewahrt `pruefstandAus` als `sourceAppVersion`.
  */
-export function datenstandAus(p: Pruefstand, datum: string, laufnummer: number): Datenstand {
+export function datenstandAus(p: Pruefstand, datum: string, laufnummer: number, appVersion: string): Datenstand {
   const dokumente: ExportDokument[] = p.documents.map((x) => ({ id: x.id, rolle: x.role, name: x.fileName, typ: x.docType, titel: x.title, nummer: x.docNumber, revision: x.revision, datum: x.date, rang: x.rank, seiten: x.pages, sha256: x.sha256 }))
-  const leer = neuerStand({ datum, laufnummer, appVersion: p.app.version, organisation: p.organisation, art: p.reviewType, pruefer: { name: p.reviewer.name, funktion: p.reviewer.function }, bibliothek: p.library.label, dokumente, befunde: [], ampeln: [], lesestand: VOLL_GELESEN }) // Gesamtbewertung kommt unten aus der Datei
+  // Bibliotheksstand älterer Dateien („Lib 3 · 28.10.2026") wie der frische Export ISO (EXP-16)
+  const leer = neuerStand({ datum, laufnummer, appVersion, organisation: p.organisation, art: p.reviewType, pruefer: { name: p.reviewer.name, funktion: p.reviewer.function }, bibliothek: standLabelNachIso(p.library.label), dokumente, befunde: [], ampeln: [], lesestand: VOLL_GELESEN, paketGeprueft: false }) // Gesamtbewertung und Prüfungen kommen unten aus der Datei
   const befunde = p.findings.map((f) => ({
     id: f.id,
     dokId: f.docId,
-    seiteNr: Number(f.pageLabel.match(/\d+/)?.[0] ?? Number.MAX_SAFE_INTEGER),
-    spalten: FELDER.map((k) => (k ? f[k] : '')),
+    seiteNr: seitenZahl(f.pageLabel),
+    // Ältere Prüfstände tragen noch „S. 3" / „ca. 1" — der Export ist englisch (EXP-07/TXT-01)
+    spalten: FELDER.map((k) => (k === 'pageLabel' ? seiteEnglisch(f.pageLabel) : k ? f[k] : '')),
     kategorie: f.category,
     prioritaet: f.priority,
     verifizierung: f.verification,
@@ -150,17 +228,19 @@ export function datenstandAus(p: Pruefstand, datum: string, laufnummer: number):
   for (const b of befunde) leer.zaehlung[b.kategorie][b.prioritaet]++
   const zurueck = Object.fromEntries(Object.entries(AMPEL_JSON).map(([k, v]) => [v, k])) as Record<string, Ampel>
   const gesamt = (Object.entries(GESAMT_JSON).find(([, v]) => v === p.assessment.overall)?.[0] ?? 'notReady') as Gesamt
-  return {
+  // Steuerzeichen aus der Datei entfernen wie beim frischen Stand (SEC-04): JSON darf „\u0002" tragen
+  return ohneSteuerzeichen({
     ...leer,
     exportId: exportId(datum, laufnummer),
     layout: EXPORT_LAYOUT_VERSION,
+    pruefungen: p.settings.checks,
     befunde,
     zuPruefen: befunde.filter((b) => b.verifizierung.startsWith('To verify')).length,
     ampeln: p.formalChecks.map((a) => ({ dokument: a.document, gruppe: a.group, punkt: a.check, ampel: zurueck[a.status] })),
     gesamt,
     top5: p.assessment.top5.filter((id) => befunde.some((b) => b.id === id)),
-    dateiStamm: dateiStamm(datum, leer.haupt),
-  }
+    // Dateistamm, Hauptdokument und Zahl der weiteren Dokumente kommen mit `leer` aus denselben Dokumenten (EXP-08)
+  })
 }
 
 /**

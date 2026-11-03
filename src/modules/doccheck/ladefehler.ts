@@ -33,7 +33,7 @@ const MODUL_NICHT_GELADEN = [
 const NETZFEHLER = [/Failed to fetch/i, /NetworkError/i, /Load failed/i, /net::ERR_/i]
 
 /** Ohne `navigator` (Worker, Node) gilt das Gerät als online — dann zählen nur die eindeutigen Meldungen. */
-function geraetOnline(): boolean {
+export function geraetOnline(): boolean {
   return typeof navigator === 'undefined' || navigator.onLine !== false
 }
 

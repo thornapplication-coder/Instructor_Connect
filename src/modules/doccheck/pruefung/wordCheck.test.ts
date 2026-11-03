@@ -111,10 +111,11 @@ describe('Word-Check — Kopf-/Fußzeilen je Merkmal (Audit 11/2026, FRD-09)', (
   it('zwei Abschnitte mit verschiedenem Fußdatum → Medium; die Fundstelle nennt das Merkmal', () => {
     const b = kf([abschnitt(1, [], [teil('footer1.xml', '15.03.2026')]), abschnitt(2, [], [teil('footer2.xml', '01.01.2025')])])
     expect(b.map((x) => [x.prioritaet, x.text])).toEqual([['Medium', '[Word check] Headers/footers differ between sections (date 2026-03-15 / 2025-01-01), including sections that are not visible.']])
-    // Ohne Mehrheit stehen beide da
+    // Ohne Mehrheit stehen beide da. Erwartung bewusst geändert (Audit 11/2026, Nachtrag TXT#1):
+    // vorher „Section 1, footer1.xml (default)" — der ZIP-Teil vorn, so im Bericht für die Behörde
     expect(b[0].fundstellen.map((f) => [f.ort, f.auszug])).toEqual([
-      ['Section 1, footer1.xml (default)', '15.03.2026 → date 2026-03-15'],
-      ['Section 2, footer2.xml (default)', '01.01.2025 → date 2025-01-01'],
+      ['Section 1, default footer (footer1.xml)', '15.03.2026 → date 2026-03-15'],
+      ['Section 2, default footer (footer2.xml)', '01.01.2025 → date 2025-01-01'],
     ])
   })
 
@@ -187,5 +188,34 @@ describe('Word-Check — Textfeld mit Rahmen (Audit 11/2026, FRD-04)', () => {
   it('verborgener Text auf unbestimmbarem Grund nennt den Grund „unknown background"', () => {
     const t = teilLesen('<w:p><w:r><w:drawing><wps:wsp><wps:spPr><a:noFill/></wps:spPr><wps:txbx><w:txbxContent><w:p><w:r><w:rPr><w:vanish/></w:rPr><w:t>gone</w:t></w:r></w:p></w:txbxContent></wps:txbx></wps:wsp></w:drawing></w:r></w:p>', { teil: 'word/document.xml', ort: 'body', stile: stileLesen(''), startNr: 0 })
     expect(pruefe(roh(word({ absaetze: t.absaetze, laeufe: t.laeufe }))).befunde.find((b) => b.pruefpunkt === 'unsichtbar')!.fundstellen[0].auszug).toBe('gone — hidden (vanish) (auto on unknown background)')
+  })
+})
+
+describe('Word-Check — Fundorte für den Bericht (Audit 11/2026, Nachtrag TXT#1)', () => {
+  it('Textbefund im Kapitel; Eigenschaften, Einstellungen und Kopfzeilen so, wie Word sie nennt', () => {
+    const r = pruefe(
+      roh(
+        word({
+          absaetze: [
+            { nr: 0, text: '1 General', ort: 'body', teil: 'word/document.xml', sektion: 1, seiteCa: 1, ebene: 1 },
+            { nr: 1, text: 'Hidden note', ort: 'body', teil: 'word/document.xml', sektion: 1, seiteCa: 1, tabelle: { zeile: 1, spalte: 0 } },
+            { nr: 2, text: 'Header text', ort: 'kopf', teil: 'word/header1.xml', sektion: 1, seiteCa: 1 },
+          ],
+          laeufe: [
+            { absatz: 1, text: 'Hidden note', eigenschaften: { vanish: true }, hintergrund: 'FFFFFF' },
+            { absatz: 2, text: 'Header text', eigenschaften: { vanish: true }, hintergrund: 'FFFFFF' },
+          ],
+          eigenschaften: { title: '' },
+          kompatibilitaet: 14,
+          verwaisteKopfFuss: ['word/footer9.xml'],
+        }),
+      ),
+    )
+    const p = Object.fromEntries(r.befunde.map((b) => [b.pruefpunkt, b]))
+    // Vorher: kein Kapitel; „docProps/core.xml", „word/settings.xml", „footer9.xml" unter „Chapter / Section"
+    expect(p.unsichtbar.fundstellen.map((f) => [f.kapitel, f.ort])).toEqual([['1 General', 'Table row 2, column 1'], [undefined, 'Header (header1.xml)']])
+    expect(p.eigenschaften.fundstellen[0].ort).toBe('Document properties')
+    expect(p.kompatibilitaet.fundstellen[0].ort).toBe('Document settings')
+    expect(p.kopfFuss.fundstellen.map((f) => f.ort)).toEqual(['Footer (footer9.xml)'])
   })
 })

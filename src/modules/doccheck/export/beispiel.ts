@@ -39,6 +39,7 @@ export function eingabe(x: Partial<ExportEingabe> = {}): ExportEingabe {
     ],
     ampeln: [{ dokId: 'tm', gruppen: { formal: { lep: 'wait', seiten: 'ok', inhalt: 'na' }, word: { unsichtbar: 'bad' } } }],
     lesestand: VOLL_GELESEN,
+    paketGeprueft: true,
     ...x,
   }
 }

@@ -70,6 +70,15 @@ export function gruppenVorschlagen(docs: { id: string; a: PaketAngaben }[]): Rec
   return out
 }
 
+/**
+ * Reihenfolge im Paket: Ebene, dann Kürzel natürlich sortiert („APX 4" vor
+ * „APX 10"). Dieselbe Regel für den Baum der Oberfläche und für den Export —
+ * dort ist das erste Dokument das Hauptdokument (Audit 11/2026, EXP-08).
+ */
+export function paketVergleich(a: Pick<PaketAngaben, 'ebene' | 'kuerzel'>, b: Pick<PaketAngaben, 'ebene' | 'kuerzel'>): number {
+  return a.ebene - b.ebene || a.kuerzel.localeCompare(b.kuerzel, 'de', { numeric: true })
+}
+
 /** Variante aus dem Kürzel ableiten, wenn sonst keine erkannt wurde („ANX 2B" → „B"). */
 export function varianteAusKuerzel(kuerzel: string): string {
   return kuerzel.match(/\d([A-Z])$/i)?.[1].toUpperCase() ?? ''

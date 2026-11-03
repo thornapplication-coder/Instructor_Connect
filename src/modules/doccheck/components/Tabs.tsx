@@ -50,12 +50,12 @@ function RegelStand({ zuFindings }: { zuFindings: () => void }) {
 
 export function PruefungTab({ modell, zuFindings }: { modell: string; zuFindings: () => void }) {
   const { t } = useTranslation('doccheck')
-  const { t: tApp } = useTranslation()
   const { currentUser, docCheckSettings } = useStore()
   const [arten, setArten] = useState({ technik: true, regulatorik: true, redaktion: true, konsistenz: true })
   const pruefDocs = useSitzung().docs.filter((d) => d.rolle === 'review' && d.status === 'fertig').length
   const [art, setArt] = useState<'erst' | 'revision'>('erst')
-  const [funktion, setFunktion] = useState(() => tApp(`roles.${currentUser!.role}`))
+  // Funktion in der ATO, nicht die App-Rolle — ein Vorschlag aus der Rolle landete sonst mit Phase 4 im Export (EXP-13)
+  const [funktion, setFunktion] = useState('')
   const m = docCheckSettings.modelle.find((x) => x.id === modell)
   const { paketModus } = useSitzung()
   return (
@@ -117,7 +117,7 @@ export function PruefungTab({ modell, zuFindings }: { modell: string; zuFindings
         <Field label={t('pruefung.geprueftVon')} group>
           <div className="grid grid-cols-2 gap-2">
             <input className={inputCls} value={currentUser!.name} readOnly aria-label={t('pruefung.name')} />
-            <input className={inputCls} value={funktion} onChange={(e) => setFunktion(e.target.value)} aria-label={t('pruefung.funktion')} />
+            <input className={inputCls} value={funktion} onChange={(e) => setFunktion(e.target.value)} placeholder={t('pruefung.funktion')} aria-label={t('pruefung.funktion')} />
           </div>
         </Field>
       </div>

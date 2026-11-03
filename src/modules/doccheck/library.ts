@@ -1,4 +1,4 @@
-import { formatDate } from '../../datum'
+import { formatDate, lokalerTag } from '../../datum'
 import type { Bibliotheksstand, BibliotheksDokument, NachpruefEmpfehlung, Sammlung } from './types'
 
 /**
@@ -47,6 +47,22 @@ export function nachSammlung(docs: BibliotheksDokument[], sammlungen: Sammlung[]
  *  App-Regel DD.MM.YYYY, nicht nach dem Beispiel der Spezifikation. */
 export function standLabel(stand: Bibliotheksstand | undefined): string {
   return stand ? `Lib ${stand.nummer} · ${formatDate(stand.at)}` : 'Lib –'
+}
+
+/**
+ * Derselbe Stand für EXPORTE: „Lib 3 · 2026-10-28". Spez. 10.2 verlangt dort
+ * „Datumsformat überall ISO" (Beispiel „Lib 12 · 2026-10-28"); vorher stand
+ * im Bericht „Lib 3 · 28.10.2026" neben „Review date 2026-11-01" (Audit
+ * 11/2026, EXP-16/TXT-15). Die Oberfläche bleibt bei `standLabel`. Der Tag
+ * in Ortszeit wie dort (`lokalerTag`) — beide nennen denselben Tag.
+ */
+export function standLabelIso(stand: Bibliotheksstand | undefined): string {
+  return stand ? `Lib ${stand.nummer} · ${lokalerTag(stand.at)}` : 'Lib –'
+}
+
+/** Ältere Prüfstände tragen noch „Lib 3 · 28.10.2026" — ein Export daraus nennt den Tag ebenfalls ISO (EXP-16). */
+export function standLabelNachIso(label: string): string {
+  return label.replace(/\b(\d{2})\.(\d{2})\.(\d{4})\b/g, '$3-$2-$1')
 }
 
 export function aktuellerStand(staende: Bibliotheksstand[]): Bibliotheksstand | undefined {

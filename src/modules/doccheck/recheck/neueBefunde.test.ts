@@ -81,13 +81,28 @@ describe('Dublettenregel (N3.4, N10.3)', () => {
       { 'APX 4': { art: 'dok', ids: ['apx'] }, Schreibweise: { art: 'paket' } },
     )
     expect(r.ausgenommen).toBe(1)
-    // Hoch zuerst, dann nach Dokumentname; Nummern ab 21
+    // Hoch zuerst, dann nach Dokumentname; Nummern ab 21. Seite bewusst geändert: Das Blatt ist
+    // englisch wie der Export, vorher stand dort „S. 2" (Audit 11/2026, EXP-07/TXT-01)
     expect(r.liste.map((n) => [n.nr, n.befund, n.dokument, n.seite, n.kapitel])).toEqual([
-      ['21', 'T F-02', 'APX 4', 'S. 2', '1.4 Briefing'],
+      ['21', 'T F-02', 'APX 4', 'Page 2', '1.4 Briefing'],
       ['22', 'T F-04', 'TM', '', ''],
-      ['23', 'T F-03', 'TM', 'S. 9', ''],
+      ['23', 'T F-03', 'TM', 'Page 9', ''],
     ])
     expect(r.liste[0]).toMatchObject({ prioritaet: 'High', kategorie: 'Editorial', verifizierung: 'Verified (rule-based)', dokId: 'apx' })
+  })
+
+  it('Kapitelspalte wie „Chapter / Section" im DocCheck-Export: das Kapitel, ohne Kapitel der Ort (Audit 11/2026, Nachtrag TXT#1)', () => {
+    // Vorher stand dort immer der Ort — „Table row 3, column 2" statt des Kapitels
+    const r = neueBefundeFuer(
+      [
+        b('F-01', 'High', 'tm', '', { fundstellen: [{ seite: 'S. 4', kapitel: '2.1 Hours', ort: 'Table row 3, column 2', auszug: 'Total 16:00' }] }),
+        b('F-02', 'Medium', 'tm', '', { fundstellen: [{ ort: 'Header (header1.xml)', auszug: 'Rev 2' }] }),
+      ],
+      [],
+      [],
+      {},
+    )
+    expect(r.liste.map((n) => n.kapitel)).toEqual(['2.1 Hours', 'Header (header1.xml)'])
   })
 
   it('Dokumentname so, wie die Liste ihn führt; sonst der Name in DocCheck', () => {

@@ -163,6 +163,17 @@
     "laeuft": "Generating …",
     "fertig": "{{name}} created.",
     "fehler": "The export could not be created.",
+    "netz": "Excel, Word and PowerPoint load their library from the network on first export – there is no connection right now. CSV and review state also work offline.",
+    "neuLaden": {
+      "sitzung": "Excel, Word and PowerPoint only work again after reloading the page. Use “Save review state” first – the session documents are lost on reload, the review state is not.",
+      "pruefstand": "Excel, Word and PowerPoint only work again after reloading the page; then open the review state again."
+    },
+    "pflicht": {
+      "revision_one": "Revision missing for {{namen}} – the report leaves it blank.",
+      "revision_other": "Revision missing for {{count}} documents under review ({{namen}}) – the report leaves it blank.",
+      "dateiname": "The file name then reads “RevNA”.",
+      "abhilfe": "Enter it in the document card; you can export without it."
+    },
     "stand_one": "{{count}} finding from {{dokumenteText}} – each export freezes the current state with its own export ID.",
     "stand_other": "{{count}} findings from {{dokumenteText}} – each export freezes the current state with its own export ID.",
     "dokumente_one": "{{count}} document under review",

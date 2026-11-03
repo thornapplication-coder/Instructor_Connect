@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import de from '../i18n/de.json'
 import en from '../i18n/en.json'
-import { ampelAus, anzahl, gate, idsVergeben, lesestand, leseMeldung, nichtBewertbar, regelStand, sortieren, VOLL_GELESEN, type Befund } from './befund'
+import { ampelAus, anzahl, exportOrt, gate, idsVergeben, lesestand, leseMeldung, nichtBewertbar, regelStand, seiteEnglisch, sortieren, VOLL_GELESEN, type Befund } from './befund'
 
 const b = (p: Partial<Befund>): Befund => ({
   id: 'x', quelle: 'formal', pruefpunkt: 'reste', kategorie: 'Editorial', prioritaet: 'Low', dokId: 'd', dokName: 'A', text: 't', fundstellen: [], verifizierung: 'Verified (rule-based)', status: 'Open', ...p,
@@ -92,5 +92,35 @@ describe('Befunde', () => {
       expect(upload.gelesenUngeprueft).not.toMatch(/geprüft|checked/)
       expect(upload.gelesenOhnePruefung).toMatch(/abgeschaltet|switched off/)
     }
+  })
+})
+
+describe('Seitenbezeichnung im Export englisch (Audit 11/2026, EXP-07/TXT-01)', () => {
+  it('bildet ab, was DocCheck selbst erzeugt — Herkunft bleibt sichtbar', () => {
+    // Vorher standen „S. 2 (±1)" und „ca. 1" neben „Page 5" in derselben englischen Spalte
+    expect(['S. 12', 'S. 12 (±1)', 'ca. 12', '12'].map(seiteEnglisch)).toEqual(['Page 12', 'Page 12 (±1)', 'approx. page 12', 'Page 12'])
+    // Spanne einer Tabelle über die Seitengrenze (seitenSpanne, FRD-02)
+    expect(['S. 10–11 (±1)', 'ca. 10–11', 'S. 1–2', '5–6'].map(seiteEnglisch)).toEqual(['Pages 10–11 (±1)', 'approx. pages 10–11', 'Pages 1–2', 'Pages 5–6'])
+    expect(seiteEnglisch('S. 10 (±1) – ca. 11')).toBe('Page 10 (±1) – approx. page 11')
+  })
+
+  it('lässt gedruckte Bezeichnungen des Dokuments stehen und ist idempotent', () => {
+    for (const x of ['Page 5', '6-04-15 Page 2', 'ii', 'A-3', '6-04-15 Page 2 – 6-04-15 Page 3', '', 'Seite 3'])
+      expect(seiteEnglisch(x)).toBe(x)
+    for (const x of ['S. 12', 'S. 12 (±1)', 'ca. 12', 'S. 10–11 (±1)', 'ca. 10–11', '7'])
+      expect(seiteEnglisch(seiteEnglisch(x))).toBe(seiteEnglisch(x))
+    // Kein „S." und kein „ca." bleibt übrig
+    for (const x of ['S. 1', 'S. 2 (±1)', 'ca. 3', 'S. 4–5 (±1)', 'ca. 6–7']) expect(seiteEnglisch(x)).not.toMatch(/\b(S\.|ca\.) ?\d/)
+  })
+})
+
+describe('„Chapter / Section" und „Paragraph / Line" im Export (Audit 11/2026, Nachtrag TXT#1)', () => {
+  it('mit Kapitel: Kapitel vorn, die Stelle darin eine Spalte weiter; ohne Kapitel ist der Ort der Abschnitt', () => {
+    // Vorher stand der Ort unter „Chapter / Section" — nie ein Kapitel
+    expect(exportOrt({ kapitel: '2.1 Hours', ort: 'Table row 3, column 2' })).toEqual({ kapitel: '2.1 Hours', absatz: 'Table row 3, column 2' })
+    expect(exportOrt({ kapitel: '2.1 Hours' })).toEqual({ kapitel: '2.1 Hours', absatz: '' })
+    expect(exportOrt({ ort: 'Header (header1.xml)' })).toEqual({ kapitel: 'Header (header1.xml)', absatz: '' })
+    expect(exportOrt({})).toEqual({ kapitel: '', absatz: '' })
+    expect(exportOrt(undefined)).toEqual({ kapitel: '', absatz: '' })
   })
 })

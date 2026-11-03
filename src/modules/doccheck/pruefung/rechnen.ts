@@ -1,6 +1,6 @@
 import type { Rohdokument } from '../parse/model'
 import { ampelAus, type Ampel, type Befund, type Fundstelle } from './befund'
-import { befund, type PruefKontext } from './kontext'
+import { befund, seitenKapitel, type PruefKontext } from './kontext'
 import { dokumentSprache, spracheVon, type Sprache } from './sprache'
 
 /**
@@ -43,6 +43,9 @@ export const zeitText = (min: number) => `${Math.floor(min / 60)}:${String(Math.
 const zeigen = (w: Wert) => (w.zeit ? zeitText(w.n) : String(Math.round(w.n * 100) / 100))
 const gleich = (a: Wert, b: Wert) => Math.abs(a.n - b.n) < (a.zeit ? 0.5 : 0.01)
 
+/** Kapitel einer Fundstelle am Seitentext, nur wenn bekannt (Nachtrag TXT#1). */
+const imKapitel = (kapitel: string | undefined): Pick<Fundstelle, 'kapitel'> => (kapitel ? { kapitel } : {})
+
 /* ------------------------------ Tabellen ------------------------------ */
 
 export interface Tabelle {
@@ -53,6 +56,8 @@ export interface Tabelle {
   seiten: string[]
   /** Text der Zeilen direkt vor der Tabelle (für die Sessiondauer) */
   davor: string[]
+  /** Kapitel, in dem die Tabelle beginnt (`seitenKapitel`) — „Chapter / Section" im Export (Nachtrag TXT#1) */
+  kapitel?: string
 }
 
 /**
@@ -74,11 +79,12 @@ const zellenVon = (z: string) => (/(?:^|\s)\|(?:\s|$)/.test(z) ? ` ${z} `.split(
  * Summe mit nur einer Datenzeile auf ihrer Seite fiel durch (Audit 11/2026,
  * FRD-02). XLSX-„Seiten" sind Blätter — dort endet jede Tabelle am Blatt.
  */
-export function tabellen(roh: Pick<Rohdokument, 'format' | 'pages'>): Tabelle[] {
+export function tabellen(roh: Pick<Rohdokument, 'format' | 'pages'> & Partial<Pick<Rohdokument, 'outline'>>): Tabelle[] {
   if (roh.format === 'pdf') return []
   const out: Tabelle[] = []
+  const kapitel = seitenKapitel(roh)
   let akt: Tabelle | null = null
-  for (const p of roh.pages) {
+  for (const [s, p] of roh.pages.entries()) {
     const seite = p.label ?? String(p.index)
     const zeilen = p.text.split('\n')
     // Über die Seitengrenze nur bei DOCX und nur, wenn nichts dazwischen
@@ -94,7 +100,8 @@ export function tabellen(roh: Pick<Rohdokument, 'format' | 'pages'>): Tabelle[] 
         akt.zeilen.push(zellen)
         akt.seiten.push(seite)
       } else if (zellen) {
-        akt = { zeilen: [zellen], seite, seiten: [seite], davor: zeilen.slice(Math.max(0, i - 3), i).filter((x) => !x.includes(' | ')) }
+        const kap = kapitel[s][i]
+        akt = { zeilen: [zellen], seite, seiten: [seite], davor: zeilen.slice(Math.max(0, i - 3), i).filter((x) => !x.includes(' | ')), ...(kap ? { kapitel: kap } : {}) }
         out.push(akt)
       } else akt = null
     }
@@ -172,7 +179,7 @@ function summenPruefen(k: PruefKontext, tabs: Tabelle[]): { befunde: Omit<Befund
         if (!soll) continue
         const ist: Wert = { n: daten.reduce((a, r) => a + (wertLesen(r[s] ?? '')?.n ?? 0), 0), zeit: soll.zeit }
         if (daten.length >= 2) verglichen++
-        if (!gleich(ist, soll)) out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'summen', anleitung: 'summen', kategorie: 'Inconsistency', prioritaet: 'High', text: `Table ${zwischen ? 'subtotal' : 'total'} does not match: sum of rows ${zeigen(ist)}, stated ${zeigen(soll)}.`, fundstellen: [{ seite: seitenSpanne(t.seiten[Math.max(0, von)], t.seiten[i]), ort: 'Table', auszug: zeile(z) }] }))
+        if (!gleich(ist, soll)) out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'summen', anleitung: 'summen', kategorie: 'Inconsistency', prioritaet: 'High', text: `Table ${zwischen ? 'subtotal' : 'total'} does not match: sum of rows ${zeigen(ist)}, stated ${zeigen(soll)}.`, fundstellen: [{ seite: seitenSpanne(t.seiten[Math.max(0, von)], t.seiten[i]), ...imKapitel(t.kapitel), ort: 'Table', auszug: zeile(z) }] }))
       }
       abZwischen = i + 1
       if (!zwischen) abGesamt = i + 1
@@ -201,7 +208,7 @@ function kumuliertPruefen(k: PruefKontext, tabs: Tabelle[]): Omit<Befund, 'id'>[
       if (!vorher || !teile.length || !ist || SUMME.test(t.zeilen[i][0] ?? '')) continue
       const d: Wert = { n: teile.reduce((a, w) => a + w.n, 0), zeit: teile[0].zeit }
       const soll: Wert = { n: vorher.n + d.n, zeit: ist.zeit }
-      if (!gleich(soll, ist)) out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'kumuliert', anleitung: 'kumuliert', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Cumulative time does not add up: ${zeigen(vorher)} + ${zeigen(d)} = ${zeigen(soll)}, stated ${zeigen(ist)}.`, fundstellen: [{ seite: t.seiten[i], ort: 'Table', auszug: zeile(t.zeilen[i]) }] }))
+      if (!gleich(soll, ist)) out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'kumuliert', anleitung: 'kumuliert', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Cumulative time does not add up: ${zeigen(vorher)} + ${zeigen(d)} = ${zeigen(soll)}, stated ${zeigen(ist)}.`, fundstellen: [{ seite: t.seiten[i], ...imKapitel(t.kapitel), ort: 'Table', auszug: zeile(t.zeilen[i]) }] }))
     }
   }
   return out
@@ -225,7 +232,7 @@ function sessionPruefen(k: PruefKontext, tabs: Tabelle[]): Omit<Befund, 'id'>[] 
     const summe = daten.reduce((a, z) => a + (wertLesen(z[spalte] ?? '')?.n ?? 0), 0)
     const g = wertLesen(angabe.m![2])!
     const soll = g.zeit ? g.n : g.n * 60
-    if (Math.abs(summe - soll) >= 0.5) out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'session', anleitung: 'session', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Session timeline adds up to ${zeitText(summe)}, but the session is stated as ${zeitText(soll)}.`, fundstellen: [{ seite: t.seite, auszug: angabe.z }] }))
+    if (Math.abs(summe - soll) >= 0.5) out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'session', anleitung: 'session', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Session timeline adds up to ${zeitText(summe)}, but the session is stated as ${zeitText(soll)}.`, fundstellen: [{ seite: t.seite, ...imKapitel(t.kapitel), auszug: angabe.z }] }))
   }
   return out
 }
@@ -266,8 +273,9 @@ const VERBINDUNG = String.raw`\s*(?:\(\s*|\/\s*|=\s*|≈\s*|~\s*|or\s+|bzw\.\s+|
 export function einheitenPruefen(k: PruefKontext): Omit<Befund, 'id'>[] {
   const out: Omit<Befund, 'id'>[] = []
   const ende = '(?![\\p{L}/])'
-  for (const p of k.roh.pages) {
-    for (const zeile of p.text.split('\n')) {
+  const kapitel = seitenKapitel(k.roh)
+  for (const [s, p] of k.roh.pages.entries()) {
+    for (const [zi, zeile] of p.text.split('\n').entries()) {
       for (const pr of PAARE) {
         const vor = new RegExp(`${ZAHL}\\s*(${pr.a})${ende}${VERBINDUNG}${ZAHL}\\s*(${pr.b})${ende}`, 'gu')
         const rueck = new RegExp(`${ZAHL}\\s*(${pr.b})${ende}${VERBINDUNG}${ZAHL}\\s*(${pr.a})${ende}`, 'gu')
@@ -281,7 +289,7 @@ export function einheitenPruefen(k: PruefKontext): Omit<Befund, 'id'>[] {
           const abw = Math.abs(erwartet - y)
           const ok = pr.abs !== undefined ? abw <= pr.abs : abw <= Math.abs(erwartet) * 0.01 || (!!pr.rund && y > 0 && y % pr.rund.auf === 0 && abw <= Math.abs(erwartet) * pr.rund.toleranz)
           if (ok) continue
-          out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'einheiten', anleitung: 'einheiten', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Unit conversion does not match: ${q.x} ${q.ea} = ${Math.round(erwartet * 10) / 10} ${q.eb}, stated ${q.y} ${q.eb} (tolerance 1 %).`, fundstellen: [{ seite: p.label ?? String(p.index), auszug: zeile.trim() }] }))
+          out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'einheiten', anleitung: 'einheiten', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Unit conversion does not match: ${q.x} ${q.ea} = ${Math.round(erwartet * 10) / 10} ${q.eb}, stated ${q.y} ${q.eb} (tolerance 1 %).`, fundstellen: [{ seite: p.label ?? String(p.index), ...imKapitel(kapitel[s][zi]), auszug: zeile.trim() }] }))
         }
       }
     }
@@ -322,9 +330,10 @@ export function metarMaengel(z: string): string[] {
 
 function metarPruefen(k: PruefKontext): Omit<Befund, 'id'>[] {
   const out: Omit<Befund, 'id'>[] = []
-  for (const p of k.roh.pages)
-    for (const z of p.text.split('\n'))
-      if (WIND.test(z)) for (const t of metarMaengel(z)) out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'metar', anleitung: 'metar', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Weather scenario: ${t}`, fundstellen: [{ seite: p.label ?? String(p.index), auszug: z.trim() }] }))
+  const kapitel = seitenKapitel(k.roh)
+  for (const [s, p] of k.roh.pages.entries())
+    for (const [zi, z] of p.text.split('\n').entries())
+      if (WIND.test(z)) for (const t of metarMaengel(z)) out.push(befund(k, { quelle: 'rechnen', pruefpunkt: 'metar', anleitung: 'metar', kategorie: 'Inconsistency', prioritaet: 'Medium', text: `Weather scenario: ${t}`, fundstellen: [{ seite: p.label ?? String(p.index), ...imKapitel(kapitel[s][zi]), auszug: z.trim() }] }))
   return out
 }
 
@@ -347,13 +356,14 @@ function doppeltPruefen(k: PruefKontext): Omit<Befund, 'id'>[] {
   const woerter = new Set<string>()
   // Sprache je Zeile, sonst die des Dokuments — eine deutsche Zeile im englischen Handbuch folgt den deutschen Regeln
   const dok = dokumentSprache(k.roh.pages.flatMap((p) => p.text.split('\n')))
-  for (const p of k.roh.pages)
-    for (const z of p.text.split('\n'))
+  const kapitel = seitenKapitel(k.roh)
+  for (const [s, p] of k.roh.pages.entries())
+    for (const [zi, z] of p.text.split('\n').entries())
       for (const m of z.matchAll(/(?<![\p{L}\p{N}])(\p{L}{2,})\s+\1(?![\p{L}\p{N}])/gu)) {
         const w = m[1]
         if (ERLAUBT[spracheVon(z) ?? dok ?? 'en']?.has(w.toLowerCase())) continue
         woerter.add(w)
-        fund.push({ seite: p.label ?? String(p.index), auszug: z.trim() })
+        fund.push({ seite: p.label ?? String(p.index), ...imKapitel(kapitel[s][zi]), auszug: z.trim() })
       }
   if (!fund.length) return []
   return [befund(k, { quelle: 'rechnen', pruefpunkt: 'doppelt', anleitung: 'doppelt', kategorie: 'Editorial', prioritaet: 'Low', text: `Repeated word or waypoint: ${[...woerter].map((w) => `"${w} ${w}"`).join(', ')} (${fund.length}×).`, fundstellen: fund })]
