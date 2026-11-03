@@ -93,6 +93,19 @@ export function darfFeedbackBearbeiten(
   return darfVerwaltung(settings, actor, 'feedback') && feedbackFuer(actor, [eintrag], groups).length === 1
 }
 
+/**
+ * Grading-Konfiguration (Formulartypen, Kompetenzkataloge, Empfänger):
+ * nur der Superadmin. Die Ansicht zeigte den Bereich schon nur ihm, aber
+ * `updateGrading` und `removeFormType` fragten niemanden — ein Training
+ * Admin mit `grading_view_all` hat den Grading-Bereich, nicht dessen
+ * Konfiguration, und ein Tab nach einem Rollenwechsel änderte sie weiter
+ * (Audit 11/2026, Runde 3, Rest aus R3-FORMULARTYP). Eine Stelle für Ansicht
+ * und Store, damit beide dieselbe Antwort geben.
+ */
+export function darfGradingKonfigurieren(actor: Handelnder): boolean {
+  return aktiv(actor) && actor.role === 'superadmin'
+}
+
 /* ===================== Inhalte ===================== */
 
 /**

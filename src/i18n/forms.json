@@ -138,6 +138,7 @@
     "formTypeInUse": "Cannot be deleted: forms of this type exist, and they keep their structure only while the type stays in the catalogue.",
     "formTypeRequired": "Cannot be deleted: mandatory follow-up form. The rules require it after “Not Competent” or “Session not completed”.",
     "formTypeGone": "This form type no longer exists — it was removed elsewhere in the meantime.",
+    "formTypeNoRight": "Not deleted: the grading configuration belongs to the Superadmin role, and this account no longer has it.",
     "openFollowUps": "Open follow-up forms",
     "openItems": "open items",
     "followUpMissing": "Mandatory follow-up outstanding: {{forms}}",

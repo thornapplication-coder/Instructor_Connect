@@ -9,6 +9,7 @@ import { toast, useQuittung } from '../../components/Toast'
 import { avgOf, buildGradingCsv, gradingCsvName, kalibrierungsZeilen, statistikKopf, statistikRohdaten } from '../../gradingExport'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
+import { darfGradingKonfigurieren } from '../../storeRechte'
 import { HEAD_STANDARD } from '../../sandbox/gradingDefaults'
 import type { Competency, CompetencySet, CompetencySetKey, FormType, GradingRecord } from '../../types'
 import { codeVergeben, formularTypInGebrauch, gradingListDate, personenKurz, personenSuche } from '../../gradingRules'
@@ -220,7 +221,7 @@ function FormTypeEditor({
                  lief das Löschen über die gekürzte Liste, der Store holte den
                  Typ still zurück, und nach „OK" kam nichts. Abbrechen bleibt
                  still: Da ist nichts geschehen, das gemeldet werden müsste. */
-              const ablehnung = { pflicht: t('forms:admin.formTypeRequired'), datensaetze: t('forms:admin.formTypeInUse'), unbekannt: t('forms:admin.formTypeGone') }
+              const ablehnung = { pflicht: t('forms:admin.formTypeRequired'), datensaetze: t('forms:admin.formTypeInUse'), unbekannt: t('forms:admin.formTypeGone'), keinRecht: t('forms:admin.formTypeNoRight') }
               return (
                 <button
                   onClick={() => {
@@ -627,7 +628,7 @@ function GradingAblage({ section: sectionSeg }: { section: string }) {
    * werden Kompetenzkataloge geaendert, und das wirkt auf jedes kuenftige
    * Blatt der ganzen ATO. Sie bleibt dem Superadmin.
    */
-  const darfKonfigurieren = currentUser?.role === 'superadmin'
+  const darfKonfigurieren = darfGradingKonfigurieren(currentUser)
   const SECTION_TILES: { key: Section; icon: typeof Gauge; badge?: number }[] = [
     { key: 'dashboard', icon: Gauge, badge: openSignatures.length + failedMails.length + openFollowUps.length },
     { key: 'records', icon: FolderOpen },

@@ -278,6 +278,30 @@ describe('Formulartyp löschen (R3-FORMULARTYP)', () => {
     expect(ausgang).toBe('geloescht')
     expect(typen()).not.toContain(frei.id)
   })
+
+  // Die Konfiguration zeigte die Ansicht nur dem Superadmin, der Store
+  // fragte niemanden: Ein Training Admin mit grading_view_all (Sam) hat den
+  // Grading-Bereich, nicht dessen Konfiguration (Runde 3, storeRechte).
+  it('Training Admin: weder löschen noch ändern — Katalog und Empfänger bleiben', () => {
+    const vorher = typen()
+    const empfaenger = store().state.settings.grading.defaultRecipients
+    const frei = store().state.settings.grading.formTypes.find(
+      (f) => !['306', '310'].includes(f.id) && !store().state.gradingRecords.some((r) => r.formTypeId === f.id),
+    )!
+    act(() => store().switchUser('u-max'))
+    let ausgang = ''
+    act(() => {
+      ausgang = store().removeFormType(frei.id)
+    })
+    expect(ausgang).toBe('keinRecht')
+    act(() => store().updateGrading({ defaultRecipients: ['x@example.test'], formTypes: [] }))
+    expect(typen()).toEqual(vorher)
+    expect(store().state.settings.grading.defaultRecipients).toEqual(empfaenger)
+    // Gegenrichtung: derselbe Aufruf vom Superadmin wirkt.
+    act(() => store().switchUser('u-patrick'))
+    act(() => store().updateGrading({ defaultRecipients: ['x@example.test'] }))
+    expect(store().state.settings.grading.defaultRecipients).toEqual(['x@example.test'])
+  })
 })
 
 /*

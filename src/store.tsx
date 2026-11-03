@@ -6,7 +6,7 @@ import { migrateState } from './migrateState'
 import { SANDBOX } from './sandbox/flag'
 import { gruppenPflicht, gruppenTauglich, musterBelegt, musterFehlt, musterInVerwendung, musterListeBehalten, musterPflicht, nachMuster, sichtbarFuer, verliertLetzteGruppe } from './aircraftScope'
 import { userHasPerm, userMayModule } from './adminAccess'
-import { darfAbstimmen, darfFeedbackBearbeiten, darfGruppeAnlegen, darfInfoVerwalten, darfKontakteVerwalten, darfLessonPlansVerwalten, darfSchreiben, darfStummschalten, darfUmfrageSchliessen, darfVerwaltung, feedbackFuer } from './storeRechte'
+import { darfAbstimmen, darfFeedbackBearbeiten, darfGradingKonfigurieren, darfGruppeAnlegen, darfInfoVerwalten, darfKontakteVerwalten, darfLessonPlansVerwalten, darfSchreiben, darfStummschalten, darfUmfrageSchliessen, darfVerwaltung, feedbackFuer } from './storeRechte'
 import { kontaktFehler, kontaktNormalisieren } from './contacts'
 import { feedbackFehlt } from './feedbackPruefung'
 import { gueltigkeitFehler, infoEntryAppliesTo, infoGesehenBis, infoIsExpired, infoIsPublished, neuesteFremdeVeroeffentlichung } from './infoAcks'
@@ -137,7 +137,8 @@ export interface Store {
   updateGrading: (patch: Partial<GradingSettings>) => void
   /** Formulartyp aus dem Katalog nehmen; liefert den Ausgang samt Grund
    *  (gradingRules.formularTypEntfernen, R3-FORMULARTYP). */
-  removeFormType: (id: string) => FormularTypLoeschung
+  /** 'keinRecht': Die Konfiguration gehört dem Superadmin (storeRechte). */
+  removeFormType: (id: string) => FormularTypLoeschung | 'keinRecht'
   /** Lesson Plans, die der aktuelle Nutzer sehen darf */
   visibleLessonPlans: LessonPlan[]
   /** Nutzer aus einer Tabelle anlegen, jeweils in die gewaehlten Gruppen,
@@ -1614,6 +1615,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       updateGrading: (p) =>
         patch((s) => {
+          if (!darfGradingKonfigurieren(actorOf(s))) return null
           const next = { ...p }
           // Ein Formulartyp, zu dem es Datensätze gibt, bleibt im Katalog —
           // sonst verliert ein unterschriebenes Dokument seine Struktur.
@@ -1638,8 +1640,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const entfernen = (s: AppState) => formularTypEntfernen(s.settings.grading.formTypes, id, s.gradingRecords)
         // Der Ausgang kommt aus derselben Pruefung auf dem zuletzt
         // gezeichneten Stand — wie bei addUser, nicht aus dem Updater.
+        if (!darfGradingKonfigurieren(actorOf(stateRef.current))) return 'keinRecht'
         const ausgang = entfernen(stateRef.current).ausgang
         patch((s) => {
+          if (!darfGradingKonfigurieren(actorOf(s))) return null
           const e = entfernen(s)
           return e.ausgang === 'geloescht' ? { settings: { ...s.settings, grading: { ...s.settings.grading, formTypes: e.formTypes } } } : null
         })

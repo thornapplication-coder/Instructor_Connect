@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   darfAbstimmen,
   darfFeedbackBearbeiten,
+  darfGradingKonfigurieren,
   darfGruppeAnlegen,
   darfInfoVerwalten,
   darfKontakteVerwalten,
@@ -105,6 +106,19 @@ describe('darfVerwaltung — Rolle × Aktion', () => {
     expect(darfVerwaltung(S, null, 'einstellungen')).toBe(false)
     expect(darfVerwaltung(S, undefined, 'feedback')).toBe(false)
     expect(darfVerwaltung(S, { ...superadmin, active: false }, 'nutzerAnlegen')).toBe(false)
+  })
+})
+
+describe('Grading-Konfiguration — nur der Superadmin', () => {
+  it('Rolle für Rolle (Training Admin mit grading_view_all eingeschlossen)', () => {
+    //                                     Mitglied Gruppenadmin Training Admin Superadmin
+    expect(ROLLEN.map(([, u]) => darfGradingKonfigurieren(u))).toEqual([false, false, false, true])
+  })
+
+  it('ohne Handelnden oder deaktiviert: nichts', () => {
+    expect(darfGradingKonfigurieren(null)).toBe(false)
+    expect(darfGradingKonfigurieren(undefined)).toBe(false)
+    expect(darfGradingKonfigurieren({ ...superadmin, active: false })).toBe(false)
   })
 })
 

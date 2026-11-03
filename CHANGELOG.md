@@ -1188,3 +1188,54 @@ Befundnummern stehen in den Kommentaren am Code.
 - Content-Security-Policy im Build, Vite 7, keine bekannten
   Schwachstellen; neue Wachen für Startbundle, Repo-Dateien, Geheimnisse im
   Bundle und Abhängigkeiten.
+
+## 1.26.0 — 2026-11-03
+
+Runde 3 nach dem Gesamtaudit: Restpunkte und die Entscheidungen vom
+03.11.2026 (Export-IDs überall, Excel-Druck ohne leere KI-Spalten,
+Meldungen im Dialog). Zwei Pakete, je mit unabhängigem Gegenprüfer, vollem
+Testlauf, Browser-Abnahme und Gegenprobe.
+
+**Dialoge und Quittungen**
+
+- Wird eine Eingabe in einem offenen Dialog abgelehnt, steht der Grund im
+  Dialog — am Feld oder über den Knöpfen (`DialogMeldung`). Am iPhone
+  verdeckt das Bottom-Sheet die Meldung nicht mehr; Dialog und Eingaben
+  bleiben stehen.
+- „Gespeichert“ erscheint erst, wenn der Gerätespeicher geschrieben hat
+  (`useQuittung`); scheitert das Speichern, steht „Nicht gespeichert“ da.
+- Notiz, Kontakt, Info-Eintrag, Lesson Plan und Logbuch-Eintrag melden
+  „gespeichert“ nicht mehr, wenn das Speichern abgelehnt wurde.
+
+**Grading und Auswertungen**
+
+- Monatsbericht eines anderen Instruktors: dessen Name statt „You“ und „vs
+  your types“ — am Bildschirm, im Ausdruck und in der CSV.
+- Monatsbericht im Druck: Die Kompetenzspalte fehlte und wird jetzt
+  mitgedruckt.
+- Formulartyp löschen: Jeder Ausgang meldet sich, mit Quittung oder Grund.
+  Die Grading-Konfiguration ändert nur der Superadmin — jetzt auch im
+  Store geprüft, nicht nur in der Ansicht.
+- Entwürfe von Nutzern, deren Kennung mit der eines anderen beginnt,
+  bleiben auf einem geteilten Gerät getrennt; ältere Entwürfe werden
+  übernommen.
+
+**DocCheck**
+
+- Befundtabelle und Viewer zeigen dieselben IDs wie Excel, Word, CSV und
+  PowerPoint (z. B. TM-003, DOC1-001, PKG-001), auch für Screenreader. Die
+  Tabelle ordnet nach Priorität, innerhalb einer Priorität wie der Bericht.
+- Excel „Findings“: Ohne KI-Prüfung sind die leeren KI-Spalten (Reference
+  bis Source, Technical Type) als Gruppe zugeklappt; alle 24 Spalten
+  bleiben in der Datei. Gedruckt wird A4 quer etwa doppelt so groß.
+- Word-PDF-Paarung mit Zeitgrenze (60 s plus 4 s je MB, höchstens
+  10 min): danach Hinweis, das Word-Dokument bleibt mit geschätzten Seiten
+  nutzbar. Kein verspäteter Hinweis nach Entfernen oder Abmelden; bei
+  erneutem Dazulegen zählt nur die jüngste Paarung.
+
+**Tests**
+
+- Browser-Tests laufen in Europe/Vienna (`timezoneId`), wie Ebene 1 und 2.
+- Der Grading-Weg läuft als EIN Durchgang im Browser: 308A anlegen →
+  Unterschriften → Absenden → Ablage → Logbuch → Forms-CSV mit
+  Fingerabdruck (`gradingweg.spec.ts`).

@@ -603,7 +603,10 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
   die Statuszeile fragt sie — ein Punkt, der in einen gesperrten Bereich
   führt, ist schlimmer als kein Punkt. Den Grading-Bereich bekommt der
   Training Admin nur mit `grading_view_all`: Fest vergeben, zeigte er nach
-  dem Entzug weiter alle Formulare samt Export (VERW-03).
+  dem Entzug weiter alle Formulare samt Export (VERW-03). Dessen Konfiguration
+  (Formulartypen, Kompetenzkataloge, Empfänger) bleibt dem Superadmin —
+  `darfGradingKonfigurieren` (`storeRechte.ts`) fragen Ansicht UND Store;
+  vorher sperrte nur die Ansicht, `updateGrading` fragte niemanden.
 - **Statusmarken** kommen aus `Badge` (`src/components/ui.tsx`) — fünf Töne
   mit je *einer* Bedeutung: `ok` erledigt, `wait` wartet oder mahnt, `bad`
   durchgefallen oder kaputt, `accent` neutrale Einordnung, `dim` ruhiger
