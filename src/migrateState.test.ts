@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createSeedState } from './sandbox/seed'
 import { feldNachtragen, fehlendePflichtfelder, migrateState } from './migrateState'
-import { FELD_NACHTRAEGE, FORM_TYPES } from './sandbox/gradingDefaults'
+import { FELD_NACHTRAEGE, FORM_TYPES, SESSION_ZEIT_308G } from './sandbox/gradingDefaults'
 import type { FormType } from './types'
 import { imprintHash, IMPRINT_DE, IMPRINT_EN, IMPRINT_LEGACY_HASHES } from './sandbox/imprintDefaults'
 import vorgaenger from './sandbox/impressumVorgaenger.fixture.json'
@@ -584,5 +584,65 @@ describe('Formularkatalog nachtragen (GTY-02)', () => {
     const neu = migrateState(ohne)
     expect(neu.formularNachtraege).toEqual(FELD_NACHTRAEGE.map((n) => n.marke))
     expect(neu.settings.grading).toBeUndefined()
+  })
+})
+
+/**
+ * Audit 11/2026, GTY-03: Das 308G bekam die Pflichtangabe Session Time —
+ * sonst stand jedes 308G mit Session 00:00 im Logbuch. Wie bei GTY-02 liegt
+ * der Katalog im gespeicherten Stand: Nachtrag EINMAL, mit Marke, und als
+ * Nachfeld ans ENDE (der Druckkopf folgt der Reihenfolge).
+ */
+describe('Formularkatalog nachtragen (GTY-03, 308G Session Time)', () => {
+  const ohneZeit = (ft: FormType): FormType => ({ ...ft, fields: ft.fields.filter((f) => f.key !== 'sessionTime') })
+  const vorher = () => {
+    const st = bestand()
+    return {
+      ...st,
+      settings: {
+        ...st.settings,
+        grading: { ...st.settings.grading, formTypes: st.settings.grading.formTypes.map((ft) => (ft.id === '308G' ? ohneZeit(ft) : ft)) },
+      },
+    }
+  }
+  const g = (st: { settings: { grading: { formTypes: FormType[] } } }) => st.settings.grading.formTypes.find((f) => f.id === '308G')!
+
+  it('der Katalog ab Werk führt Session Time beim 308G — Pflicht, Dauer, nach der Bewertung', () => {
+    const felder = FORM_TYPES.find((f) => f.id === '308G')!.fields
+    expect(felder[felder.length - 1]).toMatchObject({ key: 'sessionTime', type: 'duration', required: true, postGrading: true })
+    expect(FELD_NACHTRAEGE.find((n) => n.marke === 'gty03-sessionTime-308G')).toMatchObject({ typen: ['308G'], feld: SESSION_ZEIT_308G, ende: true })
+  })
+
+  it('308G-Feld einmal ergänzt — ans Ende, mit Marke; der zweite Lauf ändert nichts', () => {
+    const alt = vorher()
+    const neu = migrateState(alt)
+    const felder = g(neu).fields
+    expect(felder[felder.length - 1]).toMatchObject({ key: 'sessionTime', required: true })
+    expect(felder.filter((f) => f.key === 'sessionTime')).toHaveLength(1)
+    // Die übrigen Felder bleiben in ihrer Reihenfolge vorn
+    expect(felder.slice(0, -1).map((f) => f.key)).toEqual(g(alt).fields.map((f) => f.key))
+    expect(neu.formularNachtraege).toContain('gty03-sessionTime-308G')
+    expect(migrateState(neu)).toBe(neu)
+  })
+
+  it('Entfernung bleibt: ein bewusst gelöschtes Feld kommt nicht zurück', () => {
+    const einmal = migrateState(vorher())
+    const entfernt = {
+      ...einmal,
+      settings: { ...einmal.settings, grading: { ...einmal.settings.grading, formTypes: einmal.settings.grading.formTypes.map((ft) => (ft.id === '308G' ? ohneZeit(ft) : ft)) } },
+    }
+    expect(g(migrateState(entfernt)).fields.some((f) => f.key === 'sessionTime')).toBe(false)
+  })
+
+  it('feldNachtragen: Anfang und Ende in einem Lauf, jeweils als Kopie', () => {
+    const katalog = FORM_TYPES.map((ft) => (ft.id === '308G' ? ohneZeit(ft) : ft))
+    const neu = feldNachtragen(katalog, [
+      { marke: 'a', typen: ['308G'], feld: SESSION_ZEIT_308G, ende: true },
+      { marke: 'b', typen: ['308G'], feld: { key: 'vorn', label: 'Vorn', type: 'text', required: false } },
+    ])
+    const felder = neu.find((f) => f.id === '308G')!.fields
+    expect(felder[0].key).toBe('vorn')
+    expect(felder[felder.length - 1].key).toBe('sessionTime')
+    expect(felder[felder.length - 1]).not.toBe(SESSION_ZEIT_308G)
   })
 })

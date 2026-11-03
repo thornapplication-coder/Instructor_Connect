@@ -16,7 +16,7 @@ import { darf, docCheckRolle, kachelZahl, rechteAudit, rechteSetzen, rollenAudit
 import { einstellungen as docCheckEinstellungen } from './modules/doccheck/settings'
 import { faelligeErinnerungen, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EMPFEHLUNGEN } from './modules/doccheck/library'
 import type { DocCheckAuditEintrag, DocCheckFlags, DocCheckRolle, DocCheckSettings, DocCheckState } from './modules/doccheck/types'
-import type { LogbookManuell, LogbookOverride, LogbookStand } from './logbook'
+import { overrideSetzen, type LogbookManuell, type LogbookOverride, type LogbookStand } from './logbook'
 import { RETENTION_MS, type AppState, type Attachment, type ConfigurableRole, type GradingRecord, type GradingSettings, type Group, type LessonPlan, type ModuleKey, type Note, type PermKey, type PollType, type RetentionKey, type Role, type SeenState, type Settings, type User } from './types'
 import { clearPersistedState, ladeStand, persistState, readPreloadedState, storageReadFailed, subscribeToOtherTabs } from './persist'
 import { hasUnsavedWork } from './editGuard'
@@ -127,8 +127,10 @@ export interface Store {
   saveNote: (n: { id?: string; title: string; body: string }) => void
   deleteNote: (id: string) => void
   /** my AAA Logbook: Korrektur an einem abgeleiteten Eintrag des EIGENEN
-   *  Logbuchs. `null` setzt die Korrektur zurueck auf die Ableitung. */
-  logbookOverride: (recordId: string, ov: LogbookOverride | null) => void
+   *  Logbuchs. `null` setzt die Korrektur zurueck auf die Ableitung. Sie
+   *  gilt für den ganzen Durchgang (`blattIds`, src/logbook.ts
+   *  `overrideSetzen`). */
+  logbookOverride: (eintrag: { id: string; blattIds?: string[] }, ov: LogbookOverride | null) => void
   logbookAddManual: (e: Omit<LogbookManuell, 'id'>) => void
   logbookUpdateManual: (id: string, patch: Partial<Omit<LogbookManuell, 'id'>>) => void
   logbookDeleteManual: (id: string) => void
@@ -1586,14 +1588,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       /* Logbuch-Korrekturen: IMMER nur am eigenen Logbuch. Fremde Logbuecher
          sind je nach Rolle sichtbar, aber nie schreibbar — ein
          Taetigkeitsnachweis, den ein anderer nachbessern kann, ist keiner. */
-      logbookOverride: (recordId, ov) =>
+      logbookOverride: (eintrag, ov) =>
         patch((s) => {
           if (!s.currentUserId) return null
           const alle = s.logbook ?? {}
           const eigenes: LogbookStand = alle[s.currentUserId] ?? { overrides: {}, manuell: [] }
-          const overrides = { ...eigenes.overrides }
-          if (ov === null) delete overrides[recordId]
-          else overrides[recordId] = ov
+          // Je Durchgang, nicht je Blatt (Audit 11/2026, LOG-01): Eine
+          // Altkorrektur eines anderen Blatts tauchte sonst nach dem
+          // Zurücksetzen wieder auf.
+          const overrides = overrideSetzen(eigenes.overrides, eintrag, ov)
           return { logbook: { ...alle, [s.currentUserId]: { ...eigenes, overrides } } }
         }),
       logbookAddManual: (e) =>

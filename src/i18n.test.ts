@@ -188,3 +188,22 @@ describe('Grading-Texte (Audit 11/2026, GRD-20)', () => {
     expect(listen.filter((l) => !/\bformularTexte\b/.test(l))).toEqual([])
   })
 })
+
+/**
+ * Audit 11/2026, MOB-10: Am Telefon brach im Logbuch „Debriefing" von
+ * „00:30" ab — die Zeile kommt aus `logbook.parts`, und dort standen
+ * normale Leerzeichen zwischen Bezeichnung und Wert. Ein geschuetztes
+ * Leerzeichen (U+00A0) haelt jedes Paar zusammen; umbrochen wird an den
+ * Trennpunkten.
+ */
+describe('Logbuch-Zeitzeile haelt Bezeichnung und Wert zusammen (MOB-10)', () => {
+  it.each([
+    ['de', de],
+    ['en', en],
+  ])('%s: Briefing, Session und Debriefing mit geschuetztem Leerzeichen', (_, bundle) => {
+    const parts = ((bundle as Tree).logbook as Tree).parts as string
+    for (const paar of ['Briefing\u00a0{{briefing}}', 'Session\u00a0{{session}}', 'Debriefing\u00a0{{debriefing}}']) expect(parts).toContain(paar)
+    // Kein normales Leerzeichen zwischen einer Bezeichnung und ihrem Wert
+    expect(parts).not.toMatch(/[A-Za-z] \{\{/)
+  })
+})

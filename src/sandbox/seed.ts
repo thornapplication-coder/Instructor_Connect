@@ -469,7 +469,7 @@ function seedState(now: number): AppState {
         // Ohne trainingDevice und event: 308G kennt beide Felder nicht, und die
         // Forms-CSV zeigte „Device FFS" samt deutschem Event bei einem
         // Instruktorenblatt (Audit 11/2026, L-FORMTYP#3).
-        header: { aircraftType: 'CL30', date: iso(now - 2 * d), operation: 'MPO', program: 'PRG 1*', candidateQual: 'TRI Candidate', candidateSeat: 'RH Seat', coiSeat: 'IOS' },
+        header: { aircraftType: 'CL30', date: iso(now - 2 * d), operation: 'MPO', program: 'PRG 1*', candidateQual: 'TRI Candidate', candidateSeat: 'RH Seat', coiSeat: 'IOS', sessionTime: '04:00' },
         trainees: [
           {
             traineeId: '', traineeName: 'Chris Beispiel', position: '', seat: '',

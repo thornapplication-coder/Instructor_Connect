@@ -321,3 +321,66 @@ describe('Feldbreiten', () => {
     expect('className={`${selectCls} !w-auto !py-1.5`}').not.toMatch(muster)
   })
 })
+
+/**
+ * Karten haben einen Innenabstand.
+ *
+ * Audit 11/2026, UID-03: `Card` bringt bewusst keinen eigenen mit — die
+ * Aufrufstelle waehlt p-3, p-4 oder p-5 —, und im Admin-Logbuch stand ein
+ * nacktes `<Card>`: Ueberschrift, Filter, Tabelle und Summenzeile klebten
+ * an der Kante, die Karte sah kaputt aus. Jede Karte in Seiten und Modulen
+ * nennt deshalb einen Innenabstand OHNE Variante (`sm:p-5` allein liesse
+ * das Telefon ohne). Eine Liste, deren Zeilen ihn selbst tragen, schreibt
+ * `p-0` hin — sichtbar entschieden statt vergessen. Ein className, der kein
+ * fester Text ist, laesst sich nicht pruefen und zaehlt als fehlend.
+ */
+describe('Karten', () => {
+  /** Ende eines JSX-Tags: `>` in `=>` oder in geschweiften Klammern zaehlt nicht. */
+  function tagEnde(s: string, ab: number): number {
+    let tiefe = 0
+    let zitat: string | null = null
+    for (let i = ab; i < s.length; i++) {
+      const c = s[i]
+      if (zitat) {
+        if (c === zitat) zitat = null
+      } else if (tiefe === 0 && (c === '"' || c === "'" || c === '`')) zitat = c
+      else if (c === '{') tiefe++
+      else if (c === '}') tiefe--
+      else if (c === '>' && tiefe === 0) return i
+    }
+    return s.length
+  }
+
+  /** Zeilen (ab 1), an denen ein `<Card …>` ohne Innenabstand beginnt. */
+  function ohneInnenabstand(inhalt: string): number[] {
+    const zeilen: number[] = []
+    for (const m of inhalt.matchAll(/<Card(?=[\s>/])/g)) {
+      const attribute = inhalt.slice(m.index + m[0].length, tagEnde(inhalt, m.index + m[0].length))
+      const klasse = /className=(?:"([^"]*)"|\{`([^`]*)`\})/.exec(attribute)
+      const text = klasse ? (klasse[1] ?? klasse[2]) : ''
+      if (!/(?<![\w:/-])p[xytrbl]?-[\w.[\]-]+/.test(text)) zeilen.push(inhalt.slice(0, m.index).split('\n').length)
+    }
+    return zeilen
+  }
+
+  it('jede Karte in Seiten und Modulen hat einen Innenabstand', () => {
+    const treffer: string[] = []
+    for (const [pfad, inhalt] of dateien) {
+      if (!/^\.\/(pages|modules)\/.*\.tsx$/.test(pfad)) continue
+      for (const z of ohneInnenabstand(inhalt as string)) treffer.push(`${pfad}:${z}`)
+    }
+    expect(treffer).toEqual([])
+  })
+
+  it('erkennt das Muster — auch hinter einem Pfeil im onClick, und nur bei Card selbst', () => {
+    expect(ohneInnenabstand('<Card>\n  x\n</Card>')).toEqual([1])
+    expect(ohneInnenabstand('<Card className="space-y-stack">')).toEqual([1])
+    expect(ohneInnenabstand('<Card className="sm:p-5">')).toEqual([1])
+    expect(ohneInnenabstand('<Card className={klasse}>')).toEqual([1])
+    expect(ohneInnenabstand('<Card onClick={() => go(1)} label="x" className="p-4">')).toEqual([])
+    expect(ohneInnenabstand('<Card className={`p-3 ${aktiv ? "" : "border-dashed"}`}>')).toEqual([])
+    expect(ohneInnenabstand('<Card className="divide-y p-0">')).toEqual([])
+    expect(ohneInnenabstand('<Card className="px-4 py-3">')).toEqual([])
+    expect(ohneInnenabstand('<CardGrid>\n<CardHeading>')).toEqual([])
+  })
+})

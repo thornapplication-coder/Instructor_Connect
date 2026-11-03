@@ -33,8 +33,9 @@ export function fehlendePflichtfelder(st: AppState): Partial<AppState> {
 
 /**
  * Felder in den gespeicherten Formularkatalog nachtragen — an den Anfang
- * der Kopffelder, nur bei Typen, die das Feld noch nicht führen. Gibt den
- * Katalog unverändert (dieselbe Referenz) zurück, wenn nichts fehlt.
+ * der Kopffelder (Nachfelder mit `ende` ans Ende), nur bei Typen, die das
+ * Feld noch nicht führen. Gibt den Katalog unverändert (dieselbe Referenz)
+ * zurück, wenn nichts fehlt.
  */
 export function feldNachtragen(katalog: FormType[], nachtraege: readonly FeldNachtrag[]): FormType[] {
   let geaendert = false
@@ -42,7 +43,8 @@ export function feldNachtragen(katalog: FormType[], nachtraege: readonly FeldNac
     const fehlend = nachtraege.filter((n) => n.typen.includes(ft.id) && !ft.fields.some((f) => f.key === n.feld.key))
     if (fehlend.length === 0) return ft
     geaendert = true
-    return { ...ft, fields: [...fehlend.map((n) => ({ ...n.feld })), ...ft.fields] }
+    const kopie = (n: FeldNachtrag) => ({ ...n.feld })
+    return { ...ft, fields: [...fehlend.filter((n) => !n.ende).map(kopie), ...ft.fields, ...fehlend.filter((n) => n.ende).map(kopie)] }
   })
   return geaendert ? neu : katalog
 }
@@ -183,9 +185,11 @@ export function migrateState(eingang: AppState): AppState {
    *
    * Audit 11/2026, GTY-02: 308C/308D bekamen das Pflichtfeld Aircraft Type.
    * Der Katalog liegt im gespeicherten Stand — ohne Nachtrag blieben die
-   * beiden auf jedem laufenden Gerät musterlos. Mit Marke, damit ein Admin,
-   * der das Feld bewusst wieder entfernt, es beim nächsten Start nicht
-   * zurückbekommt; dieselbe Falle wie bei `aircraftBackfilled`.
+   * beiden auf jedem laufenden Gerät musterlos. GTY-03: 308G bekam die
+   * Sessiondauer (Session Time) — sonst zählte jedes 308G mit Session
+   * 00:00 im Logbuch. Mit Marke, damit ein Admin, der das Feld bewusst
+   * wieder entfernt, es beim nächsten Start nicht zurückbekommt; dieselbe
+   * Falle wie bei `aircraftBackfilled`.
    */
   const nachtraegeErledigt = st.formularNachtraege ?? []
   const offeneNachtraege = st.users === undefined ? [] : FELD_NACHTRAEGE.filter((n) => !nachtraegeErledigt.includes(n.marke))

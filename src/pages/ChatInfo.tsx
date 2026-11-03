@@ -48,7 +48,9 @@ export function ChatInfo({ groupId }: { groupId: string }) {
           <p className="max-w-sm text-small text-dim">{group.purpose}</p>
         </div>
 
-        <Card className="divide-y divide-line/[0.06]">
+        {/* p-0: Den Innenabstand tragen die Zeilen (p-4), zwischen ihnen
+            stehen Trennlinien ueber die volle Breite (designScale.test.ts). */}
+        <Card className="divide-y divide-line/[0.06] p-0">
           <div className="flex items-start gap-3 p-4">
             <Clock size={18} className="mt-0.5 shrink-0 text-accent" />
             <div>
