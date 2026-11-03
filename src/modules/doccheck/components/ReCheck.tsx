@@ -121,7 +121,7 @@ function Freigabe({ r, zeile, vorschlag, schmal = false }: { r: ReCheckSitzung; 
       </Field>
       {pflicht && (
         <Field label={t('recheck.freigabe.begruendung')}>
-          <input className={`${inputCls} ${schmal ? 'w-full' : 'min-w-[18rem]'}`} value={text} onChange={(e) => setText(e.target.value)} onClick={(e) => e.stopPropagation()} placeholder={t('recheck.freigabe.begruendungPh')} />
+          <input className={schmal ? inputCls : `${inputCls} min-w-[18rem]`} value={text} onChange={(e) => setText(e.target.value)} onClick={(e) => e.stopPropagation()} placeholder={t('recheck.freigabe.begruendungPh')} />
         </Field>
       )}
       <Button className={schmal ? 'w-full' : undefined} onClick={bestaetigen} disabled={pflicht && text.trim().length < 5}>
