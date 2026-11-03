@@ -1,8 +1,8 @@
 import { Mail, Pencil, Phone, Trash2 } from 'lucide-react'
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, TopBar, TopBarAktion } from '../components/ui'
-import { toast } from '../components/Toast'
+import { Avatar, Button, Card, CardGrid, DialogMeldung, Field, inputCls, Modal, Page, SectionHeading, TopBar, TopBarAktion } from '../components/ui'
+import { useQuittung } from '../components/Toast'
 import { kontaktFehler, kontaktGruppen, mailLink, telefonLink } from '../contacts'
 import { useStore } from '../store'
 import type { Contact } from '../types'
@@ -10,6 +10,9 @@ import type { Contact } from '../types'
 function ContactModal({ contact, onClose }: { contact: Partial<Contact> | null; onClose: () => void }) {
   const { t } = useTranslation()
   const { saveContact } = useStore()
+  const quittieren = useQuittung()
+  /** Ablehnung des Stores — im Dialog, nicht als Toast darunter (R3-DIALOGMELDUNG). */
+  const [meldung, setMeldung] = useState<string | null>(null)
   const [form, setForm] = useState({
     department: contact?.department ?? '',
     position: contact?.position ?? '',
@@ -83,6 +86,7 @@ function ContactModal({ contact, onClose }: { contact: Partial<Contact> | null; 
             </p>
           )}
         </div>
+        <DialogMeldung text={meldung} />
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -90,8 +94,13 @@ function ContactModal({ contact, onClose }: { contact: Partial<Contact> | null; 
           <Button
             disabled={!valid}
             onClick={() => {
-              saveContact({ id: contact?.id, ...form })
-              toast(t('toast.contactSaved'))
+              // Abgewiesen (Recht entzogen): Dialog bleibt offen, mit Grund
+              // (R3-DIALOGMELDUNG); quittiert wird nach dem Schreiben.
+              if (!saveContact({ id: contact?.id, ...form })) {
+                setMeldung(t('dialog.notSaved'))
+                return
+              }
+              void quittieren(t('toast.contactSaved'))
               onClose()
             }}
           >
@@ -106,6 +115,7 @@ function ContactModal({ contact, onClose }: { contact: Partial<Contact> | null; 
 export function WhoToCall() {
   const { t } = useTranslation()
   const { state, currentUser, deleteContact, markContactsSeen, can } = useStore()
+  const quittieren = useQuittung()
   const [filter, setFilter] = useState('')
   const [query, setQuery] = useState('')
 
@@ -200,7 +210,7 @@ export function WhoToCall() {
                           onClick={() => {
                             if (window.confirm(t('contacts.deleteConfirm', { name: c.name }))) {
                               deleteContact(c.id)
-                              toast(t('toast.contactDeleted'))
+                              void quittieren(t('toast.contactDeleted'))
                             }
                           }}
                           aria-label={t('contacts.deleteContact')}

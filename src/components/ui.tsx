@@ -1,7 +1,8 @@
-import { ArrowLeft, Home as HomeIcon, Lock, Moon, Plus, Sun, X } from 'lucide-react'
-import { Children, useCallback, useEffect, useId, useRef, useState, type ReactNode, type RefObject } from 'react'
+import { AlertTriangle, ArrowLeft, Home as HomeIcon, Lock, Moon, Plus, Sun, X } from 'lucide-react'
+import { Children, createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useTranslation } from 'react-i18next'
 import { createPortal } from 'react-dom'
+import { scrollVerhalten } from '../bewegung'
 import { knotenText, useDokumentTitel } from '../dokumentTitel'
 import { vorhandenerEintrag } from '../einstellungen'
 import { fokusZurueck } from '../fokus'
@@ -1046,6 +1047,57 @@ export function useDialogFokus(panelRef: RefObject<HTMLElement>, onEscape: () =>
   }, [panelRef])
 }
 
+/**
+ * Verbindung zwischen einem Dialog und seiner Meldezeile: Steht dort eine
+ * Ablehnung, beschreibt sie den Dialog (aria-describedby).
+ */
+const DialogKontext = createContext<{ meldungId: string; meldungZeigen: (da: boolean) => void } | null>(null)
+
+/**
+ * Die Meldezeile eines Dialogs — für Ablehnungen, solange er offen ist.
+ *
+ * Audit 11/2026, R3-DIALOGMELDUNG: Abgewiesenes („Benutzer anlegen", „Gruppe
+ * anlegen", Umfrage, Import) kam als Toast. Der Streifen liegt im unteren
+ * Stapel UNTER dem Dialog — am iPhone deckte ihn das Bottom-Sheet ganz zu,
+ * und der Klick auf „Speichern" schien nichts zu bewirken. Den Stapel höher
+ * zu legen hätte den Offline-Streifen dauerhaft über „Speichern" gelegt.
+ * Entscheidung: Die Meldung steht IM Dialog — am Feld, wenn sie zu einem
+ * gehört (`dialogMeldung.ts`), sonst hier, direkt über den Dialogknöpfen,
+ * also dort, wo der Blick nach dem Tippen ist. Der Dialog bleibt offen, die
+ * Eingaben bleiben stehen. Toasts bleiben Quittungen NACH dem Schließen.
+ *
+ *  - `role="alert"` an der Meldung: Sprachausgaben lesen sie sofort vor.
+ *    Die umgebende Live-Region (`aria-live="assertive"`) steht IMMER im
+ *    Baum, leer, bis etwas kommt — eine Region, die mit ihrem Text
+ *    erscheint, wird nicht zuverlässig vorgelesen (wie beim ToastHost).
+ *    Die Rolle sitzt erst an der Meldung, damit ein leerer Dialog keinen
+ *    stummen „Alarm" führt.
+ *  - `aria-describedby` am Dialog zeigt auf die Meldung, solange sie steht.
+ *  - Erscheint sie, rollt das Bottom-Sheet sie in den sichtbaren Bereich.
+ */
+export function DialogMeldung({ text }: { text?: string | null }) {
+  const kontext = useContext(DialogKontext)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    kontext?.meldungZeigen(!!text)
+    // jsdom kennt scrollIntoView nicht — daher der optionale Aufruf.
+    if (text) ref.current?.scrollIntoView?.({ block: 'nearest', behavior: scrollVerhalten() })
+  }, [text, kontext])
+  useEffect(() => () => kontext?.meldungZeigen(false), [kontext])
+  return (
+    <div ref={ref} id={kontext?.meldungId} aria-live="assertive" className="empty:hidden">
+      {text && (
+        // Getönte Fläche mit Rand trägt die Farbe, die Schrift bleibt ink —
+        // farbige Schrift auf eigener Fläche lag unter 4,5:1 (A11Y-05).
+        <p role="alert" className="flex items-start gap-2 rounded-xl border border-bad/40 bg-bad/10 p-3 text-small leading-relaxed">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0 text-bad" aria-hidden />
+          <span className="min-w-0 flex-1">{text}</span>
+        </p>
+      )}
+    </div>
+  )
+}
+
 export function Modal({
   title,
   onClose,
@@ -1064,6 +1116,10 @@ export function Modal({
 }) {
   const { t, i18n } = useTranslation()
   const panelRef = useRef<HTMLDivElement>(null)
+  // Meldezeile (DialogMeldung): Steht eine Ablehnung, beschreibt sie den Dialog.
+  const meldungId = useId()
+  const [meldungDa, setMeldungDa] = useState(false)
+  const kontext = useMemo(() => ({ meldungId, meldungZeigen: setMeldungDa }), [meldungId])
 
   const close = useCallback(() => {
     if (confirmDiscard && !window.confirm(confirmDiscard)) return
@@ -1097,6 +1153,7 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
+        aria-describedby={meldungDa ? meldungId : undefined}
         lang={lang}
         tabIndex={-1}
         // Unten Platz für den Home-Indikator, solange der Dialog am Rand
@@ -1119,7 +1176,7 @@ export function Modal({
             <X size={18} />
           </button>
         </div>
-        {children}
+        <DialogKontext.Provider value={kontext}>{children}</DialogKontext.Provider>
       </div>
     </div>,
     document.body,

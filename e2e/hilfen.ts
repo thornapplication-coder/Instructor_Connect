@@ -1,6 +1,7 @@
 import { test as basis, expect, type BrowserContext, type Locator, type Page } from '@playwright/test'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import type { AppState } from '../src/types'
 
 export { expect }
 
@@ -71,6 +72,29 @@ export async function anmelden(page: Page, email = SUPERADMIN): Promise<void> {
 export async function docCheckOeffnen(page: Page): Promise<void> {
   await page.goto('/#/doccheck')
   await page.getByRole('button', { name: 'Verstanden' }).click()
+}
+
+/**
+ * Der gespeicherte Stand aus IndexedDB (persist.ts) — was nach einem
+ * Neuladen gilt und was im Nachweis steht, nicht was gerade gerendert ist.
+ */
+export async function gespeicherterStand(page: Page): Promise<Pick<AppState, 'users' | 'gradingRecords'>> {
+  return page.evaluate(
+    () =>
+      new Promise<Pick<AppState, 'users' | 'gradingRecords'>>((fertig, fehler) => {
+        const rq = indexedDB.open('instructor-connect', 1)
+        rq.onerror = () => fehler(rq.error)
+        rq.onsuccess = () => {
+          const g = rq.result.transaction('kv').objectStore('kv').get('aaa-state')
+          g.onerror = () => fehler(g.error)
+          g.onsuccess = () => {
+            const roh = JSON.parse(g.result as string)
+            const stand = roh.state ?? roh
+            fertig({ users: stand.users, gradingRecords: stand.gradingRecords })
+          }
+        }
+      }),
+  )
 }
 
 /** Strich mit der Maus — die Fläche erst in die Mitte holen, sonst liegt

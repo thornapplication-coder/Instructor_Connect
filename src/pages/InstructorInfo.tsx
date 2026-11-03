@@ -2,9 +2,9 @@ import { CheckCircle2, ChevronDown, Download, Eye, FileDown, FileText, ScrollTex
 import { musterZurAuswahl, sichtbarFuer } from '../aircraftScope'
 import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Card, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar, TopBarAktion } from '../components/ui'
+import { Badge, Button, Card, DialogMeldung, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar, TopBarAktion } from '../components/ui'
 import { csvRow, downloadCsv } from '../csv'
-import { toast } from '../components/Toast'
+import { toast, useQuittung } from '../components/Toast'
 import { ackListeDateiName, ackStand, ackZiele, gueltigkeitFehler, infoIsExpired, infoIsPublished, infoIstNeu } from '../infoAcks'
 import { userMayModule } from '../adminAccess'
 import { useStore } from '../store'
@@ -20,6 +20,9 @@ const SAMPLE_PDF = import.meta.env.BASE_URL + 'sample.pdf'
 function NewEntryModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
   const { state, currentUser, addInfoEntry } = useStore()
+  const quittieren = useQuittung()
+  /** Ablehnung des Stores — im Dialog, nicht als Toast darunter (R3-DIALOGMELDUNG). */
+  const [meldung, setMeldung] = useState<string | null>(null)
   const [type, setType] = useState<'text' | 'pdf'>('text')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -142,6 +145,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
             sample.pdf · {t('chat.attachedDemo')}
           </div>
         )}
+        <DialogMeldung text={meldung} />
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -149,8 +153,11 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
           <Button
             disabled={!valid}
             onClick={() => {
-              toast(t('toast.infoSaved'))
-              addInfoEntry({
+              // Die Quittung stand VOR dem Speichern und kam auch, wenn der
+              // Store ablehnte. Jetzt: abgewiesen → Grund im Dialog, der
+              // offen bleibt (R3-DIALOGMELDUNG); gespeichert → Quittung nach
+              // dem Schreiben (R3-SPEICHERQUITTUNG).
+              const gespeichert = addInfoEntry({
                 type,
                 title: title.trim(),
                 description: description.trim(),
@@ -162,6 +169,11 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
                 validUntil,
                 requiresAck,
               })
+              if (!gespeichert) {
+                setMeldung(t('dialog.notSaved'))
+                return
+              }
+              void quittieren(t('toast.infoSaved'))
               onClose()
             }}
           >
@@ -176,6 +188,7 @@ function NewEntryModal({ onClose }: { onClose: () => void }) {
 export function InstructorInfo() {
   const { t } = useTranslation()
   const { state, now, currentUser, deleteInfoEntry, markInfoSeen, toggleStarInfo, starredInfoIds, acknowledgeInfo, visibleInfoEntries, can } = useStore()
+  const quittieren = useQuittung()
   // Die Seite rechnet selbst mit der Uhr („neu" für 14 Tage ab
   // Veröffentlichung, abgelaufen, geplant). Früher zeichnete der Store-Takt
   // dafür alle 5 s die ganze App neu; jetzt zeichnet minütlich nur diese
@@ -523,7 +536,7 @@ export function InstructorInfo() {
                         onClick={() => {
                           if (!window.confirm(t('info.confirmDelete'))) return
                           deleteInfoEntry(entry.id)
-                          toast(t('toast.infoDeleted'))
+                          void quittieren(t('toast.infoDeleted'))
                         }}
                         className="min-h-11 flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-small text-danger hover:bg-danger/10"
                       >

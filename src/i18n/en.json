@@ -577,7 +577,8 @@
     "userActivated": "{{name}} activated",
     "userChanged": "{{name}} updated",
     "domainsSaved": "Login domains saved",
-    "maxUploadSaved": "Upload limit saved: {{max}} MB"
+    "maxUploadSaved": "Upload limit saved: {{max}} MB",
+    "saveFailed": "Not saved — the change exists only in this session and would be lost on reload."
   },
   "logbook": {
     "title": "my AAA Logbook",
@@ -649,5 +650,12 @@
     "retry": "Try again",
     "loading": "Loading DocCheck …",
     "badge": "open items in DocCheck"
+  },
+  "dialog": {
+    "notSaved": "Not saved — the permission for this is missing by now, or the entry was changed or deleted elsewhere. The entries are still here.",
+    "userNotCreated": "Not created — the permission for this is missing by now, or a selected group no longer fits. The entries are still here.",
+    "groupNotCreated": "Group not created — the permission for this is missing by now, for this aircraft type or altogether. The entries are still here.",
+    "pollNotCreated": "Poll not created — writing in this group is no longer possible (membership or chat block). The entries are still here.",
+    "importNone": "Nobody created — the rows no longer fit (address taken, domain or group). Please choose the file again."
   }
 }

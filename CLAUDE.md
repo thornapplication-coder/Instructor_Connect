@@ -84,14 +84,21 @@ prüfen, nicht der Code anzupassen**, bis er zum Test passt.
   (`formular.spec.ts`: Unterschrift im Vollbild, offene Punkte, Entwurf,
   Folgeformular nach Mitternacht, Fokus hinter Leisten, 308F/308G),
   Druck (`druck.spec.ts`: Kopf/Fuß je Blatt, PDF-Symbol der Ablage),
-  Auswertungen (`auswertung.spec.ts`), Chat (`chat.spec.ts`, Löschen per
+  Auswertungen (`auswertung.spec.ts`, auch der Monatsbericht eines
+  anderen im Druck), Chat (`chat.spec.ts`, Löschen per
   Tastatur), Barrierefreiheit (`barrierefreiheit.spec.ts`: Fokusführung,
   Dialog-Portal, Sprachumschalter, Gliederung und Fenstertitel, axe-core
   über die Hauptbereiche, Bewegung reduzieren), Desktop-Raster
-  (`desktop.spec.ts`) und am Telefon Chat, Feedback, Seitentitel und
-  Sicherheitsbereiche (`mobil.spec.ts`). Teilweise offen bleibt der
-  Grading-Weg bis zum Versand (Formular → Unterschrift → Absenden →
-  Ablage) als EIN Durchgang.
+  (`desktop.spec.ts`) und am Telefon Chat, Feedback, Seitentitel,
+  Sicherheitsbereiche und Ablehnungen im Bottom-Sheet (`mobil.spec.ts`,
+  R3-DIALOGMELDUNG). Der Grading-Weg läuft als EIN Durchgang
+  (`gradingweg.spec.ts`, R3-GRADINGWEG): 308A anlegen → Pflichtfelder →
+  beide Unterschriften → Absenden → Quittung (danach steht das Blatt schon
+  in IndexedDB) → grüne Ampel in der eigenen Liste (auch nach dem
+  Neuladen) und in der Ablage → Eintrag mit Zeit im Logbuch des
+  Instruktors → genau eine Zeile in der Forms-CSV des Behördenexports, mit
+  Unterschriftszeit in Wiener Ortszeit und dem Fingerabdruck des
+  gespeicherten Blatts.
   Die Content-Security-Policy steht nur im Build (`src/csp.ts`, Meta-Tag;
   `vite dev` braucht ein Inline-Skript) — deshalb prüft JEDER Weg hier, dass
   sie nichts abweist: `test` aus `e2e/hilfen.ts` scheitert an jedem
@@ -119,12 +126,15 @@ Die Trennung der Ebenen ist Absicht: Liefe Ebene 1 ebenfalls unter `jsdom`,
 könnte ein Logik-Modul unbemerkt vom DOM abhängig werden und der Lauf bliebe
 grün.
 
-Ebene 1 und 2 laufen in der Zeitzone **Europe/Vienna** (`vitest.config.ts`),
-nicht in der der Maschine: In der CI (UTC) ist der UTC-Tag der Ortstag, und
-ein Datum aus `toISOString()` statt `lokalerTag` fiel keinem Test auf
-(EXM-01). `src/test/zeitzone*.test.ts` prüft, dass die Zone in beiden Ebenen
-ankommt; wer eine andere braucht (westlich von Greenwich), setzt sie im Test
-selbst und stellt sie danach zurück (Audit 11/2026, Nachtrag L-AUSGABE#2).
+Alle drei Ebenen laufen in der Zeitzone **Europe/Vienna** — Ebene 1 und 2
+über `vitest.config.ts`, Ebene 3 über `timezoneId` in `playwright.config.ts`
+(für alle Projekte; die Geräteprofile setzen keine Zone) —, nicht in der der
+Maschine: In der CI (UTC) ist der UTC-Tag der Ortstag, und ein Datum aus
+`toISOString()` statt `lokalerTag` fiel keinem Test auf (EXM-01).
+`src/test/zeitzone*.test.ts` prüft, dass die Zone in Ebene 1 und 2 ankommt,
+`e2e/zeitzone.spec.ts` und `mobil.spec.ts` dasselbe im Browser; wer eine
+andere braucht (westlich von Greenwich), setzt sie im Test selbst und stellt
+sie danach zurück (Audit 11/2026, Nachtrag L-AUSGABE#2, R3-E2E-ZEITZONE).
 
 ## DocCheck (`src/modules/doccheck/`)
 
@@ -651,7 +661,22 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
   vorlesen, ohne den Fokus zu nehmen. Wer eine Aktion baut, die etwas
   Endgültiges tut (speichern, löschen, absenden, herunterladen), quittiert
   sie — vorher sprang das Grading-Formular wortlos zurück, und drei
-  verschiedene Ausgänge sahen gleich aus.
+  verschiedene Ausgänge sahen gleich aus. Was in den Bestand schreibt,
+  quittiert über `useQuittung` (`Toast.tsx`, Regel in `src/quittung.ts`):
+  Die Quittung kommt erst, wenn der Store geschrieben hat (`gesichert`),
+  scheitert das Schreiben oder antwortet die Ablage nicht, steht statt
+  „gespeichert" „Nicht gespeichert" — vorher kam die grüne Quittung auch
+  dann (R3-SPEICHERQUITTUNG). Herunterladen bleibt ein einfacher `toast`.
+  **Ablehnungen bei offenem Dialog stehen IM Dialog, nie als Toast:** Der
+  Toast-Stapel liegt unter dem Dialog und war am iPhone vom Bottom-Sheet
+  verdeckt (R3-DIALOGMELDUNG, Entscheidung vom 03.11.2026). Am Feld, wenn
+  ein Feld den Grund zeigt (dann bekommt es den Fokus), sonst in
+  `DialogMeldung` (`ui.tsx`) direkt über den Dialogknöpfen — `role="alert"`,
+  Live-Region immer im Baum, per `aria-describedby` am Dialog. Wohin eine
+  Ablehnung gehört, sagt `ablehnungZeigen` (`src/dialogMeldung.ts`). Der
+  Dialog bleibt offen, die Eingaben bleiben stehen; dafür sagen die
+  Speicheraktionen des Stores, ob sie gewirkt haben (`boolean`, wie
+  `addUser`). Toasts sind Quittungen NACH dem Schließen.
 - **Sammelaktionen** planen in `src/bulkUsers.ts`, bevor sie schreiben. Zwei
   Zusagen hängen daran und sind dort getestet: Der gemeldete Zähler nennt,
   was sich *wirklich* ändert (nicht die Größe der Auswahl), und niemand kann

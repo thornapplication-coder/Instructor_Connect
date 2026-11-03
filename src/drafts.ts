@@ -5,12 +5,12 @@
  * landete man auf der leeren Typauswahl, die Liste zeigte nichts — im
  * Zweifel begann eine halbe Stunde Bewertung von vorn.
  *
- * Gelesen wird derselbe Schlüssel, den das Formular schreibt:
- * `aaa-draft-<user>-<bezug>-<typ>`. `<bezug>` ist `new` bei einem neuen
- * Blatt oder die Kennung des Ausgangsblatts, wenn es ein Folgeformular ist
- * (306/310). Gesucht wird deshalb über den Nutzer und nicht über `new` —
- * sonst tauchte ein angefangenes 306 hier nie auf, obwohl es genau das
- * Blatt ist, an das man erinnert werden will.
+ * Gelesen wird derselbe Schlüssel, den das Formular schreibt
+ * (`entwurfSchluessel`): `aaa-draft-[<user>]-<bezug>-<typ>`. `<bezug>` ist
+ * `new` bei einem neuen Blatt oder die Kennung des Ausgangsblatts, wenn es
+ * ein Folgeformular ist (306/310). Gesucht wird deshalb über den Nutzer und
+ * nicht über `new` — sonst tauchte ein angefangenes 306 hier nie auf, obwohl
+ * es genau das Blatt ist, an das man erinnert werden will.
  *
  * Die Funktion lag als Hilfsfunktion in `Grading.tsx` und war damit von der
  * Testpflicht befreit — beide Wachen des Projekts globen auf `src/*.ts`. Die
@@ -138,13 +138,117 @@ export function entwurfMitEingaben(d: RohEntwurf): boolean {
   return hatEigeneEingaben(d, basis)
 }
 
-export function readDrafts(userId: string, speicher: Storage = localStorage): Draft[] {
+/** Anfang JEDES Entwurfsschlüssels, alter wie neuer Form (e2e sucht danach). */
+const PRAEFIX = 'aaa-draft-'
+
+/**
+ * Schlüssel eines Entwurfs: `aaa-draft-[<nutzer>]-<bezug>-<typ>`.
+ *
+ * Audit 11/2026, R3-ENTWURFSPRAEFIX: Der Schlüssel hieß
+ * `aaa-draft-<nutzer>-<bezug>-<typ>`, gesucht wurde mit `startsWith` nach
+ * `aaa-draft-<nutzer>-`. Nutzerkennungen tragen selbst Bindestriche
+ * („u-patrick") — für Nutzer „u" passte damit auch jeder Entwurf von
+ * „u-x" (oder „u-patrick"): Auf einem geteilten iPad sah der eine die
+ * Bewertungen des anderen, samt Pilotennamen und Noten. Jetzt steht die
+ * Kennung kodiert in Klammern: `encodeURIComponent` kodiert „[" und „]",
+ * die schließende Klammer trennt also eindeutig, und gelesen wird die
+ * Kennung GANZ verglichen. Der Rest bleibt wie er war (`-<bezug>-<typ>`).
+ */
+export function entwurfSchluessel(userId: string, bezug: string, typ: string): string {
+  return `${PRAEFIX}[${encodeURIComponent(userId)}]-${bezug}-${typ}`
+}
+
+/** Zerlegt einen Schlüssel der neuen Form — `null` für alles andere. */
+export function entwurfZerlegen(key: string): { userId: string; bezug: string; typ: string } | null {
+  if (!key.startsWith(`${PRAEFIX}[`)) return null
+  const zu = key.indexOf(']', PRAEFIX.length + 1)
+  if (zu < 0 || key[zu + 1] !== '-') return null
+  let userId: string
   try {
-    const prefix = `aaa-draft-${userId}-`
+    userId = decodeURIComponent(key.slice(PRAEFIX.length + 1, zu))
+  } catch {
+    return null
+  }
+  return { userId, ...bezugUndTyp(key.slice(zu + 2)) }
+}
+
+/**
+ * `<bezug>-<typ>` zerlegen. Kennungen tragen selbst Bindestriche
+ * („gr-1793571773598-1") — der Typ steht hinter dem LETZTEN Strich, der
+ * Bezug ist alles davor (GRD-01). Ohne Bezugsteil: ein neues Blatt.
+ */
+function bezugUndTyp(rest: string): { bezug: string; typ: string } {
+  const strich = rest.lastIndexOf('-')
+  return { bezug: rest.slice(0, Math.max(strich, 0)) || 'new', typ: rest.slice(strich + 1) }
+}
+
+/** Alter Schlüssel `aaa-draft-<nutzer>-<bezug>-<typ>` — nur noch zum Übernehmen. */
+const altSchluessel = (userId: string, bezug: string, typ: string) => `${PRAEFIX}${userId}-${bezug}-${typ}`
+
+/**
+ * Entwürfe im alten Schlüssel in die neue Form bringen — nichts verlieren.
+ *
+ * Im alten Schlüssel ist nicht zu erkennen, wo die Kennung endet. Er gehört
+ * deshalb dem LÄNGSTEN bekannten Nutzer, dessen Kennung samt „-" vorne
+ * steht: „aaa-draft-u-x-new-308A" ist der von „u-x", nicht der von „u" mit
+ * dem Bezug „x-new". Nutzer werden nie gelöscht, nur deaktiviert — die Liste
+ * aller Kennungen ist also vollständig. Passt keiner, bleibt der Eintrag
+ * unangetastet liegen und wird niemandem gezeigt.
+ *
+ * Ohne Marke wie in migrateState: Das Umschreiben ist wiederholbar (ein
+ * übernommener Schlüssel ist danach weg), und ein während eines Updates noch
+ * offener Tab der Vorversion kann weiter alte Schlüssel schreiben — die
+ * fängt der nächste Lauf auf. Steht unter dem neuen Schlüssel schon etwas,
+ * bleibt der alte Eintrag liegen, statt eines der beiden zu überschreiben.
+ */
+export function alteEntwuerfeUebernehmen(speicher: Storage, nutzerIds: readonly string[]): void {
+  const laengsteZuerst = [...nutzerIds].sort((a, b) => b.length - a.length)
+  for (const k of Object.keys(speicher)) {
+    if (!k.startsWith(PRAEFIX) || k.startsWith(`${PRAEFIX}[`)) continue
+    const nutzer = laengsteZuerst.find((u) => k.startsWith(`${PRAEFIX}${u}-`))
+    if (nutzer === undefined) continue
+    const { bezug, typ } = bezugUndTyp(k.slice(PRAEFIX.length + nutzer.length + 1))
+    const neu = entwurfSchluessel(nutzer, bezug, typ)
+    const wert = speicher.getItem(k)
+    if (wert === null || speicher.getItem(neu) !== null) continue
+    speicher.setItem(neu, wert)
+    speicher.removeItem(k)
+  }
+}
+
+/**
+ * Den Entwurf eines Formulars lesen — auch einen, der noch unter dem alten
+ * Schlüssel liegt (dann gleich übernommen). Der alte Schlüssel wird hier
+ * GENAU nachgeschlagen, nicht per Präfix: Für den eigenen Nutzer, Bezug und
+ * Typ ist er eindeutig.
+ */
+export function entwurfLesen(speicher: Storage, userId: string, bezug: string, typ: string): string | null {
+  const neu = entwurfSchluessel(userId, bezug, typ)
+  const vorhanden = speicher.getItem(neu)
+  if (vorhanden !== null) return vorhanden
+  const alt = altSchluessel(userId, bezug, typ)
+  const altWert = speicher.getItem(alt)
+  if (altWert === null) return null
+  speicher.setItem(neu, altWert)
+  speicher.removeItem(alt)
+  return altWert
+}
+
+/**
+ * Die Entwürfe EINES Nutzers.
+ *
+ * @param nutzerIds alle bekannten Nutzerkennungen — nur damit lassen sich
+ *   Entwürfe im alten Schlüssel ihrem Nutzer zuordnen (alteEntwuerfeUebernehmen)
+ */
+export function readDrafts(userId: string, nutzerIds: readonly string[], speicher: Storage = localStorage): Draft[] {
+  try {
+    alteEntwuerfeUebernehmen(speicher, nutzerIds.includes(userId) ? nutzerIds : [...nutzerIds, userId])
     const phantome: string[] = []
     const liste = Object.keys(speicher)
-      .filter((k) => k.startsWith(prefix))
-      .map((k): Draft | null => {
+      .map((k) => ({ k, teile: entwurfZerlegen(k) }))
+      // Die Kennung GANZ vergleichen — nicht per Präfix (R3-ENTWURFSPRAEFIX).
+      .filter((x): x is { k: string; teile: NonNullable<ReturnType<typeof entwurfZerlegen>> } => x.teile?.userId === userId)
+      .map(({ k, teile }): Draft | null => {
         // Ein beschädigter Eintrag darf nicht die ganze Liste kosten: Der
         // Entwurf ist dann verloren, die übrigen sind es nicht.
         let d: RohEntwurf = {}
@@ -164,18 +268,13 @@ export function readDrafts(userId: string, speicher: Storage = localStorage): Dr
           d = {}
         }
         const trainees = d.trainees ?? []
-        const strich = k.lastIndexOf('-')
         return {
           key: k,
-          // Der Rest hinter dem Nutzer ist `<bezug>-<typ>`; der Typ steht
-          // hinter dem letzten Strich.
-          formTypeId: k.slice(strich + 1),
+          formTypeId: teile.typ,
           // Audit 11/2026, GRD-01: Der Bezug ging hier verloren, „Fortsetzen"
           // oeffnete das 310 ohne Elternblatt — unter einem anderen Schluessel,
-          // also leer, und gespeichert ohne parentId. Kennungen tragen selbst
-          // Bindestriche („gr-1793571773598-1"), deshalb ist der Bezug alles
-          // zwischen Nutzer und LETZTEM Strich.
-          bezug: k.slice(prefix.length, strich) || 'new',
+          // also leer, und gespeichert ohne parentId (entwurfZerlegen).
+          bezug: teile.bezug,
           kette: typeof d.next === 'string' ? decodeChain(d.next) : [],
           wer: trainees.map((x) => x.traineeName?.trim()).filter(Boolean).join(', ') || text(objekt(d.header).traineeName),
           noten: trainees.reduce((n, x) => n + (x.grades ?? []).filter((g) => g.grade !== null).length, 0),

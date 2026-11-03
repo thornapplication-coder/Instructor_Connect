@@ -1,7 +1,9 @@
 import { AlertTriangle, ArrowLeft, BookMarked, CheckCircle2, ChevronDown, Clock, ClipboardList, Download, History, MessageSquareText, MessagesSquare, Monitor, Paperclip, Plus, ScrollText, Settings, ShieldCheck, Trash2, Upload, Users, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Avatar, Badge, Button, Card, CardHeading, ChipListe, ChipMultiSelect, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { Avatar, Badge, Button, Card, CardHeading, ChipListe, ChipMultiSelect, DialogMeldung, Field, inputCls, Modal, Page, SectionHeading, selectCls, TopBar } from '../components/ui'
+import { ablehnungZeigen } from '../dialogMeldung'
+import { quittieren as nachSicherung } from '../quittung'
 import { navigate } from '../router'
 import { adminStatus } from '../adminStatus'
 import { planBulk, type BulkAktion } from '../bulkUsers'
@@ -12,7 +14,7 @@ import { festeEintraege, MAX_UPLOAD_MB, uploadGrenze } from '../einstellungen'
 import { adminKandidaten, gruppenAenderungFehler, gruppenName, gruppenNameFehler, type GruppenNameFehler } from '../gruppen'
 import { rasterKlasse } from '../kachelRaster'
 import { adminTabsFuer, istSperre, PERSON_PERMS, personenRechtWirkt, personenRechtWirksam, rechteLink, suchAusQuery } from '../adminAccess'
-import { toast } from '../components/Toast'
+import { toast, useQuittung } from '../components/Toast'
 import { storageInfo, type StorageInfo } from '../persist'
 import { downloadCsv } from '../csv'
 import { buildImportTemplate, EMAIL, importOhneGruppe, isImportable, istBeispielZeile, istTabellenDatei, parseUserImport, VORLAGE_CSV, VORLAGE_XLSX, type ImportResult, type ImportRow } from '../userImport'
@@ -36,10 +38,12 @@ type Tab = 'users' | 'permissions' | 'grading' | 'logbook' | 'groups' | 'feedbac
  */
 function UserImportModal({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation()
-  const { state, importUsers } = useStore()
+  const { state, importUsers, gesichert } = useStore()
   const [result, setResult] = useState<ImportResult | null>(null)
   const [fileName, setFileName] = useState('')
   const [done, setDone] = useState<number | null>(null)
+  /** Ablehnung oder Speicherfehler — im Dialog, nicht als Toast darunter (R3-DIALOGMELDUNG). */
+  const [meldung, setMeldung] = useState<string | null>(null)
   // Excel statt CSV gewaehlt: eigene Meldung statt „Kopfzeile passt nicht —
   // bitte die Vorlage verwenden" fuer genau diese Vorlage (VERW-19).
   const [tabelle, setTabelle] = useState(false)
@@ -95,6 +99,7 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
               if (!datei) return
               setFileName(datei.name)
               setDone(null)
+              setMeldung(null)
               const ist = istTabellenDatei(datei.name, new Uint8Array(await datei.slice(0, 4).arrayBuffer()))
               setTabelle(ist)
               if (ist) {
@@ -185,6 +190,7 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
           </p>
         )}
 
+        <DialogMeldung text={meldung} />
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
             {t('common.close')}
@@ -206,8 +212,25 @@ function UserImportModal({ onClose }: { onClose: () => void }) {
                 })),
                 groupIds,
               )
+              /* Der Dialog bleibt nach dem Import offen — ein Toast lag
+                 darunter, am iPhone vom Bottom-Sheet verdeckt. „0 übernommen"
+                 ist eine Ablehnung und steht in der Meldezeile; der Erfolg
+                 steht als Status im Dialog, ein Speicherfehler danach in der
+                 Meldezeile (R3-DIALOGMELDUNG, R3-SPEICHERQUITTUNG). */
+              if (ergebnis === 0) {
+                setMeldung(t('dialog.importNone'))
+                return
+              }
+              setMeldung(null)
               setDone(ergebnis)
-              toast(t('toast.usersImported', { count: ergebnis }), ergebnis ? 'ok' : 'wait')
+              void nachSicherung({
+                sichern: gesichert,
+                melden: (text, ton) => {
+                  if (ton === 'bad') setMeldung(text)
+                },
+                text: '',
+                fehlerText: t('toast.saveFailed'),
+              })
             }}
           >
             {t('admin.import.run', { count: uebernehmbar.length })}
@@ -235,7 +258,14 @@ const BULK_SCHALTER: { key: string; aktion: BulkAktion }[] = [
 function UsersTab() {
   const { t } = useTranslation()
   const { state, currentUser, updateUser, addUser, setGroupMembers } = useStore()
+  const quittieren = useQuittung()
   const [showNew, setShowNew] = useState(false)
+  /** Ablehnung beim Anlegen — im Dialog, nicht als Toast darunter (R3-DIALOGMELDUNG). */
+  const [neuMeldung, setNeuMeldung] = useState<string | null>(null)
+  const neuEmailId = useId()
+  const neuEmailHinweisId = useId()
+  const neuMusterId = useId()
+  const neuGruppenId = useId()
   const [showImport, setShowImport] = useState(false)
   // Bei rund 130 Instruktoren ist die Liste kompakt und aufklappbar:
   // sichtbar bleiben Name, E-Mail und Rolle — Details erst auf Klick.
@@ -300,8 +330,9 @@ function UsersTab() {
       return false
     }
     updateUser(u.id, aenderung)
-    if (erg.gruppeFehlt) toast(`${quittung} ${t('admin.einzel.gruppeFehlt', { name: u.name })}`, 'wait')
-    else toast(quittung)
+    // Quittung erst nach dem Schreiben (R3-SPEICHERQUITTUNG).
+    if (erg.gruppeFehlt) void quittieren(`${quittung} ${t('admin.einzel.gruppeFehlt', { name: u.name })}`, 'wait')
+    else void quittieren(quittung)
     return true
   }
 
@@ -344,7 +375,7 @@ function UsersTab() {
     if (ueberRolle) window.alert(t('admin.bulk.skippedViaRole', { count: ueberRolle }))
     const letzteGruppe = plan.uebersprungen.filter((x) => x.grund === 'letzteGruppe').length
     if (letzteGruppe) window.alert(t('admin.bulk.skippedLastGroup', { count: letzteGruppe }))
-    if (plan.patches.length > 0) toast(t('toast.bulkApplied', { count: plan.patches.length }))
+    if (plan.patches.length > 0) void quittieren(t('toast.bulkApplied', { count: plan.patches.length }))
     setGewaehlt([])
   }
 
@@ -660,7 +691,10 @@ function UsersTab() {
       {showNew && (
         <Modal
           title={t('admin.addUser')}
-          onClose={() => setShowNew(false)}
+          onClose={() => {
+            setShowNew(false)
+            setNeuMeldung(null)
+          }}
           confirmDiscard={
             form.name.trim() || form.email.trim() || form.phone.trim() || form.groupIds.length > 0 || form.aircraftTypes.length > 0
               ? t('common.discardConfirm')
@@ -674,22 +708,27 @@ function UsersTab() {
             {/* Die E-Mail ist die einzige Anmeldekennung — Pflichtfeld */}
             <Field label={t('contacts.email') + ' *'}>
               <input
+                id={neuEmailId}
                 type="email"
                 className={`${inputCls} ${emailTaken || domainFalsch ? 'border-danger/60' : ''}`}
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
+                // Der Grund hängt AM Feld: Wer nach einer Ablehnung hierher
+                // geführt wird, hört ihn beim Fokussieren (R3-DIALOGMELDUNG).
+                aria-invalid={emailTaken || domainFalsch || undefined}
+                aria-describedby={neuEmailHinweisId}
               />
               {/* Die Adresse muss eindeutig bleiben — sonst hätten zwei Konten
                   denselben Login. Direkt am Feld, nicht erst beim Speichern.
                   Ebenso die Domain: Ohne Freigabe kaeme die Person nie hinein. */}
               {emailTaken ? (
-                <p className="mt-1.5 text-micro leading-relaxed text-danger">{t('admin.emailTaken')}</p>
+                <p id={neuEmailHinweisId} className="mt-1.5 text-micro leading-relaxed text-danger">{t('admin.emailTaken')}</p>
               ) : domainFalsch ? (
-                <p className="mt-1.5 text-micro leading-relaxed text-danger">
+                <p id={neuEmailHinweisId} className="mt-1.5 text-micro leading-relaxed text-danger">
                   {t('admin.emailDomainNotAllowed', { list: state.settings.allowedDomains.join(', ') })}
                 </p>
               ) : (
-                <p className="mt-1.5 text-micro leading-relaxed text-dim">{t('admin.emailLoginHint')}</p>
+                <p id={neuEmailHinweisId} className="mt-1.5 text-micro leading-relaxed text-dim">{t('admin.emailLoginHint')}</p>
               )}
             </Field>
             <Field label={t('contacts.phone')}>
@@ -715,11 +754,13 @@ function UsersTab() {
                 Zuweisen kann man ihnen trotzdem etwas; es steht dann fuer die
                 fachliche Zustaendigkeit, nicht fuer die Sicht. */}
             <Field label={t('admin.aircraftTypes') + (musterPflicht(form.role) ? ' *' : '')} group>
-              <ChipMultiSelect
-                options={[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => ({ id: a, label: a }))}
-                selected={form.aircraftTypes}
-                onChange={(aircraftTypes) => setForm({ ...form, aircraftTypes })}
-              />
+              <div id={neuMusterId}>
+                <ChipMultiSelect
+                  options={[...state.settings.aircraftTypes].sort((a, b) => a.localeCompare(b)).map((a) => ({ id: a, label: a }))}
+                  selected={form.aircraftTypes}
+                  onChange={(aircraftTypes) => setForm({ ...form, aircraftTypes })}
+                />
+              </div>
               <p className="mt-1.5 text-micro leading-relaxed text-dim">
                 {musterPflicht(form.role) ? t('admin.aircraftTypesHint') : t('admin.aircraftTypesFree')}
               </p>
@@ -730,11 +771,13 @@ function UsersTab() {
                 Admin hat keinen Chat; für ihn entfällt das Feld. */}
             {gruppenNoetig ? (
               <Field label={t('admin.userGroups') + ' *'} group>
-                <ChipMultiSelect
-                  options={gruppenZurWahl.map((g) => ({ id: g.id, label: g.name }))}
-                  selected={gewaehlteGruppen}
-                  onChange={(groupIds) => setForm({ ...form, groupIds })}
-                />
+                <div id={neuGruppenId}>
+                  <ChipMultiSelect
+                    options={gruppenZurWahl.map((g) => ({ id: g.id, label: g.name }))}
+                    selected={gewaehlteGruppen}
+                    onChange={(groupIds) => setForm({ ...form, groupIds })}
+                  />
+                </div>
                 <p className="mt-1.5 text-micro leading-relaxed text-dim">
                   {gruppenZurWahl.length === 0 ? t('admin.userGroupsNoneReachable') : t('admin.userGroupsHint')}
                 </p>
@@ -742,8 +785,15 @@ function UsersTab() {
             ) : (
               <p className="text-micro leading-relaxed text-dim">{t('admin.userGroupsNotNeeded')}</p>
             )}
+            <DialogMeldung text={neuMeldung} />
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setShowNew(false)}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowNew(false)
+                  setNeuMeldung(null)
+                }}
+              >
                 {t('common.cancel')}
               </Button>
               <Button
@@ -761,14 +811,31 @@ function UsersTab() {
                   // dieselbe Adresse vergeben haben. Vorher schloss der Dialog
                   // auch dann und leerte das Formular — der Anwender hatte
                   // einen Nutzer angelegt, den es nicht gab.
+                  // Die Ablehnung stand als Toast UNTER dem Dialog — am
+                  // iPhone vom Bottom-Sheet verdeckt (R3-DIALOGMELDUNG).
+                  // Jetzt: Erklärt ein Feld den Grund (Adresse inzwischen
+                  // vergeben, Muster, Gruppe), geht der Fokus dorthin; sonst
+                  // steht er über den Knöpfen. Der Dialog bleibt offen.
+                  setNeuMeldung(null)
                   const ok = addUser({ ...form, groupIds: gewaehlteGruppen })
                   if (!ok) {
-                    toast(t('toast.userSaveFailed'), 'bad')
+                    const ablehnung = ablehnungZeigen(
+                      [
+                        [neuEmailId, emailTaken || domainFalsch || !emailGueltig],
+                        [neuMusterId, musterPflicht(form.role) && form.aircraftTypes.length === 0],
+                        [neuGruppenId, gruppenNoetig && gewaehlteGruppen.length === 0],
+                      ],
+                      t('dialog.userNotCreated'),
+                    )
+                    if ('feld' in ablehnung) {
+                      const ziel = document.getElementById(ablehnung.feld)
+                      ;(ziel?.matches('input') ? ziel : ziel?.querySelector<HTMLElement>('button'))?.focus()
+                    } else setNeuMeldung(ablehnung.meldung)
                     return
                   }
                   setShowNew(false)
                   setForm({ name: '', email: '', phone: '', role: 'member', groupIds: [], aircraftTypes: [] })
-                  toast(t('toast.userSaved'))
+                  void quittieren(t('toast.userSaved'))
                 }}
               >
                 {t('common.save')}
@@ -1094,6 +1161,10 @@ function GroupsTab() {
   // Fehler, nur ein nicht aktiver Speichern-Knopf.
   const nameFehler = gruppenNameFehler(state.groups, null, name)
   const nameTaken = nameFehler === 'vergeben'
+  const nameId = useId()
+  const nameHinweisId = useId()
+  /** Ablehnung beim Anlegen — im Dialog statt still geschlossen (R3-DIALOGMELDUNG). */
+  const [neuMeldung, setNeuMeldung] = useState<string | null>(null)
 
   // Gruppen nach Muster sortiert: erst je Aircraft Type, dann die
   // musterübergreifenden — die Chat-Themen unterscheiden sich je Typ.
@@ -1264,17 +1335,23 @@ function GroupsTab() {
       {showNew && (
         <Modal
           title={t('admin.addGroup')}
-          onClose={() => setShowNew(false)}
+          onClose={() => {
+            setShowNew(false)
+            setNeuMeldung(null)
+          }}
           confirmDiscard={name.trim() || purpose.trim() || newAircraft ? t('common.discardConfirm') : undefined}
         >
           <div className="space-y-stack">
             <Field label={t('admin.groupName')}>
               <input
+                id={nameId}
                 className={`${inputCls} ${nameTaken ? 'border-danger/60' : ''}`}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                aria-invalid={nameTaken || undefined}
+                aria-describedby={nameTaken ? nameHinweisId : undefined}
               />
-              {nameTaken && <p className="mt-1.5 text-micro leading-relaxed text-danger">{t('admin.groupNameTaken')}</p>}
+              {nameTaken && <p id={nameHinweisId} className="mt-1.5 text-micro leading-relaxed text-danger">{t('admin.groupNameTaken')}</p>}
             </Field>
             <Field label={t('admin.purpose')}>
               <input className={inputCls} value={purpose} onChange={(e) => setPurpose(e.target.value)} />
@@ -1293,14 +1370,31 @@ function GroupsTab() {
                 ))}
               </select>
             </Field>
+            <DialogMeldung text={neuMeldung} />
             <div className="flex justify-end gap-2">
-              <Button variant="ghost" onClick={() => setShowNew(false)}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowNew(false)
+                  setNeuMeldung(null)
+                }}
+              >
                 {t('common.cancel')}
               </Button>
               <Button
                 disabled={nameFehler !== null}
                 onClick={() => {
-                  addGroup(name, purpose.trim(), newAircraft || undefined)
+                  // Die Rückgabe wurde nicht gelesen: Ein abgewiesener Name
+                  // oder ein entzogenes Recht schloss den Dialog wortlos, die
+                  // Gruppe gab es nicht. Jetzt bleibt er offen — der Grund
+                  // am Namen oder über den Knöpfen (R3-DIALOGMELDUNG).
+                  setNeuMeldung(null)
+                  if (!addGroup(name, purpose.trim(), newAircraft || undefined)) {
+                    const ablehnung = ablehnungZeigen([[nameId, nameFehler !== null]], t('dialog.groupNotCreated'))
+                    if ('feld' in ablehnung) document.getElementById(ablehnung.feld)?.focus()
+                    else setNeuMeldung(ablehnung.meldung)
+                    return
+                  }
                   setShowNew(false)
                   setName('')
                   setPurpose('')
@@ -1337,6 +1431,7 @@ function FeedbackCard({
   onUmgeschaltet?: (id: string) => void
 }) {
   const { t } = useTranslation()
+  const quittieren = useQuittung()
   const done = !!f.resolvedBy
   const [note, setNote] = useState(f.resolutionNote ?? '')
   const [editNote, setEditNote] = useState(false)
@@ -1396,7 +1491,7 @@ function FeedbackCard({
                   <Button
                     onClick={() => {
                       onResolve(f.id, note)
-                      toast(t('toast.feedbackResolved'))
+                      void quittieren(t('toast.feedbackResolved'))
                       setEditNote(false)
                     }}
                     className="shrink-0"
@@ -1421,12 +1516,13 @@ function FeedbackCard({
               checked={done}
               onChange={(e) => {
                 onUmgeschaltet?.(f.id)
+                // Quittung erst nach dem Schreiben (R3-SPEICHERQUITTUNG).
                 if (e.target.checked) {
                   onResolve(f.id, note)
-                  toast(t('toast.feedbackResolved'))
+                  void quittieren(t('toast.feedbackResolved'))
                 } else {
                   onReopen(f.id)
-                  toast(t('toast.feedbackReopened'), 'wait')
+                  void quittieren(t('toast.feedbackReopened'), 'wait')
                 }
               }}
               className="h-5 w-5 shrink-0 accent-ok"
@@ -1437,7 +1533,7 @@ function FeedbackCard({
             onClick={() => {
               if (!window.confirm(t('admin.confirmDeleteFeedback'))) return
               onDelete(f.id)
-              toast(t('toast.feedbackDeleted'))
+              void quittieren(t('toast.feedbackDeleted'))
             }}
             aria-label={t('common.delete')}
             className="flex h-11 w-11 items-center justify-center rounded-full text-dim hover:text-danger"
@@ -1636,6 +1732,7 @@ function StorageCard() {
 export function UploadGrenzeFeld() {
   const { t } = useTranslation()
   const { state, updateSettings } = useStore()
+  const quittieren = useQuittung()
   const gespeichert = state.settings.maxUploadMB
   const [entwurf, setEntwurf] = useState(String(gespeichert))
   const [tippt, setTippt] = useState(false)
@@ -1651,7 +1748,7 @@ export function UploadGrenzeFeld() {
     setEntwurf(String(wert))
     if (wert !== gespeichert) {
       updateSettings({ maxUploadMB: wert })
-      toast(t('toast.maxUploadSaved', { max: wert }))
+      void quittieren(t('toast.maxUploadSaved', { max: wert }))
     }
   }
   return (
@@ -1684,6 +1781,7 @@ export function UploadGrenzeFeld() {
 function SettingsTab() {
   const { t } = useTranslation()
   const { state, currentUser, updateSettings } = useStore()
+  const quittieren = useQuittung()
   const s = state.settings
   // Warum ein Muster nicht geloescht werden kann — mit Zahlen, wie das
   // Gruppenloeschen seine Blocker nennt (VERW-18).
@@ -1812,7 +1910,7 @@ function SettingsTab() {
           }}
           onChange={(v) => {
             updateSettings({ allowedDomains: v })
-            toast(t('toast.domainsSaved'))
+            void quittieren(t('toast.domainsSaved'))
           }}
         />
       </Card>

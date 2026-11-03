@@ -5,7 +5,7 @@ import { Badge, Button, Card, CardHeading, ChipListe, CountBadge, Field, FilterA
 import { AuswertungsFilter } from './AuswertungsFilter'
 import { DocumentHead } from '../../components/DocumentHead'
 import { downloadCsv } from '../../csv'
-import { toast } from '../../components/Toast'
+import { toast, useQuittung } from '../../components/Toast'
 import { avgOf, buildGradingCsv, gradingCsvName, kalibrierungsZeilen, statistikKopf, statistikRohdaten } from '../../gradingExport'
 import { navigate } from '../../router'
 import { useStore } from '../../store'
@@ -148,6 +148,8 @@ function FormTypeEditor({
   onChange: (types: FormType[]) => void
 }) {
   const { t, i18n } = useTranslation()
+  const { removeFormType } = useStore()
+  const quittieren = useQuittung()
   // ID des bearbeiteten Typs oder '__new__'
   const [editId, setEditId] = useState<string | null>(null)
   // Formulartyp, dessen Auswahlwerte gerade gepflegt werden
@@ -211,11 +213,25 @@ function FormTypeEditor({
             {(() => {
               const gebrauch = formularTypInGebrauch(f.id, records)
               const grund = gebrauch === 'pflicht' ? t('forms:admin.formTypeRequired') : t('forms:admin.formTypeInUse')
+              /* Jeder Ausgang meldet sich (Audit 11/2026, R3-FORMULARTYP):
+                 gesperrt → Grund VOR der Rückfrage; gelöscht → Quittung nach
+                 dem Speichern; nach der Rückfrage doch abgelehnt (in einem
+                 zweiten Tab inzwischen benutzt oder entfernt) → Grund. Vorher
+                 lief das Löschen über die gekürzte Liste, der Store holte den
+                 Typ still zurück, und nach „OK" kam nichts. Abbrechen bleibt
+                 still: Da ist nichts geschehen, das gemeldet werden müsste. */
+              const ablehnung = { pflicht: t('forms:admin.formTypeRequired'), datensaetze: t('forms:admin.formTypeInUse'), unbekannt: t('forms:admin.formTypeGone') }
               return (
                 <button
                   onClick={() => {
-                    if (gebrauch) toast(grund, 'wait')
-                    else if (window.confirm(t('forms:admin.deleteFormTypeConfirm'))) onChange(formTypes.filter((x) => x.id !== f.id))
+                    if (gebrauch) {
+                      toast(grund, 'wait')
+                      return
+                    }
+                    if (!window.confirm(t('forms:admin.deleteFormTypeConfirm'))) return
+                    const ausgang = removeFormType(f.id)
+                    if (ausgang === 'geloescht') void quittieren(t('forms:toast.formTypeDeleted', { id: f.id }), 'ok', t('forms:toast.saveFailed'))
+                    else toast(ablehnung[ausgang], 'wait')
                   }}
                   aria-disabled={gebrauch ? true : undefined}
                   aria-label={t('forms:admin.deleteOption', { value: f.id })}

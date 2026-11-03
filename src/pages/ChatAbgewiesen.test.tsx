@@ -146,6 +146,32 @@ describe('Gruppe anlegen aus der Chatliste: vergebener Name (KERN-08)', () => {
   })
 })
 
+/*
+ * Audit 11/2026, R3-DIALOGMELDUNG: Die Ablehnung kam als Toast — der liegt
+ * im unteren Stapel UNTER dem Dialog, am iPhone vom Bottom-Sheet verdeckt.
+ * Nachgestellt: Dialog offen, Name getippt, dann das Recht weg (Rolle in
+ * einem anderen Tab geändert) — „Speichern" schien nichts zu tun.
+ */
+describe('Gruppe anlegen: Ablehnung steht IM Dialog (R3-DIALOGMELDUNG)', () => {
+  it('Recht inzwischen entzogen: Grund in der Meldezeile, Dialog und Eingabe bleiben, kein Toast', () => {
+    zeichne(<ChatList />)
+    fireEvent.click(screen.getByRole('button', { name: 'Gruppe anlegen' }))
+    const dialog = screen.getByRole('dialog')
+    const name = within(dialog).getAllByRole('textbox')[0]
+    fireEvent.change(name, { target: { value: 'Ground Ops Linz' } })
+    // Ab jetzt handelt ein Mitglied — es darf keine Gruppen anlegen.
+    act(() => store().switchUser('u-michael'))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Speichern' }))
+    expect(within(dialog).getByRole('alert')).toHaveTextContent(i18n.t('dialog.groupNotCreated'))
+    expect(screen.getByRole('dialog')).toBe(dialog)
+    expect(name).toHaveValue('Ground Ops Linz')
+    expect(store().state.groups.some((g) => g.name === 'Ground Ops Linz')).toBe(false)
+    // Nichts mehr im Toast-Stapel unter dem Dialog.
+    const toasts = screen.getAllByRole('status').filter((s) => !dialog.contains(s))
+    expect(toasts.map((s) => s.textContent).join('')).toBe('')
+  })
+})
+
 describe('Chat-Info (KERN-08, KERN-06)', () => {
   it('„Entfernen" bei Mikas letzter erreichbarer Gruppe: gesperrt, mit Grund', () => {
     zeichne(<ChatInfo groupId="g-defects" />)

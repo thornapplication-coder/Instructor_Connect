@@ -10,6 +10,7 @@ import {
   einfrieren,
   empfaengerVon,
   followUpStarted,
+  formularTypEntfernen,
   formularTypInGebrauch,
   ganzzahligNichtNegativ,
   gleichePaare,
@@ -882,6 +883,29 @@ describe('formularTypInGebrauch — Löschknopf und Store fragen dieselbe Regel 
   it('ein unbenutzter neuer Typ ist frei löschbar — vorher sagte der Dialog dasselbe für alle', () => {
     expect(formularTypInGebrauch('399X', [rec({ formTypeId: '308A' })])).toBeNull()
     expect(formularTypInGebrauch('308A', [])).toBeNull()
+  })
+})
+
+/**
+ * Audit 11/2026, R3-FORMULARTYP: Nach der Rückfrage endete das Löschen
+ * wortlos — gelungen oder still zurückgeholt. Jeder Ausgang hat jetzt einen
+ * Namen, den die Ansicht meldet.
+ */
+describe('formularTypEntfernen — jeder Ausgang benannt', () => {
+  const katalog = [{ id: '306' }, { id: '308A' }, { id: '310' }, { id: '399X' }]
+
+  it('unbenutzter Typ: gelöscht, die übrigen behalten ihre Reihenfolge', () => {
+    const e = formularTypEntfernen(katalog, '399X', [rec({ formTypeId: '308A' })])
+    expect(e).toEqual({ ausgang: 'geloescht', formTypes: [{ id: '306' }, { id: '308A' }, { id: '310' }] })
+  })
+
+  it('Pflicht-Folgeformular und Typ mit Datensätzen: abgelehnt, mit Grund', () => {
+    expect(formularTypEntfernen(katalog, '310', [])).toEqual({ ausgang: 'pflicht' })
+    expect(formularTypEntfernen(katalog, '308A', [rec({ formTypeId: '308A' })])).toEqual({ ausgang: 'datensaetze' })
+  })
+
+  it('ein Typ, den es nicht (mehr) gibt — etwa in einem zweiten Tab schon gelöscht', () => {
+    expect(formularTypEntfernen(katalog, '308Z', [])).toEqual({ ausgang: 'unbekannt' })
   })
 })
 

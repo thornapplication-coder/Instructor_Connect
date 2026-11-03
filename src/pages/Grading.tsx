@@ -435,7 +435,10 @@ export function Grading() {
   // Das Grading-Modul ist immer vollständig englisch
   const { t } = useTranslation()
   const { state, currentUser, visibleGradingRecords, hideGradingRecord, can } = useStore()
-  const [drafts, setDrafts] = useState(() => readDrafts(currentUser!.id))
+  // Alle Kennungen: Nur mit ihnen lassen sich Entwürfe im alten Schlüssel
+  // ihrem Nutzer zuordnen (R3-ENTWURFSPRAEFIX, drafts.ts).
+  const nutzerIds = state.users.map((u) => u.id)
+  const [drafts, setDrafts] = useState(() => readDrafts(currentUser!.id, nutzerIds))
 
   const formTitle = (id: string) => state.settings.grading.formTypes.find((f) => f.id === id)?.title ?? id
   const traineeLabel = (tr: { traineeName?: string; traineeId: string }) =>
@@ -551,7 +554,7 @@ export function Grading() {
               onClick={() => {
                 if (!window.confirm(t('forms:draftDiscardConfirm'))) return
                 localStorage.removeItem(d.key)
-                setDrafts(readDrafts(currentUser!.id))
+                setDrafts(readDrafts(currentUser!.id, nutzerIds))
               }}
               aria-label={t('forms:draftDiscard')}
               title={t('forms:draftDiscard')}

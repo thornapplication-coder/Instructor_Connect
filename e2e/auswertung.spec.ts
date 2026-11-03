@@ -119,3 +119,27 @@ test('Grading-Unterbereiche: ein Rückweg, benannte Filter in einer Zeile, eigen
   await page.goto('/#/admin')
   await expect(page).toHaveTitle('Admin Panel – Instructor Connect')
 })
+
+/**
+ * Audit 11/2026, R3-MONATSBERICHT — Bildschirm UND Druck: Beim Bericht eines
+ * anderen Instruktors steht dessen Name, nirgends „You"/„your" (die Regel
+ * selbst prüft `monthlyReport.test.ts`). Im Druck fehlte außerdem die erste
+ * Spalte der Kompetenztabelle: Sie klebt beim Scrollen (`sticky left-0`), und
+ * die Druckregel für klebende Leisten blendete sie mit aus — übrig blieben
+ * Zahlen ohne Kompetenz (gefunden bei der Gegenprüfung).
+ */
+test('Monatsbericht eines anderen: Name statt „You", im Druck mit Kompetenzspalte', async ({ page }) => {
+  await anmelden(page)
+  await page.setViewportSize({ width: 1366, height: 900 })
+  await page.goto('/#/admin/grading/monthly')
+  await page.getByRole('combobox', { name: 'Instructor' }).selectOption({ label: 'Chris Beispiel' })
+  const bericht = page.locator('main')
+  await expect(bericht.getByRole('columnheader', { name: 'Chris Beispiel', exact: true }).first()).toBeVisible()
+  expect(await bericht.innerText()).not.toMatch(/\b(you|your)\b/i)
+
+  await page.emulateMedia({ media: 'print' })
+  const kompetenz = bericht.getByRole('rowheader', { name: /^KNO / })
+  await expect(kompetenz).toBeVisible()
+  await expect(bericht.getByRole('columnheader', { name: 'Per competency' })).toBeVisible()
+  await page.emulateMedia({ media: null })
+})

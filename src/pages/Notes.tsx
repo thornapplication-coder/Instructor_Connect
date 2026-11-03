@@ -1,8 +1,8 @@
 import { NotebookPen, Pencil, Pin, Search, Trash2 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Button, Card, CardGrid, Field, inputCls, Modal, Page, SectionHeading, TopBar, TopBarAktion } from '../components/ui'
-import { toast } from '../components/Toast'
+import { Button, Card, CardGrid, DialogMeldung, Field, inputCls, Modal, Page, SectionHeading, TopBar, TopBarAktion } from '../components/ui'
+import { useQuittung } from '../components/Toast'
 import { groupNotes, notePreview, PINNED, searchNotes } from '../notes'
 import { useStore } from '../store'
 import type { Note } from '../types'
@@ -25,8 +25,11 @@ import { formatDate } from '../datum'
 function NoteEditor({ note, onClose }: { note?: Note; onClose: () => void }) {
   const { t } = useTranslation()
   const { state, saveNote } = useStore()
+  const quittieren = useQuittung()
   const [title, setTitle] = useState(note?.title ?? '')
   const [body, setBody] = useState(note?.body ?? '')
+  /** Ablehnung des Stores — steht im Dialog, nicht als Toast darunter (R3-DIALOGMELDUNG). */
+  const [meldung, setMeldung] = useState<string | null>(null)
 
   const geaendert = title !== (note?.title ?? '') || body !== (note?.body ?? '')
 
@@ -49,6 +52,7 @@ function NoteEditor({ note, onClose }: { note?: Note; onClose: () => void }) {
             rows={6}
           />
         </Field>
+        <DialogMeldung text={meldung} />
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -56,8 +60,15 @@ function NoteEditor({ note, onClose }: { note?: Note; onClose: () => void }) {
           <Button
             disabled={!title.trim()}
             onClick={() => {
-              saveNote({ id: note?.id, title, body })
-              toast(t('toast.noteSaved'))
+              // Abgewiesen (die Notiz wurde in einem anderen Tab gelöscht):
+              // Dialog bleibt offen, der Text bleibt stehen. Vorher schloss
+              // er und quittierte „gespeichert" (R3-DIALOGMELDUNG). Die
+              // Quittung kommt erst nach dem Schreiben (R3-SPEICHERQUITTUNG).
+              if (!saveNote({ id: note?.id, title, body })) {
+                setMeldung(t('dialog.notSaved'))
+                return
+              }
+              void quittieren(t('toast.noteSaved'))
               onClose()
             }}
           >
@@ -72,6 +83,7 @@ function NoteEditor({ note, onClose }: { note?: Note; onClose: () => void }) {
 export function Notes() {
   const { t, i18n } = useTranslation()
   const { visibleNotes, deleteNote, toggleNotePin } = useStore()
+  const quittieren = useQuittung()
   const [query, setQuery] = useState('')
   /** null = Dialog zu, undefined = neue Notiz, Note = diese aendern */
   const [editor, setEditor] = useState<Note | undefined | null>(null)
@@ -190,7 +202,7 @@ export function Notes() {
                       // weg — deshalb dieselbe Rueckfrage wie ueberall sonst.
                       if (window.confirm(t('notes.deleteConfirm', { title: n.title }))) {
                           deleteNote(n.id)
-                          toast(t('toast.noteDeleted'))
+                          void quittieren(t('toast.noteDeleted'))
                         }
                     }}
                     className="min-h-11 flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-small text-danger transition hover:bg-danger/10"

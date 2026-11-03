@@ -1,7 +1,8 @@
 import { BarChart3, Ban, FileText, Image as ImageIcon, Info, Paperclip, Plus, SendHorizonal, Trash2, X } from 'lucide-react'
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Badge, Button, Field, inputCls, Modal, NewDot, TopBar } from '../components/ui'
+import { Badge, Button, DialogMeldung, Field, inputCls, Modal, NewDot, TopBar } from '../components/ui'
+import { ablehnungZeigen } from '../dialogMeldung'
 import { toast } from '../components/Toast'
 import i18n from '../i18n'
 import { anhangZuGross, nachrichtAbgewiesen, prozentAnteile, spaetestesUmfrageEnde, stimmenJeOption, VERLAUF_SCHRITT, verlaufFenster, umfrageAbgewiesen, umfrageAblaufFehler, umfrageEndeAus, utcTag, utcZeit, type NachrichtGrund } from '../chatRules'
@@ -189,6 +190,9 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
   const [validTime, setValidTime] = useState('23:59')
   const hinweisId = useId()
   const fehlerId = useId()
+  const datumId = useId()
+  /** Ablehnung beim Anlegen — im Dialog, nicht als Toast darunter (R3-DIALOGMELDUNG). */
+  const [meldung, setMeldung] = useState<string | null>(null)
 
   /* Dieselbe Regel wie im Store (chatRules.ts): Vorher liess der Dialog ein
      vergangenes Datum zu, der Store verwarf die Umfrage still, und der
@@ -276,6 +280,7 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
         <Field label={t('chat.pollValidUntilUtc') + ' *'} group invalid={!!ablaufText}>
           <div className="flex gap-2">
             <input
+              id={datumId}
               type="date"
               className={inputCls}
               value={validDate}
@@ -307,6 +312,7 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
             )}
           </p>
         </Field>
+        <DialogMeldung text={meldung} />
         <div className="flex justify-end gap-2 pt-1">
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -314,9 +320,19 @@ function PollModal({ groupId, onClose }: { groupId: string; onClose: () => void 
           <Button
             disabled={!valid}
             onClick={() => {
-              // Bei Ablehnung bleibt der Dialog mit allen Eingaben offen.
-              if (createPoll(groupId, question.trim(), type, options.filter((o) => o.trim()), validUntil)) onClose()
-              else toast(t('chat.pollRejected'), 'bad')
+              // Bei Ablehnung bleibt der Dialog mit allen Eingaben offen —
+              // und sagt es IM Dialog statt per Toast darunter
+              // (R3-DIALOGMELDUNG): Liegt das Ende inzwischen hinter der
+              // Aufbewahrung, steht der Grund am Datum; sonst (Mitgliedschaft,
+              // Chat-Sperre) über den Knöpfen.
+              setMeldung(null)
+              if (createPoll(groupId, question.trim(), type, options.filter((o) => o.trim()), validUntil)) {
+                onClose()
+                return
+              }
+              const ablehnung = ablehnungZeigen([[datumId, !!ablaufText]], t('dialog.pollNotCreated'))
+              if ('feld' in ablehnung) document.getElementById(ablehnung.feld)?.focus()
+              else setMeldung(ablehnung.meldung)
             }}
           >
             {t('chat.create')}

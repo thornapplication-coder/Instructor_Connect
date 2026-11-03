@@ -24,6 +24,15 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     locale: 'de-AT',
+    /*
+     * Ortszeit Wien in JEDEM Browser, nicht die der Maschine — Gegenstück zu
+     * `process.env.TZ` in vitest.config.ts. In der CI (UTC) ist der UTC-Tag
+     * der Ortstag; ein Datum aus `toISOString()` statt `lokalerTag` fiel dort
+     * keinem Browser-Test auf (Audit 11/2026, R3-E2E-ZEITZONE). Gilt für alle
+     * Projekte: Die Geräteprofile (Pixel 7, iPhone 13) setzen keine Zone.
+     * `e2e/zeitzone.spec.ts` prüft, dass sie ankommt.
+     */
+    timezoneId: 'Europe/Vienna',
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } }, testIgnore: /mobil\.spec/ },

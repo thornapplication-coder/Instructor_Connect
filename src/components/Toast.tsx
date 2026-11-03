@@ -1,6 +1,8 @@
 import { AlertTriangle, CheckCircle2, Clock, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { quittieren } from '../quittung'
+import { useStore } from '../store'
 import { toastDauer } from '../toastDauer'
 
 /**
@@ -44,6 +46,31 @@ let naechsteId = 1
 export function toast(text: string, tone: ToastTone = 'ok'): void {
   const eintrag = { id: naechsteId++, text, tone }
   HOERER.forEach((h) => h(eintrag))
+}
+
+/**
+ * Quittung für eine endgültige Aktion — erst NACH dem Speichern.
+ *
+ * `toast(...)` direkt nach `saveNote(...)` meldete „gespeichert", bevor
+ * geschrieben war, und auch dann, wenn das Schreiben scheiterte (Audit
+ * 11/2026, R3-SPEICHERQUITTUNG). Wer speichert, löscht oder absendet,
+ * quittiert deshalb hierüber: Der Store schreibt sofort, die Quittung kommt
+ * nach dem Schreiben, ein Fehlschlag meldet sich als „nicht gespeichert".
+ * Die Regel steht in `quittung.ts`; hier wird sie nur mit Store, Streifen
+ * und Text verbunden. Ein Hook, weil er den Store braucht — der Aufruf im
+ * Ereignis-Handler bleibt so kurz wie `toast(...)`.
+ *
+ * `fehlerText`: eigene Fehlermeldung, wo die Oberflächensprache nicht passt
+ * (Grading-Formulare sind immer englisch).
+ */
+export function useQuittung(): (text: string, ton?: ToastTone, fehlerText?: string) => Promise<boolean> {
+  const { gesichert } = useStore()
+  const { t } = useTranslation()
+  return useCallback(
+    (text: string, ton: ToastTone = 'ok', fehlerText?: string) =>
+      quittieren({ sichern: gesichert, melden: toast, text, ton, fehlerText: fehlerText ?? t('toast.saveFailed') }),
+    [gesichert, t],
+  )
 }
 
 export function ToastHost() {

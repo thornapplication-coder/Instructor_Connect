@@ -1,16 +1,19 @@
 import { CalendarRange, Download, Info } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Badge, type BadgeTone, Card, CardHeading, FilterAuswahl } from '../../components/ui'
 import { downloadCsv } from '../../csv'
 import { toast } from '../../components/Toast'
 import { briefkopfZulassung, formatDelta, formatPct, type Flag } from '../../gradingStats'
 import {
+  monatsBeschriftung,
   monthlyCsv,
   monthlyCsvName,
   monthlyReport,
   monthsWithData,
+  type Beschrifter,
   type CompetencyLine,
+  type MonatsBeschriftung,
   type Figures,
   type MonthKey,
   type MonthlyReport as Report,
@@ -112,17 +115,39 @@ function Distribution({ dist, t }: { dist: Figures['dist']; t: (k: string) => st
  * weitergeht — vorher waren 294 von 520 px zu sehen und nichts wies auf den
  * Rest hin (Audit 11/2026, MOB-06).
  */
-function CompetencyTable({ lines, t }: { lines: CompetencyLine[]; t: (k: string) => string }) {
+/**
+ * Text, der nur an Leerzeichen umbricht — nie hinter einem Bindestrich.
+ *
+ * Neben den Spaltenköpfen mit Namen (Bericht eines anderen, „Chris
+ * Beispiel's aircraft types", R3-MONATSBERICHT) gab die Tabelle der ersten
+ * Spalte bei 360 px nur noch die Breite bis zum Bindestrich: „Problem-/
+ * solving" (Ebene-3-Test zu GRD-13). Wortweise bleibt jedes Wort ganz; die
+ * Tabelle scrollt dann, statt zu trennen.
+ */
+function Wortweise({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(' ').map((wort, i) => (
+        <Fragment key={i}>
+          {i > 0 && ' '}
+          <span className="whitespace-nowrap">{wort}</span>
+        </Fragment>
+      ))}
+    </>
+  )
+}
+
+function CompetencyTable({ lines, t, wort }: { lines: CompetencyLine[]; t: (k: string) => string; wort: MonatsBeschriftung }) {
   return (
     <div className="scroll-schatten-x overflow-x-auto">
       <table className="w-full min-w-[520px] border-collapse text-small">
         <thead>
           <tr className="border-b border-line/15 text-left text-micro uppercase tracking-wide text-dim">
             <th className="sticky left-0 bg-surface py-2 pr-2 font-semibold">{t('forms:admin.perCompetency')}</th>
-            <th className="py-2 px-2 text-right font-semibold">{t('forms:admin.yours')}</th>
-            <th className="py-2 px-2 text-right font-semibold">{t('forms:admin.fleetCol')}</th>
+            <th className="py-2 px-2 text-right font-semibold">{wort.eigen}</th>
+            <th className="py-2 px-2 text-right font-semibold">{wort.flotte}</th>
             <th className="py-2 px-2 text-right font-semibold">{t('forms:admin.allCol')}</th>
-            <th className="py-2 px-2 text-right font-semibold">{t('forms:admin.vsFleet')}</th>
+            <th className="py-2 px-2 text-right font-semibold">{wort.gegenFlotte}</th>
             <th className="py-2 pl-2 text-right font-semibold">{t('forms:admin.vsAll')}</th>
           </tr>
         </thead>
@@ -130,7 +155,10 @@ function CompetencyTable({ lines, t }: { lines: CompetencyLine[]; t: (k: string)
           {lines.map((c) => (
             <tr key={c.code} className="border-b border-line/[0.06] last:border-0">
               <th scope="row" className="sticky left-0 bg-surface py-2 pr-2 text-left font-normal">
-                <span className="zusammen font-semibold">{c.code}</span> <span className="text-dim">{c.title}</span>
+                <span className="zusammen font-semibold">{c.code}</span>{' '}
+                <span className="text-dim">
+                  <Wortweise text={c.title} />
+                </span>
               </th>
               <td className="whitespace-nowrap py-2 px-2 text-right font-semibold tabular-nums">{fmt(c.own)}</td>
               <td className="whitespace-nowrap py-2 px-2 text-right tabular-nums text-dim">{fmt(c.fleet)}</td>
@@ -225,6 +253,16 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
     if (ersterMitDaten) setInstructorId(ersterMitDaten.id)
   }, [mayPickInstructor, instructorId, instructorOptions, records, currentUser])
 
+  /*
+   * Aus Sicht des Lesers: Beim Bericht eines anderen stehen dessen Name statt
+   * „You" und „vs your types" — auf dem Bildschirm, im Ausdruck und in der
+   * CSV aus derselben Funktion und mit derselben Bedingung (Audit 11/2026,
+   * R3-MONATSBERICHT; vorher galt das nur für die CSV).
+   */
+  const fremd = who !== currentUser!.id
+  const beschrifter: Beschrifter = (k, w) => t(k, w)
+  const wort = monatsBeschriftung({ fremd, instruktor: userName(who) }, beschrifter)
+
   const monthLabel = (m: MonthKey) =>
     // Der Monatsname gehoert zum Berichtstext und bleibt deshalb englisch.
     new Date(m.year, m.month, 1).toLocaleDateString('en', { month: 'long', year: 'numeric' })
@@ -245,8 +283,8 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
       satzName,
       exportiertAm: jetzt,
       exportiertVon: currentUser!.name,
-      fremd: report.instructorId !== currentUser!.id,
-      beschriftung: (k) => t(k),
+      fremd,
+      beschriftung: beschrifter,
     })
     toast(t('forms:toast.exported'))
     downloadCsv(monthlyCsvName(report, userName(report.instructorId), jetzt), csv)
@@ -259,7 +297,7 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
   // der Oberfläche — Sprachausgabe und Silbentrennung sollen das wissen.
   return (
     <div lang="en" className="space-y-stack">
-      <p className="text-small leading-relaxed text-dim">{t('forms:admin.monthlyHint')}</p>
+      <p className="text-small leading-relaxed text-dim">{wort.hinweis}</p>
 
       {/* Auswahl: Monat und — mit vollem Archivzugriff — der Instruktor */}
       <div className="flex flex-wrap items-center gap-2">
@@ -324,14 +362,14 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
                   sich selbst — die 0 waere dann keine Aussage, sondern Zufall
                   der Datenlage. Dann lieber den Grund nennen. */}
               <div className="rounded-xl border border-line/10 p-3">
-                <p className="mb-1 text-micro uppercase tracking-wide text-dim">{t('forms:admin.vsFleet')}</p>
+                <p className="mb-1 text-micro uppercase tracking-wide text-dim">{wort.gegenFlotte}</p>
                 {report.fleetHasOthers ? (
                   <>
                     <p className={`text-title font-bold tabular-nums ${deltaClass(report.deltaFleet)}`}>{formatDelta(report.deltaFleet)}</p>
                     <FlagBadge flag={report.flagFleet} t={t} />
                   </>
                 ) : (
-                  <p className="text-micro leading-relaxed text-dim">{t('forms:admin.onlyYou')}</p>
+                  <p className="text-micro leading-relaxed text-dim">{wort.nurEigene}</p>
                 )}
               </div>
               <div className="rounded-xl border border-line/10 p-3">
@@ -342,22 +380,22 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
                     <FlagBadge flag={report.flagAll} t={t} />
                   </>
                 ) : (
-                  <p className="text-micro leading-relaxed text-dim">{t('forms:admin.onlyYou')}</p>
+                  <p className="text-micro leading-relaxed text-dim">{wort.nurEigene}</p>
                 )}
               </div>
             </div>
-            <p className="text-micro leading-relaxed text-dim">{t('forms:admin.deltaHint')}</p>
+            <p className="text-micro leading-relaxed text-dim">{wort.deltaHinweis}</p>
           </Card>
 
           <Card className="p-4">
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
-                <caption className="sr-only">{t('forms:admin.figuresCaption')}</caption>
+                <caption className="sr-only">{wort.zahlenTitel}</caption>
                 <thead>
                   <tr className="border-b border-line/15 text-micro uppercase tracking-wide text-dim">
                     <td />
-                    <th scope="col" className="py-1.5 px-2 text-right font-semibold">{t('forms:admin.yours')}</th>
-                    <th scope="col" className="py-1.5 px-2 text-right font-semibold">{t('forms:admin.fleetCol')}</th>
+                    <th scope="col" className="py-1.5 px-2 text-right font-semibold">{wort.eigen}</th>
+                    <th scope="col" className="py-1.5 px-2 text-right font-semibold">{wort.flotte}</th>
                     <th scope="col" className="py-1.5 pl-2 text-right font-semibold">{t('forms:admin.allCol')}</th>
                   </tr>
                 </thead>
@@ -379,12 +417,12 @@ export function MonthlyReport({ records }: { records: GradingRecord[] }) {
           </Card>
 
           <Card className="p-4">
-            <CompetencyTable lines={report.competencies} t={t} />
+            <CompetencyTable lines={report.competencies} t={t} wort={wort} />
           </Card>
 
           <div className="flex items-start gap-2.5 rounded-xl border border-line/10 bg-surface/60 p-3.5 text-micro text-dim">
             <Info size={15} className="mt-0.5 shrink-0 text-accent" />
-            <p>{t('forms:admin.onlyOwn')}</p>
+            <p>{wort.herkunft}</p>
           </div>
         </>
       )}

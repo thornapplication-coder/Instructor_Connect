@@ -195,3 +195,90 @@ test.describe('Sicherheitsbereiche (Audit 11/2026, MOB-07)', () => {
     expect(m.knopfUnten).toBeLessThanOrEqual(m.hoehe - 34)
   })
 })
+
+/**
+ * Audit 11/2026, R3-E2E-ZEITZONE: Auch das Telefon-Projekt läuft in Wiener
+ * Ortszeit — die Geräteprofile setzen keine Zone, es gilt die der
+ * Konfiguration (Gegenstück zu `e2e/zeitzone.spec.ts` für den Desktop).
+ */
+test('Telefon: Ortszeit Wien, nicht die der Maschine', async ({ page }) => {
+  await page.goto('/')
+  expect(await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)).toBe('Europe/Vienna')
+})
+
+/** Liegt das Element frei — nicht unter einem anderen (Toast-Stapel, Leiste)? */
+async function liegtFrei(el: Locator): Promise<boolean> {
+  return el.evaluate((e) => {
+    const r = e.getBoundingClientRect()
+    const oben = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+    return !!oben && e.contains(oben)
+  })
+}
+
+/*
+ * Audit 11/2026, R3-DIALOGMELDUNG: Ablehnungen bei offenem Dialog kamen als
+ * Toast. Der liegt im unteren Stapel UNTER dem Dialog — am iPhone deckte das
+ * Bottom-Sheet ihn ganz zu, und „Speichern" schien nichts zu tun.
+ * Entscheidung: Die Meldung steht im Dialog, am Feld oder über den Knöpfen.
+ */
+test.describe('Meldungen im Bottom-Sheet (iPhone-Format)', () => {
+  test.use(iphone13)
+
+  /*
+   * Der Fall des Audits war „Benutzer anlegen" mit fremder Domain. Das Admin
+   * Panel öffnet erst ab Desktop-Breite — dort ist der Dialog kein Sheet.
+   * Am Telefon nimmt dieselbe Lage den zweiten Fall der Abnahme: „Gruppe
+   * anlegen" im Chat mit vergebenem Namen.
+   */
+  test('„Gruppe anlegen" mit vergebenem Namen: der Grund steht im Sheet, sichtbar und frei', async ({ page }) => {
+    await anmelden(page)
+    await page.goto('/#/chat')
+    await page.getByRole('button', { name: 'Gruppe anlegen' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Gruppe anlegen' })
+    await expect(dialog).toBeVisible()
+    const name = dialog.getByRole('textbox').first()
+    await name.fill('autothrottle ')
+    const grund = dialog.getByText('Eine Gruppe mit diesem Namen gibt es bereits.')
+    await expect(grund).toBeVisible()
+    await expect(grund).toBeInViewport()
+    expect(await liegtFrei(grund), 'Grund verdeckt').toBe(true)
+    // Am Feld: Wer zum Feld springt, hört den Grund mit.
+    await expect(name).toHaveAttribute('aria-invalid', 'true')
+    await expect(name).toHaveAccessibleDescription('Eine Gruppe mit diesem Namen gibt es bereits.')
+    await expect(dialog.getByRole('button', { name: 'Speichern' })).toBeDisabled()
+  })
+
+  test('Notiz in einem zweiten Tab gelöscht: „Speichern" meldet es IM Sheet, Dialog und Text bleiben', async ({ page, context }) => {
+    await anmelden(page)
+    await page.goto('/#/notes')
+    await page.getByRole('button', { name: 'Neue Notiz' }).click()
+    await page.getByRole('dialog', { name: 'Neue Notiz' }).getByLabel('Titel *').fill('Gegenprobe Notiz')
+    await page.getByRole('button', { name: 'Speichern' }).click()
+    // Die Quittung kommt nach dem Speichern (R3-SPEICHERQUITTUNG).
+    await expect(page.getByRole('status').filter({ hasText: 'Notiz gespeichert' })).toBeVisible()
+
+    const karte = (p: Page) => p.locator('main .rounded-2xl').filter({ hasText: 'Gegenprobe Notiz' })
+    await karte(page).getByRole('button', { name: 'Notiz bearbeiten' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Notiz bearbeiten' })
+    await dialog.getByLabel('Titel *').fill('Gegenprobe Notiz, ergänzt')
+
+    // Zweiter Tab derselben Person löscht die Notiz.
+    const zweiter = await context.newPage()
+    await zweiter.goto('/#/notes')
+    zweiter.once('dialog', (d) => void d.accept())
+    await karte(zweiter).getByRole('button', { name: 'Löschen' }).click()
+    await expect(zweiter.getByText('Gegenprobe Notiz', { exact: true })).toHaveCount(0)
+    // … und der erste Tab übernimmt den Stand.
+    await expect(page.locator('main').getByText('Gegenprobe Notiz', { exact: true })).toHaveCount(0)
+
+    await dialog.getByRole('button', { name: 'Speichern' }).click()
+    const meldung = dialog.getByRole('alert')
+    await expect(meldung).toHaveText(/Nicht gespeichert/)
+    await expect(meldung).toBeInViewport()
+    expect(await liegtFrei(meldung), 'Meldung verdeckt').toBe(true)
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByLabel('Titel *')).toHaveValue('Gegenprobe Notiz, ergänzt')
+    // Nichts davon im Toast-Stapel unter dem Sheet.
+    await expect(page.getByRole('status').filter({ hasText: 'Nicht gespeichert' })).toHaveCount(0)
+  })
+})

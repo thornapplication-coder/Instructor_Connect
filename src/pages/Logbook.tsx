@@ -2,8 +2,8 @@ import { BookOpen, ChevronDown, Download, Pencil, RotateCcw, Trash2 } from 'luci
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { musterZurAuswahl } from '../aircraftScope'
-import { Badge, Button, Card, CardGrid, CardHeading, Field, filterCls, inputCls, Modal, Page, SectionHeading, selectCls, TopBar, TopBarAktion } from '../components/ui'
-import { toast } from '../components/Toast'
+import { Badge, Button, Card, CardGrid, CardHeading, DialogMeldung, Field, filterCls, inputCls, Modal, Page, SectionHeading, selectCls, TopBar, TopBarAktion } from '../components/ui'
+import { toast, useQuittung } from '../components/Toast'
 import { downloadCsv } from '../csv'
 import {
   darfLogbuchOeffnen,
@@ -22,6 +22,7 @@ import {
   zeilenAlsCsv,
   type LogbookEintrag,
   type LogbookFilter,
+  type LogbookOverride,
 } from '../logbook'
 import { useStore } from '../store'
 import { formatDate, lokalerTag, monatsName } from '../datum'
@@ -113,6 +114,9 @@ function DauerFeld({
 function ManuellModal({ onClose, vorlage }: { onClose: () => void; vorlage?: LogbookEintrag }) {
   const { t } = useTranslation()
   const { state, currentUser, logbookAddManual, logbookUpdateManual } = useStore()
+  const quittieren = useQuittung()
+  /** Ablehnung des Stores — im Dialog, nicht als Toast darunter (R3-DIALOGMELDUNG). */
+  const [meldung, setMeldung] = useState<string | null>(null)
   // Heute in Ortszeit — die eine Regel aus datum.ts statt einer lokalen Kopie (EXM-01).
   const [datum, setDatum] = useState(vorlage?.datum ?? lokalerTag(Date.now() + state.timeOffsetMs))
   const [muster, setMuster] = useState(vorlage?.aircraftType ?? '')
@@ -164,6 +168,7 @@ function ManuellModal({ onClose, vorlage }: { onClose: () => void; vorlage?: Log
         <Field label={t('logbook.note')}>
           <input className={inputCls} value={notiz} onChange={(e) => setNotiz(e.target.value)} />
         </Field>
+        <DialogMeldung text={meldung} />
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
             {t('common.cancel')}
@@ -172,9 +177,14 @@ function ManuellModal({ onClose, vorlage }: { onClose: () => void; vorlage?: Log
             disabled={!valid}
             onClick={() => {
               const eintrag = { datum, aircraftType: muster, kategorie: gewaehlt, dauer, notiz: notiz.trim() }
-              if (vorlage) logbookUpdateManual(vorlage.id, eintrag)
-              else logbookAddManual(eintrag)
-              toast(t('toast.logbookSaved'))
+              // Abgewiesen (Eintrag in einem anderen Tab gelöscht, Sitzung
+              // vorbei): Dialog bleibt offen, mit Grund (R3-DIALOGMELDUNG).
+              const gespeichert = vorlage ? logbookUpdateManual(vorlage.id, eintrag) : logbookAddManual(eintrag)
+              if (!gespeichert) {
+                setMeldung(t('dialog.notSaved'))
+                return
+              }
+              void quittieren(t('toast.logbookSaved'))
               onClose()
             }}
           >
@@ -192,6 +202,18 @@ function ManuellModal({ onClose, vorlage }: { onClose: () => void; vorlage?: Log
 function KorrekturModal({ eintrag, onClose }: { eintrag: LogbookEintrag; onClose: () => void }) {
   const { t } = useTranslation()
   const { logbookOverride } = useStore()
+  const quittieren = useQuittung()
+  /** Ablehnung des Stores — im Dialog, nicht als Toast darunter (R3-DIALOGMELDUNG). */
+  const [meldung, setMeldung] = useState<string | null>(null)
+  /** Korrektur anwenden: abgewiesen → Grund im Dialog; sonst Quittung nach dem Schreiben. */
+  const anwenden = (ov: LogbookOverride | null, quittung: string) => {
+    if (!logbookOverride(eintrag, ov)) {
+      setMeldung(t('dialog.notSaved'))
+      return
+    }
+    void quittieren(quittung)
+    onClose()
+  }
   const [briefing, setBriefing] = useState(eintrag.briefing)
   const [session, setSession] = useState(eintrag.session)
   const [debriefing, setDebriefing] = useState(eintrag.debriefing)
@@ -219,8 +241,9 @@ function KorrekturModal({ eintrag, onClose }: { eintrag: LogbookEintrag; onClose
             (index.css) trennte mitten im Wort — „Abbreche/n",
             „Speicher/n". So rücken Abbrechen/Speichern in die nächste
             Zeile, rechtsbündig. */}
+        <DialogMeldung text={meldung} />
         <div className="flex flex-wrap justify-between gap-2">
-          <Button variant="ghost" onClick={() => { logbookOverride(eintrag, null); toast(t('toast.logbookReset')); onClose() }}>
+          <Button variant="ghost" onClick={() => anwenden(null, t('toast.logbookReset'))}>
             {t('logbook.resetToForm')}
           </Button>
           <div className="ml-auto flex gap-2">
@@ -229,11 +252,7 @@ function KorrekturModal({ eintrag, onClose }: { eintrag: LogbookEintrag; onClose
             </Button>
             <Button
               disabled={!valid}
-              onClick={() => {
-                logbookOverride(eintrag, { briefing, session, debriefing, notiz: notiz.trim() || undefined })
-                toast(t('toast.logbookSaved'))
-                onClose()
-              }}
+              onClick={() => anwenden({ briefing, session, debriefing, notiz: notiz.trim() || undefined }, t('toast.logbookSaved'))}
             >
               {t('common.save')}
             </Button>
@@ -247,6 +266,7 @@ function KorrekturModal({ eintrag, onClose }: { eintrag: LogbookEintrag; onClose
 export function Logbook() {
   const { t, i18n } = useTranslation()
   const { state, currentUser, logbookOverride, logbookDeleteManual } = useStore()
+  const quittieren = useQuittung()
   /* Zeitreise der Sandbox beachten: der Rest der App rechnet mit dem
      versetzten Jetzt, das Logbuch tat es nicht. */
   const jetzt = () => Date.now() + state.timeOffsetMs
@@ -488,7 +508,7 @@ export function Logbook() {
                               if (!window.confirm(t(e.quelle === 'manuell' ? 'logbook.deleteConfirm' : 'logbook.deleteConfirmForm'))) return
                               if (e.quelle === 'manuell') logbookDeleteManual(e.id)
                               else logbookOverride(e, { geloescht: true })
-                              toast(t('toast.logbookDeleted'))
+                              void quittieren(t('toast.logbookDeleted'))
                             }}
                             className="min-h-11 flex items-center gap-1 rounded-lg px-2 text-micro text-danger transition hover:bg-danger/10"
                           >
@@ -542,7 +562,7 @@ export function Logbook() {
                       <button
                         onClick={() => {
                           logbookOverride(e, null)
-                          toast(t('toast.logbookRestored'))
+                          void quittieren(t('toast.logbookRestored'))
                         }}
                         className="mt-2 flex min-h-11 items-center gap-1 rounded-lg px-2 text-micro text-dim transition hover:bg-line/5 hover:text-ink"
                       >

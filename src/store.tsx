@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { formularTypInGebrauch, gradingListComparator, isComplete, isFollowUpType } from './gradingRules'
+import { formularTypEntfernen, formularTypInGebrauch, gradingListComparator, isComplete, isFollowUpType, type FormularTypLoeschung } from './gradingRules'
 import { networkReachable } from './net'
 import { createSeedState } from './sandbox/seed'
 import { migrateState } from './migrateState'
@@ -56,6 +56,10 @@ export interface Store {
    *  (sitzungsablauf.ts). Abgemeldet wird, sobald die Arbeit gesichert oder
    *  verworfen ist, spaetestens nach der Nachfrist. */
   sessionExpired: boolean
+  /** Wartet, bis der aktuelle Stand geschrieben ist: `true` gesichert,
+   *  `false` gescheitert. Grundlage der Quittungen (quittung.ts,
+   *  R3-SPEICHERQUITTUNG) — gruen erst NACH dem Schreiben. */
+  gesichert: () => Promise<boolean>
   switchUser: (userId: string) => void
   advanceTime: (ms: number) => void
   resetSandbox: () => void
@@ -73,7 +77,11 @@ export interface Store {
   setGroupRetention: (groupId: string, retention: RetentionKey | null) => void
   /** `false`, wenn die Aenderung abgewiesen wurde (Rechte, Zugang, letzte Gruppe). */
   setGroupMembers: (groupId: string, memberIds: string[]) => boolean
-  addInfoEntry: (entry: Omit<InfoEntry, 'id' | 'authorId' | 'createdAt'>) => void
+  /** `false`, wenn abgewiesen (Recht, Muster, Gültigkeit) — der Dialog bleibt
+   *  dann offen und sagt es (R3-DIALOGMELDUNG). Ebenso die übrigen
+   *  Speicheraktionen mit Dialog: saveContact, saveNote, addLessonPlan,
+   *  logbookOverride, logbookAddManual, logbookUpdateManual. */
+  addInfoEntry: (entry: Omit<InfoEntry, 'id' | 'authorId' | 'createdAt'>) => boolean
   deleteInfoEntry: (id: string) => void
   /** Stern-Markierung des aktuellen Nutzers für einen Info-Eintrag umschalten */
   toggleStarInfo: (id: string) => void
@@ -86,7 +94,7 @@ export interface Store {
   /** Feedback als bearbeitet markieren (mit optionaler Notiz) bzw. wieder öffnen */
   resolveFeedback: (id: string, note: string) => void
   reopenFeedback: (id: string) => void
-  saveContact: (contact: { id?: string; department: string; position: string; name: string; phone: string; email: string }) => void
+  saveContact: (contact: { id?: string; department: string; position: string; name: string; phone: string; email: string }) => boolean
   deleteContact: (id: string) => void
   /** Nutzer anlegen — die Zuweisung zu mindestens einer Gruppe ist Pflicht */
   /** Legt den Nutzer an; `false`, wenn eine Invariante ihn abgewiesen hat.
@@ -127,6 +135,9 @@ export interface Store {
   /** Ausgangskorb senden; liefert, ob der Origin tatsächlich erreichbar war */
   flushOutbox: () => Promise<boolean>
   updateGrading: (patch: Partial<GradingSettings>) => void
+  /** Formulartyp aus dem Katalog nehmen; liefert den Ausgang samt Grund
+   *  (gradingRules.formularTypEntfernen, R3-FORMULARTYP). */
+  removeFormType: (id: string) => FormularTypLoeschung
   /** Lesson Plans, die der aktuelle Nutzer sehen darf */
   visibleLessonPlans: LessonPlan[]
   /** Nutzer aus einer Tabelle anlegen, jeweils in die gewaehlten Gruppen,
@@ -135,18 +146,18 @@ export interface Store {
   /** Eigene Notizen — fremde sind in dieser Liste gar nicht erst enthalten. */
   visibleNotes: Note[]
   /** Anlegen ODER aendern: ohne `id` entsteht eine neue Notiz. */
-  saveNote: (n: { id?: string; title: string; body: string }) => void
+  saveNote: (n: { id?: string; title: string; body: string }) => boolean
   deleteNote: (id: string) => void
   /** my AAA Logbook: Korrektur an einem abgeleiteten Eintrag des EIGENEN
    *  Logbuchs. `null` setzt die Korrektur zurueck auf die Ableitung. Sie
    *  gilt für den ganzen Durchgang (`blattIds`, src/logbook.ts
    *  `overrideSetzen`). */
-  logbookOverride: (eintrag: { id: string; blattIds?: string[] }, ov: LogbookOverride | null) => void
-  logbookAddManual: (e: Omit<LogbookManuell, 'id'>) => void
-  logbookUpdateManual: (id: string, patch: Partial<Omit<LogbookManuell, 'id'>>) => void
+  logbookOverride: (eintrag: { id: string; blattIds?: string[] }, ov: LogbookOverride | null) => boolean
+  logbookAddManual: (e: Omit<LogbookManuell, 'id'>) => boolean
+  logbookUpdateManual: (id: string, patch: Partial<Omit<LogbookManuell, 'id'>>) => boolean
   logbookDeleteManual: (id: string) => void
   toggleNotePin: (id: string) => void
-  addLessonPlan: (plan: { title: string; description: string; aircraftType: string; category: string; fileName: string }) => void
+  addLessonPlan: (plan: { title: string; description: string; aircraftType: string; category: string; fileName: string }) => boolean
   deleteLessonPlan: (id: string) => void
   /** Rechte-Matrix: darf der aktuelle Nutzer diese Fähigkeit nutzen? */
   can: (key: PermKey) => boolean
@@ -383,10 +394,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   // Zustand sichern — nur, wenn sich der serialisierte Stand tatsächlich
   // geändert hat (ein Tab-Abgleich etwa bringt denselben Stand zurück).
   const lastPersisted = useRef<string>('')
-  const schreiben = useCallback(() => {
+  /** Der Schreibvorgang für `lastPersisted` — wer auf denselben Stand
+   *  wartet, bekommt dessen Ausgang statt eines zweiten Schreibens. */
+  const letzterVorgang = useRef<Promise<boolean>>(Promise.resolve(true))
+  const schreiben = useCallback((): Promise<boolean> => {
     const stand = stateRef.current
     const kern = JSON.stringify(stand)
-    if (kern === lastPersisted.current) return
+    if (kern === lastPersisted.current) return letzterVorgang.current
     lastPersisted.current = kern
     const id = uid('stand')
     const basen = { ...uebernommen.current }
@@ -394,7 +408,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Die juengsten acht genuegen: Ein anderer Tab baut auf einem der
     // letzten auf, sonst faellt die Wahl auf seinen vorigen Stand zurueck.
     if (geschrieben.current.size > 8) geschrieben.current.delete(geschrieben.current.keys().next().value!)
-    void persistState(standNachricht(STATE_VERSION, lastChangeAt.current, { von: tabId, id, basen }, kern)).then((ok) => {
+    const vorgang = persistState(standNachricht(STATE_VERSION, lastChangeAt.current, { von: tabId, id, basen }, kern)).then((ok) => {
       // Fehlgeschlagen (Ablage voll, Speicherfehler): Merker zuruecksetzen,
       // damit der naechste Lauf es erneut versucht. Vorher galt der Stand
       // als gesichert, lag aber nirgends — und niemand versuchte es wieder.
@@ -402,10 +416,43 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         lastPersisted.current = ''
         geschrieben.current.delete(id)
       }
+      return ok
     })
+    letzterVorgang.current = vorgang
+    return vorgang
   }, [tabId])
+  /*
+   * „Ist das eben Getane gespeichert?" — fuer Quittungen (quittung.ts).
+   *
+   * Der gruene Streifen kam sofort nach dem Klick, das Schreiben 400 ms
+   * spaeter und konnte scheitern: „Gespeichert" stand dann neben dem roten
+   * Speicherstreifen (Audit 11/2026, R3-SPEICHERQUITTUNG, TEC-12 Teil 2).
+   * Geschrieben wird hier SOFORT statt nach dem Zeitgeber, damit die
+   * Quittung nicht spuerbar wartet — aber erst nach dem naechsten Zeichnen:
+   * Die Aktion davor hat nur `setState` gerufen, `stateRef` zeigt den neuen
+   * Stand erst danach. Ein eigener Anstoss (`setAnstoss`) reiht sich HINTER
+   * die Aenderung der Aktion; der Effekt laeuft also auf ihrem Stand — auch
+   * nach einem `await` (Absenden des Formulars), wo ein blosser Zeitgeber
+   * dem Zeichnen zuvorkommen koennte. Ist nichts Neues zu schreiben, zaehlt
+   * der Ausgang des letzten Schreibens.
+   */
+  const [anstoss, setAnstoss] = useState(0)
+  const wartende = useRef<((ok: boolean) => void)[]>([])
   useEffect(() => {
-    const tm = setTimeout(schreiben, 400)
+    if (wartende.current.length === 0) return
+    const jetzt = wartende.current.splice(0)
+    void schreiben().then((ok) => jetzt.forEach((fertig) => fertig(ok)))
+  }, [anstoss, schreiben])
+  const gesichert = useCallback(
+    (): Promise<boolean> =>
+      new Promise((resolve) => {
+        wartende.current.push(resolve)
+        setAnstoss((a) => a + 1)
+      }),
+    [],
+  )
+  useEffect(() => {
+    const tm = setTimeout(() => void schreiben(), 400)
     return () => clearTimeout(tm)
   }, [rev, schreiben])
 
@@ -419,8 +466,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
    * ist; `beforeunload` feuert am iPhone nicht.
    */
   useEffect(() => {
-    const sofort = () => schreiben()
-    const beiVerdeckt = () => document.visibilityState === 'hidden' && schreiben()
+    const sofort = () => void schreiben()
+    const beiVerdeckt = () => document.visibilityState === 'hidden' && void schreiben()
     window.addEventListener('pagehide', sofort)
     document.addEventListener('visibilitychange', beiVerdeckt)
     return () => {
@@ -694,6 +741,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setRev((r) => r + 1)
         return { ...s, ...p }
       })
+
+    /**
+     * Aendern und sagen, ob es gewirkt hat. Gefragt wird dieselbe Funktion
+     * auf dem zuletzt gezeichneten Stand — wie bei addUser, nicht ueber eine
+     * Variable, die der Updater setzt (React ruft ihn nicht zwingend sofort).
+     * Vorher gaben die Speicheraktionen der Dialoge nichts zurueck: Ein
+     * abgewiesener Eintrag schloss den Dialog und quittierte „gespeichert"
+     * (Audit 11/2026, R3-DIALOGMELDUNG).
+     */
+    const patchMitAntwort = (fn: (s: AppState) => Partial<AppState> | null): boolean => {
+      const ok = fn(stateRef.current) !== null
+      patch(fn)
+      return ok
+    }
 
     const seenOf = (s: AppState) => (s.currentUserId && s.seen[s.currentUserId]) || EMPTY_SEEN
 
@@ -1076,7 +1137,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // jede schreibende Aktion fragt den Handelnden (storeRechte.ts). Vorher
       // verliess sich die Haelfte allein auf die Oberflaeche (KERN-19/VERW-23).
       addInfoEntry: (entry) =>
-        patch((s) => {
+        patchMitAntwort((s) => {
           if (!darfInfoVerwalten(s.settings, actorOf(s), entry.aircraftType)) return null
           // Dieselbe Regel wie im Dialog: „bis" vor „ab" erschiene nie (KERN-12).
           if (gueltigkeitFehler(entry.validFrom, entry.validUntil)) return null
@@ -1164,7 +1225,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         }),
 
       saveContact: (eingabe) =>
-        patch((s) => {
+        patchMitAntwort((s) => {
           if (!darfKontakteVerwalten(s.settings, actorOf(s))) return null
           // Getrimmt und grob geprueft wie im Dialog (contacts.ts): „Training "
           // ergab sonst eine zweite Abteilung (Audit 11/2026, KERN-16).
@@ -1573,10 +1634,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
           return { settings: { ...s.settings, grading: { ...s.settings.grading, ...next } } }
         }),
+      removeFormType: (id) => {
+        const entfernen = (s: AppState) => formularTypEntfernen(s.settings.grading.formTypes, id, s.gradingRecords)
+        // Der Ausgang kommt aus derselben Pruefung auf dem zuletzt
+        // gezeichneten Stand — wie bei addUser, nicht aus dem Updater.
+        const ausgang = entfernen(stateRef.current).ausgang
+        patch((s) => {
+          const e = entfernen(s)
+          return e.ausgang === 'geloescht' ? { settings: { ...s.settings, grading: { ...s.settings.grading, formTypes: e.formTypes } } } : null
+        })
+        return ausgang
+      },
 
       visibleLessonPlans,
       addLessonPlan: (plan) =>
-        patch((s) => {
+        patchMitAntwort((s) => {
           if (!darfLessonPlansVerwalten(s.settings, actorOf(s), plan.aircraftType)) return null
           return {
             lessonPlans: [...s.lessonPlans, { ...plan, id: uid('lp'), uploadedBy: s.currentUserId!, createdAt: Date.now() + s.timeOffsetMs }],
@@ -1625,7 +1697,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       },
       visibleNotes,
       saveNote: (n) =>
-        patch((s) => {
+        patchMitAntwort((s) => {
           const jetzt = Date.now() + s.timeOffsetMs
           const alle = s.notes ?? []
           // Aendern nur an EIGENEN Notizen: Die ID kommt aus der Oberflaeche,
@@ -1656,7 +1728,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
          sind je nach Rolle sichtbar, aber nie schreibbar — ein
          Taetigkeitsnachweis, den ein anderer nachbessern kann, ist keiner. */
       logbookOverride: (eintrag, ov) =>
-        patch((s) => {
+        patchMitAntwort((s) => {
           if (!s.currentUserId) return null
           const alle = s.logbook ?? {}
           const eigenes: LogbookStand = alle[s.currentUserId] ?? { overrides: {}, manuell: [] }
@@ -1667,14 +1739,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return { logbook: { ...alle, [s.currentUserId]: { ...eigenes, overrides } } }
         }),
       logbookAddManual: (e) =>
-        patch((s) => {
+        patchMitAntwort((s) => {
           if (!s.currentUserId) return null
           const alle = s.logbook ?? {}
           const eigenes: LogbookStand = alle[s.currentUserId] ?? { overrides: {}, manuell: [] }
           return { logbook: { ...alle, [s.currentUserId]: { ...eigenes, manuell: [...eigenes.manuell, { ...e, id: uid('lb') }] } } }
         }),
       logbookUpdateManual: (id, p) =>
-        patch((s) => {
+        patchMitAntwort((s) => {
           if (!s.currentUserId) return null
           const alle = s.logbook ?? {}
           const eigenes = alle[s.currentUserId]
@@ -1706,8 +1778,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             ),
           }
         }),
+      gesichert,
     }
-  }, [state, now, currentUser, sessionExpired, effectiveRetention, visibleMessages, visiblePolls, myGroups, unreadGroups, hasNewInfo, hasNewContacts, latestForeignContent, latestForeignInfo, visibleGradingRecords, visibleLessonPlans, visibleInfoEntries])
+  }, [gesichert, state, now, currentUser, sessionExpired, effectiveRetention, visibleMessages, visiblePolls, myGroups, unreadGroups, hasNewInfo, hasNewContacts, latestForeignContent, latestForeignInfo, visibleGradingRecords, visibleLessonPlans, visibleInfoEntries])
 
   return <StoreCtx.Provider value={store}>{children}</StoreCtx.Provider>
 }

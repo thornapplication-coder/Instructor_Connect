@@ -3,11 +3,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { SignaturePad } from '../components/SignaturePad'
 import { Ankreuzknopf, Badge, Button, Card, CardHeading, Field, inputCls, Modal, Page, selectCls, TopBar } from '../components/ui'
-import { toast } from '../components/Toast'
+import { useQuittung } from '../components/Toast'
 import { contentFingerprint, HASH_VERSION } from '../docHash'
 import { networkReachable } from '../net'
 import { lokalerTag } from '../datum'
-import { entwurfMitEingaben, hatEigeneEingaben, type Vorbelegt } from '../drafts'
+import { entwurfLesen, entwurfMitEingaben, entwurfSchluessel, hatEigeneEingaben, type Vorbelegt } from '../drafts'
 import { encodeChain, folgeKette, type FollowUpStep } from '../folgeKette'
 import { auswahlVon, fuehrtInstruktorAngaben, INSTRUKTOR_QUALI, INSTRUKTOR_SITZ, kopfFuerTyp, kopfVomElternblatt, vorbelegen, vorbelegung } from '../gradingPrefill'
 import {
@@ -118,6 +118,10 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   // vergessenes getFixedT kann die Sprache damit nicht mehr kippen.
   const { t } = useTranslation()
   const { state, currentUser, saveGradingRecord, can, gradingRecordById } = useStore()
+  // Quittungen erst nach dem Schreiben; scheitert es, sagt die (englische)
+  // Meldung, dass das Formular nicht gespeichert ist (R3-SPEICHERQUITTUNG).
+  const quittungMelden = useQuittung()
+  const quittieren = (text: string, ton: 'ok' | 'wait') => void quittungMelden(text, ton, t('forms:toast.saveFailed'))
   const grading = state.settings.grading
 
   // Beide IDs stammen aus der Adresszeile — deshalb über die
@@ -237,7 +241,10 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
   // geteilten iPad bekam sonst der naechste Instruktor den Entwurf des
   // vorigen angeboten — mit Pilotenname, Noten und Kommentaren. Fremde
   // Bewertungsdaten landeten so im eigenen Blatt.
-  const draftKey = `aaa-draft-${currentUser!.id}-${recordId ?? parentId ?? 'new'}-${formTypeId ?? ''}`
+  // Die Kennung steht kodiert im Schlüssel (drafts.ts): Per Präfix fand die
+  // Entwurfsliste von „u" sonst auch die Entwürfe von „u-x" (R3-ENTWURFSPRAEFIX).
+  const draftBezug = recordId ?? parentId ?? 'new'
+  const draftKey = entwurfSchluessel(currentUser!.id, draftBezug, formTypeId ?? '')
   /** Rest der Folgeformular-Kette als Zeichenkette — stabil über Renderläufe,
    *  anders als das Feld, das die Adresszeile bei jedem Rendern neu baut. */
   const kette = encodeChain(next)
@@ -271,7 +278,8 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     if (draftLoaded.current === draftKey || existing || !formTypeId) return
     draftLoaded.current = draftKey
     try {
-      const raw = localStorage.getItem(draftKey)
+      // Auch ein Entwurf unter dem alten Schlüssel wird gefunden und übernommen.
+      const raw = entwurfLesen(localStorage, currentUser!.id, draftBezug, formTypeId)
       if (!raw) return
       const d = JSON.parse(raw)
       // Ein Entwurf ohne eigene Eingabe — Altbestand aus bloßem Öffnen — ist
@@ -794,7 +802,7 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
     // Teil einer Folgeformular-Kette: nächstes Glied öffnen — mit SEINEM
     // Ausgangsformular, nicht mit dem des gerade abgeschlossenen.
     if (parentId && next.length > 0) {
-      toast(t('forms:toast.chainNext'), 'ok')
+      quittieren(t('forms:toast.chainNext'), 'ok')
       navigate(`/grading/new?type=${next[0].type}&parent=${next[0].parentId}&next=${encodeChain(next.slice(1))}`)
       return
     }
@@ -808,9 +816,9 @@ export function GradingForm({ recordId, presetType, parentId, next = [] }: { rec
        Unterscheidung braucht der Instruktor, bevor er das Geraet weglegt. */
     const alleUnterschrieben = recs.every((r) => r.status === 'signed')
     const imKorb = recs.some((r) => r.mailStatus === 'queued')
-    if (allOk) toast(t('forms:toast.signedAndSent'), 'ok')
-    else if (alleUnterschrieben && imKorb) toast(t('forms:toast.queued'), 'wait')
-    else toast(t('forms:toast.openLeft'), 'wait')
+    if (allOk) quittieren(t('forms:toast.signedAndSent'), 'ok')
+    else if (alleUnterschrieben && imKorb) quittieren(t('forms:toast.queued'), 'wait')
+    else quittieren(t('forms:toast.openLeft'), 'wait')
     // replace: die Formularadresse verschwindet aus dem Verlauf
     navigate(allOk || recs.length > 1 ? '/grading' : `/grading/${recs[0].id}`, true)
   }

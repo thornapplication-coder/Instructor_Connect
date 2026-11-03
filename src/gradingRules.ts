@@ -75,6 +75,31 @@ export function formularTypInGebrauch(
   return records.some((r) => r.formTypeId === id) ? 'datensaetze' : null
 }
 
+/** Ausgang eines Löschversuchs — jeder hat seine Meldung. */
+export type FormularTypLoeschung = 'geloescht' | 'pflicht' | 'datensaetze' | 'unbekannt'
+
+/**
+ * Einen Formulartyp aus dem Katalog nehmen — oder sagen, warum nicht.
+ *
+ * Audit 11/2026, R3-FORMULARTYP: Das Löschen lief über `updateGrading` mit
+ * der gekürzten Liste. Der Store holte einen benutzten Typ still zurück und
+ * gab nichts zurück; die Ansicht konnte weder einen Erfolg quittieren noch
+ * eine Ablehnung begründen, die erst nach der Rückfrage entstand (ein
+ * Formular dieses Typs, inzwischen in einem zweiten Tab angelegt). Jetzt
+ * entscheidet diese Funktion — dieselbe Regel wie der Löschknopf
+ * (`formularTypInGebrauch`) — und der Store reicht den Ausgang weiter.
+ */
+export function formularTypEntfernen<T extends { id: string }>(
+  formTypes: readonly T[],
+  id: string,
+  records: readonly Pick<GradingRecord, 'formTypeId'>[],
+): { ausgang: 'geloescht'; formTypes: T[] } | { ausgang: Exclude<FormularTypLoeschung, 'geloescht'> } {
+  if (!formTypes.some((f) => f.id === id)) return { ausgang: 'unbekannt' }
+  const gebrauch = formularTypInGebrauch(id, records)
+  if (gebrauch) return { ausgang: gebrauch }
+  return { ausgang: 'geloescht', formTypes: formTypes.filter((f) => f.id !== id) }
+}
+
 /**
  * Steht ein Kompetenz-Kürzel im Satz schon bei einer ANDEREN Kompetenz?
  * Groß-/Kleinschreibung zählt nicht — gespeichert wird ohnehin in

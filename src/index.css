@@ -585,9 +585,14 @@ input:not([type='checkbox']):not([type='radio']):not([type='file']) {
     background: #fff !important;
     background-image: none !important;
   }
+  /* Klebende LEISTEN fehlen im Druck — eine klebende Tabellenzelle nicht:
+     Die erste Spalte der Kompetenztabelle im Monatsbericht steht fest
+     (`sticky left-0`, MOB-06) und fiel mit dieser Regel aus dem Ausdruck.
+     Übrig blieben Zahlen ohne Kompetenz — gefunden bei der Gegenprüfung zu
+     R3-MONATSBERICHT (Bildschirm UND Druck). */
   header,
   nav,
-  .sticky {
+  .sticky:not(th):not(td) {
     display: none !important;
   }
   /* Im Druck zählt nicht die Fensterbreite: der Inhalt wird gedruckt. */

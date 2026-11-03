@@ -577,7 +577,8 @@
     "userActivated": "{{name}} aktiviert",
     "userChanged": "{{name}} geändert",
     "domainsSaved": "Login-Domains gespeichert",
-    "maxUploadSaved": "Upload-Grenze gespeichert: {{max}} MB"
+    "maxUploadSaved": "Upload-Grenze gespeichert: {{max}} MB",
+    "saveFailed": "Nicht gespeichert — die Änderung liegt nur in dieser Sitzung und ginge beim Neuladen verloren."
   },
   "logbook": {
     "title": "my AAA Logbook",
@@ -649,5 +650,12 @@
     "retry": "Erneut versuchen",
     "loading": "DocCheck wird geladen …",
     "badge": "offene Punkte in DocCheck"
+  },
+  "dialog": {
+    "notSaved": "Nicht gespeichert — dafür fehlt inzwischen die Berechtigung, oder der Eintrag wurde anderswo geändert oder gelöscht. Die Eingaben bleiben stehen.",
+    "userNotCreated": "Nicht angelegt — dafür fehlt inzwischen die Berechtigung, oder eine gewählte Gruppe passt nicht mehr. Die Eingaben bleiben stehen.",
+    "groupNotCreated": "Gruppe nicht angelegt — dafür fehlt inzwischen die Berechtigung, für dieses Muster oder überhaupt. Die Eingaben bleiben stehen.",
+    "pollNotCreated": "Umfrage nicht erstellt — in dieser Gruppe ist Schreiben inzwischen nicht mehr möglich (Mitgliedschaft oder Chat-Sperre). Die Eingaben bleiben stehen.",
+    "importNone": "Niemand angelegt — die Zeilen passen inzwischen nicht mehr (Adresse vergeben, Domain oder Gruppe). Bitte die Datei erneut wählen."
   }
 }

@@ -327,7 +327,6 @@ export type MonatsSchluessel =
   | 'forms:admin.allCol'
   | 'forms:admin.vsFleet'
   | 'forms:admin.vsAll'
-  | 'forms:std.instructor'
   | 'forms:admin.fleetColOther'
   | 'forms:admin.vsFleetOther'
   | 'forms:admin.comparison'
@@ -337,6 +336,12 @@ export type MonatsSchluessel =
   | 'forms:admin.onlyInstructor'
   | 'forms:admin.deltaHint'
   | 'forms:admin.deltaHintOther'
+  | 'forms:admin.monthlyHint'
+  | 'forms:admin.monthlyHintOther'
+  | 'forms:admin.figuresCaption'
+  | 'forms:admin.figuresCaptionOther'
+  | 'forms:admin.onlyOwn'
+  | 'forms:admin.onlyOwnOther'
   | 'forms:admin.flagNone'
   | 'forms:admin.flagWatch'
   | 'forms:admin.flagReview'
@@ -358,10 +363,71 @@ export interface MonatsCsvKontext {
   satzName: (key: CompetencySetKey) => string
   exportiertAm: number
   exportiertVon: string
-  /** Exportiert jemand anderes als der Instruktor selbst? Dann heißt die
-   *  Spalte „Instructor", nicht „You". */
+  /** Exportiert jemand anderes als der Instruktor selbst? Dann tragen die
+   *  Spalten dessen Namen, nicht „You" (monatsBeschriftung). */
   fremd: boolean
-  beschriftung: (schluessel: MonatsSchluessel) => string
+  beschriftung: Beschrifter
+}
+
+/** Übersetzt einen Schlüssel; `name` füllt den Platzhalter der „…Other"-Texte. */
+export type Beschrifter = (schluessel: MonatsSchluessel, werte?: { name: string }) => string
+
+/** Die Wörter des Berichts, die davon abhängen, WER ihn liest. */
+export interface MonatsBeschriftung {
+  /** Spalte der Zahlen des Instruktors: „You" bzw. sein Name */
+  eigen: string
+  /** Spalte seiner Muster: „Your aircraft types" bzw. „<Name>'s aircraft types" */
+  flotte: string
+  /** Vergleich mit seinen Mustern: „vs your types" bzw. „vs <Name>'s types" */
+  gegenFlotte: string
+  /** Statt einer Zahl, wenn die Gruppe nur aus seinen Blättern besteht */
+  nurEigene: string
+  /** Wie die Abweichung zu lesen ist */
+  deltaHinweis: string
+  /** Satz über dem Bericht */
+  hinweis: string
+  /** Unsichtbare Tabellenüberschrift der Kennzahlen */
+  zahlenTitel: string
+  /** Fußnote: woher die eigenen Zahlen kommen */
+  herkunft: string
+}
+
+/**
+ * Beschriftung aus Sicht des Lesers — EINE Regel für Bildschirm, Druck und CSV.
+ *
+ * Audit 11/2026, R3-MONATSBERICHT: Die CSV hieß seit RPT-01 beim Bericht
+ * eines anderen nicht mehr „You", der Bildschirm aber schon — ein Training
+ * Admin las über Chris Beispiels Zahlen „You" und „vs your types", und der
+ * Ausdruck trug dasselbe. Jetzt fragen beide diese Funktion. Beim fremden
+ * Bericht steht der Name in jeder Beschriftung, die sonst „you/your" sagte
+ * (Spaltenköpfe, Kacheln, Hinweise); die Bedingung ist dieselbe wie zuvor in
+ * der CSV: Bericht eines anderen als des Betrachters.
+ */
+export function monatsBeschriftung(sicht: { fremd: boolean; instruktor: string }, b: Beschrifter): MonatsBeschriftung {
+  if (!sicht.fremd)
+    return {
+      eigen: b('forms:admin.yours'),
+      flotte: b('forms:admin.fleetCol'),
+      gegenFlotte: b('forms:admin.vsFleet'),
+      nurEigene: b('forms:admin.onlyYou'),
+      deltaHinweis: b('forms:admin.deltaHint'),
+      hinweis: b('forms:admin.monthlyHint'),
+      zahlenTitel: b('forms:admin.figuresCaption'),
+      herkunft: b('forms:admin.onlyOwn'),
+    }
+  const name = { name: sicht.instruktor }
+  return {
+    // Der Name selbst ist die Spaltenüberschrift — ein Schlüssel, der nur
+    // „{{name}}" enthielte, wäre kein Text.
+    eigen: sicht.instruktor,
+    flotte: b('forms:admin.fleetColOther', name),
+    gegenFlotte: b('forms:admin.vsFleetOther', name),
+    nurEigene: b('forms:admin.onlyInstructor', name),
+    deltaHinweis: b('forms:admin.deltaHintOther', name),
+    hinweis: b('forms:admin.monthlyHintOther', name),
+    zahlenTitel: b('forms:admin.figuresCaptionOther', name),
+    herkunft: b('forms:admin.onlyOwnOther', name),
+  }
 }
 
 /**
@@ -377,16 +443,15 @@ export interface MonatsCsvKontext {
  *  - die Kalibrierung zuerst — Abweichung samt Einstufung, wie die Kacheln;
  *    ohne fremde Blätter in der Gruppe der Grund statt einer leeren Zahl;
  *  - „%" in den Bezeichnungen der Anteile;
- *  - die Spalten aus Sicht des Lesers („Instructor" statt „You").
+ *  - die Spalten aus Sicht des Lesers (der Name statt „You",
+ *    `monatsBeschriftung` — dieselbe Regel wie der Bildschirm).
  * Gerechnet wird hier nichts: Alle Werte kommen aus `monthlyReport`.
  */
 export function monthlyCsv(report: MonthlyReport, ctx: MonatsCsvKontext): string {
   const b = ctx.beschriftung
   const prozent = (s: MonatsSchluessel) => `${b(s)} (%)`
-  const eigen = ctx.fremd ? b('forms:std.instructor') : b('forms:admin.yours')
-  const flotte = ctx.fremd ? b('forms:admin.fleetColOther') : b('forms:admin.fleetCol')
-  const gegenFlotte = ctx.fremd ? b('forms:admin.vsFleetOther') : b('forms:admin.vsFleet')
-  const nurEigene = ctx.fremd ? b('forms:admin.onlyInstructor') : b('forms:admin.onlyYou')
+  // Dieselbe Regel wie auf dem Bildschirm (R3-MONATSBERICHT).
+  const { eigen, flotte, gegenFlotte, nurEigene, deltaHinweis } = monatsBeschriftung(ctx, b)
 
   let csv = csvRow([`Instructor Connect — ${b('forms:admin.monthly')}`])
   csv += csvRow([ctx.atoName, ctx.zulassung])
@@ -414,7 +479,7 @@ export function monthlyCsv(report: MonthlyReport, ctx: MonatsCsvKontext): string
     hatAndere ? csvRow([label, csvNum(delta), b(FLAG_SCHLUESSEL[flag])]) : csvRow([label, '', nurEigene])
   csv += vergleich(gegenFlotte, report.fleetHasOthers, report.deltaFleet, report.flagFleet)
   csv += vergleich(b('forms:admin.vsAll'), report.allHasOthers, report.deltaAll, report.flagAll)
-  csv += csvRow([ctx.fremd ? b('forms:admin.deltaHintOther') : b('forms:admin.deltaHint')])
+  csv += csvRow([deltaHinweis])
   csv += csvRow([])
 
   csv += csvRow(['', eigen, flotte, b('forms:admin.allCol')])

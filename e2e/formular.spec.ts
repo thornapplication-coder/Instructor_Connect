@@ -1,6 +1,6 @@
 import { devices, type Page } from '@playwright/test'
 import type { GradingRecord } from '../src/types'
-import { anmelden, expect, test, unterschreiben } from './hilfen'
+import { anmelden, expect, gespeicherterStand, test, unterschreiben } from './hilfen'
 
 /**
  * Grading-Formular im echten Browser (Ebene 3) — was Ebene 1 nicht sieht:
@@ -313,19 +313,7 @@ test('Entwurf: Öffnen sichert nichts, Zurück fragt genau einmal, Verwerfen fra
 
 /** Gespeicherte Formulare aus IndexedDB (persist.ts) — was im Nachweis steht. */
 async function gespeicherteFormulare(page: Page): Promise<GradingRecord[]> {
-  return page.evaluate(
-    () =>
-      new Promise<GradingRecord[]>((fertig) => {
-        const rq = indexedDB.open('instructor-connect', 1)
-        rq.onsuccess = () => {
-          const g = rq.result.transaction('kv').objectStore('kv').get('aaa-state')
-          g.onsuccess = () => {
-            const roh = JSON.parse(g.result as string)
-            fertig((roh.state ?? roh).gradingRecords)
-          }
-        }
-      }),
-  )
+  return (await gespeicherterStand(page)).gradingRecords
 }
 
 /**
@@ -344,6 +332,9 @@ async function gespeicherteFormulare(page: Page): Promise<GradingRecord[]> {
  *    Druckzeit aus den Einstellungen.
  */
 test.describe('Folgeformular einer UK-Session — kurz nach Mitternacht in Wien', () => {
+  // Seit R3-E2E-ZEITZONE gilt die Zone für alle Tests (playwright.config.ts);
+  // hier bleibt sie ausdrücklich stehen, weil der Test auf ihr AUFBAUT — eine
+  // andere Vorgabe der Konfiguration darf ihn nicht still entwerten.
   test.use({ timezoneId: 'Europe/Vienna' })
 
   test('306 erbt Behörde und Datum, setzt aus der Liste fort und friert Zulassung und Empfänger ein', async ({ page }) => {

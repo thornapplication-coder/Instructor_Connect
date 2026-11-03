@@ -137,6 +137,7 @@
     "deleteFormTypeConfirm": "Delete this form type? No form uses it yet; it disappears from the selection for new forms.",
     "formTypeInUse": "Cannot be deleted: forms of this type exist, and they keep their structure only while the type stays in the catalogue.",
     "formTypeRequired": "Cannot be deleted: mandatory follow-up form. The rules require it after “Not Competent” or “Session not completed”.",
+    "formTypeGone": "This form type no longer exists — it was removed elsewhere in the meantime.",
     "openFollowUps": "Open follow-up forms",
     "openItems": "open items",
     "followUpMissing": "Mandatory follow-up outstanding: {{forms}}",
@@ -228,12 +229,15 @@
     "otherSetOmitted_one": "{{count}} further session of {{name}} is not included — pilot and instructor competencies are never compared with one another.",
     "otherSetOmitted_other": "{{count}} further sessions of {{name}} are not included — pilot and instructor competencies are never compared with one another.",
     "notIncluded": "Not included",
-    "fleetColOther": "Instructor's aircraft types",
-    "vsFleetOther": "vs instructor's types",
+    "fleetColOther": "{{name}}'s aircraft types",
+    "vsFleetOther": "vs {{name}}'s types",
     "comparison": "Comparison",
     "deviation": "Deviation",
-    "onlyInstructor": "Only the instructor's own sheets in this group — no comparison possible.",
-    "deltaHintOther": "A positive value means the instructor grades more leniently than the comparison group, a negative one more strictly."
+    "onlyInstructor": "Only {{name}}'s own sheets in this group — no comparison possible.",
+    "deltaHintOther": "A positive value means {{name}} is more lenient than the comparison group, a negative one stricter.",
+    "monthlyHintOther": "{{name}}'s gradings for the month, set against the aircraft types they instructed on and against all gradings.",
+    "figuresCaptionOther": "{{name}}'s figures for the month compared with their aircraft types and with all gradings",
+    "onlyOwnOther": "{{name}}'s figures come from their own sheets only. The comparison values are aggregates and name nobody."
   },
   "attendance": "Record of Attendance",
   "studentName": "Student name",
@@ -375,6 +379,8 @@
     "queued": "Form signed. It is in the outbox and will be sent as soon as there is a connection.",
     "openLeft": "Saved — signature or sending still open.",
     "chainNext": "Saved. Next required form opens now.",
-    "exported": "CSV file downloaded."
+    "exported": "CSV file downloaded.",
+    "saveFailed": "Not saved — the form exists only in this session and would be lost on reload.",
+    "formTypeDeleted": "Form type {{id}} deleted."
   }
 }

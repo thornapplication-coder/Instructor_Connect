@@ -239,6 +239,101 @@ describe('Muster in den Einstellungen (VERW-18)', () => {
   })
 })
 
+/*
+ * Audit 11/2026, R3-FORMULARTYP: Das Löschen eines Formulartyps lief über
+ * die gekürzte Liste; der Store holte einen benutzten Typ still zurück und
+ * sagte nichts. Jetzt nennt `removeFormType` den Ausgang.
+ */
+describe('Formulartyp löschen (R3-FORMULARTYP)', () => {
+  const typen = () => store().state.settings.grading.formTypes.map((f) => f.id)
+
+  it('Pflichttyp und Typ mit Datensätzen: abgelehnt mit Grund, der Katalog bleibt', () => {
+    const vorher = typen()
+    let ausgang = ''
+    act(() => {
+      ausgang = store().removeFormType('310')
+    })
+    expect(ausgang).toBe('pflicht')
+    const benutzt = store().state.gradingRecords[0].formTypeId
+    act(() => {
+      ausgang = store().removeFormType(benutzt)
+    })
+    expect(ausgang).toBe('datensaetze')
+    act(() => {
+      ausgang = store().removeFormType('399X')
+    })
+    expect(ausgang).toBe('unbekannt')
+    expect(typen()).toEqual(vorher)
+  })
+
+  it('ein unbenutzter Typ ist weg — und der Store sagt es', () => {
+    const frei = store().state.settings.grading.formTypes.find(
+      (f) => !['306', '310'].includes(f.id) && !store().state.gradingRecords.some((r) => r.formTypeId === f.id),
+    )!
+    expect(frei).toBeDefined()
+    let ausgang = ''
+    act(() => {
+      ausgang = store().removeFormType(frei.id)
+    })
+    expect(ausgang).toBe('geloescht')
+    expect(typen()).not.toContain(frei.id)
+  })
+})
+
+/*
+ * Audit 11/2026, R3-DIALOGMELDUNG: Die Speicheraktionen der Dialoge gaben
+ * nichts zurück — ein abgewiesener Eintrag schloss den Dialog und quittierte
+ * „gespeichert". Jetzt sagen sie, ob es gewirkt hat.
+ */
+describe('Speicheraktionen der Dialoge sagen, ob sie gewirkt haben (R3-DIALOGMELDUNG)', () => {
+  it('Notiz: neu true; eine inzwischen gelöschte Notiz ändern false', () => {
+    let ok = false
+    act(() => {
+      ok = store().saveNote({ title: 'Briefing', body: 'x' })
+    })
+    expect(ok).toBe(true)
+    const id = store().visibleNotes.find((n) => n.title === 'Briefing')!.id
+    act(() => store().deleteNote(id))
+    act(() => {
+      ok = store().saveNote({ id, title: 'Briefing 2', body: 'x' })
+    })
+    expect(ok).toBe(false)
+  })
+
+  it('Info, Lesson Plan, Kontakt: ohne Recht false, mit Recht true', () => {
+    const eintrag = { type: 'text' as const, title: 'X', description: '', body: 'x', category: 'General', aircraftType: '', validFrom: '', validUntil: '', requiresAck: false }
+    const plan = { title: 'X', description: '', aircraftType: 'C560 XLS+', category: '', fileName: '' }
+    const kontakt = { department: 'Ops', position: 'Lead', name: 'Kim Beispiel', phone: '', email: '' }
+    let antworten: boolean[] = []
+    act(() => store().switchUser('u-michael'))
+    act(() => {
+      antworten = [store().addInfoEntry(eintrag), store().addLessonPlan(plan), store().saveContact(kontakt)]
+    })
+    expect(antworten).toEqual([false, false, false])
+    act(() => store().switchUser('u-patrick'))
+    act(() => {
+      antworten = [store().addInfoEntry(eintrag), store().addLessonPlan(plan), store().saveContact(kontakt)]
+    })
+    expect(antworten).toEqual([true, true, true])
+  })
+
+  it('Logbuch: eigener Eintrag true; einen nicht (mehr) vorhandenen ändern false', () => {
+    let ok = false
+    act(() => {
+      ok = store().logbookAddManual({ datum: '2026-11-02', aircraftType: 'CL30', kategorie: 'Other Training', dauer: 60, notiz: '' })
+    })
+    expect(ok).toBe(true)
+    act(() => {
+      ok = store().logbookUpdateManual('lb-gibt-es-nicht', { dauer: 30 })
+    })
+    expect(ok).toBe(false)
+    act(() => {
+      ok = store().logbookOverride({ id: 'gr-x' }, { briefing: 0, session: 30, debriefing: 0 })
+    })
+    expect(ok).toBe(true)
+  })
+})
+
 describe('Rechte an der Aktion (KERN-19, VERW-23)', () => {
   // Die Regeln prueft storeRechte.test.ts als Matrix. Hier: Der Store fragt
   // sie — vorher verliess sich die Haelfte der Schreibwege auf die
