@@ -163,6 +163,20 @@ gegen geladene Regelwerke); kein Backend, KI simuliert. Festlegungen:
   Bedienkomfort; mit Phase 1b wird sie Vorlage für RLS und Rollentest.
 - **Rechte nur über `setDocCheckRights`** (Superadmin, mit Audit-Zeile).
   `updateUser` lässt `docCheckAccess`/`docCheckAdmin` fallen.
+- **DocCheck nur für Admin-Rollen** (Entscheidung vom 04.11.2026, weicht
+  bewusst von Spez. 3.4 ab): Superadmin, Gruppenadmin und Training Admin
+  können Zugang bekommen, ein Mitglied (Instruktor) nie. Die Regel steht
+  in `docCheckMoeglich` (`access.ts`) und gilt an jeder Stelle:
+  `docCheckRolle` (Mitglied = „keine“, auch mit gespeichertem Haken),
+  `rechteErlaubt` in `setDocCheckRights` (Vergeben abgelehnt, Entfernen
+  geht), `docCheckBereinigt` beim Herabstufen und in `migrateState` (die
+  Schalter fallen mit, sonst gäbe die nächste Beförderung den Zugang still
+  zurück). In der Datenbank dasselbe als Prüfregel
+  `profiles_doccheck_nur_admins`, `set_rights` (`IC-DOCCHECK-ROLE`) und
+  Trigger `profiles_guard_mitglied` — er heißt so, weil Postgres
+  BEFORE-Trigger alphabetisch feuert und er NACH `profiles_guard` laufen
+  muss. Die Berechtigungsseite zeigt beim Mitglied „nur für Admin-Rollen“
+  statt Kästchen.
 - **Statisch geladen wird nur der Einstieg `index.tsx`** und dazu wenige
   kleine Module ohne Bibliothek (`access`, `settings`, `library` für den
   Store, `ladefehler` für den Einstieg); alles andere per `lazy` hinter

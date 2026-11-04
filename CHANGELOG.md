@@ -1252,3 +1252,35 @@ Testlauf, Browser-Abnahme und Gegenprobe.
   `persist.ts`, mit Tests). Gegenprobe: ohne das Warten läuft ein Vorgang
   nach dem Abbau, mit ihm alle fünf davor. Die App selbst ist nicht
   betroffen.
+
+## 1.27.0 — 2026-11-04
+
+- **DocCheck nur für Admin-Rollen** (Entscheidung vom 04.11.2026):
+  Superadmin, Gruppenadmin und Training Admin können Zugang bekommen, ein
+  Mitglied (Instruktor) nie. Bisher war der Zugang von der Rolle getrennt
+  (Spez. 3.4): In der Sandbox hatte ein Instruktor Zugang zu den
+  vertraulichen Herstellerunterlagen, und ein zum Mitglied herabgestufter
+  Admin behielt ihn still. Die Regel steht an EINER Stelle
+  (`docCheckMoeglich` in `access.ts`) und gilt überall:
+  - `docCheckRolle` gibt für ein Mitglied „keine“ zurück, auch bei
+    gespeichertem Haken.
+  - `setDocCheckRights` lehnt das Vergeben an ein Mitglied ab
+    (`rechteErlaubt`); Entfernen geht immer.
+  - Herabstufen auf Mitglied nimmt die Schalter mit (`docCheckBereinigt`) —
+    die nächste Beförderung gibt den Zugang nicht still zurück. Die
+    Audit-Zeile („nutzer → keine“) schreibt der Rollenwechsel wie bisher.
+  - `migrateState` bereinigt alte Stände, ohne Marke (der Zustand ist
+    verboten, kein bewusst gesetzter).
+  - Admin Panel → Berechtigungen: beim Mitglied statt zweier Kästchen
+    „nur für Admin-Rollen“, wie „automatisch“ beim Superadmin; der Hinweis
+    über der Tabelle nennt die Regel.
+  - Datenbank (`20261104090000_doccheck_nur_admins.sql`): Prüfregel auf
+    `profiles` (ein Mitglied mit Haken lässt sich auf keinem Weg speichern),
+    `set_rights` mit `IC-DOCCHECK-ROLE`, Trigger `profiles_guard_mitglied`
+    beim Herabstufen, `doccheck.role()` rechnet jetzt über `rolle_aus`
+    statt einer zweiten Fallunterscheidung. Ein alter Bestand wird beim
+    Anlegen bereinigt und protokolliert. `rls.test.ts` prüft alles gegen
+    echtes Postgres, auch die Migration über einem alten Bestand.
+  - Sandbox: Mika (Mitglied) ohne DocCheck, Sam (Training Admin) mit
+    DocCheck access — damit zeigt der Bestand alle drei DocCheck-Rollen.
+    Sams Startseite hat dadurch drei Kacheln (`desktop.spec.ts`).

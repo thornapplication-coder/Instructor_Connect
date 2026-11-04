@@ -62,7 +62,9 @@ describe('startSpalten', () => {
     expect(startSpalten(7, 'tablet')).toBe(4) // 4 + 3 statt 3 + 3 + 1
   })
 
-  it('Training Admin ab Werk (zwei Kacheln): eine volle Reihe, kein leeres Feld daneben', () => {
+  it('Training Admin (ab Werk drei Kacheln mit DocCheck, ohne zwei): eine volle Reihe, kein leeres Feld daneben', () => {
+    for (const stufe of ['tablet', 'desktop', 'flach'] as const) expect(startSpalten(3, stufe), stufe).toBe(3)
+    expect(startSpalten(3, 'telefon')).toBe(2) // Telefon bleibt zweispaltig: 2 + 1
     for (const stufe of STUFEN) expect(startSpalten(2, stufe), stufe).toBe(2)
     for (const stufe of STUFEN) expect(startSpalten(1, stufe), stufe).toBe(1)
     expect(startSpalten(0, 'desktop')).toBe(1)

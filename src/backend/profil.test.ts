@@ -2,14 +2,16 @@ import { describe, expect, it } from 'vitest'
 import { schutzGrund, zuAenderung, zuNutzer, type ProfilZeile } from './profil'
 
 const zeile: ProfilZeile = {
-  id: 'u1', name: 'Mika', email: 'm@x.test', phone: '+43', role: 'member', active: true, aircraft_types: ['C560'],
+  // Gruppenadmin: DocCheck gibt es nur fuer Admin-Rollen — ein Mitglied mit
+  // doccheck_access laesst die Datenbank gar nicht zu (profiles_doccheck_nur_admins).
+  id: 'u1', name: 'Mika', email: 'm@x.test', phone: '+43', role: 'group_admin', active: true, aircraft_types: ['C560'],
   can_grade: true, is_trainee: false, can_edit_directory: false, chat_blocked: false, doccheck_access: true, doccheck_admin: false,
 }
 
 describe('Profil ↔ User', () => {
   it('Zeile → User mit den Feldnamen der App; Muster kopiert', () => {
     const u = zuNutzer(zeile)
-    expect(u).toEqual({ id: 'u1', name: 'Mika', email: 'm@x.test', phone: '+43', role: 'member', active: true, aircraftTypes: ['C560'], canGrade: true, isTrainee: false, canEditDirectory: false, chatBlocked: false, docCheckAccess: true, docCheckAdmin: false })
+    expect(u).toEqual({ id: 'u1', name: 'Mika', email: 'm@x.test', phone: '+43', role: 'group_admin', active: true, aircraftTypes: ['C560'], canGrade: true, isTrainee: false, canEditDirectory: false, chatBlocked: false, docCheckAccess: true, docCheckAdmin: false })
     u.aircraftTypes.push('X')
     expect(zeile.aircraft_types).toEqual(['C560'])
   })

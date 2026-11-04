@@ -57,8 +57,8 @@ export function rasterKlasse(anzahl: number): string {
  * 253 px, die Seite 1436 px hoch bei 1440 × 900; Kachel und „Admin Panel"
  * lagen unter der Falz. Der Kommentar daneben rechnete noch mit sieben
  * Kacheln („4 + 3"). Die Zahl hängt an der Rolle: Superadmin und
- * Gruppenadmin neun, Mitglied ohne DocCheck acht, Training Admin ab Werk
- * zwei. Feste Spalten passten nie zu allen.
+ * Gruppenadmin neun, Mitglied acht (DocCheck bekommt es nie), Training
+ * Admin ab Werk drei. Feste Spalten passten nie zu allen.
  *
  *  - Telefon hochkant: zwei Spalten — die Kacheln müssen groß bleiben.
  *  - Tablet (ab sm): drei, sonst vier (7 → 4 + 3 statt 3 + 3 + 1).

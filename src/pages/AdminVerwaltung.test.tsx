@@ -204,9 +204,23 @@ describe('Barrierefreiheit der Verwaltung (VERW-21)', () => {
     const sperre = screen.getByRole('checkbox', { name: 'Mika Beispiel: Im Chat gesperrt' })
     expect(sperre).toHaveClass('accent-danger')
     expect(sperre.closest('label')).toHaveClass('min-h-11', 'min-w-11')
-    for (const docCheck of screen.getAllByRole('checkbox', { name: /^Mika Beispiel: DocCheck/ })) {
-      expect(docCheck.closest('label')).toHaveClass('min-h-11', 'min-w-11')
-    }
+    const docCheck = screen.getAllByRole('checkbox', { name: /^Sam Beispiel: DocCheck/ })
+    expect(docCheck).toHaveLength(2)
+    for (const k of docCheck) expect(k.closest('label')).toHaveClass('min-h-11', 'min-w-11')
+  })
+
+  /**
+   * Entscheidung vom 04.11.2026: DocCheck nur für Admin-Rollen. Beim
+   * Mitglied steht der Grund statt zwei Kästchen, die der Store ablehnen
+   * müsste — wie „automatisch" beim Superadmin.
+   */
+  it('DocCheck: beim Mitglied kein Kaestchen, sondern „nur für Admin-Rollen"', () => {
+    zeigen(<Admin sub="permissions" />)
+    expect(screen.queryAllByRole('checkbox', { name: /^Mika Beispiel: DocCheck/ })).toEqual([])
+    const zeile = screen.getAllByRole('row').find((r) => r.textContent?.includes('Mika Beispiel') && r.textContent.includes('nur für Admin-Rollen'))
+    expect(zeile).toBeDefined()
+    expect(screen.getAllByRole('checkbox', { name: /^Chris Beispiel: DocCheck/ })).toHaveLength(2)
+    expect(screen.getByRole('checkbox', { name: 'Sam Beispiel: DocCheck access' })).toBeChecked()
   })
 })
 
