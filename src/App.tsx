@@ -6,6 +6,7 @@ import { OfflineBanner } from './components/OfflineBanner'
 import { StorageBanner } from './components/StorageBanner'
 import { SessionBanner } from './components/SessionBanner'
 import { UpdateBanner } from './components/UpdateBanner'
+import { SelbsttestWaechter } from './components/SelbsttestWaechter'
 import { ToastHost } from './components/Toast'
 import { Admin } from './pages/Admin'
 import { ChatInfo } from './pages/ChatInfo'
@@ -24,6 +25,7 @@ import { Notes } from './pages/Notes'
 import { Imprint } from './pages/Imprint'
 import { InstructorInfo } from './pages/InstructorInfo'
 import { Login } from './pages/Login'
+import { Selbsttest } from './pages/Selbsttest'
 import { WhoToCall } from './pages/WhoToCall'
 import { navigate, useRoute } from './router'
 import { DocCheckRoute } from './modules/doccheck'
@@ -101,6 +103,7 @@ function Screen() {
   else if (route === '/notes') page = <Notes />
   else if (route === '/logbook') page = <Logbook />
   else if (route === '/feedback') page = <Feedback />
+  else if (route === '/selbsttest') page = <Selbsttest />
   // DocCheck: Ohne Berechtigung fuehrt auch die Adresszeile nicht hinein.
   else if (route === '/doccheck') page = docCheckRolle === 'keine' ? <Home unknownRoute /> : <DocCheckRoute />
   // #/admin/<bereich>[/<unterbereich>] — die Verwaltung ist adressierbar
@@ -145,6 +148,10 @@ function AppShell() {
         <SessionBanner />
         <OfflineBanner />
         <UpdateBanner />
+        {/* In Ebene 1/2 aus: Ein Kurz-Check, der in jedem App-Test nach
+            Sekunden losläuft, prüfte die Testumgebung statt der App — er
+            hat eigene Tests (SelbsttestWaechter.test.tsx). */}
+        <SelbsttestWaechter aktiv={import.meta.env.MODE !== 'test'} />
       </div>
       <div className="flex flex-1 flex-col">
         {/* Identitätswechsel baut die Seite neu auf: sonst schrieb ein offener

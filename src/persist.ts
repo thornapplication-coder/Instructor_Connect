@@ -483,6 +483,47 @@ export function clearPersistedState() {
   }
 }
 
+/**
+ * Selbsttest (src/selbsttest.ts): Ablage schreiben, lesen, wieder löschen.
+ *
+ * Der Speicherstreifen meldet erst einen GESCHEITERTEN Speichervorgang —
+ * dann ist die Änderung schon nicht mehr sicher. Die Probe fragt vorher, mit
+ * eigenem Schlüssel (der Bestand bleibt unberührt) und mit Zeitgrenze:
+ * Hängt IndexedDB (gemessen bei Safari nach einem Update, TEC-11), bliebe
+ * der Selbsttest sonst selbst hängen.
+ */
+export const PROBE_KEY = 'aaa-selbsttest-probe'
+export const PROBE_ZEITGRENZE_MS = 5000
+
+export async function speicherProbe(): Promise<{ ok: boolean; ms: number }> {
+  const start = performance.now()
+  const wert = `probe-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  const ablauf = async (): Promise<boolean> => {
+    if (idbBroken) {
+      localStorage.setItem(PROBE_KEY, wert)
+      const ok = localStorage.getItem(PROBE_KEY) === wert
+      localStorage.removeItem(PROBE_KEY)
+      return ok
+    }
+    await idbSet(PROBE_KEY, wert)
+    const ok = (await idbGet(PROBE_KEY)) === wert
+    await idbDel(PROBE_KEY)
+    return ok
+  }
+  let uhr: ReturnType<typeof setTimeout> | undefined
+  const grenze = new Promise<boolean>((res) => {
+    uhr = setTimeout(() => res(false), PROBE_ZEITGRENZE_MS)
+  })
+  try {
+    const ok = await Promise.race([ablauf(), grenze])
+    return { ok, ms: performance.now() - start }
+  } catch {
+    return { ok: false, ms: performance.now() - start }
+  } finally {
+    clearTimeout(uhr)
+  }
+}
+
 export interface StorageInfo {
   /** Belegte Bytes laut Browser (Schätzung) */
   usage: number

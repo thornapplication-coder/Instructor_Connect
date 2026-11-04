@@ -174,6 +174,36 @@ describe('Nachrichten', () => {
     env.hoerer.get('message')!({ data: { type: 'SKIP_WAITING' } })
     expect(env.self.skipWaiting).toHaveBeenCalledOnce()
   })
+
+  /**
+   * Selbsttest (src/selbsttestGeraet.ts): Der Worker nennt seinen Stand und
+   * zählt, was in seinem Vorab-Cache fehlt — die Seite kennt die Liste nicht.
+   */
+  it('SELBSTTEST: nennt Stand und Zahl der Vorab-Dateien; zählt, was im Cache fehlt', async () => {
+    const env = erzeugen('ic-stand', ['./', './index.html', './assets/index-abc.js'])
+    await ausloesen(env, 'install')
+    const fragen = () =>
+      new Promise((ok) => {
+        env.hoerer.get('message')!({ data: { type: 'SELBSTTEST' }, ports: [{ postMessage: ok }] })
+      })
+    expect(await fragen()).toEqual({ cache: 'ic-stand', gesamt: 3, fehlend: 0 })
+    // Eine Datei aus dem Cache verloren (Speicherdruck, halbes Update)
+    const cache = env.speicher.get('ic-stand')!
+    cache.eintraege.delete(new URL('./assets/index-abc.js', BASIS).href)
+    expect(await fragen()).toEqual({ cache: 'ic-stand', gesamt: 3, fehlend: 1 })
+    // Ohne Antwortkanal: nichts tun, nicht abstürzen
+    expect(() => env.hoerer.get('message')!({ data: { type: 'SELBSTTEST' } })).not.toThrow()
+    expect(env.self.skipWaiting).not.toHaveBeenCalled()
+  })
+
+  it('SELBSTTEST: Cache nicht zu öffnen heißt alles fehlt', async () => {
+    const env = erzeugen('ic-stand', ['./', './index.html'])
+    env.caches.open = async () => {
+      throw new Error('kaputt')
+    }
+    const antwort = await new Promise((ok) => env.hoerer.get('message')!({ data: { type: 'SELBSTTEST' }, ports: [{ postMessage: ok }] }))
+    expect(antwort).toEqual({ cache: 'ic-stand', gesamt: 2, fehlend: 2 })
+  })
 })
 
 describe('Abruf', () => {

@@ -246,6 +246,9 @@ export function Home({ unknownRoute = false }: { unknownRoute?: boolean }) {
           <button onClick={() => navigate('/imprint')} className="inline-flex min-h-11 items-center text-dim underline-offset-2 hover:text-ink hover:underline">
             {t('common.imprint')}
           </button>
+          <button onClick={() => navigate('/selbsttest')} className="inline-flex min-h-11 items-center text-dim underline-offset-2 hover:text-ink hover:underline">
+            {t('selbsttest.link')}
+          </button>
           <button onClick={logout} className="inline-flex min-h-11 items-center gap-1 text-dim underline-offset-2 hover:text-ink hover:underline">
             <LogOut size={12} /> {t('common.logout')}
           </button>

@@ -203,8 +203,23 @@ self.addEventListener('activate', (e) => {
 
 // Die UpdateBanner-Komponente schickt SKIP_WAITING, wenn der Nutzer
 // "Aktualisieren" antippt — erst dann übernimmt die neue Version.
+//
+// SELBSTTEST (src/selbsttestGeraet.ts): Der Worker sagt selbst, welcher
+// Stand er ist und wie viele seiner Vorab-Dateien im Cache fehlen. Von
+// außen ließe sich das nur raten — die Seite kennt die Dateiliste nicht, und
+// ein Abruf von sw.js liefe durch diesen Worker. Fehlt etwas, startet die
+// App ohne Netz nicht oder halb.
 self.addEventListener('message', (e) => {
-  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting()
+  if (!e.data) return
+  if (e.data.type === 'SKIP_WAITING') self.skipWaiting()
+  else if (e.data.type === 'SELBSTTEST' && e.ports && e.ports[0]) {
+    const port = e.ports[0]
+    caches
+      .open(CACHE)
+      .then((c) => Promise.all(ASSETS.map((u) => c.match(u, OHNE_VARY).then((hit) => (hit ? 0 : 1)))))
+      .then((f) => port.postMessage({ cache: CACHE, gesamt: ASSETS.length, fehlend: f.reduce((a, b) => a + b, 0) }))
+      .catch(() => port.postMessage({ cache: CACHE, gesamt: ASSETS.length, fehlend: ASSETS.length }))
+  }
 })
 
 // Nur vollständige, fehlerfreie Antworten VOM EIGENEN Server cachen — ein

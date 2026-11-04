@@ -523,6 +523,188 @@
     "title": "Legal notice & terms of use",
     "stand": "As of: August 2026 · Instructor Connect version {{version}}"
   },
+  "selbsttest": {
+    "titel": "Self-test",
+    "link": "Self-test",
+    "einleitung": "Checks whether the app works reliably on this device: storage, clock, offline start and, where enabled, data and DocCheck. No content is sent anywhere.",
+    "start": "Run again",
+    "laeuft": "Checking …",
+    "letzterLauf": "Last checked: {{zeit}}",
+    "kopieren": "Copy report",
+    "kopiert": "Report copied to the clipboard.",
+    "kopierenFehler": "Copying is not possible. Download the report instead.",
+    "herunterladen": "Download report",
+    "heruntergeladen": "Report downloaded.",
+    "berichtHinweis": "The report contains only check items, results and IDs of affected records, no names and no content.",
+    "zusammenfassung": {
+      "ok": "Everything is fine",
+      "fehler_one": "{{count}} problem",
+      "fehler_other": "{{count}} problems",
+      "hinweis_one": "{{count}} note",
+      "hinweis_other": "{{count}} notes",
+      "offen_one": "{{count}} item not checkable",
+      "offen_other": "{{count}} items not checkable"
+    },
+    "gruppe": {
+      "geraet": "This device",
+      "daten": "Data",
+      "doccheck": "DocCheck"
+    },
+    "stufe": {
+      "ok": "OK",
+      "hinweis": "Note",
+      "fehler": "Problem",
+      "offen": "not checkable"
+    },
+    "berichtTitel": "Instructor Connect self-test",
+    "berichtZeit": "Time",
+    "berichtGeraet": "Device",
+    "berichtStand": "Build",
+    "streifenGeraet": "Self-test: something is wrong on this device.",
+    "streifenDaten": "Self-test: there is a problem in the data.",
+    "streifenAnsehen": "View",
+    "streifenSchliessen": "Dismiss self-test notice",
+    "aktion": {
+      "dauerhaft": "Request persistent storage",
+      "neuLaden": "Reload",
+      "nutzer": "Go to user management",
+      "formular": "Open form {{id}}"
+    },
+    "betroffen": "Affected",
+    "punkt": {
+      "browser": {
+        "name": "Browser features",
+        "ok": "All required features are available.",
+        "hinweis": "Limited, missing: {{fehlend}}.",
+        "fehler": "The app cannot run reliably here, missing: {{fehlend}}. Use a current browser."
+      },
+      "speicher": {
+        "name": "Storage",
+        "ok": "Writing and reading works ({{ms}} ms).",
+        "hinweis": "Storage responds slowly ({{ms}} ms). If the app hangs, restart the browser.",
+        "fehler": "Storage cannot be written. Changes will be lost when the app closes. Leave private mode or free up space.",
+        "offen": "Not measured."
+      },
+      "dauerhaft": {
+        "name": "Persistent storage",
+        "ok": "The browser will not delete the data on its own.",
+        "hinweis": "The browser may delete the data when space runs low. Request persistent storage or install the app on the home screen.",
+        "offen": "The browser does not report this."
+      },
+      "fuellstand": {
+        "name": "Storage space",
+        "ok": "{{prozent}} % used.",
+        "hinweis": "{{prozent}} % used, nearly full. Delete old attachments.",
+        "fehler": "{{prozent}} % used. New entries will soon no longer be saved. Delete old attachments.",
+        "offen": "The browser does not report usage."
+      },
+      "netz": {
+        "name": "Connection",
+        "ok": "Server reachable.",
+        "hinweis": "No network. Checks that need the server are open.",
+        "offen": "Not checked."
+      },
+      "uhr": {
+        "name": "Clock",
+        "ok": "Matches the server time.",
+        "vor_one": "The device clock is {{count}} minute ahead. Signature times would be wrong. Set the time automatically.",
+        "vor_other": "The device clock is {{count}} minutes ahead. Signature times would be wrong. Set the time automatically.",
+        "nach_one": "The device clock is {{count}} minute behind. Signature times would be wrong. Set the time automatically.",
+        "nach_other": "The device clock is {{count}} minutes behind. Signature times would be wrong. Set the time automatically.",
+        "offen": "Cannot be checked without network."
+      },
+      "offline": {
+        "name": "Offline start",
+        "ok_one": "{{count}} file is ready.",
+        "ok_other": "All {{count}} files are ready.",
+        "einrichten": "Being set up. Reload once while online.",
+        "fehlend_one": "{{count}} file is missing from offline storage. Reload while online, otherwise the app will not start without network.",
+        "fehlend_other": "{{count}} files are missing from offline storage. Reload while online, otherwise the app will not start without network.",
+        "nichtUnterstuetzt": "This browser cannot start the app without network.",
+        "offen": "Cannot be checked."
+      },
+      "version": {
+        "name": "App version",
+        "ok": "Up to date (build {{stand}}).",
+        "hinweis": "A new version is ready and will load once nothing is open.",
+        "ohneNetz": "Build {{stand}}. Not compared with the server while offline.",
+        "unbekannt": "Cannot be checked, offline storage is not set up yet."
+      },
+      "superadmin": {
+        "name": "Active superadmin",
+        "ok": "At least one active superadmin exists.",
+        "fehler": "No active superadmin. Nobody can grant permissions."
+      },
+      "adressen": {
+        "name": "Email addresses",
+        "ok": "Every address belongs to exactly one account.",
+        "fehler_one": "{{count}} account shares its address with another.",
+        "fehler_other": "{{count}} accounts share addresses."
+      },
+      "muster": {
+        "name": "Aircraft types",
+        "ok": "Every account has its aircraft types.",
+        "hinweis_one": "{{count}} account has no aircraft type and therefore sees no lesson plans.",
+        "hinweis_other": "{{count}} accounts have no aircraft type and therefore see no lesson plans."
+      },
+      "gruppenVerweise": {
+        "name": "Groups",
+        "ok": "All groups refer to existing accounts.",
+        "hinweis_one": "{{count}} group refers to a deleted account.",
+        "hinweis_other": "{{count}} groups refer to deleted accounts."
+      },
+      "ohneGruppe": {
+        "name": "Group membership",
+        "ok": "Everyone with chat belongs to at least one group.",
+        "hinweis_one": "{{count}} person with chat is in no group.",
+        "hinweis_other": "{{count}} people with chat are in no group."
+      },
+      "doccheckRegel": {
+        "name": "DocCheck permissions",
+        "ok": "Only admin roles have DocCheck.",
+        "fehler_one": "{{count}} member has DocCheck permissions. This must not happen.",
+        "fehler_other": "{{count}} members have DocCheck permissions. This must not happen."
+      },
+      "struktur": {
+        "name": "Data structure",
+        "ok": "All required lists are present.",
+        "fehler": "Missing: {{felder}}. Reload; if the problem persists, download the report and pass it on."
+      },
+      "zeiten": {
+        "name": "Timestamps",
+        "ok": "No timestamp lies in the future.",
+        "hinweis_one": "{{count}} form has a timestamp in the future. The device clock was wrong when it was signed.",
+        "hinweis_other": "{{count}} forms have a timestamp in the future. The device clock was wrong when they were signed."
+      },
+      "fingerabdruck": {
+        "name": "Fingerprints",
+        "ok_one": "{{count}} signed form checked, unchanged.",
+        "ok_other": "{{count}} signed forms checked, all unchanged.",
+        "fehler_one": "{{count}} form was changed after signing.",
+        "fehler_other": "{{count}} forms were changed after signing.",
+        "keine": "No form with a fingerprint yet."
+      },
+      "altbestand": {
+        "name": "Older forms",
+        "offen_one": "{{count}} signed form predates fingerprints and cannot be checked.",
+        "offen_other": "{{count}} signed forms predate fingerprints and cannot be checked."
+      },
+      "doccheckLesen": {
+        "name": "Reading documents",
+        "ok": "Test document read in {{ms}} ms.",
+        "fehler": "The test document could not be read ({{code}}). Reload the page; if the problem persists, pass on the report.",
+        "zeit": "No response within 30 seconds.",
+        "leer": "The test document came back empty.",
+        "nichtGeladen": "DocCheck cannot be loaded without network."
+      },
+      "doccheckPruefen": {
+        "name": "Check rules",
+        "ok": "The built-in test error was found.",
+        "fehler": "The built-in test error was not found. Check results on this device are not reliable.",
+        "offen": "Cannot be checked because reading failed."
+      }
+    }
+  },
   "sandbox": {
     "banner": "SANDBOX — test mode, no real data",
     "role": "View as",

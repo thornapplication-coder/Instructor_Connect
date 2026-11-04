@@ -20,12 +20,26 @@
  * negativ ist sie praktisch nie.
  */
 export async function networkReachable(): Promise<boolean> {
-  if (navigator.onLine === false) return false
+  return (await serverProbe()).erreichbar
+}
+
+/**
+ * Dieselbe Probe mit ihrem Zeitstempel: Der `Date`-Kopf der Antwort ist die
+ * Serverzeit, gegen die der Selbsttest die Uhr des Geräts prüft
+ * (`uhrAbweichung` in selbsttest.ts). HEAD geht am Service Worker vorbei —
+ * eine Antwort aus dem Cache trüge die Zeit ihres Abrufs, nicht die von jetzt.
+ */
+export async function serverProbe(): Promise<{ erreichbar: boolean; datum: string | null; gesendet: number; empfangen: number }> {
+  const gesendet = Date.now()
+  if (navigator.onLine === false) return { erreichbar: false, datum: null, gesendet, empfangen: gesendet }
   try {
     const res = await fetch('./manifest.webmanifest', { method: 'HEAD', cache: 'no-store' })
+    const empfangen = Date.now()
     const type = res.headers.get('content-type') ?? ''
-    return res.ok && !type.includes('text/html')
+    const erreichbar = res.ok && !type.includes('text/html')
+    // Die Zeit einer Anmeldeseite (Gäste-WLAN) ist nicht die des eigenen Servers.
+    return { erreichbar, datum: erreichbar ? res.headers.get('date') : null, gesendet, empfangen }
   } catch {
-    return false
+    return { erreichbar: false, datum: null, gesendet, empfangen: Date.now() }
   }
 }
