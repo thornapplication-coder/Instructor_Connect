@@ -1,4 +1,4 @@
-import { anmelden, expect, gespeicherterStand, SUPERADMIN, test } from './hilfen'
+import { anmelden, expect, gespeicherterStand, SUPERADMIN, swKontrolliert, test } from './hilfen'
 
 /**
  * Selbsttest im echten Browser (Ebene 3): was Ebene 1 und 2 nur mit
@@ -12,8 +12,7 @@ const zeile = (page: import('@playwright/test').Page, name: string) => page.loca
 
 test('frisches Gerät: kein Fehler — Start ohne Netz, Uhr und DocCheck-Probe in Ordnung', async ({ page }) => {
   await anmelden(page)
-  // Einmal neu laden: Erst dann steuert der Service Worker die Seite.
-  await page.reload()
+  await swKontrolliert(page)
   await page.getByRole('button', { name: 'Selbsttest', exact: true }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Selbsttest' })).toBeVisible()
   const kopf = page.locator('main [role=status]')

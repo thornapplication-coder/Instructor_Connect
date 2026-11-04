@@ -5,21 +5,13 @@ import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import { extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { anmelden, cspAbweisungen, expect, test } from './hilfen'
+import { anmelden, cspAbweisungen, expect, swKontrolliert, test } from './hilfen'
 
 /**
  * Offline (CLAUDE.md, Ebene 3): Nach dem ersten Laden startet die App auch
  * ohne Netz — aus dem Vorab-Cache des Service Workers — und sagt es mit dem
  * Offline-Streifen, statt still zu scheitern.
  */
-
-/** Warten, bis der Service Worker die Seite kontrolliert — vorher gibt es keinen Cache. */
-async function kontrolliert(page: Page): Promise<void> {
-  await page.evaluate(async () => {
-    await navigator.serviceWorker.ready
-    if (!navigator.serviceWorker.controller) await new Promise((ok) => navigator.serviceWorker.addEventListener('controllerchange', ok, { once: true }))
-  })
-}
 
 async function offlineNeuStarten(page: Page): Promise<void> {
   await page.context().setOffline(true)
@@ -31,7 +23,7 @@ async function offlineNeuStarten(page: Page): Promise<void> {
 
 test('nach dem ersten Laden startet die App ohne Netz und zeigt den Offline-Streifen', async ({ page }) => {
   await anmelden(page)
-  await kontrolliert(page)
+  await swKontrolliert(page)
   await offlineNeuStarten(page)
 })
 
@@ -94,7 +86,7 @@ test('nach einem Update startet die App offline — auch bei HTTP-Cache-Lebensda
   try {
     const page = await context.newPage()
     await anmelden(page)
-    await kontrolliert(page)
+    await swKontrolliert(page)
 
     const neu = zweiteVersion(ordner)
     await page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => r?.update()))
