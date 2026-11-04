@@ -1,4 +1,4 @@
-import { anmelden, expect, test } from './hilfen'
+import { anmelden, expect, seiteOeffnen, test } from './hilfen'
 
 /**
  * Chat am Desktop per Tastatur (Ebene 3, Audit 11/2026, KERN-10/UID-12).
@@ -12,7 +12,7 @@ import { anmelden, expect, test } from './hilfen'
  */
 test('Tab erreicht „Löschen" an der eigenen Nachricht: sichtbar, 44×44, Enter löscht', async ({ page }) => {
   await anmelden(page)
-  await page.goto('/#/chat/g-defects')
+  await seiteOeffnen(page, '/#/chat/g-defects')
   const eigene = page.locator('main > div').filter({ hasText: 'Ruderpedale' })
   const loeschen = eigene.getByRole('button', { name: 'Löschen' })
   await expect(loeschen).toBeAttached()
