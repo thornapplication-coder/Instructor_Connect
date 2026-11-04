@@ -880,3 +880,70 @@ describe('Speichern klappt wieder — der Streifen darf gehen (Audit 11/2026, TE
     window.removeEventListener(p.STORAGE_OK_EVENT, ok)
   })
 })
+
+/**
+ * Selbsttest: die Ablage proben, ohne den Bestand anzufassen — eigener
+ * Schlüssel, danach wieder weg, mit Zeitgrenze gegen eine hängende Datenbank.
+ */
+describe('Speicherprobe (Selbsttest)', () => {
+  it('schreibt, liest und löscht ihren eigenen Schlüssel — der Bestand bleibt', async () => {
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    await p.persistState('{"bestand":1}')
+    const probe = await p.speicherProbe()
+    expect(probe.ok).toBe(true)
+    expect(probe.ms).toBeGreaterThanOrEqual(0)
+    // Nur der Bestand liegt noch da
+    const p2 = await frischesModul()
+    await p2.preloadPersistedState()
+    expect(p2.readPreloadedState()).toBe('{"bestand":1}')
+    const db = await new Promise<IDBDatabase>((ok) => {
+      const r = indexedDB.open('instructor-connect', 1)
+      r.onsuccess = () => ok(r.result)
+    })
+    const keys = await new Promise<IDBValidKey[]>((ok) => {
+      const r = db.transaction('kv').objectStore('kv').getAllKeys()
+      r.onsuccess = () => ok(r.result)
+    })
+    db.close()
+    expect(keys).not.toContain(p.PROBE_KEY)
+  })
+
+  it('auf der Rückfallebene (ohne IndexedDB) probt sie localStorage', async () => {
+    vi.spyOn(indexedDB, 'open').mockImplementation(() => {
+      throw new Error('kaputt')
+    })
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    expect((await p.speicherProbe()).ok).toBe(true)
+    expect(localStorage.getItem(p.PROBE_KEY)).toBeNull()
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceeded')
+    })
+    expect((await p.speicherProbe()).ok).toBe(false)
+  })
+
+  it('scheitert die Datenbank, ist die Probe gescheitert — kein Wurf', async () => {
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(() => {
+      throw new Error('Plattenfehler')
+    })
+    expect((await p.speicherProbe()).ok).toBe(false)
+  })
+
+  it('hängt die Datenbank, endet die Probe an der Zeitgrenze', async () => {
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    // Eine Transaktion, die nie fertig wird
+    vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation((() => ({ objectStore: () => ({ put: () => ({}) }) })) as unknown as IDBDatabase['transaction'])
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const probe = p.speicherProbe()
+      await vi.advanceTimersByTimeAsync(p.PROBE_ZEITGRENZE_MS + 10)
+      expect((await probe).ok).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+})

@@ -542,7 +542,7 @@ describe('Textwachen über alle Bundles (Audit 11/2026, TXT-08/09/13, GRD-20)', 
       schluessel: [
         'app:home.admin', 'app:admin.title', 'app:chat.title', 'app:feedback.title', 'app:admin.groups', 'app:admin.changelog',
         'app:admin.grading', 'app:admin.feedback', 'app:admin.docCheckHeading', 'app:logbook.title',
-        'doccheck:status.sandbox', 'doccheck:tabs.chat', 'doccheck:mobile.chat', 'doccheck:gate.titel',
+        'doccheck:status.sandbox', 'doccheck:tabs.chat', 'doccheck:mobile.chat', 'doccheck:gate.titel', 'app:selbsttest.gruppe.doccheck',
       ],
     },
     {

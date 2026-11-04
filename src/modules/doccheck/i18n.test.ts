@@ -56,6 +56,7 @@ describe('DocCheck-Texte', () => {
       'DC-XLSX-STYLES': 'nur beim Rückschreiben; gemeldet mit recheck.rs.fehler',
       'DC-XLSX-SHEET': 'nur beim Rückschreiben; gemeldet mit recheck.rs.fehler',
       'DC-RECHECK-FORMAT': 'nur beim Laden einer Fremdliste; gemeldet mit recheck.format (mit Dateiname)',
+      'DC-ZEIT': 'nur im Selbsttest (selbsttest.ts dieses Moduls); gemeldet mit app:selbsttest.punkt.doccheckLesen.zeit',
     }
     const geworfen = new Set<string>()
     for (const code of Object.values(logik) as string[])

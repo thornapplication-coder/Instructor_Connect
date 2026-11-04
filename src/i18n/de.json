@@ -523,6 +523,196 @@
     "title": "Impressum & Nutzungshinweise",
     "stand": "Stand: August 2026 · Instructor Connect Version {{version}}"
   },
+  "selbsttest": {
+    "titel": "Selbsttest",
+    "link": "Selbsttest",
+    "einleitung": "Prüft, ob die App auf diesem Gerät zuverlässig arbeitet: Ablage, Uhrzeit, Start ohne Netz und, wo freigeschaltet, Datenbestand und DocCheck. Es werden keine Inhalte verschickt.",
+    "start": "Erneut prüfen",
+    "laeuft": "Prüfung läuft …",
+    "letzterLauf": "Zuletzt geprüft: {{zeit}}",
+    "kopieren": "Bericht kopieren",
+    "kopiert": "Bericht in die Zwischenablage kopiert.",
+    "kopierenFehler": "Kopieren nicht möglich. Bericht stattdessen herunterladen.",
+    "herunterladen": "Bericht herunterladen",
+    "heruntergeladen": "Bericht heruntergeladen.",
+    "berichtHinweis": "Der Bericht enthält nur Prüfpunkte, Ergebnisse und Kennungen betroffener Datensätze, keine Namen und keine Inhalte.",
+    "zusammenfassung": {
+      "ok": "Alles in Ordnung",
+      "fehler_one": "{{count}} Fehler",
+      "fehler_other": "{{count}} Fehler",
+      "hinweis_one": "{{count}} Hinweis",
+      "hinweis_other": "{{count}} Hinweise",
+      "offen_one": "{{count}} Punkt nicht prüfbar",
+      "offen_other": "{{count}} Punkte nicht prüfbar"
+    },
+    "gruppe": {
+      "geraet": "Dieses Gerät",
+      "daten": "Datenbestand",
+      "doccheck": "DocCheck"
+    },
+    "stufe": {
+      "ok": "in Ordnung",
+      "hinweis": "Hinweis",
+      "fehler": "Fehler",
+      "offen": "nicht prüfbar"
+    },
+    "berichtTitel": "Selbsttest Instructor Connect",
+    "berichtZeit": "Zeitpunkt",
+    "berichtGeraet": "Gerät",
+    "berichtStand": "Programmstand",
+    "streifenGeraet": "Selbsttest: Auf diesem Gerät stimmt etwas nicht.",
+    "streifenDaten": "Selbsttest: Im Datenbestand ist ein Fehler.",
+    "streifenAnsehen": "Ansehen",
+    "streifenSchliessen": "Hinweis des Selbsttests schließen",
+    "aktion": {
+      "dauerhaft": "Dauerhafte Ablage anfordern",
+      "neuLaden": "Neu laden",
+      "nutzer": "Zur Benutzerverwaltung",
+      "formular": "Formular {{id}} öffnen"
+    },
+    "betroffen": "Betroffen",
+    "punkt": {
+      "browser": {
+        "name": "Browser-Funktionen",
+        "ok": "Alle benötigten Funktionen sind vorhanden.",
+        "hinweis": "Eingeschränkt, es fehlt: {{fehlend}}.",
+        "fehler": "Die App kann hier nicht zuverlässig laufen, es fehlt: {{fehlend}}. Einen aktuellen Browser verwenden."
+      },
+      "speicher": {
+        "name": "Ablage",
+        "ok": "Schreiben und Lesen klappt ({{ms}} ms).",
+        "hinweis": "Die Ablage antwortet langsam ({{ms}} ms). Hängt die App, den Browser neu starten.",
+        "fehler": "Die Ablage lässt sich nicht beschreiben. Änderungen gehen beim Schließen verloren. Privaten Modus beenden oder Speicherplatz freigeben.",
+        "offen": "Nicht gemessen."
+      },
+      "dauerhaft": {
+        "name": "Dauerhafte Ablage",
+        "ok": "Der Browser löscht die Daten nicht von selbst.",
+        "hinweis": "Der Browser darf die Daten bei Platzmangel löschen. Dauerhafte Ablage anfordern oder die App auf dem Home-Bildschirm installieren.",
+        "offen": "Der Browser gibt dazu keine Auskunft."
+      },
+      "fuellstand": {
+        "name": "Speicherplatz",
+        "ok": "{{prozent}} % belegt.",
+        "hinweis": "{{prozent}} % belegt, bald voll. Alte Anhänge löschen.",
+        "fehler": "{{prozent}} % belegt. Neue Einträge werden bald nicht mehr gespeichert. Alte Anhänge löschen.",
+        "offen": "Der Browser gibt den Füllstand nicht an."
+      },
+      "netz": {
+        "name": "Verbindung",
+        "ok": "Server erreichbar.",
+        "hinweis": "Kein Netz. Prüfpunkte, die den Server brauchen, sind offen.",
+        "offen": "Nicht geprüft."
+      },
+      "uhr": {
+        "name": "Uhrzeit",
+        "ok": "Stimmt mit der Serverzeit überein.",
+        "vorMinuten_one": "Die Uhr des Geräts geht {{count}} Minute vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "vorMinuten_other": "Die Uhr des Geräts geht {{count}} Minuten vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "vorStunden_one": "Die Uhr des Geräts geht {{count}} Stunde vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "vorStunden_other": "Die Uhr des Geräts geht {{count}} Stunden vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "vorTage_one": "Die Uhr des Geräts geht {{count}} Tag vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "vorTage_other": "Die Uhr des Geräts geht {{count}} Tage vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "nachMinuten_one": "Die Uhr des Geräts geht {{count}} Minute nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "nachMinuten_other": "Die Uhr des Geräts geht {{count}} Minuten nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "nachStunden_one": "Die Uhr des Geräts geht {{count}} Stunde nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "nachStunden_other": "Die Uhr des Geräts geht {{count}} Stunden nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "nachTage_one": "Die Uhr des Geräts geht {{count}} Tag nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "nachTage_other": "Die Uhr des Geräts geht {{count}} Tage nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "offen": "Ohne Netz nicht prüfbar."
+      },
+      "offline": {
+        "name": "Start ohne Netz",
+        "ok_one": "{{count}} Datei liegt bereit.",
+        "ok_other": "Alle {{count}} Dateien liegen bereit.",
+        "einrichten": "Wird gerade eingerichtet. Einmal mit Netz neu laden.",
+        "fehlend_one": "{{count}} Datei fehlt im Offline-Speicher. Mit Netz neu laden, sonst startet die App ohne Netz nicht.",
+        "fehlend_other": "{{count}} Dateien fehlen im Offline-Speicher. Mit Netz neu laden, sonst startet die App ohne Netz nicht.",
+        "nichtUnterstuetzt": "Dieser Browser kann die App nicht ohne Netz starten.",
+        "offen": "Nicht prüfbar."
+      },
+      "version": {
+        "name": "Programmstand",
+        "ok": "Aktuell (Stand {{stand}}).",
+        "hinweis": "Eine neue Version liegt bereit und wird geladen, sobald nichts mehr offen ist.",
+        "ohneNetz": "Stand {{stand}}. Ohne Netz nicht mit dem Server verglichen.",
+        "unbekannt": "Nicht prüfbar, der Offline-Speicher ist noch nicht eingerichtet."
+      },
+      "superadmin": {
+        "name": "Aktiver Superadmin",
+        "ok": "Mindestens ein aktiver Superadmin ist vorhanden.",
+        "fehler": "Kein aktiver Superadmin. Niemand kann Rechte vergeben."
+      },
+      "adressen": {
+        "name": "E-Mail-Adressen",
+        "ok": "Jede Adresse gehört genau einem Konto.",
+        "fehler_one": "{{count}} Konto teilt seine Adresse mit einem anderen.",
+        "fehler_other": "{{count}} Konten teilen sich Adressen."
+      },
+      "muster": {
+        "name": "Muster",
+        "ok": "Jedes Konto hat seine Muster.",
+        "hinweis_one": "{{count}} Konto hat kein Muster und sieht deshalb keine Lesson Plans.",
+        "hinweis_other": "{{count}} Konten haben kein Muster und sehen deshalb keine Lesson Plans."
+      },
+      "gruppenVerweise": {
+        "name": "Gruppen",
+        "ok": "Alle Gruppen verweisen auf bestehende Konten.",
+        "hinweis_one": "{{count}} Gruppe verweist auf ein gelöschtes Konto.",
+        "hinweis_other": "{{count}} Gruppen verweisen auf gelöschte Konten."
+      },
+      "ohneGruppe": {
+        "name": "Gruppenzugehörigkeit",
+        "ok": "Alle mit Chat sind mindestens einer Gruppe zugeordnet.",
+        "hinweis_one": "{{count}} Person mit Chat ist in keiner Gruppe.",
+        "hinweis_other": "{{count}} Personen mit Chat sind in keiner Gruppe."
+      },
+      "doccheckRegel": {
+        "name": "DocCheck-Rechte",
+        "ok": "Nur Admin-Rollen haben DocCheck.",
+        "fehler_one": "{{count}} Mitglied hat DocCheck-Rechte. Das darf nicht sein.",
+        "fehler_other": "{{count}} Mitglieder haben DocCheck-Rechte. Das darf nicht sein."
+      },
+      "struktur": {
+        "name": "Datenstruktur",
+        "ok": "Alle Pflichtlisten sind vorhanden.",
+        "fehler": "Es fehlt: {{felder}}. Neu laden; bleibt der Fehler, den Bericht herunterladen und weitergeben."
+      },
+      "zeiten": {
+        "name": "Zeitangaben",
+        "ok": "Keine Zeitangabe liegt in der Zukunft.",
+        "hinweis_one": "{{count}} Formular trägt eine Zeit in der Zukunft. Die Uhr des Geräts ging beim Unterschreiben falsch.",
+        "hinweis_other": "{{count}} Formulare tragen eine Zeit in der Zukunft. Die Uhr des Geräts ging beim Unterschreiben falsch."
+      },
+      "fingerabdruck": {
+        "name": "Fingerabdrücke",
+        "ok_one": "{{count}} unterschriebenes Formular geprüft, unverändert.",
+        "ok_other": "{{count}} unterschriebene Formulare geprüft, alle unverändert.",
+        "fehler_one": "{{count}} Formular wurde nach der Unterschrift verändert.",
+        "fehler_other": "{{count}} Formulare wurden nach der Unterschrift verändert.",
+        "keine": "Noch kein Formular mit Fingerabdruck vorhanden."
+      },
+      "altbestand": {
+        "name": "Ältere Formulare",
+        "offen_one": "{{count}} unterschriebenes Formular stammt aus der Zeit vor dem Fingerabdruck und ist nicht prüfbar.",
+        "offen_other": "{{count}} unterschriebene Formulare stammen aus der Zeit vor dem Fingerabdruck und sind nicht prüfbar."
+      },
+      "doccheckLesen": {
+        "name": "Dokumente lesen",
+        "ok": "Testdokument in {{ms}} ms gelesen.",
+        "fehler": "Das Testdokument ließ sich nicht lesen ({{code}}). Seite neu laden; bleibt der Fehler, den Bericht weitergeben.",
+        "zeit": "Keine Antwort innerhalb von 30 Sekunden.",
+        "leer": "Das Testdokument kam leer zurück.",
+        "nichtGeladen": "DocCheck lässt sich ohne Netz nicht laden."
+      },
+      "doccheckPruefen": {
+        "name": "Prüfregeln",
+        "ok": "Der eingebaute Testfehler wurde gefunden.",
+        "fehler": "Der eingebaute Testfehler wurde nicht gefunden. Prüfergebnisse sind auf diesem Gerät nicht verlässlich.",
+        "offen": "Nicht prüfbar, weil das Lesen scheiterte."
+      }
+    }
+  },
   "sandbox": {
     "banner": "SANDBOX — Testmodus, keine echten Daten",
     "role": "Ansicht als",

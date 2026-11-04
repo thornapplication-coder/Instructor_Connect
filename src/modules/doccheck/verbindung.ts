@@ -154,12 +154,23 @@ let standard: Verbindung | null = null
  */
 export function standardVerbindung(): Verbindung {
   if (!standard) {
-    const v = new Verbindung(
-      () => new Worker(new URL('./doccheck.worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerLike,
-      new URL('doccheck/', document.baseURI).href,
-    )
+    const v = eigeneVerbindung()
     window.addEventListener('ic-abmelden', () => v.beenden())
     standard = v
   }
   return standard
+}
+
+/**
+ * Eine EIGENE Verbindung mit eigenem Worker — für den Selbsttest
+ * (selbsttest.ts in diesem Modul). Sein Probedokument gehört nicht in die
+ * Sitzung: Es tauchte sonst in der Suche und in Paketprüfungen auf. Wer sie
+ * öffnet, beendet sie auch. Dieselbe Worker-Adresse wie die Sitzung, damit
+ * der Build nur EINEN Worker erzeugt.
+ */
+export function eigeneVerbindung(): Verbindung {
+  return new Verbindung(
+    () => new Worker(new URL('./doccheck.worker.ts', import.meta.url), { type: 'module' }) as unknown as WorkerLike,
+    new URL('doccheck/', document.baseURI).href,
+  )
 }

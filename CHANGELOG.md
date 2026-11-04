@@ -1284,3 +1284,40 @@ Testlauf, Browser-Abnahme und Gegenprobe.
   - Sandbox: Mika (Mitglied) ohne DocCheck, Sam (Training Admin) mit
     DocCheck access — damit zeigt der Bestand alle drei DocCheck-Rollen.
     Sams Startseite hat dadurch drei Kacheln (`desktop.spec.ts`).
+
+## 1.28.0 — 2026-11-04
+
+Selbsttests — für den Code bei jedem Push, für das Gerät im Betrieb.
+
+- **Selbsttest in der App** (`#/selbsttest`, Link in der Fußzeile der
+  Startseite):
+  - **Dieses Gerät:** Ablage (schreiben/lesen mit Zeitgrenze), dauerhafte
+    Ablage, Speicherplatz, Verbindung, Uhrzeit gegen die Serverzeit (die
+    Unterschriftszeit eines Formulars kommt vom Gerät), Start ohne Netz
+    (der Service Worker meldet selbst, ob alle Vorab-Dateien im Cache
+    liegen), Programmstand, Browser-Funktionen.
+  - **Datenbestand** (Superadmin): letzter Superadmin, doppelte Adressen,
+    Muster, Gruppen, DocCheck-Regel, Pflichtlisten, Zeiten in der Zukunft
+    und der Fingerabdruck JEDES unterschriebenen Formulars — mit Knopf zum
+    veränderten Formular.
+  - **DocCheck** (DocCheck-Rolle): ein künstliches PDF mit eingebautem
+    Fehler durch den echten Worker; wird der Fehler nicht gefunden, ist das
+    ein Fehler.
+  - Bericht zum Kopieren/Herunterladen ohne Namen und Inhalte.
+  - **Kurz-Check beim Start:** einmal am Tag, meldet nur Fehler als
+    Streifen unten (z. B. falsch gehende Geräteuhr).
+- **Nachkontrolle nach jeder Veröffentlichung** (`deploy.yml`): wartet, bis
+  GitHub Pages den neuen Stand ausliefert, meldet sich an, lässt den
+  Selbsttest laufen, startet ohne Netz.
+- **Nachtlauf** (`nachtlauf.yml`): Tests, volle Schwachstellenprüfung,
+  Browser-Tests, veröffentlichte Seite und ein **Zeitsprung-Lauf** der
+  ganzen Suite zu Silvester, an beiden Zeitumstellungen, am Monatsende und
+  am Schalttag (`TEST_UHR`, `src/test/uhr.ts`). Er fand beim Einbau zwei
+  Tests, die nur in ihrer Woche grün gewesen wären.
+- **Größenbudget** (`src/groessenBudget.ts`, `e2e/budget.spec.ts`):
+  Startdateien ≤ 280 kB gzip, Vorab-Cache ≤ 1,5 MB. Der Selbsttest selbst
+  hob das Startbundle über die Warnschwelle (807 kB) — Seite und Prüflogik
+  laden deshalb nach (797 kB).
+- `npm run pruefen` (Tests, Build, Browser-Tests) und `npm run live`.
+- `fingerabdruckPruefen` (`docHash.ts`): eine Regel für Formularansicht und
+  Selbsttest.

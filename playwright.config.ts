@@ -35,7 +35,8 @@ export default defineConfig({
     timezoneId: 'Europe/Vienna',
   },
   projects: [
-    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } }, testIgnore: /mobil\.spec/ },
+    // live.spec.ts läuft nur gegen die veröffentlichte Seite (playwright.live.config.ts)
+    { name: 'desktop', use: { ...devices['Desktop Chrome'], viewport: { width: 1280, height: 900 } }, testIgnore: /(mobil|live)\.spec/ },
     // Chromium mit Telefon-Profil: pointer: coarse → Ansichtsmodus (viewMode.ts)
     { name: 'telefon', use: { ...devices['Pixel 7'] }, testMatch: /mobil\.spec/ },
   ],

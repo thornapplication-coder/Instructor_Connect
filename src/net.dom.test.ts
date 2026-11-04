@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { networkReachable } from './net'
+import { networkReachable, serverProbe } from './net'
 
 /**
  * Erreichbarkeitsprobe (Audit 11/2026, TEC-18).
@@ -73,5 +73,35 @@ describe('networkReachable', () => {
     online = false
     expect(await networkReachable()).toBe(false)
     expect(holen).not.toHaveBeenCalled()
+  })
+})
+
+/**
+ * Selbsttest: Dieselbe Probe liefert die Serverzeit (Kopf `Date`), gegen die
+ * die Uhr des Geräts geprüft wird. Eine Anmeldeseite bringt ihre eigene Zeit
+ * mit — die zählt nicht.
+ */
+describe('serverProbe', () => {
+  const mitDatum = (typ: string, datum: string) => new Response(null, { status: 200, headers: { 'content-type': typ, date: datum } })
+
+  it('liefert den Date-Kopf und die Zeitpunkte von Anfrage und Antwort', async () => {
+    holen.mockResolvedValue(mitDatum('application/manifest+json', 'Wed, 04 Nov 2026 11:00:00 GMT'))
+    const p = await serverProbe()
+    expect(p).toMatchObject({ erreichbar: true, datum: 'Wed, 04 Nov 2026 11:00:00 GMT' })
+    expect(p.empfangen).toBeGreaterThanOrEqual(p.gesendet)
+  })
+
+  it('Anmeldeseite: nicht erreichbar, und ihre Zeit wird nicht übernommen', async () => {
+    holen.mockResolvedValue(mitDatum('text/html', 'Thu, 01 Jan 2015 00:00:00 GMT'))
+    expect(await serverProbe()).toMatchObject({ erreichbar: false, datum: null })
+  })
+
+  it('ohne Netz: keine Anfrage, keine Zeit', async () => {
+    online = false
+    expect(await serverProbe()).toMatchObject({ erreichbar: false, datum: null })
+    expect(holen).not.toHaveBeenCalled()
+    online = true
+    holen.mockRejectedValue(new TypeError('Failed to fetch'))
+    expect(await serverProbe()).toMatchObject({ erreichbar: false, datum: null })
   })
 })

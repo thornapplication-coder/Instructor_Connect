@@ -54,11 +54,22 @@ export const SUPERADMIN = 'alex.beispiel@example.test'
  * bestätigen. Nur die Sprache wird vorher gesetzt — sie ist eine Vorliebe,
  * keine Sitzung.
  */
-export async function anmelden(page: Page, email = SUPERADMIN): Promise<void> {
+export async function anmelden(page: Page, email = SUPERADMIN, { startPruefung = false }: { startPruefung?: boolean } = {}): Promise<void> {
   await page.addInitScript(() => {
     if (!localStorage.getItem('aaa-lang')) localStorage.setItem('aaa-lang', 'de')
   })
-  await page.goto('/')
+  // Der Kurz-Check beim Start (SelbsttestWaechter) gilt hier als heute
+  // erledigt: Ein Test, der die Uhr festhält (formular.spec.ts), sähe sonst
+  // nach Sekunden zu Recht eine falsche Geräteuhr — und einen roten Streifen
+  // über dem, was er gerade prüft. Den Check selbst prüft selbsttest.spec.ts
+  // mit `startPruefung: true`.
+  if (!startPruefung)
+    await page.addInitScript(() => {
+      localStorage.setItem('aaa-selbsttest-letzter', JSON.stringify({ zeit: Date.now(), stufe: 'ok' }))
+    })
+  // Relativ zur Basisadresse, nicht zum Wurzelpfad: Die veröffentlichte Seite
+  // liegt unter /Instructor_Connect/ (live.spec.ts); „/" führte dort ins Leere.
+  await page.goto('./')
   await page.getByLabel('E-Mail-Adresse').fill(email)
   await page.getByRole('button', { name: 'Anmelden', exact: true }).click()
   const hinweis = await page.getByText(/Sandbox: dein Code lautet \d{6}/).textContent()
@@ -108,12 +119,23 @@ export async function gespeicherterStand(page: Page): Promise<Pick<AppState, 'us
         const rq = indexedDB.open('instructor-connect', 1)
         rq.onerror = () => fehler(rq.error)
         rq.onsuccess = () => {
-          const g = rq.result.transaction('kv').objectStore('kv').get('aaa-state')
-          g.onerror = () => fehler(g.error)
-          g.onsuccess = () => {
-            const roh = JSON.parse(g.result as string)
-            const stand = roh.state ?? roh
-            fertig({ users: stand.users, gradingRecords: stand.gradingRecords })
+          // Ein Wurf im Rückruf beendete das Versprechen nie — wer vor dem
+          // ersten Schreiben fragte (expect.poll), wartete bis zum Zeitlimit.
+          try {
+            const g = rq.result.transaction('kv').objectStore('kv').get('aaa-state')
+            g.onerror = () => fehler(g.error)
+            g.onsuccess = () => {
+              if (typeof g.result !== 'string') return fehler(new Error('noch kein Stand gespeichert'))
+              try {
+                const roh = JSON.parse(g.result)
+                const stand = roh.state ?? roh
+                fertig({ users: stand.users, gradingRecords: stand.gradingRecords })
+              } catch (e) {
+                fehler(e)
+              }
+            }
+          } catch (e) {
+            fehler(e)
           }
         }
       }),
