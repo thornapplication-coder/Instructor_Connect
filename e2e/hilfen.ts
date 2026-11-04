@@ -77,6 +77,29 @@ export async function anmelden(page: Page, email = SUPERADMIN, { startPruefung =
   await page.getByLabel('6-stelliger Code').fill(code)
   await page.getByRole('button', { name: 'Bestätigen und anmelden' }).click()
   await expect(page.getByRole('button', { name: 'Anmelden', exact: true })).toHaveCount(0)
+  await fokusAngekommen(page)
+}
+
+/**
+ * Wartet, bis die Seite ihren Fokus gesetzt hat — nach der Anmeldung und nach
+ * jedem Seitenwechsel die Überschrift (`data-page-heading`, src/fokus.ts).
+ *
+ * Der Router legt ihn ein Bild später dorthin (requestAnimationFrame in
+ * router.tsx). Ein Test, der vorher selbst fokussiert, verliert den Fokus an
+ * die Überschrift; drückt er dann Enter, fällt die Taste ins Leere. Auf dem
+ * CI-Runner geschah genau das (barrierefreiheit.spec.ts, „Escape bringt den
+ * Fokus zurück", rot auf main bei 1.26.1 und in beiden PRs danach), lokal
+ * nachgestellt mit einem um 20–30 ms verzögerten Bild. Ein Mensch drückt keine
+ * Taste innerhalb eines Bildes — der Test soll es auch nicht.
+ */
+export async function fokusAngekommen(page: Page): Promise<void> {
+  await expect.poll(() => page.evaluate(() => document.activeElement?.matches('[data-page-heading]') ?? false)).toBe(true)
+}
+
+/** Seitenwechsel über die Adresse, danach wie ein Mensch erst weiter, wenn die Seite steht. */
+export async function seiteOeffnen(page: Page, pfad: string): Promise<void> {
+  await page.goto(pfad)
+  await fokusAngekommen(page)
 }
 
 /** DocCheck öffnen und den Hinweis der Sitzung bestätigen (Spez. 5.5 Nr. 2). */
