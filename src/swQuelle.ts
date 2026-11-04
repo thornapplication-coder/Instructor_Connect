@@ -174,6 +174,27 @@ export function dateiListe(gebaut: readonly string[], nachgeladen: ReadonlySet<s
  * @param files     Adressen, die bei der Installation vorab geladen werden
  *                  (`dateiListe`)
  */
+/**
+ * Umkehrung von `swQuelle`: Cache-Name und Dateiliste aus einer sw.js.
+ * Gebraucht vom Größenbudget (e2e/budget.spec.ts: was lädt jedes Gerät
+ * vorab?) und von der Nachkontrolle der Veröffentlichung (e2e/live.spec.ts:
+ * liefert die Seite genau diesen Build aus?). `null`, wenn die Datei nicht
+ * von hier stammt.
+ */
+export function swAngaben(quelle: string): { cache: string; dateien: string[] } | null {
+  const cache = quelle.match(/^const CACHE = (".*")$/m)?.[1]
+  const dateien = quelle.match(/^const ASSETS = (\[.*\])$/m)?.[1]
+  if (!cache || !dateien) return null
+  try {
+    const c: unknown = JSON.parse(cache)
+    const d: unknown = JSON.parse(dateien)
+    if (typeof c !== 'string' || !Array.isArray(d) || !d.every((x) => typeof x === 'string')) return null
+    return { cache: c, dateien: d }
+  } catch {
+    return null
+  }
+}
+
 export function swQuelle(cacheName: string, files: string[]): string {
   return `/* Beim Build generiert (src/swQuelle.ts) — nicht von Hand editieren. */
 const CACHE = ${JSON.stringify(cacheName)}

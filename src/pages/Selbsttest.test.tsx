@@ -99,7 +99,7 @@ describe('Zeilen und was sie anbieten', () => {
     ausfuehren.mockResolvedValue([
       { id: 'speicher', gruppe: 'geraet', stufe: 'ok', werte: { ms: 3 } },
       { id: 'dauerhaft', gruppe: 'geraet', stufe: 'hinweis' },
-      { id: 'uhr', gruppe: 'geraet', stufe: 'fehler', variante: 'vor', zahl: 20 },
+      { id: 'uhr', gruppe: 'geraet', stufe: 'fehler', variante: 'vorMinuten', zahl: 20 },
       { id: 'netz', gruppe: 'geraet', stufe: 'offen' },
       { id: 'fingerabdruck', gruppe: 'daten', stufe: 'fehler', zahl: 1, betroffen: ['gr7'] },
       { id: 'doccheckPruefen', gruppe: 'doccheck', stufe: 'ok' },
@@ -153,12 +153,12 @@ describe('Zeilen und was sie anbieten', () => {
 
 describe('Bericht', () => {
   it('kopieren: in die Zwischenablage, ohne Inhalte; ohne Zwischenablage ein Hinweis', async () => {
-    const schreiben = vi.fn(async () => undefined)
+    const schreiben = vi.fn(async (_text: string) => undefined)
     vi.stubGlobal('navigator', { ...navigator, clipboard: { writeText: schreiben } })
     zeichne()
     fireEvent.click(await screen.findByRole('button', { name: /Bericht kopieren/ }))
     await waitFor(() => expect(schreiben).toHaveBeenCalledOnce())
-    const text = schreiben.mock.calls[0][0] as string
+    const text = schreiben.mock.calls[0][0]
     expect(text).toContain('Selbsttest Instructor Connect')
     expect(text).toContain('Programmstand: 89abcdef')
     expect(text).toContain('[in Ordnung] Ablage — Schreiben und Lesen klappt (4 ms).')

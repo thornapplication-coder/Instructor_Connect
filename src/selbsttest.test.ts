@@ -36,7 +36,13 @@ import type { AppState, GradingRecord } from './types'
  *     Bestand, nicht nur an Hilfswerten.
  */
 
-const JETZT = new Date(2026, 10, 4, 12, 0).getTime()
+/*
+ * Der Seed entsteht relativ zur Uhr (seine Formulare sind „vor drei Tagen"
+ * unterschrieben). Wer ihn gegen ein festes Datum prüft, ist nur in dieser
+ * Woche grün — der Zeitsprung-Lauf (src/test/uhr.ts) fand genau das in
+ * diesen Tests. Deshalb hier die Uhr, nicht ein Datum.
+ */
+const JETZT = Date.now()
 const seed = (): AppState => createSeedState()
 const nach = (es: Ergebnis[], id: string) => es.find((e) => e.id === id)!
 
@@ -166,10 +172,14 @@ describe('Gerät', () => {
     expect(fuellstandBewerten(null).stufe).toBe('offen')
   })
 
-  it('Uhr: bis 2 min ok, bis 10 min Hinweis, darüber Fehler — mit Richtung als eigener Satz', () => {
+  it('Uhr: bis 2 min ok, bis 10 min Hinweis, darüber Fehler — Richtung und Einheit als eigener Satz', () => {
     expect(uhrBewerten(90_000)).toEqual({ id: 'uhr', gruppe: 'geraet', stufe: 'ok' })
-    expect(uhrBewerten(5 * 60_000)).toMatchObject({ stufe: 'hinweis', variante: 'vor', zahl: 5 })
-    expect(uhrBewerten(-30 * 60_000)).toMatchObject({ stufe: 'fehler', variante: 'nach', zahl: 30 })
+    expect(uhrBewerten(5 * 60_000)).toMatchObject({ stufe: 'hinweis', variante: 'vorMinuten', zahl: 5 })
+    expect(uhrBewerten(-30 * 60_000)).toMatchObject({ stufe: 'fehler', variante: 'nachMinuten', zahl: 30 })
+    // Ab zwei Stunden in Stunden, ab zwei Tagen in Tagen — „4320 Minuten" las niemand als drei Tage
+    expect(uhrBewerten(-119 * 60_000)).toMatchObject({ variante: 'nachMinuten', zahl: 119 })
+    expect(uhrBewerten(3 * 3600_000)).toMatchObject({ variante: 'vorStunden', zahl: 3 })
+    expect(uhrBewerten(-3 * 86_400_000)).toMatchObject({ variante: 'nachTage', zahl: 3 })
     expect(uhrBewerten(null).stufe).toBe('offen')
     expect(uhrBewerten(Number.NaN).stufe).toBe('offen')
   })
@@ -233,7 +243,7 @@ describe('Zusammenfassung', () => {
   })
 
   it('Satz und Werte: Variante vor Stufe, die Zahl als count', () => {
-    expect(textSchluessel({ id: 'uhr', gruppe: 'geraet', stufe: 'hinweis', variante: 'vor' })).toBe('selbsttest.punkt.uhr.vor')
+    expect(textSchluessel({ id: 'uhr', gruppe: 'geraet', stufe: 'hinweis', variante: 'vorMinuten' })).toBe('selbsttest.punkt.uhr.vorMinuten')
     expect(textSchluessel({ id: 'speicher', gruppe: 'geraet', stufe: 'ok' })).toBe('selbsttest.punkt.speicher.ok')
     expect(textWerte({ id: 'x', gruppe: 'geraet', stufe: 'ok', zahl: 3, werte: { stand: 'a' } })).toEqual({ stand: 'a', count: 3 })
     expect(textWerte({ id: 'x', gruppe: 'geraet', stufe: 'ok' })).toEqual({})

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { runInNewContext } from 'node:vm'
 import { describe, expect, it, vi } from 'vitest'
-import { cacheName, dateiListe, nurNachgeladen, schriftNurBeiBedarf, swQuelle, type BundleTeil } from './swQuelle'
+import { cacheName, dateiListe, nurNachgeladen, schriftNurBeiBedarf, swAngaben, swQuelle, type BundleTeil } from './swQuelle'
 
 /**
  * Ebene 1: der erzeugte Service Worker, ausgeführt in einer eigenen
@@ -496,5 +496,19 @@ describe('cacheName: jede Änderung ein neuer Worker, gleiche Quellen derselbe',
   it('hält Name und Inhalt auseinander', () => {
     expect(cacheName([['ab', 'c']], sha())).not.toBe(cacheName([['a', 'bc']], sha()))
     expect(cacheName([['a', 'x'], ['b', '']], sha())).not.toBe(cacheName([['a', ''], ['b', 'x']], sha()))
+  })
+})
+
+describe('swAngaben: die Umkehrung für Größenbudget und Nachkontrolle', () => {
+  it('liest Cache-Name und Dateiliste aus dem erzeugten Worker zurück', () => {
+    const dateien = ['./', './index.html', './assets/index-"x".js']
+    expect(swAngaben(swQuelle('ic-abc123', dateien))).toEqual({ cache: 'ic-abc123', dateien })
+  })
+
+  it('eine fremde oder kaputte Datei ergibt nichts', () => {
+    expect(swAngaben('self.addEventListener("fetch", () => {})')).toBeNull()
+    expect(swAngaben('const CACHE = "ic"\nconst ASSETS = [kaputt]')).toBeNull()
+    expect(swAngaben('const CACHE = 5\nconst ASSETS = []')).toBeNull()
+    expect(swAngaben('const CACHE = "ic"\nconst ASSETS = [1]')).toBeNull()
   })
 })

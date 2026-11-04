@@ -195,7 +195,12 @@ export async function selbsttestAusfuehren(o: {
   docCheckLader?: DocCheckLader
 }): Promise<Ergebnis[]> {
   const geraet = await geraetPruefen(o.geraet ?? BROWSER)
-  const daten = o.daten ? [...datenPruefen(o.state, o.jetzt), ...(await fingerabdrueckePruefen(o.state.gradingRecords ?? []))] : []
+  // Zeiten im Bestand entstehen mit der Zeit der APP — in der Sandbox
+  // samt Zeitraffer (timeOffsetMs). „In der Zukunft" heißt: nach dieser,
+  // nicht nach der Uhr des Geräts; sonst meldete jeder Zeitraffer Formulare
+  // aus der Zukunft. Die Geräteuhr prüft `uhr` für sich.
+  const appJetzt = o.jetzt + (Number.isFinite(o.state.timeOffsetMs) ? o.state.timeOffsetMs : 0)
+  const daten = o.daten ? [...datenPruefen(o.state, appJetzt), ...(await fingerabdrueckePruefen(o.state.gradingRecords ?? []))] : []
   let docCheck: Ergebnis[] = []
   if (o.docCheck) {
     let probe: (() => Promise<Ergebnis[]>) | null = null

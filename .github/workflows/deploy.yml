@@ -121,6 +121,55 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+    outputs:
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Nachkontrolle der veröffentlichten Seite (e2e/live.spec.ts). Bis hierher
+  # war alles grün, was VOR dem Hochladen geprüft wird — was danach geschah,
+  # sah niemand: Pfad unter GitHub Pages, dessen Cache-Lebensdauer (TEC-01
+  # entstand genau dort), die Kopfzeilen des Hostings. Der Test wartet, bis
+  # die Seite genau DIESEN Build ausliefert (Cache-Name aus einem Build
+  # desselben Commits — reproduzierbar, siehe ci.yml), meldet sich an, lässt
+  # den Selbsttest der App laufen und startet einmal ohne Netz. Rot heißt:
+  # live ist etwas kaputt — die vorige Fassung lässt sich über „Re-run" des
+  # letzten grünen Laufs wiederherstellen.
+  nachkontrolle:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Abhängigkeiten und Browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Erwarteten Stand bauen
+        run: npm run build
+
+      - name: Veröffentlichte Seite prüfen
+        env:
+          LIVE_URL: ${{ needs.deploy.outputs.url }}
+          LIVE_STAND_AUS_DIST: '1'
+        run: npm run live
+
+      - name: Bericht bei Fehlern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nachkontrolle-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 14

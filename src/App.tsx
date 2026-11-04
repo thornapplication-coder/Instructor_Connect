@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react'
+import { lazy, Suspense, useEffect, type ReactNode } from 'react'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { AppFehler, SeitenFehler } from './components/Fehlerseite'
 import { SandboxBar } from './components/SandboxBar'
@@ -8,6 +8,14 @@ import { SessionBanner } from './components/SessionBanner'
 import { UpdateBanner } from './components/UpdateBanner'
 import { SelbsttestWaechter } from './components/SelbsttestWaechter'
 import { ToastHost } from './components/Toast'
+
+/*
+ * Der Selbsttest lädt nach: Er gehört nicht zum ersten Bild, und mit ihm
+ * stand das Startbundle über der Warnschwelle des Builds (807 statt 777 kB,
+ * vite.config.ts). Offline bleibt er erreichbar — der Chunk liegt nicht
+ * unter src/modules/ und damit im Vorab-Cache (nurNachgeladen, swQuelle.ts).
+ */
+const Selbsttest = lazy(() => import('./pages/Selbsttest').then((m) => ({ default: m.Selbsttest })))
 import { Admin } from './pages/Admin'
 import { ChatInfo } from './pages/ChatInfo'
 import { ChatList } from './pages/ChatList'
@@ -25,7 +33,6 @@ import { Notes } from './pages/Notes'
 import { Imprint } from './pages/Imprint'
 import { InstructorInfo } from './pages/InstructorInfo'
 import { Login } from './pages/Login'
-import { Selbsttest } from './pages/Selbsttest'
 import { WhoToCall } from './pages/WhoToCall'
 import { navigate, useRoute } from './router'
 import { DocCheckRoute } from './modules/doccheck'
@@ -103,7 +110,12 @@ function Screen() {
   else if (route === '/notes') page = <Notes />
   else if (route === '/logbook') page = <Logbook />
   else if (route === '/feedback') page = <Feedback />
-  else if (route === '/selbsttest') page = <Selbsttest />
+  else if (route === '/selbsttest')
+    page = (
+      <Suspense fallback={null}>
+        <Selbsttest />
+      </Suspense>
+    )
   // DocCheck: Ohne Berechtigung fuehrt auch die Adresszeile nicht hinein.
   else if (route === '/doccheck') page = docCheckRolle === 'keine' ? <Home unknownRoute /> : <DocCheckRoute />
   // #/admin/<bereich>[/<unterbereich>] — die Verwaltung ist adressierbar

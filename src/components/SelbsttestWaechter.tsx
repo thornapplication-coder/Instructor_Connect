@@ -2,8 +2,6 @@ import { ShieldAlert, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { navigate } from '../router'
-import { streifenMeldungen } from '../selbsttest'
-import { laufMerken, selbsttestAusfuehren, startPruefungFaellig } from '../selbsttestGeraet'
 import { useStore } from '../store'
 
 /**
@@ -29,16 +27,19 @@ export function SelbsttestWaechter({ aktiv = true, verzoegerungMs = START_VERZOE
 
   useEffect(() => {
     setMeldung(null)
-    if (!aktiv || !nutzerId || !startPruefungFaellig(Date.now())) return
+    if (!aktiv || !nutzerId) return
     let stop = false
-    const uhr = setTimeout(() => {
+    // Die Prüflogik lädt erst hier nach — sie gehört nicht ins Startbundle
+    // (App.tsx). Der Chunk liegt im Vorab-Cache, auch offline da.
+    const uhr = setTimeout(async () => {
+      const [{ laufMerken, selbsttestAusfuehren, startPruefungFaellig }, { streifenMeldungen }] = await Promise.all([import('../selbsttestGeraet'), import('../selbsttest')])
       const jetzt = Date.now()
-      void selbsttestAusfuehren({ state: stateRef.current, jetzt, daten: darfDaten, docCheck: false }).then((es) => {
-        if (stop) return
-        laufMerken(es, jetzt)
-        const m = streifenMeldungen(es, darfDaten)
-        if (m.length) setMeldung(m.some((e) => e.gruppe === 'geraet') ? 'geraet' : 'daten')
-      })
+      if (stop || !startPruefungFaellig(jetzt)) return
+      const es = await selbsttestAusfuehren({ state: stateRef.current, jetzt, daten: darfDaten, docCheck: false })
+      if (stop) return
+      laufMerken(es, jetzt)
+      const m = streifenMeldungen(es, darfDaten)
+      if (m.length) setMeldung(m.some((e) => e.gruppe === 'geraet') ? 'geraet' : 'daten')
     }, verzoegerungMs)
     return () => {
       stop = true

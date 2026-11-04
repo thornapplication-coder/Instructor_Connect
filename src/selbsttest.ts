@@ -221,6 +221,8 @@ export function fuellstandBewerten(info: { usage: number; quota: number } | null
  * Unterschriftszeit eines Formulars kommt vom Gerät — geht dessen Uhr
  * falsch, steht eine falsche Zeit im behördlichen Nachweis.
  */
+const STUNDE_MS = 3600_000
+const TAG_MS = 24 * STUNDE_MS
 export const UHR_HINWEIS_MS = 2 * 60_000
 export const UHR_FEHLER_MS = 10 * 60_000
 
@@ -228,11 +230,13 @@ export function uhrBewerten(abweichungMs: number | null): Ergebnis {
   if (abweichungMs === null || !Number.isFinite(abweichungMs)) return { id: 'uhr', gruppe: 'geraet', stufe: 'offen' }
   const a = Math.abs(abweichungMs)
   const stufe: Stufe = a > UHR_FEHLER_MS ? 'fehler' : a > UHR_HINWEIS_MS ? 'hinweis' : 'ok'
-  // Gerundet auf Minuten — Sekunden sind hier Rauschen (Laufzeit der
-  // Anfrage, Auflösung des Kopfs). Vor- und Nachgehen als eigene Sätze:
-  // „vor"/„ahead" ist kein Wert, den man in einen Satz einsetzt.
+  // Vor- und Nachgehen als eigene Sätze: „vor"/„ahead" ist kein Wert, den
+  // man in einen Satz einsetzt. Die Einheit wächst mit: „4320 Minuten" las
+  // niemand als drei Tage. Sekunden sind Rauschen (Laufzeit der Anfrage,
+  // Auflösung des Kopfs).
   if (stufe === 'ok') return { id: 'uhr', gruppe: 'geraet', stufe }
-  return { id: 'uhr', gruppe: 'geraet', stufe, variante: abweichungMs > 0 ? 'vor' : 'nach', zahl: Math.round(a / 60_000) }
+  const [einheit, zahl] = a >= 2 * TAG_MS ? ['Tage', Math.round(a / TAG_MS)] : a >= 2 * STUNDE_MS ? ['Stunden', Math.round(a / STUNDE_MS)] : ['Minuten', Math.round(a / 60_000)]
+  return { id: 'uhr', gruppe: 'geraet', stufe, variante: `${abweichungMs > 0 ? 'vor' : 'nach'}${einheit}`, zahl }
 }
 
 /**

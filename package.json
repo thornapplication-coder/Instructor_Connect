@@ -1,7 +1,7 @@
 {
   "name": "aaa-connect",
   "private": true,
-  "version": "1.27.0",
+  "version": "1.28.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,6 +10,8 @@
     "test": "vitest run --coverage",
     "test:watch": "vitest",
     "e2e": "playwright test",
+    "pruefen": "npm test && npm run build && npm run e2e",
+    "live": "playwright test -c playwright.live.config.ts",
     "benchmark": "vitest run src/modules/doccheck/benchmark/qualitaet.test.ts --reporter=verbose"
   },
   "dependencies": {

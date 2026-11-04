@@ -1,0 +1,132 @@
+name: Nachtlauf (Selbsttests)
+
+# Jede Nacht, auch wenn niemand etwas ändert. Was hier rot wird, hat sich
+# nicht im Code geändert, sondern in der Welt:
+#  - die Zeit: Ein Datumsfehler, der nur an der Umstellung auf Sommerzeit,
+#    zu Silvester oder am 29. Februar zuschlägt, und ein Test, der nur
+#    „heute" grün ist. Der Zeitsprung-Lauf stellt die Uhr der Suite auf
+#    diese Tage (src/test/uhr.ts) — EXM-01 war genau so ein Fehler. Er fand
+#    beim Einbau sofort zwei Tests, die nur in der Woche ihres Entstehens
+#    grün gewesen wären.
+#  - die Abhängigkeiten: neue Schwachstellen in Paketen, die gestern noch
+#    sauber waren.
+#  - die veröffentlichte Seite: Zertifikat, Hosting, CDN — die Nachkontrolle
+#    aus deploy.yml, gegen die Seite, wie sie heute ausgeliefert wird.
+# GitHub benachrichtigt bei einem roten Lauf per E-Mail.
+on:
+  schedule:
+    # 02:23 UTC = 03:23/04:23 in Wien — nicht zur vollen Stunde (Lastspitze)
+    - cron: '23 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nachtlauf
+  cancel-in-progress: true
+
+jobs:
+  pruefung:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Tests
+        run: |
+          npm ci
+          npm test
+      - name: Bekannte Schwachstellen (Laufzeit-Abhängigkeiten)
+        run: npm audit --omit=dev --audit-level=high
+      # Entwicklungswerkzeuge laufen nicht auf den Geräten — eine Meldung dort
+      # steht im Lauf, hält ihn aber nicht an (ci.yml begründet die Trennung).
+      - name: Bekannte Schwachstellen (alle Abhängigkeiten, nur Hinweis)
+        continue-on-error: true
+        run: npm audit --audit-level=high
+      - name: Typen prüfen und bauen
+        run: npm run build
+
+  zeitsprung:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Ortszeit Wien mit Versatz. Vergangene Tage bleiben gültig: Eine
+        # Umstellung ist eine Umstellung, auch wenn sie schon war.
+        uhr:
+          - '2026-12-31T23:59:30+01:00' # Silvester, eine halbe Minute vor dem Jahreswechsel
+          - '2027-03-28T01:59:30+01:00' # Beginn der Sommerzeit: 02:00 fällt aus
+          - '2027-10-31T02:59:30+02:00' # Ende der Sommerzeit: 02:00–03:00 doppelt
+          - '2027-01-31T23:59:30+01:00' # Monatsende vor einem kurzen Monat
+          - '2028-02-29T12:00:00+01:00' # Schalttag
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Suite zum Zeitpunkt ${{ matrix.uhr }}
+        env:
+          TEST_UHR: ${{ matrix.uhr }}
+        run: |
+          npm ci
+          npx vitest run
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Abhängigkeiten und Browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Ebene 3 (Playwright)
+        run: npm run e2e
+      - name: Bericht bei Fehlern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nachtlauf-e2e-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Abhängigkeiten und Browser
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      # Adresse der Projektseite: <owner>.github.io/<repo>/ (Inhaber klein).
+      - name: Veröffentlichte Seite prüfen
+        run: |
+          export LIVE_URL="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/${GITHUB_REPOSITORY#*/}/"
+          echo "Prüfe $LIVE_URL"
+          npm run live
+      - name: Bericht bei Fehlern
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nachtlauf-live-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7

@@ -112,13 +112,13 @@ export function Selbsttest() {
           </div>
           {zeit !== null && <p className="text-micro text-dim">{t('selbsttest.letzterLauf', { zeit: formatDateTime(zeit) })}</p>}
           <div className="flex flex-wrap gap-tight">
-            <Button onClick={() => void pruefen()} disabled={laeuft}>
+            <Button className="flex items-center gap-1.5" onClick={() => void pruefen()} disabled={laeuft}>
               <RefreshCw size={15} aria-hidden /> {t('selbsttest.start')}
             </Button>
-            <Button variant="ghost" onClick={kopieren} disabled={!ergebnisse}>
+            <Button variant="ghost" className="flex items-center gap-1.5" onClick={kopieren} disabled={!ergebnisse}>
               <ClipboardCopy size={15} aria-hidden /> {t('selbsttest.kopieren')}
             </Button>
-            <Button variant="ghost" onClick={herunterladen} disabled={!ergebnisse}>
+            <Button variant="ghost" className="flex items-center gap-1.5" onClick={herunterladen} disabled={!ergebnisse}>
               <Download size={15} aria-hidden /> {t('selbsttest.herunterladen')}
             </Button>
           </div>

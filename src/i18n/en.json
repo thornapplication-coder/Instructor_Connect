@@ -607,10 +607,18 @@
       "uhr": {
         "name": "Clock",
         "ok": "Matches the server time.",
-        "vor_one": "The device clock is {{count}} minute ahead. Signature times would be wrong. Set the time automatically.",
-        "vor_other": "The device clock is {{count}} minutes ahead. Signature times would be wrong. Set the time automatically.",
-        "nach_one": "The device clock is {{count}} minute behind. Signature times would be wrong. Set the time automatically.",
-        "nach_other": "The device clock is {{count}} minutes behind. Signature times would be wrong. Set the time automatically.",
+        "vorMinuten_one": "The device clock is {{count}} minute ahead. Signature times would be wrong. Set the time automatically.",
+        "vorMinuten_other": "The device clock is {{count}} minutes ahead. Signature times would be wrong. Set the time automatically.",
+        "vorStunden_one": "The device clock is {{count}} hour ahead. Signature times would be wrong. Set the time automatically.",
+        "vorStunden_other": "The device clock is {{count}} hours ahead. Signature times would be wrong. Set the time automatically.",
+        "vorTage_one": "The device clock is {{count}} day ahead. Signature times would be wrong. Set the time automatically.",
+        "vorTage_other": "The device clock is {{count}} days ahead. Signature times would be wrong. Set the time automatically.",
+        "nachMinuten_one": "The device clock is {{count}} minute behind. Signature times would be wrong. Set the time automatically.",
+        "nachMinuten_other": "The device clock is {{count}} minutes behind. Signature times would be wrong. Set the time automatically.",
+        "nachStunden_one": "The device clock is {{count}} hour behind. Signature times would be wrong. Set the time automatically.",
+        "nachStunden_other": "The device clock is {{count}} hours behind. Signature times would be wrong. Set the time automatically.",
+        "nachTage_one": "The device clock is {{count}} day behind. Signature times would be wrong. Set the time automatically.",
+        "nachTage_other": "The device clock is {{count}} days behind. Signature times would be wrong. Set the time automatically.",
         "offen": "Cannot be checked without network."
       },
       "offline": {

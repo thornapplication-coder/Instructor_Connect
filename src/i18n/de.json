@@ -607,10 +607,18 @@
       "uhr": {
         "name": "Uhrzeit",
         "ok": "Stimmt mit der Serverzeit überein.",
-        "vor_one": "Die Uhr des Geräts geht {{count}} Minute vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
-        "vor_other": "Die Uhr des Geräts geht {{count}} Minuten vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
-        "nach_one": "Die Uhr des Geräts geht {{count}} Minute nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
-        "nach_other": "Die Uhr des Geräts geht {{count}} Minuten nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "vorMinuten_one": "Die Uhr des Geräts geht {{count}} Minute vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "vorMinuten_other": "Die Uhr des Geräts geht {{count}} Minuten vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "vorStunden_one": "Die Uhr des Geräts geht {{count}} Stunde vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "vorStunden_other": "Die Uhr des Geräts geht {{count}} Stunden vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "vorTage_one": "Die Uhr des Geräts geht {{count}} Tag vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "vorTage_other": "Die Uhr des Geräts geht {{count}} Tage vor. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "nachMinuten_one": "Die Uhr des Geräts geht {{count}} Minute nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "nachMinuten_other": "Die Uhr des Geräts geht {{count}} Minuten nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "nachStunden_one": "Die Uhr des Geräts geht {{count}} Stunde nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "nachStunden_other": "Die Uhr des Geräts geht {{count}} Stunden nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "nachTage_one": "Die Uhr des Geräts geht {{count}} Tag nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
+        "nachTage_other": "Die Uhr des Geräts geht {{count}} Tage nach. Unterschriftszeiten wären falsch. Uhrzeit automatisch stellen lassen.",
         "offen": "Ohne Netz nicht prüfbar."
       },
       "offline": {

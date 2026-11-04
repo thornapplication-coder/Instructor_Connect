@@ -142,6 +142,73 @@ Maschine: In der CI (UTC) ist der UTC-Tag der Ortstag, und ein Datum aus
 andere braucht (westlich von Greenwich), setzt sie im Test selbst und stellt
 sie danach zurück (Audit 11/2026, Nachtrag L-AUSGABE#2, R3-E2E-ZEITZONE).
 
+## Selbsttests (1.28.0)
+
+Zwei Seiten derselben Frage „funktioniert es?" — für den Code bei jedem
+Push, für das Gerät im Betrieb.
+
+**In der Pipeline** (zusätzlich zu Ebene 1–3):
+- **Nachkontrolle nach jeder Veröffentlichung** (`deploy.yml`, Job
+  `nachkontrolle`, `e2e/live.spec.ts`, `playwright.live.config.ts`,
+  `npm run live` mit `LIVE_URL`): wartet, bis GitHub Pages genau DIESEN
+  Build ausliefert (Cache-Name aus `dist/sw.js` eines Builds desselben
+  Commits, `swAngaben` in `swQuelle.ts` — der Build ist reproduzierbar),
+  meldet sich an, lässt den Selbsttest der App laufen und startet ohne Netz.
+  Was vor dem Hochladen geprüft wird, sah den Pfad und die Cache-Lebensdauer
+  des Hostings nie (TEC-01 entstand genau dort). `e2e/hilfen.ts` öffnet
+  deshalb relativ (`./`), nicht `/`.
+- **Nachtlauf** (`nachtlauf.yml`, täglich 02:23 UTC): `npm test`, volle
+  Schwachstellenprüfung (Entwicklungswerkzeuge nur als Hinweis), Ebene 3,
+  die veröffentlichte Seite — und der **Zeitsprung-Lauf**: die ganze Suite
+  zu Silvester, an beiden Zeitumstellungen, am Monatsende und am Schalttag
+  (`TEST_UHR`, `src/test/uhr.ts`, in beiden Vitest-Projekten als
+  `setupFiles`). Er fand beim Einbau zwei Tests, die den Seed gegen ein
+  festes Datum prüften und nur in ihrer Woche grün gewesen wären: **Wer
+  `createSeedState()` prüft, rechnet mit `Date.now()`, nicht mit einem
+  Datum** — der Seed entsteht relativ zur Uhr.
+- **Größenbudget** (`src/groessenBudget.ts`, gemessen in
+  `e2e/budget.spec.ts` am Build): Startdateien ≤ 280 kB gzip, Vorab-Cache
+  ≤ 1,5 MB. Die Warnschwelle von Vite (800 kB je Chunk) meldet nur. Beim
+  Einbau stand das Startbundle mit dem Selbsttest bei 807 kB — Seite und
+  Prüflogik laden deshalb nach (`lazy` in `App.tsx`, `import()` im Wächter;
+  außerhalb von `src/modules/`, also im Vorab-Cache).
+- `npm run pruefen` = Tests, Build, Ebene 3 in einem Befehl — vor dem Push.
+
+**In der App** (`#/selbsttest`, Link in der Fußzeile der Startseite):
+- Regeln in `src/selbsttest.ts` (Ebene 1), Messungen in
+  `src/selbsttestGeraet.ts` (Ebene 2), DocCheck-Probe in
+  `modules/doccheck/selbsttest.ts`. Stufen: `ok`, `hinweis`, `fehler`,
+  `offen` — **nicht Prüfbares ist `offen`, nie grün** (ohne Netz, API fehlt,
+  Altbestand ohne Fingerabdruck), und es wird gezählt, nicht verschwiegen.
+- **Gerät:** Ablage schreiben/lesen (`speicherProbe`, eigener Schlüssel,
+  Zeitgrenze), dauerhafte Ablage, Füllstand (Schwellen wie der
+  Speicherstreifen), Netz, **Uhr gegen den `Date`-Kopf des Servers**
+  (`serverProbe` per HEAD, am Service Worker vorbei; die Unterschriftszeit
+  kommt vom Gerät), **Offline-Start** (der Service Worker beantwortet
+  `SELBSTTEST` mit Stand und Zahl fehlender Vorab-Dateien — von außen ließe
+  sich das nur raten), Version (`reg.update()`), Browser-Funktionen.
+- **Datenbestand** (nur Superadmin): dieselben Zusagen, die die Schreibwege
+  einzeln durchsetzen (letzter Superadmin, eindeutige Adresse, Muster,
+  Gruppen, DocCheck nur für Admin-Rollen, Pflichtlisten), Zeiten in der
+  Zukunft (gegen die Zeit der APP — der Sandbox-Zeitraffer erzeugt keine
+  „Zukunft") und **alle Fingerabdrücke**: `fingerabdruckPruefen` in
+  `docHash.ts` ist dieselbe Regel wie in der Formularansicht.
+- **DocCheck** (mit DocCheck-Rolle): ein künstliches PDF mit eingebautem
+  „TBD" durch den echten Worker, mit eigener Verbindung (`eigeneVerbindung`,
+  erscheint in keiner Sitzung). Kommt der Befund nicht, ist das ein Fehler —
+  „keine Befunde" ist hier verdächtig.
+- **Kurz-Check beim Start** (`SelbsttestWaechter`, im Stapel unten):
+  einmal je Kalendertag und Gerät, 8 s nach dem Laden, ohne DocCheck;
+  meldet nur Fehler, den Datenbestand nur dem Superadmin. In Ebene 1/2 aus
+  (`aktiv`), in Ebene 3 trägt `anmelden` ihn als erledigt ein — ein Test mit
+  festgehaltener Uhr sähe sonst zu Recht eine falsche Geräteuhr;
+  `selbsttest.spec.ts` prüft ihn mit `startPruefung: true`.
+- Der Bericht (kopieren/herunterladen) trägt Prüfpunkte, Stufen, Zahlen und
+  Kennungen — keine Namen, keine Inhalte.
+- Jeder Satz hat GENAU eine Zahl (`zahl` → `{{count}}`); Gründe derselben
+  Stufe sind eigene Sätze (`variante`), auch die Einheit der Uhrabweichung
+  (Minuten, ab 2 h Stunden, ab 2 Tagen Tage).
+
 ## DocCheck (`src/modules/doccheck/`)
 
 Eigenes Modul nach der Spezifikation `DocCheck_Spezifikation_v1_1.md`,

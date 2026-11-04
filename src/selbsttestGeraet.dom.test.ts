@@ -170,7 +170,7 @@ describe('alle Geräteprüfungen', () => {
 
   it('Uhr 20 Minuten vor: Fehler', async () => {
     const es = await geraetPruefen({ ...gesund, server: async () => ({ erreichbar: true, datum: new Date(0).toUTCString(), gesendet: 20 * 60_000, empfangen: 20 * 60_000 }) })
-    expect(es.find((e) => e.id === 'uhr')).toMatchObject({ stufe: 'fehler', variante: 'vor', zahl: 20 })
+    expect(es.find((e) => e.id === 'uhr')).toMatchObject({ stufe: 'fehler', variante: 'vorMinuten', zahl: 20 })
   })
 })
 
@@ -183,7 +183,8 @@ describe('der ganze Lauf', () => {
     server: async () => ({ erreichbar: false, datum: null, gesendet: 0, empfangen: 0 }),
     sw: async () => ({ offline: null, version: null }),
   }
-  const JETZT = new Date(2026, 10, 4, 12).getTime()
+  // Wie der Seed: relativ zur Uhr, nicht zu einem festen Datum (Zeitsprung-Lauf)
+  const JETZT = Date.now()
 
   it('nur das Gerät, wenn weder Datenbestand noch DocCheck freigegeben sind', async () => {
     const es = await selbsttestAusfuehren({ state: createSeedState(), jetzt: JETZT, daten: false, docCheck: false, geraet })
@@ -196,6 +197,15 @@ describe('der ganze Lauf', () => {
     expect(es.filter((e) => e.gruppe === 'daten').map((e) => e.id)).toEqual(['superadmin', 'adressen', 'muster', 'gruppenVerweise', 'ohneGruppe', 'doccheckRegel', 'struktur', 'zeiten', 'fingerabdruck', 'altbestand'])
     expect(probe).toHaveBeenCalledOnce()
     expect(es.at(-1)).toEqual({ id: 'doccheckPruefen', gruppe: 'doccheck', stufe: 'ok' })
+  })
+
+  it('Zeiten im Bestand gegen die Zeit der App — der Sandbox-Zeitraffer erzeugt keine „Zukunft"', async () => {
+    const st = createSeedState()
+    const vorgespult = { ...st, timeOffsetMs: 31 * 86_400_000 }
+    vorgespult.gradingRecords = [{ ...st.gradingRecords[0], signedAt: JETZT + 30 * 86_400_000 }, ...st.gradingRecords.slice(1)]
+    const zeiten = async (s: typeof st) => (await selbsttestAusfuehren({ state: s, jetzt: JETZT, daten: true, docCheck: false, geraet })).find((e) => e.id === 'zeiten')!.stufe
+    expect(await zeiten(vorgespult)).toBe('ok')
+    expect(await zeiten({ ...vorgespult, timeOffsetMs: 0 })).toBe('hinweis')
   })
 
   it('lässt sich DocCheck nicht laden (offline, nie geöffnet): nicht prüfbar, nicht rot', async () => {

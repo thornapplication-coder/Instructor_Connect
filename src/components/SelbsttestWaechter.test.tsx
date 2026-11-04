@@ -44,6 +44,8 @@ const zeichne = (aktiv = true, nutzer = 'u-patrick') => {
   )
 }
 const warten = (ms: number) => act(async () => vi.advanceTimersByTimeAsync(ms))
+/** Die Prüflogik lädt per import() nach — das braucht echte Runden der Ereignisschleife, nicht nur vorgespulte Zeit. */
+const bis = (f: () => void) => act(async () => vi.waitFor(f))
 
 describe('wann der Kurz-Check läuft', () => {
   it('erst nach der Verzögerung, ohne DocCheck, und gemerkt für den Tag', async () => {
@@ -51,6 +53,7 @@ describe('wann der Kurz-Check läuft', () => {
     await warten(7000)
     expect(ausfuehren).not.toHaveBeenCalled()
     await warten(1500)
+    await bis(() => expect(localStorage.getItem('aaa-selbsttest-letzter')).not.toBeNull())
     expect(ausfuehren).toHaveBeenCalledOnce()
     expect(ausfuehren.mock.calls[0][0]).toMatchObject({ daten: true, docCheck: false })
     expect(JSON.parse(localStorage.getItem('aaa-selbsttest-letzter')!)).toMatchObject({ stufe: 'ok' })
@@ -72,12 +75,12 @@ describe('wann der Kurz-Check läuft', () => {
 describe('was er meldet', () => {
   it('Fehler am Gerät: roter Streifen; „Ansehen" führt zur Seite und schließt ihn', async () => {
     ausfuehren.mockResolvedValue([
-      { id: 'uhr', gruppe: 'geraet', stufe: 'fehler', variante: 'vor', zahl: 30 },
+      { id: 'uhr', gruppe: 'geraet', stufe: 'fehler', variante: 'vorMinuten', zahl: 30 },
       { id: 'dauerhaft', gruppe: 'geraet', stufe: 'hinweis' },
     ])
     zeichne()
     await warten(8100)
-    expect(screen.getByRole('alert')).toHaveTextContent('Selbsttest: Auf diesem Gerät stimmt etwas nicht.')
+    await bis(() => expect(screen.getByRole('alert')).toHaveTextContent('Selbsttest: Auf diesem Gerät stimmt etwas nicht.'))
     fireEvent.click(screen.getByRole('button', { name: 'Ansehen' }))
     expect(window.location.hash).toBe('#/selbsttest')
     expect(screen.queryByRole('alert')).toBeNull()
@@ -87,6 +90,7 @@ describe('was er meldet', () => {
     ausfuehren.mockResolvedValue([{ id: 'dauerhaft', gruppe: 'geraet', stufe: 'hinweis' }])
     zeichne()
     await warten(8100)
+    await bis(() => expect(localStorage.getItem('aaa-selbsttest-letzter')).not.toBeNull())
     expect(screen.queryByRole('alert')).toBeNull()
   })
 
@@ -94,7 +98,7 @@ describe('was er meldet', () => {
     ausfuehren.mockResolvedValue([{ id: 'fingerabdruck', gruppe: 'daten', stufe: 'fehler', zahl: 1, betroffen: ['gr7'] }])
     zeichne()
     await warten(8100)
-    expect(screen.getByRole('alert')).toHaveTextContent('Selbsttest: Im Datenbestand ist ein Fehler.')
+    await bis(() => expect(screen.getByRole('alert')).toHaveTextContent('Selbsttest: Im Datenbestand ist ein Fehler.'))
     fireEvent.click(screen.getByRole('button', { name: 'Hinweis des Selbsttests schließen' }))
     expect(screen.queryByRole('alert')).toBeNull()
   })
@@ -102,6 +106,7 @@ describe('was er meldet', () => {
   it('ein Mitglied prüft den Datenbestand nicht mit', async () => {
     zeichne(true, 'u-michael')
     await warten(8100)
+    await bis(() => expect(ausfuehren).toHaveBeenCalled())
     expect(ausfuehren.mock.calls[0][0]).toMatchObject({ daten: false, docCheck: false })
   })
 
@@ -110,6 +115,7 @@ describe('was er meldet', () => {
     ausfuehren.mockReturnValue(new Promise((ok) => (fertig = ok)))
     const { unmount } = zeichne()
     await warten(8100)
+    await bis(() => expect(ausfuehren).toHaveBeenCalled())
     unmount()
     await act(async () => fertig([{ id: 'speicher', gruppe: 'geraet', stufe: 'fehler' }]))
     expect(localStorage.getItem('aaa-selbsttest-letzter')).toBeNull()
