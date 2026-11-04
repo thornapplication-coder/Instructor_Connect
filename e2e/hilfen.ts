@@ -102,6 +102,22 @@ export async function seiteOeffnen(page: Page, pfad: string): Promise<void> {
   await fokusAngekommen(page)
 }
 
+/**
+ * Wartet, bis der Service Worker die Seite steuert. Beim ersten Besuch lädt er
+ * erst den Vorab-Cache und übernimmt die Seite danach (`clients.claim`,
+ * src/swQuelle.ts) — vorher gibt es keinen Start ohne Netz, und der Selbsttest
+ * nennt „Programmstand" zu Recht „nicht prüfbar". Ein festes Neuladen reichte
+ * gegen vite preview, nicht gegen GitHub Pages: Die erste Nachkontrolle von
+ * 1.28.0 war genau daran rot, der Vorab-Cache war beim Selbsttest noch nicht
+ * geladen.
+ */
+export async function swKontrolliert(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready
+    if (!navigator.serviceWorker.controller) await new Promise((ok) => navigator.serviceWorker.addEventListener('controllerchange', ok, { once: true }))
+  })
+}
+
 /** DocCheck öffnen und den Hinweis der Sitzung bestätigen (Spez. 5.5 Nr. 2). */
 export async function docCheckOeffnen(page: Page): Promise<void> {
   await page.goto('/#/doccheck')

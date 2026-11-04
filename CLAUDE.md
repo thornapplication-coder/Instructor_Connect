@@ -127,6 +127,15 @@ prüfen, nicht der Code anzupassen**, bis er zum Test passt.
   TEC-01). Wer einen Test ergänzt: Was als Logik prüfbar ist,
   gehört in Ebene 1 — jeder Browser-Test kostet Sekunden und bricht bei
   Textänderungen.
+  **Erst handeln, wenn die Seite steht** (`e2e/hilfen.ts`): `anmelden`
+  wartet auf den Fokus der Überschrift (`fokusAngekommen`), ein
+  Seitenwechsel per Adresse geht über `seiteOeffnen`, wer den Service
+  Worker braucht, wartet mit `swKontrolliert` auf seine Übernahme. Der
+  Router fokussiert ein Bild später, End rollt in Chrome animiert, der
+  Vorab-Cache lädt beim ersten Besuch — alle drei machten Tests nur auf
+  dem langsameren Runner bzw. gegen GitHub Pages rot (1.27.0/1.28.0,
+  lokal nachgestellt). Ein fester Neulade- oder Wartezeitpunkt ist keine
+  Bedingung.
 
 Die Trennung der Ebenen ist Absicht: Liefe Ebene 1 ebenfalls unter `jsdom`,
 könnte ein Logik-Modul unbemerkt vom DOM abhängig werden und der Lauf bliebe
@@ -153,7 +162,11 @@ Push, für das Gerät im Betrieb.
   `npm run live` mit `LIVE_URL`): wartet, bis GitHub Pages genau DIESEN
   Build ausliefert (Cache-Name aus `dist/sw.js` eines Builds desselben
   Commits, `swAngaben` in `swQuelle.ts` — der Build ist reproduzierbar),
-  meldet sich an, lässt den Selbsttest der App laufen und startet ohne Netz.
+  meldet sich an, wartet, bis der Service Worker die Seite übernommen hat,
+  lässt den Selbsttest der App laufen und startet ohne Netz. Ihr erster Lauf
+  (1.28.0) war rot, weil sie nur neu lud: Gegen GitHub Pages lag der
+  Vorab-Cache beim Selbsttest noch nicht bereit, „Programmstand" stand zu
+  Recht auf „nicht prüfbar".
   Was vor dem Hochladen geprüft wird, sah den Pfad und die Cache-Lebensdauer
   des Hostings nie (TEC-01 entstand genau dort). `e2e/hilfen.ts` öffnet
   deshalb relativ (`./`), nicht `/`.

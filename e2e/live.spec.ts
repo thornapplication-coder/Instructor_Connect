@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { swAngaben } from '../src/swQuelle'
-import { anmelden, expect, test } from './hilfen'
+import { anmelden, expect, swKontrolliert, test } from './hilfen'
 
 /**
  * Nachkontrolle der veröffentlichten Seite (playwright.live.config.ts).
@@ -32,7 +32,7 @@ test('veröffentlichte Seite: richtiger Stand, Anmeldung, Selbsttest ohne Fehler
   }
 
   await anmelden(page)
-  await page.reload()
+  await swKontrolliert(page)
   await page.goto('./#/selbsttest')
   const kopf = page.locator('main [role=status]')
   await expect(kopf).not.toContainText('Prüfung läuft', { timeout: 120_000 })
