@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { darf, docCheckRolle, kachelZahl, RECHECK_JE_AUFRUF, RECHECK_STATUS, recheckAudit, recheckEintraege, rechteAudit, rechteSetzen, rollenAudit } from './access'
+import { darf, docCheckBereinigt, docCheckMoeglich, docCheckRolle, kachelZahl, rechteErlaubt, RECHECK_JE_AUFRUF, RECHECK_STATUS, recheckAudit, recheckEintraege, rechteAudit, rechteSetzen, rollenAudit } from './access'
 import type { DocCheckAktion, DocCheckRolle } from './types'
 
 const nutzer = (role: 'superadmin' | 'group_admin' | 'training_admin' | 'member', flags: { a?: boolean; d?: boolean } = {}, active = true) => ({
@@ -21,18 +21,63 @@ describe('docCheckRolle', () => {
   })
 
   it('Admin-Schalter ohne Zugang wirkt nicht', () => {
-    expect(docCheckRolle(nutzer('member', { d: true }))).toBe('keine')
+    expect(docCheckRolle(nutzer('group_admin', { d: true }))).toBe('keine')
   })
 
-  it('Zugang → Nutzer, Zugang + Admin → Admin', () => {
-    expect(docCheckRolle(nutzer('member', { a: true }))).toBe('nutzer')
-    expect(docCheckRolle(nutzer('member', { a: true, d: true }))).toBe('admin')
+  it('Zugang → Nutzer, Zugang + Admin → Admin — bei Gruppen- und Training-Admin', () => {
+    expect(docCheckRolle(nutzer('group_admin', { a: true }))).toBe('nutzer')
+    expect(docCheckRolle(nutzer('group_admin', { a: true, d: true }))).toBe('admin')
+    expect(docCheckRolle(nutzer('training_admin', { a: true }))).toBe('nutzer')
+    expect(docCheckRolle(nutzer('training_admin', { a: true, d: true }))).toBe('admin')
   })
 
   it('deaktivierte Konten und fehlende Nutzer haben keine Rolle', () => {
     expect(docCheckRolle(nutzer('superadmin', {}, false))).toBe('keine')
     expect(docCheckRolle(null)).toBe('keine')
     expect(docCheckRolle(undefined)).toBe('keine')
+  })
+})
+
+/**
+ * Entscheidung vom 04.11.2026: DocCheck nur für Admin-Rollen. Vorher hatte
+ * in der Sandbox ein Instruktor (Mika, Mitglied) Zugang zu vertraulichen
+ * Herstellerunterlagen, und ein zum Mitglied herabgestufter Admin behielt
+ * ihn still. Dieselbe Regel steht in der Datenbank (rls.test.ts).
+ */
+describe('DocCheck nur für Admin-Rollen (Entscheidung vom 04.11.2026)', () => {
+  it('jede Rolle außer Mitglied kann Zugang bekommen', () => {
+    expect((['superadmin', 'group_admin', 'training_admin', 'member'] as const).map(docCheckMoeglich)).toEqual([true, true, true, false])
+  })
+
+  it('beim Mitglied wirkt kein Schalter — auch kein gespeicherter aus einem alten Stand', () => {
+    expect(docCheckRolle(nutzer('member', { a: true }))).toBe('keine')
+    expect(docCheckRolle(nutzer('member', { a: true, d: true }))).toBe('keine')
+  })
+
+  it('Vergeben an ein Mitglied wird abgelehnt, Entfernen geht immer', () => {
+    expect(rechteErlaubt('member', { docCheckAccess: true, docCheckAdmin: false })).toBe(false)
+    expect(rechteErlaubt('member', { docCheckAccess: true, docCheckAdmin: true })).toBe(false)
+    expect(rechteErlaubt('member', { docCheckAccess: false, docCheckAdmin: false })).toBe(true)
+    expect(rechteErlaubt('group_admin', { docCheckAccess: true, docCheckAdmin: true })).toBe(true)
+    expect(rechteErlaubt('training_admin', { docCheckAccess: true, docCheckAdmin: false })).toBe(true)
+  })
+
+  it('bereinigt nimmt dem Mitglied die Schalter — sonst gaebe die naechste Befoerderung den Zugang still zurueck', () => {
+    const mika = { id: 'u-michael', role: 'member' as const, active: true, docCheckAccess: true, docCheckAdmin: true }
+    const neu = docCheckBereinigt(mika)
+    expect(neu).toEqual({ ...mika, docCheckAccess: false, docCheckAdmin: false })
+    expect(mika.docCheckAccess).toBe(true) // das Original bleibt unberuehrt
+    expect(docCheckRolle({ ...neu, role: 'group_admin' })).toBe('keine')
+  })
+
+  it('bereinigt laesst alles andere als DASSELBE Objekt stehen (migrateState meldet sonst bei jedem Start eine Aenderung)', () => {
+    const ohne = { role: 'member' as const, active: true }
+    const leer = { role: 'member' as const, active: true, docCheckAccess: false, docCheckAdmin: false }
+    const chris = { role: 'group_admin' as const, active: true, docCheckAccess: true, docCheckAdmin: true }
+    const sam = { role: 'training_admin' as const, active: true, docCheckAccess: true }
+    for (const u of [ohne, leer, chris, sam]) expect(docCheckBereinigt(u)).toBe(u)
+    // Auch ein Admin-Schalter ohne Zugang zaehlt beim Mitglied als Rest
+    expect(docCheckBereinigt({ role: 'member' as const, docCheckAdmin: true })).toEqual({ role: 'member', docCheckAccess: false, docCheckAdmin: false })
   })
 })
 
@@ -126,16 +171,22 @@ describe('rollenAudit', () => {
   it('Herabstufen und Deaktivieren erzeugen ihre Zeile', () => {
     const alex = { role: 'superadmin' as const, active: true }
     expect(rollenAudit(alex, { ...alex, role: 'member' }, ctx).map((e) => e.wert)).toEqual(['superadmin → keine'])
+    // Gruppenadmin → Mitglied nimmt DocCheck (Entscheidung vom 04.11.2026).
+    // Hier stand vorher die Zusage „kein Ereignis, DocCheck haengt an den
+    // Schaltern, nicht an der Rolle" — sie ist mit Absicht aufgegeben.
+    expect(rollenAudit(chris, { ...chris, role: 'member' }, ctx).map((e) => e.wert)).toEqual(['admin → keine'])
     expect(rollenAudit(chris, { ...chris, active: false }, ctx).map((e) => e.wert)).toEqual(['admin → keine'])
     expect(rollenAudit({ ...chris, active: false }, chris, ctx).map((e) => e.wert)).toEqual(['keine → admin'])
   })
 
   it('ein Wechsel ohne DocCheck-Wirkung erzeugt keine Zeile', () => {
-    // Mitglied → Gruppenadmin: DocCheck haengt an den Schaltern, nicht an
-    // dieser Rolle. Ohne Zugang bleibt deaktivieren ebenfalls „keine".
-    expect(rollenAudit(chris, { ...chris, role: 'member' }, ctx)).toEqual([])
+    // Ohne Zugang aendern Befoerdern, Herabstufen und Deaktivieren nichts:
+    // „keine" bleibt „keine". Zugang gibt erst set_rights, mit eigener Zeile.
+    const mika = { role: 'member' as const, active: true }
+    expect(rollenAudit(mika, { ...mika, role: 'group_admin' }, ctx)).toEqual([])
     const sam = { role: 'training_admin' as const, active: true }
     expect(rollenAudit(sam, { ...sam, active: false }, ctx)).toEqual([])
+    expect(rollenAudit(sam, { ...sam, role: 'member' }, ctx)).toEqual([])
   })
 
   it('ein neues Konto zaehlt von „keine" aus', () => {

@@ -12,7 +12,8 @@ import { StoreProvider, useStore } from './store'
  * nicht, oder umgekehrt).
  *
  * Angemeldet ist Alex (Superadmin, example.test). Der Seed: Chris (Admin,
- * CL30), Mika (Mitglied, C560 XLS+), Sam (Training Admin, kein Chat).
+ * CL30, DocCheck admin), Mika (Mitglied, C560 XLS+, kein DocCheck), Sam
+ * (Training Admin, kein Chat, DocCheck access).
  */
 
 let laden: ReturnType<typeof useStore> | null = null
@@ -188,18 +189,18 @@ describe('Rollenwechsel im DocCheck-Protokoll (VERW-15)', () => {
   it('Befoerdern, Herabstufen und Deaktivieren schreiben je eine Zeile mit dem Handelnden', () => {
     act(() => store().updateUser('u-christian', { role: 'superadmin' }))
     act(() => store().updateUser('u-christian', { role: 'group_admin' }))
-    act(() => store().updateUser('u-michael', { active: false }))
+    act(() => store().updateUser('u-max', { active: false }))
     expect(zeilen().map((a) => [a.ziel, a.wert, a.von])).toEqual([
-      ['u-michael', 'nutzer → keine', 'u-patrick'],
+      ['u-max', 'nutzer → keine', 'u-patrick'],
       ['u-christian', 'superadmin → admin', 'u-patrick'],
       ['u-christian', 'admin → superadmin', 'u-patrick'],
     ])
   })
 
   it('ohne DocCheck-Wirkung keine Zeile', () => {
-    // Sam hat kein DocCheck; Training Admin → Mitglied aendert daran nichts.
-    act(() => store().updateUser('u-max', { role: 'member' }))
-    expect(nutzer('u-max').role).toBe('member')
+    // Mika hat kein DocCheck; Mitglied → Gruppenadmin aendert daran nichts.
+    act(() => store().updateUser('u-michael', { role: 'group_admin' }))
+    expect(nutzer('u-michael').role).toBe('group_admin')
     expect(zeilen()).toEqual([])
   })
 
@@ -215,6 +216,37 @@ describe('Rollenwechsel im DocCheck-Protokoll (VERW-15)', () => {
       [neu('import.super@example.test'), 'keine → superadmin'],
       [neu('neu.super@example.test'), 'keine → superadmin'],
     ])
+  })
+})
+
+describe('DocCheck nur für Admin-Rollen (Entscheidung vom 04.11.2026)', () => {
+  const protokoll = () => (store().state.docCheck?.audit ?? []).map((a) => [a.aktion, a.ziel, a.wert])
+
+  it('einem Mitglied gibt der Store DocCheck nicht — Zugang wie Admin, ohne Protokollzeile', () => {
+    act(() => store().setDocCheckRights('u-michael', { docCheckAccess: true }))
+    act(() => store().setDocCheckRights('u-michael', { docCheckAdmin: true }))
+    expect(nutzer('u-michael')).toMatchObject({ role: 'member' })
+    expect(nutzer('u-michael').docCheckAccess).toBeFalsy()
+    expect(nutzer('u-michael').docCheckAdmin).toBeFalsy()
+    expect(protokoll()).toEqual([])
+  })
+
+  it('Herabstufen auf Mitglied nimmt DocCheck samt Schaltern — die Befoerderung gibt es nicht still zurueck', () => {
+    act(() => store().updateUser('u-max', { role: 'member' }))
+    expect(nutzer('u-max')).toMatchObject({ role: 'member', docCheckAccess: false, docCheckAdmin: false })
+    act(() => store().updateUser('u-max', { role: 'training_admin' }))
+    expect(nutzer('u-max')).toMatchObject({ role: 'training_admin', docCheckAccess: false })
+    expect(protokoll()).toEqual([['rolle', 'u-max', 'nutzer → keine']])
+    // Danach vergibt der Superadmin ihn wieder ausdruecklich — mit eigener Zeile
+    act(() => store().setDocCheckRights('u-max', { docCheckAccess: true }))
+    expect(nutzer('u-max').docCheckAccess).toBe(true)
+    expect(protokoll()[0]).toEqual(['zugang', 'u-max', 'false → true'])
+  })
+
+  it('Admin-Rollen bekommen DocCheck wie bisher', () => {
+    act(() => store().setDocCheckRights('u-max', { docCheckAdmin: true }))
+    expect(nutzer('u-max')).toMatchObject({ docCheckAccess: true, docCheckAdmin: true })
+    expect(protokoll()).toEqual([['admin', 'u-max', 'false → true']])
   })
 })
 

@@ -49,12 +49,14 @@ test.describe('Startseite ohne verwaiste Kachel', () => {
     expect(await page.evaluate(() => scrollY)).toBe(0)
   })
 
-  test('Training Admin (zwei Kacheln): eine volle Reihe, kein leeres Feld daneben', async ({ page }) => {
+  // Seit DocCheck den Admin-Rollen vorbehalten ist, hat Sam ab Werk Zugang
+  // (Entscheidung vom 04.11.2026): drei Kacheln statt zwei.
+  test('Training Admin (drei Kacheln): eine volle Reihe, kein leeres Feld daneben', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
     await anmelden(page, 'training.admin@aviationacademy.at')
-    await expect(page.locator('main .grid > button')).toHaveCount(2)
-    expect(await kachelReihen(page)).toEqual([2])
-    // Die Reihe füllt das Raster — sonst stünden die zwei links in einer Viererreihe.
+    await expect(page.locator('main .grid > button')).toHaveCount(3)
+    expect(await kachelReihen(page)).toEqual([3])
+    // Die Reihe füllt das Raster — sonst stünden die drei links in einer Fünferreihe.
     const m = await page.locator('main .grid').evaluate((g) => {
       const r = g.getBoundingClientRect()
       const letzte = g.lastElementChild!.getBoundingClientRect()
