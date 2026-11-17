@@ -173,6 +173,39 @@ describe('migrateState — Zusagen, die bisher niemand geprueft hat', () => {
   })
 })
 
+/**
+ * Entscheidung vom 04.11.2026: DocCheck nur für Admin-Rollen. Ein Gerät mit
+ * altem Stand hat Mika (Mitglied) noch mit „DocCheck access" gespeichert.
+ * Der Haken wirkt nicht mehr — er muss aber auch aus dem Datensatz, sonst
+ * gäbe ihn die nächste Beförderung still zurück.
+ */
+describe('migrateState — DocCheck nur für Admin-Rollen', () => {
+  const mitHaken = () => {
+    const st = createSeedState()
+    st.users = st.users.map((u) => (u.id === 'u-michael' ? { ...u, docCheckAccess: true, docCheckAdmin: true } : u))
+    return st
+  }
+
+  it('nimmt dem Mitglied die Schalter, Admins behalten ihre', () => {
+    const neu = migrateState(mitHaken())
+    const u = (id: string) => neu.users.find((x) => x.id === id)!
+    expect(u('u-michael')).toMatchObject({ docCheckAccess: false, docCheckAdmin: false })
+    expect(u('u-christian')).toMatchObject({ docCheckAccess: true, docCheckAdmin: true })
+    expect(u('u-max')).toMatchObject({ docCheckAccess: true })
+  })
+
+  it('braucht keine Marke: Der zweite Lauf ändert nichts mehr', () => {
+    const einmal = migrateState(mitHaken())
+    expect(migrateState(einmal)).toBe(einmal)
+  })
+
+  it('der Seed hält die Regel schon ein — Mika ohne, Sam mit Zugang', () => {
+    const seed = createSeedState()
+    expect(seed.users.filter((u) => u.role === 'member').every((u) => !u.docCheckAccess && !u.docCheckAdmin)).toBe(true)
+    expect(seed.users.find((u) => u.id === 'u-max')).toMatchObject({ role: 'training_admin', docCheckAccess: true })
+  })
+})
+
 describe('migrateState — Schulungsarten der Lesson Plans', () => {
   it('traegt die Liste nach, wenn sie fehlt', () => {
     // Im alten Schema gab es sie nicht; ohne Nachtrag stuende das

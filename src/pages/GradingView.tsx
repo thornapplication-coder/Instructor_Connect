@@ -1,6 +1,6 @@
 import { AlertTriangle, CheckCircle2, Clock, Printer, RefreshCw } from 'lucide-react'
 import { Fragment, useEffect, useState } from 'react'
-import { contentFingerprint, HASH_VERSION, shortFingerprint } from '../docHash'
+import { contentFingerprint, fingerabdruckPruefen, HASH_VERSION, shortFingerprint } from '../docHash'
 import { networkReachable } from '../net'
 import { useUnsavedWork } from '../editGuard'
 import { SignaturePad } from '../components/SignaturePad'
@@ -41,11 +41,9 @@ export function GradingView({ recordId, autoPrint = false }: { recordId: string;
     setHashState(null)
     if (!record?.contentHash) return
     let stop = false
-    // Mit DER Fassung nachrechnen, unter der das Dokument entstanden ist —
-    // sonst meldet jede spätere Erweiterung der Feldliste den gesamten
-    // Altbestand als „nachträglich geändert".
-    void contentFingerprint({ ...record, contentHash: undefined }, record.hashVersion ?? 1).then((h) => {
-      if (!stop) setHashState(h === record.contentHash ? 'ok' : 'bad')
+    // Dieselbe Regel wie der Selbsttest (fingerabdruckPruefen, docHash.ts).
+    void fingerabdruckPruefen(record).then((e) => {
+      if (!stop) setHashState(e === 'ok' ? 'ok' : 'bad')
     })
     return () => {
       stop = true

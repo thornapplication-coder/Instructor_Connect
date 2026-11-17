@@ -171,6 +171,44 @@ describe('Speichern', () => {
   })
 })
 
+/*
+ * Kein Schreibvorgang darf seine Testdatei überleben (Veröffentlichung
+ * 1.26.0): Synchrone Tests ließen der IndexedDB-Nachbildung keinen Takt, ein
+ * Vorgang lief nach dem Abbau der Umgebung zu Ende und fand kein `window`.
+ * `src/test/setup.ts` wartet deshalb vor dem Abbau hierauf.
+ */
+describe('Laufende Schreibvorgänge abwarten', () => {
+  it('ohne laufende Vorgänge: sofort fertig', async () => {
+    const p = await frischesModul()
+    await expect(p.schreibvorgaengeAbwarten()).resolves.toBeUndefined()
+  })
+
+  it('wartet auf begonnene Vorgänge — danach steht der jüngste Stand in der Ablage', async () => {
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    let fertig = 0
+    void p.persistState('{"n":1}').then(() => fertig++)
+    void p.persistState('{"n":2}').then(() => fertig++)
+    expect(fertig).toBe(0)
+    await p.schreibvorgaengeAbwarten()
+    expect(fertig).toBe(2)
+    const p2 = await frischesModul()
+    await p2.preloadPersistedState()
+    expect(p2.readPreloadedState()).toBe('{"n":2}')
+  })
+
+  it('auch ein gescheiterter Vorgang gilt als abgeschlossen', async () => {
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(() => {
+      throw new Error('voll')
+    })
+    const vorgang = p.persistState('{"x":1}')
+    await p.schreibvorgaengeAbwarten()
+    await expect(vorgang).resolves.toBe(false)
+  })
+})
+
 describe('Sicherungen beim Versionssprung', () => {
   it('legt den alten Stand unter einem eigenen Schlüssel ab', async () => {
     const p = await frischesModul()
@@ -840,5 +878,72 @@ describe('Speichern klappt wieder — der Streifen darf gehen (Audit 11/2026, TE
     await expect(p.persistState('{"neu":true}')).resolves.toBe(false)
     expect(ok).not.toHaveBeenCalled()
     window.removeEventListener(p.STORAGE_OK_EVENT, ok)
+  })
+})
+
+/**
+ * Selbsttest: die Ablage proben, ohne den Bestand anzufassen — eigener
+ * Schlüssel, danach wieder weg, mit Zeitgrenze gegen eine hängende Datenbank.
+ */
+describe('Speicherprobe (Selbsttest)', () => {
+  it('schreibt, liest und löscht ihren eigenen Schlüssel — der Bestand bleibt', async () => {
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    await p.persistState('{"bestand":1}')
+    const probe = await p.speicherProbe()
+    expect(probe.ok).toBe(true)
+    expect(probe.ms).toBeGreaterThanOrEqual(0)
+    // Nur der Bestand liegt noch da
+    const p2 = await frischesModul()
+    await p2.preloadPersistedState()
+    expect(p2.readPreloadedState()).toBe('{"bestand":1}')
+    const db = await new Promise<IDBDatabase>((ok) => {
+      const r = indexedDB.open('instructor-connect', 1)
+      r.onsuccess = () => ok(r.result)
+    })
+    const keys = await new Promise<IDBValidKey[]>((ok) => {
+      const r = db.transaction('kv').objectStore('kv').getAllKeys()
+      r.onsuccess = () => ok(r.result)
+    })
+    db.close()
+    expect(keys).not.toContain(p.PROBE_KEY)
+  })
+
+  it('auf der Rückfallebene (ohne IndexedDB) probt sie localStorage', async () => {
+    vi.spyOn(indexedDB, 'open').mockImplementation(() => {
+      throw new Error('kaputt')
+    })
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    expect((await p.speicherProbe()).ok).toBe(true)
+    expect(localStorage.getItem(p.PROBE_KEY)).toBeNull()
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceeded')
+    })
+    expect((await p.speicherProbe()).ok).toBe(false)
+  })
+
+  it('scheitert die Datenbank, ist die Probe gescheitert — kein Wurf', async () => {
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation(() => {
+      throw new Error('Plattenfehler')
+    })
+    expect((await p.speicherProbe()).ok).toBe(false)
+  })
+
+  it('hängt die Datenbank, endet die Probe an der Zeitgrenze', async () => {
+    const p = await frischesModul()
+    await p.preloadPersistedState()
+    // Eine Transaktion, die nie fertig wird
+    vi.spyOn(IDBDatabase.prototype, 'transaction').mockImplementation((() => ({ objectStore: () => ({ put: () => ({}) }) })) as unknown as IDBDatabase['transaction'])
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
+    try {
+      const probe = p.speicherProbe()
+      await vi.advanceTimersByTimeAsync(p.PROBE_ZEITGRENZE_MS + 10)
+      expect((await probe).ok).toBe(false)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

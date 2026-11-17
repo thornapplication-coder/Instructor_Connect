@@ -16,7 +16,7 @@ import { schalteStumm } from './chatMute'
 import { einzelAenderung } from './benutzerRegeln'
 import { domainErlaubt, domainListe, domainSperre } from './domains'
 import { importPlanen, type ImportEingabe } from './userImport'
-import { darf, docCheckRolle, kachelZahl, recheckAudit, rechteAudit, rechteSetzen, rollenAudit, type RecheckEintrag } from './modules/doccheck/access'
+import { darf, docCheckBereinigt, docCheckRolle, kachelZahl, recheckAudit, rechteAudit, rechteErlaubt, rechteSetzen, rollenAudit, type RecheckEintrag } from './modules/doccheck/access'
 import { einstellungen as docCheckEinstellungen } from './modules/doccheck/settings'
 import { faelligeErinnerungen, offeneEmpfehlungen, SANDBOX_DOKUMENTE, SANDBOX_EMPFEHLUNGEN } from './modules/doccheck/library'
 import type { DocCheckAuditEintrag, DocCheckFlags, DocCheckRolle, DocCheckSettings, DocCheckState } from './modules/doccheck/types'
@@ -910,6 +910,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           const ziel = s.users.find((u) => u.id === userId)
           if (!ziel) return null
           const neu = rechteSetzen(ziel, wunsch)
+          // DocCheck nur fuer Admin-Rollen (Entscheidung vom 04.11.2026) —
+          // die Ansicht zeigt beim Mitglied keine Kaestchen, die Sperre steht
+          // trotzdem hier, wie in set_rights der Datenbank.
+          if (!rechteErlaubt(ziel.role, neu)) return null
           const zeilen = rechteAudit(ziel, neu, { von: s.currentUserId!, ziel: userId, at: Date.now() + s.timeOffsetMs, id: () => uid('dca') })
           if (!zeilen.length) return null
           const dc = s.docCheck ?? DC_LEER
@@ -1325,12 +1329,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // fehlte ganz, anders als in profiles_guard (VERW-01/VERW-10).
           const { patch: erlaubt } = einzelAenderung(s.users, target, safe, s.currentUserId, { groups: s.groups, settings: s.settings })
           if (Object.keys(erlaubt).length === 0) return null
-          const users = s.users.map((u) => (u.id === id ? { ...u, ...erlaubt } : u))
+          // Wer zum Mitglied wird, verliert DocCheck — auch die Schalter, nicht
+          // nur ihre Wirkung: Sonst gaebe die naechste Befoerderung den Zugang
+          // still zurueck (Entscheidung vom 04.11.2026, wie
+          // profiles_guard_mitglied in der Datenbank).
+          const nachher = docCheckBereinigt({ ...target, ...erlaubt })
+          const users = s.users.map((u) => (u.id === id ? nachher : u))
           // Rolle oder Status koennen die DocCheck-Rolle aendern (Superadmin =
-          // DocCheck-Superadmin, deaktiviert = keine). Das ist eine
-          // Rechteaenderung und gehoert ins DocCheck-Protokoll — vorher stand
-          // sie nirgends (Audit 11/2026, VERW-15).
-          const zeilen = rollenAudit(target, { ...target, ...erlaubt }, { von: s.currentUserId ?? '', ziel: id, at: Date.now() + s.timeOffsetMs, id: () => uid('dca') })
+          // DocCheck-Superadmin, Mitglied oder deaktiviert = keine). Das ist
+          // eine Rechteaenderung und gehoert ins DocCheck-Protokoll — vorher
+          // stand sie nirgends (Audit 11/2026, VERW-15).
+          const zeilen = rollenAudit(target, nachher, { von: s.currentUserId ?? '', ziel: id, at: Date.now() + s.timeOffsetMs, id: () => uid('dca') })
           const dc = s.docCheck ?? DC_LEER
           const protokoll = zeilen.length ? { docCheck: { ...dc, audit: [...zeilen, ...dc.audit] } } : {}
           // Wer deaktiviert wird, verliert seine Sitzung — in der Sandbox ist

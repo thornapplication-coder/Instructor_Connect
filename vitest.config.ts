@@ -55,6 +55,8 @@ export default defineConfig({
         test: {
           name: 'logik',
           environment: 'node',
+          // Zeitsprung-Lauf (TEST_UHR) — ohne die Variable wirkungslos
+          setupFiles: ['./src/test/uhr.ts'],
           include: ['src/**/*.test.ts'],
           // Ebene 2 hat eigene Endungen, damit die Zuordnung am Dateinamen
           // ablesbar ist statt in einer Liste zu stehen.
@@ -66,7 +68,7 @@ export default defineConfig({
         test: {
           name: 'ebene2',
           environment: 'jsdom',
-          setupFiles: ['./src/test/setup.ts'],
+          setupFiles: ['./src/test/uhr.ts', './src/test/setup.ts'],
           include: ['src/**/*.dom.test.ts', 'src/**/*.test.tsx'],
         },
       },

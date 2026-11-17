@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { anmelden, cspAbweisungen, docCheckOeffnen, expect, test } from './hilfen'
+import { anmelden, cspAbweisungen, docCheckOeffnen, expect, seiteOeffnen, test } from './hilfen'
 
 /**
  * Barrierefreiheit im echten Browser — was Ebene 2 nicht sehen kann, weil
@@ -42,7 +42,7 @@ test.describe('Fokusführung (Audit 11/2026, A11Y-03/A11Y-17)', () => {
 
   test('Dialog mit Eingabefeld: Escape bringt den Fokus zurück auf den Auslöser', async ({ page }) => {
     await anmelden(page)
-    await page.goto('/#/notes')
+    await seiteOeffnen(page, '/#/notes')
     const oeffner = page.getByRole('button', { name: 'Neue Notiz' })
     await oeffner.focus()
     await page.keyboard.press('Enter')
@@ -252,7 +252,7 @@ async function axeVerstoesse(page: Page): Promise<string[]> {
 
 /** Seite laden und warten, bis ihre Überschrift steht — axe liefe sonst über den Ladezustand. */
 async function seite(page: Page, pfad: string) {
-  await page.goto(pfad)
+  await seiteOeffnen(page, pfad)
   await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
 }
 
@@ -328,6 +328,13 @@ test('Einstellungen: Shift+Tab hält nie unter einer festen Leiste', async ({ pa
   await anmelden(page)
   await seite(page, '/#/admin/settings')
   await page.keyboard.press('End')
+  // End rollt in Chrome animiert (nachgemessen: 0 → 179 → 1528 → 1692 px in
+  // rund 120 ms). Fokussiert der Gang, solange die Animation läuft, zieht sie
+  // die Ansicht unter dem eben fokussierten Feld weiter nach unten:
+  // „Feedback-CC-Empfänger" stand bei 434 px und 400 ms später bei −91 px —
+  // fokussiert, aber außerhalb des Bildes. So war der Test im CI rot, ohne
+  // dass eine Leiste etwas verdeckte. Erst wenn die Seite steht, geht es los.
+  await expect.poll(() => page.evaluate(() => Math.ceil(scrollY + innerHeight) >= document.documentElement.scrollHeight - 1)).toBe(true)
   await page.locator('main').evaluate(() => {
     const alle = [...document.querySelectorAll<HTMLElement>('main button, main input, main select, main textarea, main a[href]')]
     alle.at(-1)?.focus()

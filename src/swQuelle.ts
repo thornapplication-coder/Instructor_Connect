@@ -174,6 +174,27 @@ export function dateiListe(gebaut: readonly string[], nachgeladen: ReadonlySet<s
  * @param files     Adressen, die bei der Installation vorab geladen werden
  *                  (`dateiListe`)
  */
+/**
+ * Umkehrung von `swQuelle`: Cache-Name und Dateiliste aus einer sw.js.
+ * Gebraucht vom Größenbudget (e2e/budget.spec.ts: was lädt jedes Gerät
+ * vorab?) und von der Nachkontrolle der Veröffentlichung (e2e/live.spec.ts:
+ * liefert die Seite genau diesen Build aus?). `null`, wenn die Datei nicht
+ * von hier stammt.
+ */
+export function swAngaben(quelle: string): { cache: string; dateien: string[] } | null {
+  const cache = quelle.match(/^const CACHE = (".*")$/m)?.[1]
+  const dateien = quelle.match(/^const ASSETS = (\[.*\])$/m)?.[1]
+  if (!cache || !dateien) return null
+  try {
+    const c: unknown = JSON.parse(cache)
+    const d: unknown = JSON.parse(dateien)
+    if (typeof c !== 'string' || !Array.isArray(d) || !d.every((x) => typeof x === 'string')) return null
+    return { cache: c, dateien: d }
+  } catch {
+    return null
+  }
+}
+
 export function swQuelle(cacheName: string, files: string[]): string {
   return `/* Beim Build generiert (src/swQuelle.ts) — nicht von Hand editieren. */
 const CACHE = ${JSON.stringify(cacheName)}
@@ -203,8 +224,23 @@ self.addEventListener('activate', (e) => {
 
 // Die UpdateBanner-Komponente schickt SKIP_WAITING, wenn der Nutzer
 // "Aktualisieren" antippt — erst dann übernimmt die neue Version.
+//
+// SELBSTTEST (src/selbsttestGeraet.ts): Der Worker sagt selbst, welcher
+// Stand er ist und wie viele seiner Vorab-Dateien im Cache fehlen. Von
+// außen ließe sich das nur raten — die Seite kennt die Dateiliste nicht, und
+// ein Abruf von sw.js liefe durch diesen Worker. Fehlt etwas, startet die
+// App ohne Netz nicht oder halb.
 self.addEventListener('message', (e) => {
-  if (e.data && e.data.type === 'SKIP_WAITING') self.skipWaiting()
+  if (!e.data) return
+  if (e.data.type === 'SKIP_WAITING') self.skipWaiting()
+  else if (e.data.type === 'SELBSTTEST' && e.ports && e.ports[0]) {
+    const port = e.ports[0]
+    caches
+      .open(CACHE)
+      .then((c) => Promise.all(ASSETS.map((u) => c.match(u, OHNE_VARY).then((hit) => (hit ? 0 : 1)))))
+      .then((f) => port.postMessage({ cache: CACHE, gesamt: ASSETS.length, fehlend: f.reduce((a, b) => a + b, 0) }))
+      .catch(() => port.postMessage({ cache: CACHE, gesamt: ASSETS.length, fehlend: ASSETS.length }))
+  }
 })
 
 // Nur vollständige, fehlerfreie Antworten VOM EIGENEN Server cachen — ein

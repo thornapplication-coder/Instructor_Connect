@@ -46,14 +46,17 @@ function seedState(now: number): AppState {
     users: [
       { id: 'u-patrick', name: 'Alex Beispiel', email: 'alex.beispiel@example.test', phone: '+43 1 5550 401', role: 'superadmin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
       { id: 'u-christian', name: 'Chris Beispiel', email: 'chris.beispiel@example.test', phone: '+43 1 5550 402', role: 'group_admin', canEditDirectory: true, canGrade: true, isTrainee: false, aircraftTypes: ['CL30'], docCheckAccess: true, docCheckAdmin: true, active: true },
-      { id: 'u-michael', name: 'Mika Beispiel', email: 'mika.beispiel@example.test', phone: '+43 1 5550 403', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['C560 XLS+'], docCheckAccess: true, active: true },
+      { id: 'u-michael', name: 'Mika Beispiel', email: 'mika.beispiel@example.test', phone: '+43 1 5550 403', role: 'member', canEditDirectory: false, canGrade: true, isTrainee: false, aircraftTypes: ['C560 XLS+'], active: true },
       // Der Training Admin fuehrt Muster, obwohl seine Sicht nicht daran
       // haengt (er steht in OHNE_SCHRANKE). Hier stand als Begruendung, er
       // saehe sonst nichts — das war schlicht falsch und beim Gegenlesen
       // aufgefallen. Der echte Grund ist ein anderer: Wird die Rolle spaeter
       // auf Mitglied herabgestuft, greift die Musterpflicht, und ohne
       // Zuordnung liesse `updateUser` die Herabstufung gar nicht zu.
-      { id: 'u-max', name: 'Sam Beispiel', email: 'training.admin@aviationacademy.at', phone: '+43 1 5550 300', role: 'training_admin', canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], active: true },
+      // DocCheck nur fuer Admin-Rollen (Entscheidung vom 04.11.2026): Sam
+      // zeigt den einfachen Zugang, Chris den DocCheck-Admin, Alex hat ihn
+      // automatisch. Mika ist Instruktor und bekommt ihn nicht.
+      { id: 'u-max', name: 'Sam Beispiel', email: 'training.admin@aviationacademy.at', phone: '+43 1 5550 300', role: 'training_admin', canEditDirectory: false, canGrade: false, isTrainee: false, aircraftTypes: ['CL30', 'C560 XLS+'], docCheckAccess: true, active: true },
     ],
     groups: [
       {

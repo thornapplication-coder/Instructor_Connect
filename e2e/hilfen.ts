@@ -54,11 +54,22 @@ export const SUPERADMIN = 'alex.beispiel@example.test'
  * bestätigen. Nur die Sprache wird vorher gesetzt — sie ist eine Vorliebe,
  * keine Sitzung.
  */
-export async function anmelden(page: Page, email = SUPERADMIN): Promise<void> {
+export async function anmelden(page: Page, email = SUPERADMIN, { startPruefung = false }: { startPruefung?: boolean } = {}): Promise<void> {
   await page.addInitScript(() => {
     if (!localStorage.getItem('aaa-lang')) localStorage.setItem('aaa-lang', 'de')
   })
-  await page.goto('/')
+  // Der Kurz-Check beim Start (SelbsttestWaechter) gilt hier als heute
+  // erledigt: Ein Test, der die Uhr festhält (formular.spec.ts), sähe sonst
+  // nach Sekunden zu Recht eine falsche Geräteuhr — und einen roten Streifen
+  // über dem, was er gerade prüft. Den Check selbst prüft selbsttest.spec.ts
+  // mit `startPruefung: true`.
+  if (!startPruefung)
+    await page.addInitScript(() => {
+      localStorage.setItem('aaa-selbsttest-letzter', JSON.stringify({ zeit: Date.now(), stufe: 'ok' }))
+    })
+  // Relativ zur Basisadresse, nicht zum Wurzelpfad: Die veröffentlichte Seite
+  // liegt unter /Instructor_Connect/ (live.spec.ts); „/" führte dort ins Leere.
+  await page.goto('./')
   await page.getByLabel('E-Mail-Adresse').fill(email)
   await page.getByRole('button', { name: 'Anmelden', exact: true }).click()
   const hinweis = await page.getByText(/Sandbox: dein Code lautet \d{6}/).textContent()
@@ -66,6 +77,45 @@ export async function anmelden(page: Page, email = SUPERADMIN): Promise<void> {
   await page.getByLabel('6-stelliger Code').fill(code)
   await page.getByRole('button', { name: 'Bestätigen und anmelden' }).click()
   await expect(page.getByRole('button', { name: 'Anmelden', exact: true })).toHaveCount(0)
+  await fokusAngekommen(page)
+}
+
+/**
+ * Wartet, bis die Seite ihren Fokus gesetzt hat — nach der Anmeldung und nach
+ * jedem Seitenwechsel die Überschrift (`data-page-heading`, src/fokus.ts).
+ *
+ * Der Router legt ihn ein Bild später dorthin (requestAnimationFrame in
+ * router.tsx). Ein Test, der vorher selbst fokussiert, verliert den Fokus an
+ * die Überschrift; drückt er dann Enter, fällt die Taste ins Leere. Auf dem
+ * CI-Runner geschah genau das (barrierefreiheit.spec.ts, „Escape bringt den
+ * Fokus zurück", rot auf main bei 1.26.1 und in beiden PRs danach), lokal
+ * nachgestellt mit einem um 20–30 ms verzögerten Bild. Ein Mensch drückt keine
+ * Taste innerhalb eines Bildes — der Test soll es auch nicht.
+ */
+export async function fokusAngekommen(page: Page): Promise<void> {
+  await expect.poll(() => page.evaluate(() => document.activeElement?.matches('[data-page-heading]') ?? false)).toBe(true)
+}
+
+/** Seitenwechsel über die Adresse, danach wie ein Mensch erst weiter, wenn die Seite steht. */
+export async function seiteOeffnen(page: Page, pfad: string): Promise<void> {
+  await page.goto(pfad)
+  await fokusAngekommen(page)
+}
+
+/**
+ * Wartet, bis der Service Worker die Seite steuert. Beim ersten Besuch lädt er
+ * erst den Vorab-Cache und übernimmt die Seite danach (`clients.claim`,
+ * src/swQuelle.ts) — vorher gibt es keinen Start ohne Netz, und der Selbsttest
+ * nennt „Programmstand" zu Recht „nicht prüfbar". Ein festes Neuladen reichte
+ * gegen vite preview, nicht gegen GitHub Pages: Die erste Nachkontrolle von
+ * 1.28.0 war genau daran rot, der Vorab-Cache war beim Selbsttest noch nicht
+ * geladen.
+ */
+export async function swKontrolliert(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await navigator.serviceWorker.ready
+    if (!navigator.serviceWorker.controller) await new Promise((ok) => navigator.serviceWorker.addEventListener('controllerchange', ok, { once: true }))
+  })
 }
 
 /** DocCheck öffnen und den Hinweis der Sitzung bestätigen (Spez. 5.5 Nr. 2). */
@@ -85,12 +135,23 @@ export async function gespeicherterStand(page: Page): Promise<Pick<AppState, 'us
         const rq = indexedDB.open('instructor-connect', 1)
         rq.onerror = () => fehler(rq.error)
         rq.onsuccess = () => {
-          const g = rq.result.transaction('kv').objectStore('kv').get('aaa-state')
-          g.onerror = () => fehler(g.error)
-          g.onsuccess = () => {
-            const roh = JSON.parse(g.result as string)
-            const stand = roh.state ?? roh
-            fertig({ users: stand.users, gradingRecords: stand.gradingRecords })
+          // Ein Wurf im Rückruf beendete das Versprechen nie — wer vor dem
+          // ersten Schreiben fragte (expect.poll), wartete bis zum Zeitlimit.
+          try {
+            const g = rq.result.transaction('kv').objectStore('kv').get('aaa-state')
+            g.onerror = () => fehler(g.error)
+            g.onsuccess = () => {
+              if (typeof g.result !== 'string') return fehler(new Error('noch kein Stand gespeichert'))
+              try {
+                const roh = JSON.parse(g.result)
+                const stand = roh.state ?? roh
+                fertig({ users: stand.users, gradingRecords: stand.gradingRecords })
+              } catch (e) {
+                fehler(e)
+              }
+            }
+          } catch (e) {
+            fehler(e)
           }
         }
       }),

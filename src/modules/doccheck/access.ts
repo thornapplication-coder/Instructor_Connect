@@ -20,13 +20,48 @@ interface NutzerLike extends DocCheckFlags {
   active: boolean
 }
 
+/**
+ * DocCheck ist den Admin-Rollen vorbehalten (Entscheidung vom 04.11.2026):
+ * Superadmin, Gruppenadmin und Training Admin können Zugang bekommen, ein
+ * Mitglied (Instruktor) nie. Die Spezifikation (3.4) hatte den Zugang von
+ * der Rolle getrennt; in der Sandbox hatte deshalb ein Instruktor Zugang zu
+ * vertraulichen Herstellerunterlagen, und ein zum Mitglied herabgestufter
+ * Admin behielt ihn still. Eine Absprache „nie an Instruktoren" hielt das
+ * nicht — ein Haken, den man nie setzen darf, sollte es nicht geben.
+ *
+ * Dieselbe Regel steht in der Datenbank (Prüfregel auf profiles,
+ * `doccheck.rolle_aus`, `set_rights`); `src/backend/rls.test.ts` hält beide
+ * gegeneinander.
+ */
+export function docCheckMoeglich(role: Role): boolean {
+  return role !== 'member'
+}
+
 export function docCheckRolle(u: NutzerLike | null | undefined): DocCheckRolle {
   if (!u || !u.active) return 'keine'
   // Spez. 3.4: Der Superadmin von InstructorConnect ist automatisch
   // DocCheck-Superadmin — ohne Schalter, und ohne dass man es ihm nehmen kann.
   if (u.role === 'superadmin') return 'superadmin'
-  if (!u.docCheckAccess) return 'keine'
+  // Auch ein gespeicherter Haken wirkt beim Mitglied nicht — ein Stand von
+  // vor der Regel, ein Import, ein Fehler an anderer Stelle.
+  if (!docCheckMoeglich(u.role) || !u.docCheckAccess) return 'keine'
   return u.docCheckAdmin ? 'admin' : 'nutzer'
+}
+
+/**
+ * Nutzer ohne DocCheck-Schalter, wenn seine Rolle keinen erlaubt — sonst
+ * unverändert (dasselbe Objekt, damit `migrateState` keine Änderung meldet,
+ * wo keine ist).
+ *
+ * Gebraucht beim Rollenwechsel auf Mitglied und beim Laden eines alten
+ * Stands. Ohne das stünde der Haken weiter im Datensatz, wirkungslos — und
+ * wer die Person später wieder zum Admin machte, gäbe ihr den Zugang zurück,
+ * ohne ihn je vergeben zu haben. Wie in der Datenbank
+ * (`profiles_guard_mitglied`): herabgestuft heißt Zugang weg.
+ */
+export function docCheckBereinigt<T extends DocCheckFlags & { role: Role }>(u: T): T {
+  if (docCheckMoeglich(u.role) || (!u.docCheckAccess && !u.docCheckAdmin)) return u
+  return { ...u, docCheckAccess: false, docCheckAdmin: false }
 }
 
 const ALLE: DocCheckRolle[] = ['nutzer', 'admin', 'superadmin']
@@ -71,6 +106,16 @@ export function rechteSetzen(alt: DocCheckFlags, wunsch: DocCheckFlags): Require
   if (wunsch.docCheckAdmin === true) access = true
   if (!access) admin = false
   return { docCheckAccess: access, docCheckAdmin: admin }
+}
+
+/**
+ * Darf diese Schalterstellung für diese Rolle gespeichert werden? Einem
+ * Mitglied DocCheck zu GEBEN wird abgelehnt (wie `set_rights` in der
+ * Datenbank, IC-DOCCHECK-ROLE); einen Haken aus einem alten Stand zu
+ * ENTFERNEN geht immer.
+ */
+export function rechteErlaubt(role: Role, neu: Required<DocCheckFlags>): boolean {
+  return docCheckMoeglich(role) || (!neu.docCheckAccess && !neu.docCheckAdmin)
 }
 
 /**

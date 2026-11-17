@@ -1239,3 +1239,85 @@ Testlauf, Browser-Abnahme und Gegenprobe.
 - Der Grading-Weg läuft als EIN Durchgang im Browser: 308A anlegen →
   Unterschriften → Absenden → Ablage → Logbuch → Forms-CSV mit
   Fingerabdruck (`gradingweg.spec.ts`).
+
+## 1.26.1 — 2026-11-03
+
+- Veröffentlichung von 1.26.0 scheiterte am Testschritt, obwohl alle
+  Tests grün waren: Ein IndexedDB-Schreibvorgang aus
+  `AdminVerwaltung.test.tsx` lief erst nach dem Abbau der Testumgebung zu
+  Ende und fand kein `window` mehr. Synchrone Tests lassen der
+  IndexedDB-Nachbildung keinen Takt; seit die Quittung sofort schreibt,
+  beginnt das Schreiben schon im Test. `src/test/setup.ts` wartet jetzt vor
+  dem Abbau auf alle laufenden Vorgänge (`schreibvorgaengeAbwarten` in
+  `persist.ts`, mit Tests). Gegenprobe: ohne das Warten läuft ein Vorgang
+  nach dem Abbau, mit ihm alle fünf davor. Die App selbst ist nicht
+  betroffen.
+
+## 1.27.0 — 2026-11-04
+
+- **DocCheck nur für Admin-Rollen** (Entscheidung vom 04.11.2026):
+  Superadmin, Gruppenadmin und Training Admin können Zugang bekommen, ein
+  Mitglied (Instruktor) nie. Bisher war der Zugang von der Rolle getrennt
+  (Spez. 3.4): In der Sandbox hatte ein Instruktor Zugang zu den
+  vertraulichen Herstellerunterlagen, und ein zum Mitglied herabgestufter
+  Admin behielt ihn still. Die Regel steht an EINER Stelle
+  (`docCheckMoeglich` in `access.ts`) und gilt überall:
+  - `docCheckRolle` gibt für ein Mitglied „keine“ zurück, auch bei
+    gespeichertem Haken.
+  - `setDocCheckRights` lehnt das Vergeben an ein Mitglied ab
+    (`rechteErlaubt`); Entfernen geht immer.
+  - Herabstufen auf Mitglied nimmt die Schalter mit (`docCheckBereinigt`) —
+    die nächste Beförderung gibt den Zugang nicht still zurück. Die
+    Audit-Zeile („nutzer → keine“) schreibt der Rollenwechsel wie bisher.
+  - `migrateState` bereinigt alte Stände, ohne Marke (der Zustand ist
+    verboten, kein bewusst gesetzter).
+  - Admin Panel → Berechtigungen: beim Mitglied statt zweier Kästchen
+    „nur für Admin-Rollen“, wie „automatisch“ beim Superadmin; der Hinweis
+    über der Tabelle nennt die Regel.
+  - Datenbank (`20261104090000_doccheck_nur_admins.sql`): Prüfregel auf
+    `profiles` (ein Mitglied mit Haken lässt sich auf keinem Weg speichern),
+    `set_rights` mit `IC-DOCCHECK-ROLE`, Trigger `profiles_guard_mitglied`
+    beim Herabstufen, `doccheck.role()` rechnet jetzt über `rolle_aus`
+    statt einer zweiten Fallunterscheidung. Ein alter Bestand wird beim
+    Anlegen bereinigt und protokolliert. `rls.test.ts` prüft alles gegen
+    echtes Postgres, auch die Migration über einem alten Bestand.
+  - Sandbox: Mika (Mitglied) ohne DocCheck, Sam (Training Admin) mit
+    DocCheck access — damit zeigt der Bestand alle drei DocCheck-Rollen.
+    Sams Startseite hat dadurch drei Kacheln (`desktop.spec.ts`).
+
+## 1.28.0 — 2026-11-04
+
+Selbsttests — für den Code bei jedem Push, für das Gerät im Betrieb.
+
+- **Selbsttest in der App** (`#/selbsttest`, Link in der Fußzeile der
+  Startseite):
+  - **Dieses Gerät:** Ablage (schreiben/lesen mit Zeitgrenze), dauerhafte
+    Ablage, Speicherplatz, Verbindung, Uhrzeit gegen die Serverzeit (die
+    Unterschriftszeit eines Formulars kommt vom Gerät), Start ohne Netz
+    (der Service Worker meldet selbst, ob alle Vorab-Dateien im Cache
+    liegen), Programmstand, Browser-Funktionen.
+  - **Datenbestand** (Superadmin): letzter Superadmin, doppelte Adressen,
+    Muster, Gruppen, DocCheck-Regel, Pflichtlisten, Zeiten in der Zukunft
+    und der Fingerabdruck JEDES unterschriebenen Formulars — mit Knopf zum
+    veränderten Formular.
+  - **DocCheck** (DocCheck-Rolle): ein künstliches PDF mit eingebautem
+    Fehler durch den echten Worker; wird der Fehler nicht gefunden, ist das
+    ein Fehler.
+  - Bericht zum Kopieren/Herunterladen ohne Namen und Inhalte.
+  - **Kurz-Check beim Start:** einmal am Tag, meldet nur Fehler als
+    Streifen unten (z. B. falsch gehende Geräteuhr).
+- **Nachkontrolle nach jeder Veröffentlichung** (`deploy.yml`): wartet, bis
+  GitHub Pages den neuen Stand ausliefert, meldet sich an, lässt den
+  Selbsttest laufen, startet ohne Netz.
+- **Nachtlauf** (`nachtlauf.yml`): Tests, volle Schwachstellenprüfung,
+  Browser-Tests, veröffentlichte Seite und ein **Zeitsprung-Lauf** der
+  ganzen Suite zu Silvester, an beiden Zeitumstellungen, am Monatsende und
+  am Schalttag (`TEST_UHR`, `src/test/uhr.ts`). Er fand beim Einbau zwei
+  Tests, die nur in ihrer Woche grün gewesen wären.
+- **Größenbudget** (`src/groessenBudget.ts`, `e2e/budget.spec.ts`):
+  Startdateien ≤ 280 kB gzip, Vorab-Cache ≤ 1,5 MB. Der Selbsttest selbst
+  hob das Startbundle über die Warnschwelle (807 kB) — Seite und Prüflogik
+  laden deshalb nach (797 kB).
+- `npm run pruefen` (Tests, Build, Browser-Tests) und `npm run live`.
+- `fingerabdruckPruefen` (`docHash.ts`): eine Regel für Formularansicht und
+  Selbsttest.

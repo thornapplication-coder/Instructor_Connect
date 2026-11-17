@@ -23,10 +23,12 @@ const migrationen = readdirSync(`${wurzel}migrations`).filter((f) => f.endsWith(
 const ID = {
   super: '00000000-0000-0000-0000-000000000001',
   super2: '00000000-0000-0000-0000-000000000002',
-  admin: '00000000-0000-0000-0000-000000000003', // Mitglied mit DocCheck admin
-  nutzer: '00000000-0000-0000-0000-000000000004', // Mitglied mit DocCheck access
-  ohne: '00000000-0000-0000-0000-000000000005', // Mitglied ohne DocCheck
-  inaktiv: '00000000-0000-0000-0000-000000000006', // deaktiviert, hatte DocCheck
+  // DocCheck nur fuer Admin-Rollen (Entscheidung vom 04.11.2026) — wer hier
+  // DocCheck hat, ist deshalb Gruppen- oder Training Admin, kein Mitglied.
+  admin: '00000000-0000-0000-0000-000000000003', // Gruppenadmin mit DocCheck admin
+  nutzer: '00000000-0000-0000-0000-000000000004', // Training Admin mit DocCheck access
+  ohne: '00000000-0000-0000-0000-000000000005', // Mitglied (Instruktor), ohne DocCheck
+  inaktiv: '00000000-0000-0000-0000-000000000006', // Gruppenadmin, deaktiviert, hatte DocCheck
   gruppe: '00000000-0000-0000-0000-000000000007', // group_admin ohne DocCheck
 }
 
@@ -62,10 +64,10 @@ beforeAll(async () => {
   await db.exec(readFileSync(`${wurzel}tests/auth_stub.sql`, 'utf8'))
   for (const m of migrationen) await db.exec(readFileSync(`${wurzel}migrations/${m}`, 'utf8'))
   await einladen(ID.super, 'alex@example.test', { role: 'superadmin' })
-  await einladen(ID.admin, 'chris@example.test', { access: true, admin: true })
-  await einladen(ID.nutzer, 'mika@example.test', { access: true })
+  await einladen(ID.admin, 'chris@example.test', { role: 'group_admin', access: true, admin: true })
+  await einladen(ID.nutzer, 'mika@example.test', { role: 'training_admin', access: true })
   await einladen(ID.ohne, 'sam@example.test')
-  await einladen(ID.inaktiv, 'alt@example.test', { active: false, access: true })
+  await einladen(ID.inaktiv, 'alt@example.test', { role: 'group_admin', active: false, access: true })
   await einladen(ID.gruppe, 'gruppe@example.test', { role: 'group_admin' })
 })
 
@@ -188,22 +190,42 @@ describe('Profile', () => {
 describe('DocCheck', () => {
   it('Rechte setzen: nur Superadmin; admin setzt access voraus; Audit je tatsächlicher Änderung; Superadmin bleibt unberührt', async () => {
     await als(ID.admin)
-    expect(await fehler('select doccheck.set_rights($1, true, false)', [ID.ohne])).toContain('IC-RIGHTS')
+    expect(await fehler('select doccheck.set_rights($1, true, false)', [ID.gruppe])).toContain('IC-RIGHTS')
     await als(ID.super)
-    await db.query('select doccheck.set_rights($1, false, true)', [ID.ohne])
-    await db.query('select doccheck.set_rights($1, true, true)', [ID.ohne]) // keine Änderung → kein Audit
+    await db.query('select doccheck.set_rights($1, false, true)', [ID.gruppe])
+    await db.query('select doccheck.set_rights($1, true, true)', [ID.gruppe]) // keine Änderung → kein Audit
     await db.query('select doccheck.set_rights($1, false, false)', [ID.super])
     expect(await fehler('select doccheck.set_rights($1, true, false)', ['00000000-0000-0000-0000-0000000000ff'])).toContain('IC-NOT-FOUND')
     const audit = (await db.query<{ action: string; target: string; value: string; actor: string }>("select action, target, value, actor from doccheck.audit where action in ('zugang','admin') order by id")).rows
     expect(audit).toEqual([
-      { action: 'zugang', target: ID.ohne, value: 'false → true', actor: ID.super },
-      { action: 'admin', target: ID.ohne, value: 'false → true', actor: ID.super },
+      { action: 'zugang', target: ID.gruppe, value: 'false → true', actor: ID.super },
+      { action: 'admin', target: ID.gruppe, value: 'false → true', actor: ID.super },
     ])
     await alsDienst()
     expect((await db.query('select doccheck_access, doccheck_admin from public.profiles where id = $1', [ID.super])).rows[0]).toEqual({ doccheck_access: false, doccheck_admin: false })
     // zurücksetzen
     await als(ID.super)
+    await db.query('select doccheck.set_rights($1, false, false)', [ID.gruppe])
+  })
+
+  it('Mitglieder bekommen DocCheck nicht — auf keinem Weg (Entscheidung vom 04.11.2026)', async () => {
+    // Vergeben: set_rights lehnt mit Grund ab, Zugang wie Admin
+    await als(ID.super)
+    expect(await fehler('select doccheck.set_rights($1, true, false)', [ID.ohne])).toContain('IC-DOCCHECK-ROLE')
+    expect(await fehler('select doccheck.set_rights($1, false, true)', [ID.ohne])).toContain('IC-DOCCHECK-ROLE')
+    // Entfernen geht immer (und ist hier keine Aenderung, also kein Audit)
     await db.query('select doccheck.set_rights($1, false, false)', [ID.ohne])
+    // Auch der Dienst (Import, Wartung) kann es nicht speichern: Pruefregel
+    await alsDienst()
+    expect(await fehler('update public.profiles set doccheck_access = true where id = $1', [ID.ohne])).toContain('profiles_doccheck_nur_admins')
+    await db.query("insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000a', 'imp@example.test')")
+    expect(await fehler("update public.profiles set doccheck_admin = true where email = 'imp@example.test'")).toContain('profiles_doccheck_nur_admins')
+    await db.query("delete from auth.users where email = 'imp@example.test'")
+    expect((await db.query('select doccheck_access, doccheck_admin from public.profiles where id = $1', [ID.ohne])).rows[0]).toEqual({ doccheck_access: false, doccheck_admin: false })
+    // Und selbst wenn ein Haken staende: Mitglied heisst „keine" — wie docCheckRolle
+    expect((await db.query<{ r: string }>("select doccheck.rolle_aus('member', true, true, true) as r")).rows[0].r).toBe('keine')
+    expect(docCheckRolle({ role: 'member', active: true, docCheckAccess: true, docCheckAdmin: true })).toBe('keine')
+    expect((await db.query("select 1 from doccheck.audit where target = $1 and action in ('zugang','admin')", [ID.ohne])).rows).toEqual([])
   })
 
   it('Audit-Log: nur Superadmin liest; niemand schreibt direkt', async () => {
@@ -312,9 +334,16 @@ describe('DocCheck', () => {
     // Ohne DocCheck-Wirkung: Sam (kein Zugang) wird Gruppenadmin und wieder Mitglied
     expect((await db.query("update public.profiles set role = 'group_admin' where id = $1", [ID.ohne])).affectedRows).toBe(1)
     expect((await db.query("update public.profiles set role = 'member' where id = $1", [ID.ohne])).affectedRows).toBe(1)
-    // Schalter ueber set_rights: weiter als 'zugang'/'admin', nicht doppelt als 'rolle'
+    // Als Gruppenadmin bekommt Sam DocCheck (Schalter ueber set_rights: als
+    // 'zugang', nicht doppelt als 'rolle') — und verliert es beim Herabstufen
+    // samt Schaltern: Die naechste Befoerderung gibt es nicht still zurueck
+    // (Entscheidung vom 04.11.2026).
+    expect((await db.query("update public.profiles set role = 'group_admin' where id = $1", [ID.ohne])).affectedRows).toBe(1)
     await db.query('select doccheck.set_rights($1, true, false)', [ID.ohne])
-    await db.query('select doccheck.set_rights($1, false, false)', [ID.ohne])
+    expect((await db.query("update public.profiles set role = 'member' where id = $1", [ID.ohne])).affectedRows).toBe(1)
+    expect((await db.query('select doccheck_access, doccheck_admin from public.profiles where id = $1', [ID.ohne])).rows[0]).toEqual({ doccheck_access: false, doccheck_admin: false })
+    expect((await db.query("update public.profiles set role = 'group_admin' where id = $1", [ID.ohne])).affectedRows).toBe(1)
+    expect((await db.query("update public.profiles set role = 'member' where id = $1", [ID.ohne])).affectedRows).toBe(1)
     // Wer die Rolle nicht aendern darf, erzeugt auch keine Zeile
     await als(ID.admin)
     expect(await fehler("update public.profiles set role = 'superadmin' where id = $1", [ID.admin])).toContain('IC-RIGHTS')
@@ -327,7 +356,7 @@ describe('DocCheck', () => {
       { actor: ID.super, action: 'rolle', target: ID.admin, value: 'admin → keine' },
       { actor: ID.super, action: 'rolle', target: ID.admin, value: 'keine → admin' },
       { actor: ID.super, action: 'zugang', target: ID.ohne, value: 'false → true' },
-      { actor: ID.super, action: 'zugang', target: ID.ohne, value: 'true → false' },
+      { actor: ID.super, action: 'rolle', target: ID.ohne, value: 'nutzer → keine' },
     ])
     // Niemand ruft die Triggerfunktion direkt auf — sonst liessen sich Zeilen erfinden
     await als(ID.super)
@@ -363,3 +392,44 @@ describe('Zuordnung der App passt zur Migration', () => {
   })
 })
 
+/**
+ * Die Migration „DocCheck nur für Admin-Rollen" trifft auf einen Bestand,
+ * in dem Mitglieder DocCheck haben durften. Ohne Bereinigung schlüge die
+ * Prüfregel beim Anlegen fehl — und die Bereinigung ist eine
+ * Rechteänderung, die ins Audit gehört (Entscheidung vom 04.11.2026).
+ */
+describe('Migration „DocCheck nur für Admin-Rollen" über einem alten Bestand', () => {
+  it('nimmt Mitgliedern den Zugang, protokolliert die wirksamen Änderungen und lässt Admins in Ruhe', async () => {
+    const alt = new PGlite()
+    const datei = '20261104090000_doccheck_nur_admins.sql'
+    expect(migrationen).toContain(datei)
+    await alt.exec(readFileSync(`${wurzel}tests/auth_stub.sql`, 'utf8'))
+    for (const m of migrationen.filter((m) => m < datei)) await alt.exec(readFileSync(`${wurzel}migrations/${m}`, 'utf8'))
+    const leute: [string, Role, boolean, boolean, boolean][] = [
+      ['00000000-0000-0000-0000-0000000000a1', 'member', true, true, false], // Instruktor mit Zugang
+      ['00000000-0000-0000-0000-0000000000a2', 'member', true, true, true], // Instruktor als DocCheck-Admin
+      ['00000000-0000-0000-0000-0000000000a3', 'member', false, true, false], // deaktiviert: wirksam schon „keine"
+      ['00000000-0000-0000-0000-0000000000a4', 'group_admin', true, true, true], // Admin: bleibt
+    ]
+    for (const [id, role, active, access, admin] of leute) {
+      await alt.query('insert into auth.users (id, email) values ($1, $2)', [id, `${id.slice(-2)}@example.test`])
+      await alt.query('update public.profiles set role = $2, active = $3, doccheck_access = $4, doccheck_admin = $5 where id = $1', [id, role, active, access, admin])
+    }
+    // Nur, was die Migration schreibt — die Vorbereitung oben protokolliert ihre Rollenwechsel selbst
+    const ab = (await alt.query<{ n: number }>('select coalesce(max(id), 0)::int as n from doccheck.audit')).rows[0].n
+    await alt.exec(readFileSync(`${wurzel}migrations/${datei}`, 'utf8'))
+    const danach = (await alt.query<{ id: string; doccheck_access: boolean; doccheck_admin: boolean }>('select id, doccheck_access, doccheck_admin from public.profiles order by id')).rows
+    expect(danach.map((z) => [z.id.slice(-2), z.doccheck_access, z.doccheck_admin])).toEqual([
+      ['a1', false, false],
+      ['a2', false, false],
+      ['a3', false, false],
+      ['a4', true, true],
+    ])
+    const audit = (await alt.query<{ actor: string | null; action: string; target: string; value: string }>('select actor, action, target, value from doccheck.audit where id > $1 order by id', [ab])).rows
+    expect(audit.map((z) => [z.actor, z.action, z.target.slice(-2), z.value])).toEqual([
+      [null, 'rolle', 'a1', 'nutzer → keine'],
+      [null, 'rolle', 'a2', 'admin → keine'],
+    ])
+    await alt.close()
+  })
+})

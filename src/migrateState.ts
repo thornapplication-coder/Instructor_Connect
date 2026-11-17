@@ -1,4 +1,5 @@
 import { createSeedState } from './sandbox/seed'
+import { docCheckBereinigt } from './modules/doccheck/access'
 import { FELD_NACHTRAEGE, type FeldNachtrag } from './sandbox/gradingDefaults'
 import { imprintHash, IMPRINT_DE, IMPRINT_EN, IMPRINT_LEGACY_HASHES } from './sandbox/imprintDefaults'
 import { LESSON_CATEGORIES, type AppState, type FormType, type Group } from './types'
@@ -132,7 +133,15 @@ export function migrateState(eingang: AppState): AppState {
   // Stand ohne Marke schon. `users === undefined` heisst: kein Bestand.
   const musterDone = st.aircraftBackfilled === true || st.users === undefined
   const users = st.users?.map((u) => {
-    const umbenannt = u.id === 'u-max' && u.name === 'Max Mustermann' ? { ...u, name: 'Sam Beispiel' } : u
+    // DocCheck nur fuer Admin-Rollen (Entscheidung vom 04.11.2026): Ein
+    // gespeicherter Haken beim Mitglied wirkt schon nicht mehr
+    // (`docCheckRolle`), steht aber noch im Datensatz — und kaeme mit der
+    // naechsten Befoerderung still zurueck. Keine Marke noetig: Der Zustand
+    // ist verboten, kein bewusst gesetzter; nach dem ersten Lauf liefert
+    // `docCheckBereinigt` dasselbe Objekt, und der fruehe Ausstieg greift.
+    // Keine Audit-Zeile: Die wirksame DocCheck-Rolle aendert sich nicht.
+    const bereinigt = docCheckBereinigt(u)
+    const umbenannt = bereinigt.id === 'u-max' && bereinigt.name === 'Max Mustermann' ? { ...bereinigt, name: 'Sam Beispiel' } : bereinigt
     // `aircraftTypes` darf auch dann nicht `undefined` bleiben, wenn es
     // nichts nachzutragen gibt: Ansichten und Sammelaktionen lesen das Feld
     // ungeprueft, und ein Stand aus der Zeit vor dem Feld haette es sonst gar

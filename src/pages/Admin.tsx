@@ -13,6 +13,7 @@ import { gruppenPflicht, gruppenTauglich, musterBelegt, musterInVerwendung, must
 import { festeEintraege, MAX_UPLOAD_MB, uploadGrenze } from '../einstellungen'
 import { adminKandidaten, gruppenAenderungFehler, gruppenName, gruppenNameFehler, type GruppenNameFehler } from '../gruppen'
 import { rasterKlasse } from '../kachelRaster'
+import { docCheckMoeglich } from '../modules/doccheck/access'
 import { adminTabsFuer, istSperre, PERSON_PERMS, personenRechtWirkt, personenRechtWirksam, rechteLink, suchAusQuery } from '../adminAccess'
 import { toast, useQuittung } from '../components/Toast'
 import { storageInfo, type StorageInfo } from '../persist'
@@ -1029,6 +1030,13 @@ function PermissionsTab() {
                   {u.role === 'superadmin' ? (
                     <td colSpan={2} className="py-2.5 pr-3 text-center text-micro text-dim">
                       {t('admin.docCheckAuto')}
+                    </td>
+                  ) : !docCheckMoeglich(u.role) ? (
+                    /* Mitglieder bekommen DocCheck nicht (Entscheidung vom
+                       04.11.2026) — kein Kaestchen, das der Store ablehnen
+                       muesste, sondern der Grund, wie beim Superadmin. */
+                    <td colSpan={2} className="py-2.5 pr-3 text-center text-micro text-dim">
+                      {t('admin.docCheckNurAdmins')}
                     </td>
                   ) : (
                     (['docCheckAccess', 'docCheckAdmin'] as const).map((f) => (

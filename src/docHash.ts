@@ -84,3 +84,19 @@ export async function contentFingerprint(r: GradingRecord, version: number = HAS
 export function shortFingerprint(hash: string): string {
   return `${hash.slice(0, 8)}-${hash.slice(8, 16)}`
 }
+
+/**
+ * Stimmt der gespeicherte Abdruck noch? EINE Regel für die Formularansicht
+ * und den Selbsttest, der alle Formulare auf einmal nachrechnet — zwei
+ * Fassungen derselben Prüfung laufen auseinander (CLAUDE.md).
+ *
+ * Nachgerechnet wird mit DER Fassung, unter der das Dokument entstanden ist
+ * (`hashVersion`, fehlt sie: 1) — sonst meldete jede Erweiterung der
+ * Feldliste den gesamten Altbestand als „nachträglich geändert".
+ * `ohne`: kein Abdruck gespeichert (Altbestand vor dem Verfahren, Entwurf).
+ */
+export async function fingerabdruckPruefen(r: GradingRecord): Promise<'ok' | 'geaendert' | 'ohne'> {
+  if (!r.contentHash) return 'ohne'
+  const h = await contentFingerprint({ ...r, contentHash: undefined }, r.hashVersion ?? 1)
+  return h === r.contentHash ? 'ok' : 'geaendert'
+}

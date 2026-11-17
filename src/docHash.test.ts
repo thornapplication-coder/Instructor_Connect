@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { contentFingerprint, HASH_VERSION, shortFingerprint } from './docHash'
+import { contentFingerprint, fingerabdruckPruefen, HASH_VERSION, shortFingerprint } from './docHash'
 import type { GradingRecord } from './types'
 
 /**
@@ -227,5 +227,30 @@ describe('contentFingerprint — Dokumentenstand und Empfaenger', () => {
   it('Fassung 4 liest fehlende Empfaenger als null, nicht als leere Liste', async () => {
     // „nicht erfasst" (Altbestand) und „an niemanden" sind verschiedene Aussagen.
     expect(await contentFingerprint(rec({ recipients: [] }))).not.toBe(await contentFingerprint(rec()))
+  })
+})
+
+/**
+ * Eine Regel für Formularansicht und Selbsttest: Der Selbsttest rechnet alle
+ * Formulare nach — mit DERSELBEN Funktion wie die Ansicht, sonst könnten die
+ * beiden verschiedener Meinung über dasselbe Dokument sein.
+ */
+describe('fingerabdruckPruefen', () => {
+  it('ok, wenn unverändert — mit der Fassung, unter der das Dokument entstand', async () => {
+    const r = rec()
+    expect(await fingerabdruckPruefen({ ...r, contentHash: await contentFingerprint(r), hashVersion: HASH_VERSION })).toBe('ok')
+    // Altbestand ohne hashVersion: Fassung 1
+    expect(await fingerabdruckPruefen({ ...r, contentHash: await contentFingerprint(r, 1) })).toBe('ok')
+  })
+
+  it('geaendert nach einer Änderung am Inhalt, auch an der Unterschrift', async () => {
+    const r = rec()
+    const mit = { ...r, contentHash: await contentFingerprint(r), hashVersion: HASH_VERSION }
+    expect(await fingerabdruckPruefen({ ...mit, freeText: { remarks: 'nachgetragen' } })).toBe('geaendert')
+    expect(await fingerabdruckPruefen({ ...mit, signatureTrainee: 'data:image/png;base64,CCC' })).toBe('geaendert')
+  })
+
+  it('ohne, wenn kein Abdruck gespeichert ist (Altbestand, Entwurf)', async () => {
+    expect(await fingerabdruckPruefen(rec())).toBe('ohne')
   })
 })
