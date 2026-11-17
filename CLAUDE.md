@@ -835,5 +835,11 @@ Sandbox, solange `VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` fehlen.
   nicht das *Was*. Deutsch, wie der Bestand.
 - **Auslieferung:** Entwicklung im Feature-Branch, Merge per PR nach `main`;
   `deploy.yml` veröffentlicht ausschließlich aus `main`.
+- **Mergen:** Claude merged seine eigenen Pull Requests selbst, ohne
+  Rückfrage, sobald die CI auf dem aktuellen Stand grün ist und es keinen
+  Konflikt gibt (Entscheidung vom 17.11.2026). Ist die CI rot, wird zuerst
+  die Ursache behoben — nie ein Test übersprungen, abgeschwächt oder die
+  Erwartung passend gemacht, nur um grün zu werden (siehe oben: erst die
+  Erwartung prüfen). Fremde Pull Requests merged Claude nicht von sich aus.
 - Der Changelog steht bewusst auf einem einzigen `1.0.0`-Eintrag (Erststand);
   `migrateState` setzt ihn bei Bedarf darauf zurück.
